@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Rabbit as RabbitIcon,
   Heart,
@@ -9,7 +10,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { daysUntil, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { RABBIT_STATUSES } from "@/lib/enums";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Dashboard · RabbitTrack" };
 
@@ -70,10 +71,28 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="لوحة التحكم"
-        description="كل ما يحتاج انتباهك اليوم."
-      />
+      {/* Hero */}
+      <div className="relative isolate overflow-hidden rounded-2xl">
+        <div className="relative h-44 w-full sm:h-52">
+          <Image
+            src="/images/hero-dashboard.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-linear-to-l from-black/65 via-black/35 to-black/10" />
+        </div>
+        <div className="absolute inset-0 flex flex-col justify-center gap-1 px-6 sm:px-8">
+          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            لوحة التحكم
+          </h1>
+          <p className="max-w-md text-sm text-white/85 sm:text-base">
+            كل ما يحتاج انتباهك اليوم في مزرعتك.
+          </p>
+        </div>
+      </div>
 
       {/* Stat row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -300,20 +319,32 @@ function StatCard({
   href?: string;
   tone?: "warn";
 }) {
+  const warnActive = tone === "warn" && value !== "0";
   const body = (
     <Card
-      className={
-        tone === "warn" && value !== "0"
+      className={cn(
+        "transition-shadow",
+        href && "hover:shadow-md",
+        warnActive
           ? "border-amber-300/60 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/20"
           : undefined
-      }
+      )}
     >
       <CardContent className="flex items-center justify-between py-4">
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
         </div>
-        <Icon className="size-7 text-muted-foreground/40" />
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-xl",
+            warnActive
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+              : "bg-primary/10 text-primary"
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
       </CardContent>
     </Card>
   );
