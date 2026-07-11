@@ -5,12 +5,14 @@ import { defineConfig } from "prisma/config";
 
 // The app's runtime connection goes through a driver adapter (see src/lib/prisma.ts),
 // but `prisma migrate` / introspection need a plain datasource url here too.
+// Uses the unpooled (direct) Neon connection since DDL over a pgbouncer
+// pooler is unreliable; runtime queries use the pooled DATABASE_URL instead.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "file:./dev.db",
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!,
   },
 });

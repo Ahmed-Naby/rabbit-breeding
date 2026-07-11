@@ -1,9 +1,8 @@
 // RabbitTrack — breeding farm management schema
-// Provider is SQLite for local dev; structured to swap to Postgres later.
 // Notes:
-//  - SQLite doesn't support Prisma enums, so "enum-like" fields are String with a
-//    fixed allowed-value set enforced in the app via Zod (see src/lib/enums.ts).
-//    On the Postgres swap these become native enums.
+//  - "Enum-like" fields are kept as String with a fixed allowed-value set
+//    enforced in the app via Zod (see src/lib/enums.ts) rather than native
+//    Postgres enums, for parity with the SQLite-era schema.
 //  - Money is stored as integer cents (amountCents), weight as integer grams —
 //    never floats — to avoid rounding drift in financial and growth math.
 //  - Dates are stored in UTC and displayed in local time by the UI.
@@ -14,7 +13,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 /// Single-row app settings (id is always 1). Holds display/unit prefs and

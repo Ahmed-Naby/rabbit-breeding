@@ -3,12 +3,13 @@
 // Uses a relative import (not the @/ alias) so it runs cleanly under tsx.
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is not set");
 
 const prisma = new PrismaClient({
-  adapter: new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL ?? "file:./dev.db",
-  }),
+  adapter: new PrismaPg({ connectionString }),
 });
 
 const DAY = 24 * 60 * 60 * 1000;
