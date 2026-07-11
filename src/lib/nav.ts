@@ -13,6 +13,7 @@ import {
   HeartPulse,
   Milk,
   Skull,
+  ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/pregnancy-test", label: "عمليات الجس", icon: Microscope },
   { href: "/nest-box", label: "تركيب بيوت الولادة", icon: Box },
   { href: "/kindling", label: "عمليات الولادة", icon: HeartPulse },
+  { href: "/fostering", label: "عمليات التبني", icon: ArrowLeftRight },
   { href: "/weaning", label: "عمليات الفطام", icon: Milk },
   { href: "/does", label: "عمليات المزرعة", icon: ClipboardList },
   { href: "/mortality", label: "حصر النافق", icon: Skull },

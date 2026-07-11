@@ -98,6 +98,12 @@ model Rabbit {
   kindlingLogsAsBuck KindlingLog[] @relation("KindlingLogBuck")
   kindlingLogsAsDoe  KindlingLog[] @relation("KindlingLogDoe")
 
+  // Fostering (kit transfer) history, both directions. Append-only, same
+  // reasoning as PregnancyTestLog/KindlingLog — but two-sided (fromDoe/toDoe)
+  // by nature, so it can never be folded into a Breeding row at all.
+  fosterLogsFrom FosterLog[] @relation("FosterLogFrom")
+  fosterLogsTo   FosterLog[] @relation("FosterLogTo")
+
   // Logs
   weightRecords WeightRecord[]
   healthRecords HealthRecord[]
@@ -190,6 +196,26 @@ model KindlingLog {
 
   @@index([doeId])
   @@index([kindlingDate])
+}
+
+/// A permanent record of nursing kits transferred (fostered) from one doe's
+/// current litter to another's, to equalize litter sizes. Written once, at
+/// the moment "حفظ" is pressed, and never updated — snapshots the doe pair
+/// and count directly rather than linking to a Breeding/Litter row, since
+/// those rows get reused/reset on the next mating cycle.
+model FosterLog {
+  id        String   @id @default(cuid())
+  fromDoeId String
+  fromDoe   Rabbit   @relation("FosterLogFrom", fields: [fromDoeId], references: [id], onDelete: Restrict)
+  toDoeId   String
+  toDoe     Rabbit   @relation("FosterLogTo", fields: [toDoeId], references: [id], onDelete: Restrict)
+  count     Int
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([fromDoeId])
+  @@index([toDoeId])
+  @@index([date])
 }
 
 /// Registered rabbit breed/type names, managed from Settings. Rabbit.breed

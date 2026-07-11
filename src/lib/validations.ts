@@ -208,6 +208,21 @@ export const litterSchema = z
 
 export type LitterInput = z.infer<typeof litterSchema>;
 
+// Fostering -------------------------------------------------------------
+
+export const fosterSchema = z
+  .object({
+    fromTagId: tagIdSchema("رقم الأم المنقول منها"),
+    toTagId: tagIdSchema("رقم الأم المنقول إليها"),
+    count: z.coerce.number().int().min(1, "العدد يجب أن يكون 1 على الأقل"),
+  })
+  .refine((d) => d.fromTagId !== d.toTagId, {
+    message: "لا يمكن أن تكون الأم المنقول منها وإليها نفس الأم",
+    path: ["toTagId"],
+  });
+
+export type FosterInput = z.infer<typeof fosterSchema>;
+
 // Weight --------------------------------------------------------------------
 
 export const weightSchema = z.object({

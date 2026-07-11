@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { breedingSchema, litterSchema } from "@/lib/validations";
+import { breedingSchema, litterSchema, fosterSchema } from "@/lib/validations";
 import { fromDateInputValue, expectedKindling } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import {
@@ -773,4 +773,98 @@ export async function recordKindling(
   revalidatePath(`/rabbits/${breeding.doeId}`);
   revalidatePath(`/breedings/${breedingId}`);
   redirect(`/breedings/${breedingId}`);
+}
+
+/**
+ * Resolves a doe's current (unweaned) nursing litter by tag number, for the
+ * fostering form — same "current litter" resolution duplicated on
+ * /does, /weaning, /mortality (a doe rebred while still nursing has her
+ * ongoing litter on the *previous* breeding row, not her latest one).
+ */
+async function resolveCurrentLitter(
+  tagId: string
+): Promise<
+  | { ok: true; doeId: string; breedingId: string; bornAlive: number }
+  | { ok: false; message: string }
+> {
+  const doe = await prisma.rabbit.findFirst({
+    where: { sex: "doe", tagId },
+    select: {
+      id: true,
+      breedingsAsDoe: {
+        orderBy: { createdAt: "desc" },
+        take: 2,
+        select: {
+          id: true,
+          actualKindlingDate: true,
+          litter: { select: { bornAlive: true, weaningDate: true } },
+        },
+      },
+    },
+  });
+  if (!doe) return { ok: false, message: `لا توجد أم برقم ${tagId}` };
+
+  const [b, prev] = doe.breedingsAsDoe;
+  const prevOngoingLitter =
+    !!prev?.actualKindlingDate && !prev?.litter?.weaningDate && !b?.actualKindlingDate;
+  const litterRow = prevOngoingLitter ? prev : b;
+  const litter = litterRow?.litter;
+  if (!litterRow || !litter || litter.weaningDate) {
+    return { ok: false, message: `الأم رقم ${tagId} ليس لديها بطن رضاعة حالي` };
+  }
+  return { ok: true, doeId: doe.id, breedingId: litterRow.id, bornAlive: litter.bornAlive };
+}
+
+/**
+ * "عمليات التبني": moves a number of nursing kits from one doe's current
+ * litter to another's, to equalize litter sizes. Atomically decrements the
+ * source litter's bornAlive and increments the destination's, and writes a
+ * permanent FosterLog entry (see schema comment — can't live on Breeding
+ * since it spans two does and those rows get reused/reset).
+ */
+export async function transferKits(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const parsed = fosterSchema.safeParse(formDataToObject(formData));
+  if (!parsed.success) {
+    return { ok: false, errors: zodErrors(parsed.error) };
+  }
+  const data = parsed.data;
+
+  const [from, to] = await Promise.all([
+    resolveCurrentLitter(data.fromTagId),
+    resolveCurrentLitter(data.toTagId),
+  ]);
+  if (!from.ok) return { ok: false, errors: { fromTagId: from.message } };
+  if (!to.ok) return { ok: false, errors: { toTagId: to.message } };
+  if (from.bornAlive < data.count) {
+    return {
+      ok: false,
+      errors: { count: `عدد الأحياء عند الأم ${data.fromTagId} هو ${from.bornAlive} فقط` },
+    };
+  }
+
+  await prisma.$transaction([
+    prisma.litter.update({
+      where: { breedingId: from.breedingId },
+      data: { bornAlive: { decrement: data.count } },
+    }),
+    prisma.litter.update({
+      where: { breedingId: to.breedingId },
+      data: { bornAlive: { increment: data.count } },
+    }),
+    prisma.fosterLog.create({
+      data: { fromDoeId: from.doeId, toDoeId: to.doeId, count: data.count },
+    }),
+  ]);
+
+  revalidatePath("/does");
+  revalidatePath("/fostering");
+  revalidatePath("/mortality");
+  revalidatePath("/weaning");
+  revalidatePath(`/rabbits/${from.doeId}`);
+  revalidatePath(`/rabbits/${to.doeId}`);
+
+  return { ok: true, message: "تم تسجيل نقل الرضاعة" };
 }
