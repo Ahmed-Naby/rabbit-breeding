@@ -1,0 +1,285 @@
+// RabbitTrack — breeding farm management schema
+// Provider is SQLite for local dev; structured to swap to Postgres later.
+// Notes:
+//  - SQLite doesn't support Prisma enums, so "enum-like" fields are String with a
+//    fixed allowed-value set enforced in the app via Zod (see src/lib/enums.ts).
+//    On the Postgres swap these become native enums.
+//  - Money is stored as integer cents (amountCents), weight as integer grams —
+//    never floats — to avoid rounding drift in financial and growth math.
+//  - Dates are stored in UTC and displayed in local time by the UI.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Single-row app settings (id is always 1). Holds display/unit prefs and
+/// breeding config so they can be changed without code edits.
+model Settings {
+  id                  Int      @id @default(1)
+  weightUnit          String   @default("kg") // "kg" | "lb_oz"
+  gestationDays       Int      @default(31) // mating -> expected kindling offset
+  gestationWindowDays Int      @default(3) // +/- days for the "due window" on the calendar
+  pregnancyTestDays   Int      @default(10) // mating -> earliest pregnancy test (palpation) offset
+  weaningDays         Int      @default(28) // kindling -> earliest weaning offset
+  nestBoxDays         Int      @default(27) // mating -> earliest nest-box installation offset
+  matingWeightGrams   Int      @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
+  currency            String   @default("USD")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// A rabbit. Soft-deleted via `status` (never hard-deleted) to preserve pedigree.
+/// Parentage source of truth is sireId/damId; auto-populated from the litter when
+/// a kit is promoted, but the FK is authoritative (supports acquired rabbits whose
+/// parents are known but were never bred on this farm).
+model Rabbit {
+  id           String    @id @default(cuid())
+  // Buck and doe numbering are separate sequences (a buck and a doe may share
+  // a number), but numbers don't repeat within the same sex. Null means this
+  // rabbit is still a "سلالة" (juvenile, sex known but not yet promoted) —
+  // assigning a tagId via the quick-add finalize action IS the promotion.
+  tagId        String? // rabbit/cage number, up to 10 chars, digits and letters (tattoo / ear ID)
+  breed        String?
+  color        String?
+  sex          String    @default("unknown") // "buck" | "doe" | "unknown"
+  dateOfBirth  DateTime?
+  status       String    @default("active") // "active" | "sold" | "culled" | "deceased" | "reference"
+  // Manual reproductive state, meaningful for does only. Set exclusively via the six
+  // action buttons on the does page (mate/pregnant/negative/kindle/wean/exclude) —
+  // never auto-derived from Breeding/Litter data.
+  doeState     String    @default("empty") // "empty" | "bred" | "pregnant" | "nursing" | "excluded"
+  cage         String? // cage / hutch number
+  // How this rabbit entered the herd — "external" (bought in, added straight
+  // via the top add-mother/add-buck form) vs "farm" (registered as a سلالة on
+  // /stock, or a promoted litter kit). Null for legacy rows predating this field.
+  origin       String?
+  // A سلالة stays in the stock/nursery pen (raised there, cage + weight
+  // tracked) for a while — often months — before someone explicitly decides
+  // she/he's ready to move to the mothers/bucks waiting-for-tag pen. False
+  // keeps a tagId-less rabbit on /stock regardless of cage/weight; flipped to
+  // true only via the explicit "نقل إلى العنبر" button (see promoteToHerdPen),
+  // never automatically just because a cage number was entered.
+  movedToHerdPen Boolean @default(false)
+  acquiredDate DateTime?
+  acquiredFrom String?
+  notes        String?
+  photoUrl     String?
+
+  // Pedigree (self-relations). SetNull so a soft/rare hard delete never orphans FKs.
+  sireId         String?
+  sire           Rabbit?  @relation("Sire", fields: [sireId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  damId          String?
+  dam            Rabbit?  @relation("Dam", fields: [damId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  siredOffspring Rabbit[] @relation("Sire")
+  boreOffspring  Rabbit[] @relation("Dam")
+
+  // Which litter this rabbit was born in (null for acquired / foundation stock).
+  litterId String?
+  litter   Litter? @relation(fields: [litterId], references: [id], onDelete: SetNull)
+
+  // Breeding participation
+  breedingsAsBuck Breeding[] @relation("Buck")
+  breedingsAsDoe  Breeding[] @relation("Doe")
+
+  // Pregnancy-test history. Append-only — unlike Breeding (whose row is
+  // reused/overwritten on the doe's next mating), a log row is never
+  // touched again once written, so negative results are never lost.
+  pregnancyTestLogsAsBuck PregnancyTestLog[] @relation("PregnancyTestLogBuck")
+  pregnancyTestLogsAsDoe  PregnancyTestLog[] @relation("PregnancyTestLogDoe")
+
+  // Kindling history. Same append-only reasoning as PregnancyTestLog — the
+  // Breeding row's actualKindlingDate gets wiped back to null the next time
+  // the same doe is mated (see markMated's reuse branch), so without this
+  // snapshot a doe's birth history would shrink to just her current cycle.
+  kindlingLogsAsBuck KindlingLog[] @relation("KindlingLogBuck")
+  kindlingLogsAsDoe  KindlingLog[] @relation("KindlingLogDoe")
+
+  // Logs
+  weightRecords WeightRecord[]
+  healthRecords HealthRecord[]
+  transactions  Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tagId, sex])
+  @@index([status])
+  @@index([sex])
+  @@index([breed])
+  @@index([sireId])
+  @@index([damId])
+  @@index([doeState])
+}
+
+/// A mating record. expectedKindlingDate is computed at write time from
+/// Settings.gestationDays; the +/- window is applied at read time for the calendar.
+model Breeding {
+  id                   String    @id @default(cuid())
+  // Nullable: the does board starts a mating without picking a buck (pairings
+  // aren't tracked automatically anymore) — the farm types in the buck's tag
+  // number afterward if/when they want to record it, or leaves it blank.
+  buckId               String?
+  buck                 Rabbit?   @relation("Buck", fields: [buckId], references: [id], onDelete: Restrict)
+  doeId                String
+  doe                  Rabbit    @relation("Doe", fields: [doeId], references: [id], onDelete: Restrict)
+  // Nullable: cleared back to null when a mating attempt fails (see the
+  // "فشل التلقيح" action on the does board), leaving the row date-less
+  // rather than deleting the historical buck/doe pairing.
+  matingDate           DateTime?
+  expectedKindlingDate DateTime
+  actualKindlingDate   DateTime?
+  // Nest box installed for this cycle — cleared back to null wherever
+  // matingDate itself is reset/overwritten (markMated's reuse branch,
+  // markMatingFailed, clearDoeRow), since it's a per-cycle checklist item,
+  // not permanent history (unlike PregnancyTestLog/KindlingLog).
+  nestBoxDate          DateTime?
+  outcome              String    @default("pending") // "pending" | "successful" | "failed" | "not_pregnant"
+  // Early pregnancy check, done ~10 days after mating — separate from the final
+  // kindling `outcome` which is only known ~31 days later.
+  pregnancyTestResult  String    @default("pending") // "pending" | "positive" | "negative"
+  notes                String?
+
+  litter Litter? // one litter per mating
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([outcome])
+  @@index([expectedKindlingDate])
+  @@index([doeId])
+  @@index([buckId])
+}
+
+/// A permanent pregnancy-test result. Written once, at the moment "عشار"/"سالبة"
+/// is pressed, and never updated afterward — snapshots matingDate/buckId off the
+/// Breeding row at that instant, since that row gets reused (overwritten) the
+/// next time the same doe is mated, which would otherwise silently erase history.
+model PregnancyTestLog {
+  id         String   @id @default(cuid())
+  doeId      String
+  doe        Rabbit   @relation("PregnancyTestLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId     String?
+  buck       Rabbit?  @relation("PregnancyTestLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  matingDate DateTime
+  testDate   DateTime @default(now())
+  result     String // "positive" | "negative"
+  createdAt  DateTime @default(now())
+
+  @@index([doeId])
+  @@index([testDate])
+}
+
+/// A permanent kindling (birth) record. Written once, at the moment "ولادة"
+/// is pressed, and never updated afterward — snapshots matingDate/buckId off
+/// the Breeding row at that instant, since that row (and its
+/// actualKindlingDate) gets reused/overwritten the next time the same doe is
+/// mated, which would otherwise silently erase this birth from history.
+model KindlingLog {
+  id           String    @id @default(cuid())
+  doeId        String
+  doe          Rabbit    @relation("KindlingLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId       String?
+  buck         Rabbit?   @relation("KindlingLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  matingDate   DateTime?
+  kindlingDate DateTime
+  createdAt    DateTime  @default(now())
+
+  @@index([doeId])
+  @@index([kindlingDate])
+}
+
+/// Registered rabbit breed/type names, managed from Settings. Rabbit.breed
+/// stores the name directly (not a FK) — kept as free text so existing rows
+/// with an unregistered breed string never break; this table is just a
+/// curated menu that powers the breed dropdown pickers app-wide.
+model Breed {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+}
+
+/// The outcome of a successful mating. Counts-first: individual kits are optional
+/// and become Rabbit rows (linked back via Rabbit.litterId) when tagged.
+model Litter {
+  id           String    @id @default(cuid())
+  breedingId   String    @unique
+  breeding     Breeding  @relation(fields: [breedingId], references: [id], onDelete: Cascade)
+  kindlingDate DateTime
+  bornAlive    Int       @default(0)
+  bornDead     Int       @default(0)
+  weaned       Int? // number that survived to weaning
+  weaningDate  DateTime?
+  notes        String?
+
+  kits Rabbit[] // rabbits promoted from this litter
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kindlingDate])
+}
+
+/// A weight measurement. Stored canonically in grams; UI converts to kg or lb/oz.
+model WeightRecord {
+  id          String   @id @default(cuid())
+  rabbitId    String
+  rabbit      Rabbit   @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
+  date        DateTime
+  weightGrams Int
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([rabbitId, date])
+}
+
+/// A health event. nextDueDate drives the overdue/upcoming reminders on the dashboard.
+model HealthRecord {
+  id          String    @id @default(cuid())
+  rabbitId    String
+  rabbit      Rabbit    @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
+  date        DateTime
+  type        String // "vaccination" | "treatment" | "illness" | "deworming" | "checkup"
+  description String
+  nextDueDate DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([rabbitId, date])
+  @@index([nextDueDate])
+}
+
+/// Farm-wide feed usage log. Cost stored as integer cents.
+model FeedLog {
+  id        String   @id @default(cuid())
+  date      DateTime
+  feedType  String
+  quantityG Int? // quantity in grams (optional)
+  costCents Int? // cost in cents (optional)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+/// Income/expense entry. rabbitId null = farm-wide (feed, equipment, vet, etc).
+/// Amount is integer cents; type sign is implied by `type`, amount is always positive.
+model Transaction {
+  id          String   @id @default(cuid())
+  rabbitId    String?
+  rabbit      Rabbit?  @relation(fields: [rabbitId], references: [id], onDelete: SetNull)
+  date        DateTime
+  type        String // "income" | "expense"
+  category    String // "sale" | "purchase" | "feed" | "vet" | "equipment" | "other"
+  amountCents Int
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([type])
+  @@index([category])
+  @@index([rabbitId])
+}
