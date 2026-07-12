@@ -11,12 +11,16 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
-import { expectedKindling, survivalRate } from "@/lib/dates";
+import { expectedKindling } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
 import { DoeStateBadge, KindleButton, LitterCountInput } from "../does/doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "عمليات الولادة · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.kindling.title} · RabbitTrack` };
+}
 
 /** yyyy-MM-dd key for matching by calendar day, TZ-agnostic since dates are stored at UTC midnight. */
 function dayKey(date: Date) {
@@ -26,7 +30,7 @@ function dayKey(date: Date) {
 export default async function KindlingPage() {
   // "pregnant" / "nursing_pregnant" = confirmed pregnant, kindling not yet
   // recorded for this cycle (matches KindleButton's own `active` condition).
-  const [candidates, settings, kindlingLog, litters, breedings] = await Promise.all([
+  const [candidates, settings, kindlingLog, litters, breedings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -70,7 +74,6 @@ export default async function KindlingPage() {
         kindlingDate: true,
         bornAlive: true,
         bornDead: true,
-        weaned: true,
         breeding: { select: { doeId: true } },
       },
     }),
@@ -82,6 +85,7 @@ export default async function KindlingPage() {
       where: { actualKindlingDate: { not: null } },
       select: { id: true, doeId: true, actualKindlingDate: true },
     }),
+    getDictionary(),
   ]);
 
   const today = new Date();
@@ -98,13 +102,12 @@ export default async function KindlingPage() {
   // doeId + day -> litter counts, for enriching the kindling log below.
   const litterByDoeDay = new Map<
     string,
-    { bornAlive: number; bornDead: number; weaned: number | null }
+    { bornAlive: number; bornDead: number }
   >();
   for (const l of litters) {
     litterByDoeDay.set(`${l.breeding.doeId}_${dayKey(l.kindlingDate)}`, {
       bornAlive: l.bornAlive,
       bornDead: l.bornDead,
-      weaned: l.weaned,
     });
   }
 
@@ -117,29 +120,29 @@ export default async function KindlingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="عمليات الولادة"
-        description={`${does.length} أم حان موعد ولادتها (بعد ${settings.gestationDays} يومًا من التلقيح).`}
+        title={t.kindling.title}
+        description={t.kindling.description(does.length, settings.gestationDays)}
       />
 
       {does.length === 0 ? (
         <EmptyState
           icon={HeartPulse}
-          title="لا توجد أمهات حان موعد ولادتها حاليًا"
-          description="الأمهات العشار هتظهر هنا أول ما تعدي مدة الحمل المسجلة بالإعدادات."
+          title={t.kindling.emptyTitle}
+          description={t.kindling.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم الأم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">رقم الذكر</TableHead>
-                <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                <TableHead className="text-center">تاريخ الولادة المتوقع</TableHead>
-                <TableHead className="text-center">حالة الأم</TableHead>
-                <TableHead className="text-center">ولادة</TableHead>
+                <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
+                <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
+                <TableHead className="text-center">{t.kindling.colBreed}</TableHead>
+                <TableHead className="text-center">{t.kindling.colBuckTag}</TableHead>
+                <TableHead className="text-center">{t.kindling.colMatingDate}</TableHead>
+                <TableHead className="text-center">{t.kindling.colExpectedKindling}</TableHead>
+                <TableHead className="text-center">{t.kindling.colDoeState}</TableHead>
+                <TableHead className="text-center">{t.kindling.colKindle}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -154,20 +157,21 @@ export default async function KindlingPage() {
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={b.matingDate} />
+                    <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <LocalDate date={dueDate} />
+                    <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={doe.doeState} />
+                    <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
                     <KindleButton
                       breedingId={b.id}
                       doeId={doe.id}
-                      text="ولادة"
+                      text={t.kindling.kindleButton}
                       doeState={doe.doeState as DoeState}
+                      locale={locale}
                     />
                   </TableCell>
                 </TableRow>
@@ -178,35 +182,32 @@ export default async function KindlingPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">سجل الولادات</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.kindling.logHeading}</h2>
         {kindlingLog.length === 0 ? (
           <EmptyState
             icon={HeartPulse}
-            title="لا توجد ولادات مسجلة بعد"
-            description="أي أم يتم تسجيل ولادتها هتظهر هنا مع تاريخ التلقيح والولادة."
+            title={t.kindling.logEmptyTitle}
+            description={t.kindling.logEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                  <TableHead className="text-center">تاريخ الولادة</TableHead>
-                  <TableHead className="text-center">أحياء</TableHead>
-                  <TableHead className="text-center">نافق</TableHead>
-                  <TableHead className="text-center">مفطوم</TableHead>
-                  <TableHead className="text-center">نسبة البقاء</TableHead>
+                  <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colMatingDate}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colKindlingDate}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colBornAlive}</TableHead>
+                  <TableHead className="text-center">{t.kindling.colBornDead}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {kindlingLog.map((row, i) => {
                   const day = dayKey(row.kindlingDate);
                   const m = litterByDoeDay.get(`${row.doe.id}_${day}`);
-                  const r = m ? survivalRate(m.bornAlive, m.weaned) : null;
                   const breedingId = breedingByDoeDay.get(`${row.doe.id}_${day}`);
                   return (
                     <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
@@ -219,10 +220,10 @@ export default async function KindlingPage() {
                       <TableCell>{row.doe.breed ?? "—"}</TableCell>
                       <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                       <TableCell>
-                        <LocalDate date={row.matingDate} />
+                        <LocalDate date={row.matingDate} locale={locale} />
                       </TableCell>
                       <TableCell>
-                        <LocalDate date={row.kindlingDate} />
+                        <LocalDate date={row.kindlingDate} locale={locale} />
                       </TableCell>
                       <TableCell>
                         {breedingId ? (
@@ -230,6 +231,7 @@ export default async function KindlingPage() {
                             breedingId={breedingId}
                             field="bornAlive"
                             value={m?.bornAlive ?? null}
+                            locale={locale}
                           />
                         ) : (
                           (m?.bornAlive ?? "—")
@@ -241,19 +243,10 @@ export default async function KindlingPage() {
                             breedingId={breedingId}
                             field="bornDead"
                             value={m?.bornDead ?? null}
+                            locale={locale}
                           />
                         ) : (
                           (m?.bornDead ?? "—")
-                        )}
-                      </TableCell>
-                      <TableCell>{m?.weaned ?? "—"}</TableCell>
-                      <TableCell>
-                        {r != null ? (
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            {Math.round(r * 100)}%
-                          </span>
-                        ) : (
-                          "—"
                         )}
                       </TableCell>
                     </TableRow>

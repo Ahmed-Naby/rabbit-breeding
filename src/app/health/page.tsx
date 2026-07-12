@@ -6,11 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { daysUntil } from "@/lib/dates";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Health · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.health.title} · RabbitTrack` };
+}
 
 export default async function HealthPage() {
-  const [dueRecords, recent] = await Promise.all([
+  const [dueRecords, recent, { locale, t }] = await Promise.all([
     prisma.healthRecord.findMany({
       where: { nextDueDate: { not: null } },
       include: { rabbit: { select: { id: true, tagId: true } } },
@@ -21,6 +25,7 @@ export default async function HealthPage() {
       orderBy: { date: "desc" },
       take: 15,
     }),
+    getDictionary(),
   ]);
 
   const overdue = dueRecords.filter((r) => daysUntil(r.nextDueDate!) < 0);
@@ -31,22 +36,19 @@ export default async function HealthPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="الصحة"
-        description="المواعيد المتكررة والأحداث الصحية الأخيرة عبر القطيع."
-      />
+      <PageHeader title={t.health.title} description={t.health.description} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="size-4 text-red-500" />
-              متأخرة ({overdue.length})
+              {t.health.overdueHeading(overdue.length)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {overdue.length === 0 ? (
-              <p className="text-sm text-muted-foreground">لا يوجد شيء متأخر. 🎉</p>
+              <p className="text-sm text-muted-foreground">{t.health.overdueEmpty}</p>
             ) : (
               overdue.map((r) => (
                 <Link
@@ -55,12 +57,12 @@ export default async function HealthPage() {
                   className="flex items-center justify-between rounded-lg border border-red-300/60 bg-red-50 px-3 py-2 text-sm dark:border-red-900/60 dark:bg-red-950/40"
                 >
                   <span>
-                    <span className="font-medium">{r.rabbit.tagId ?? "سلالة"}</span>{" "}
-                    <StatusBadge value={r.type} />
+                    <span className="font-medium">{r.rabbit.tagId ?? t.dashboard.stockFallback}</span>{" "}
+                    <StatusBadge value={r.type} locale={locale} />
                   </span>
                   <span className="text-muted-foreground">
-                    الموعد <LocalDate date={r.nextDueDate} /> ·{" "}
-                    متأخرة {Math.abs(daysUntil(r.nextDueDate!))} يوم
+                    {t.health.dueOn} <LocalDate date={r.nextDueDate} locale={locale} /> ·{" "}
+                    {t.health.overdueDays(Math.abs(daysUntil(r.nextDueDate!)))}
                   </span>
                 </Link>
               ))
@@ -72,13 +74,13 @@ export default async function HealthPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <CalendarClock className="size-4 text-sky-500" />
-              قادمة (30 يومًا) ({upcoming.length})
+              {t.health.upcomingHeading(upcoming.length)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {upcoming.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                لا شيء مستحق خلال الـ 30 يومًا القادمة.
+                {t.health.upcomingEmpty}
               </p>
             ) : (
               upcoming.map((r) => (
@@ -88,12 +90,12 @@ export default async function HealthPage() {
                   className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm"
                 >
                   <span>
-                    <span className="font-medium">{r.rabbit.tagId ?? "سلالة"}</span>{" "}
-                    <StatusBadge value={r.type} />
+                    <span className="font-medium">{r.rabbit.tagId ?? t.dashboard.stockFallback}</span>{" "}
+                    <StatusBadge value={r.type} locale={locale} />
                   </span>
                   <span className="text-muted-foreground">
-                    الموعد <LocalDate date={r.nextDueDate} /> · خلال{" "}
-                    {daysUntil(r.nextDueDate!)} يوم
+                    {t.health.dueOn} <LocalDate date={r.nextDueDate} locale={locale} /> ·{" "}
+                    {t.health.inDays(daysUntil(r.nextDueDate!))}
                   </span>
                 </Link>
               ))
@@ -104,13 +106,13 @@ export default async function HealthPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">أحداث حديثة</CardTitle>
+          <CardTitle className="text-base">{t.health.recentEventsHeading}</CardTitle>
         </CardHeader>
         <CardContent>
           {recent.length === 0 ? (
             <EmptyState
               icon={Stethoscope}
-              title="لا توجد سجلات صحية بعد"
+              title={t.health.emptyTitle}
             />
           ) : (
             <div className="divide-y">
@@ -121,14 +123,14 @@ export default async function HealthPage() {
                   className="flex items-center justify-between gap-4 py-3 text-sm transition-colors hover:bg-accent/40"
                 >
                   <div className="flex items-center gap-2">
-                    <StatusBadge value={r.type} />
-                    <span className="font-medium">{r.rabbit.tagId ?? "سلالة"}</span>
+                    <StatusBadge value={r.type} locale={locale} />
+                    <span className="font-medium">{r.rabbit.tagId ?? t.dashboard.stockFallback}</span>
                     <span className="truncate text-muted-foreground">
                       {r.description}
                     </span>
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    <LocalDate date={r.date} />
+                    <LocalDate date={r.date} locale={locale} />
                   </span>
                 </Link>
               ))}

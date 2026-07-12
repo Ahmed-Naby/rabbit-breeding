@@ -1,4 +1,5 @@
 import { addDays, differenceInCalendarDays } from "date-fns";
+import type { Locale } from "./i18n/locales";
 
 // Dates are stored in UTC. Display formatting that must be locale-aware and
 // hydration-safe is done in the <LocalDate> client component; these helpers are
@@ -77,15 +78,36 @@ export function survivalRate(
   return Math.min(1, weaned / bornAlive);
 }
 
+const AGE_UNITS: Record<
+  Locale,
+  { day: (n: number) => string; month: (n: number) => string; year: (n: number) => string }
+> = {
+  ar: {
+    day: (n) => `${n} يوم`,
+    month: (n) => `${n} شهر`,
+    year: (n) => `${n} سنة`,
+  },
+  en: {
+    day: (n) => `${n} day${n === 1 ? "" : "s"}`,
+    month: (n) => `${n} month${n === 1 ? "" : "s"}`,
+    year: (n) => `${n} year${n === 1 ? "" : "s"}`,
+  },
+};
+
 /** Age in a compact human string, e.g. "3 شهر", "سنة 2 شهر", "12 يوم". */
-export function ageString(dob: Date | null | undefined, now = new Date()): string {
+export function ageString(
+  dob: Date | null | undefined,
+  now = new Date(),
+  locale: Locale = "ar"
+): string {
   if (!dob) return "—";
   const days = differenceInCalendarDays(now, dob);
   if (days < 0) return "—";
-  if (days < 60) return `${days} يوم`;
+  const u = AGE_UNITS[locale];
+  if (days < 60) return u.day(days);
   const months = Math.floor(days / 30.44);
-  if (months < 24) return `${months} شهر`;
+  if (months < 24) return u.month(months);
   const years = Math.floor(months / 12);
   const rem = months % 12;
-  return rem ? `${years} سنة ${rem} شهر` : `${years} سنة`;
+  return rem ? `${u.year(years)} ${u.month(rem)}` : u.year(years);
 }

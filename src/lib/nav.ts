@@ -16,27 +16,28 @@ import {
   ArrowLeftRight,
   type LucideIcon,
 } from "lucide-react";
+import type { Dictionary } from "./i18n/dictionaries/ar";
 
 export type NavItem = {
   href: string;
-  label: string;
+  labelKey: keyof Dictionary["nav"];
   icon: LucideIcon;
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
-  { href: "/stock", label: "السلالات", icon: Sprout },
-  { href: "/mothers", label: "الأمهات", icon: Venus },
-  { href: "/bucks", label: "الذكور", icon: Mars },
-  { href: "/mating", label: "عمليات التلقيح", icon: HeartHandshake },
-  { href: "/pregnancy-test", label: "عمليات الجس", icon: Microscope },
-  { href: "/nest-box", label: "تركيب بيوت الولادة", icon: Box },
-  { href: "/kindling", label: "عمليات الولادة", icon: HeartPulse },
-  { href: "/fostering", label: "عمليات التبني", icon: ArrowLeftRight },
-  { href: "/weaning", label: "عمليات الفطام", icon: Milk },
-  { href: "/does", label: "عمليات المزرعة", icon: ClipboardList },
-  { href: "/mortality", label: "حصر النافق", icon: Skull },
-  { href: "/health", label: "الصحة", icon: Stethoscope },
-  { href: "/finance", label: "المالية", icon: Wallet },
-  { href: "/settings", label: "الإعدادات", icon: Settings },
+  { href: "/", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/stock", labelKey: "stock", icon: Sprout },
+  { href: "/mothers", labelKey: "mothers", icon: Venus },
+  { href: "/bucks", labelKey: "bucks", icon: Mars },
+  { href: "/mating", labelKey: "mating", icon: HeartHandshake },
+  { href: "/pregnancy-test", labelKey: "pregnancyTest", icon: Microscope },
+  { href: "/nest-box", labelKey: "nestBox", icon: Box },
+  { href: "/kindling", labelKey: "kindling", icon: HeartPulse },
+  { href: "/fostering", labelKey: "fostering", icon: ArrowLeftRight },
+  { href: "/weaning", labelKey: "weaning", icon: Milk },
+  { href: "/does", labelKey: "does", icon: ClipboardList },
+  { href: "/mortality", labelKey: "mortality", icon: Skull },
+  { href: "/health", labelKey: "health", icon: Stethoscope },
+  { href: "/finance", labelKey: "finance", icon: Wallet },
+  { href: "/settings", labelKey: "settings", icon: Settings },
 ];

@@ -8,8 +8,12 @@ import { updateRabbit } from "../../actions";
 import { getParentOptions } from "../../data";
 import { getBreedOptions } from "@/lib/breeds";
 import { prisma } from "@/lib/prisma";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Edit rabbit · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.rabbits.editPageBack} · RabbitTrack` };
+}
 
 export default async function EditRabbitPage({
   params,
@@ -17,10 +21,11 @@ export default async function EditRabbitPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [rabbit, { buckOptions, doeOptions }, breedOptions] = await Promise.all([
+  const [rabbit, { buckOptions, doeOptions }, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findUnique({ where: { id } }),
     getParentOptions(id),
     getBreedOptions(),
+    getDictionary(),
   ]);
   if (!rabbit) notFound();
 
@@ -30,12 +35,16 @@ export default async function EditRabbitPage({
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild className="-ms-2 w-fit">
         <Link href={`/rabbits/${id}`}>
-          <ArrowLeft className="size-4 rtl:rotate-180" /> العودة إلى الأرنب
+          <ArrowLeft className="size-4 rtl:rotate-180" /> {t.rabbits.editPageBack}
         </Link>
       </Button>
       <PageHeader
-        title={rabbit.tagId ? `تعديل رقم ${rabbit.tagId}` : "تعديل سلالة بدون رقم"}
-        description="تحديث بيانات هذا الأرنب."
+        title={
+          rabbit.tagId
+            ? t.rabbits.editPageTitleTagged(rabbit.tagId)
+            : t.rabbits.editPageTitleUntagged
+        }
+        description={t.rabbits.editPageDescription}
       />
       <RabbitForm
         action={updateWithId}
@@ -43,7 +52,9 @@ export default async function EditRabbitPage({
         buckOptions={buckOptions}
         doeOptions={doeOptions}
         breedOptions={breedOptions}
-        submitLabel="حفظ التغييرات"
+        submitLabel={t.rabbits.saveChangesButton}
+        tCommon={t.common}
+        locale={locale}
       />
     </div>
   );

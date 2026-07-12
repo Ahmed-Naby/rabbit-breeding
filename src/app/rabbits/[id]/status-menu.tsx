@@ -12,14 +12,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RABBIT_STATUSES, label } from "@/lib/enums";
 import { setRabbitStatus } from "../actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export function StatusMenu({
   id,
   current,
+  locale,
 }: {
   id: string;
   current: string;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).rabbits;
   const [pending, startTransition] = useTransition();
 
   return (
@@ -32,7 +37,7 @@ export function StatusMenu({
             ) : (
               <ChevronDown className="size-4" />
             )}
-            تغيير الحالة
+            {t.changeStatusButton}
           </Button>
         }
       />
@@ -44,12 +49,12 @@ export function StatusMenu({
             onClick={() =>
               startTransition(async () => {
                 await setRabbitStatus(id, s);
-                toast.success(`تم ضبط الحالة: ${label(s)}`);
+                toast.success(t.statusSetToast(label(s, locale)));
               })
             }
           >
-            {label(s)}
-            {s === current ? " (الحالية)" : ""}
+            {label(s, locale)}
+            {s === current ? t.currentSuffix : ""}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

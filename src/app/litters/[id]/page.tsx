@@ -9,6 +9,7 @@ import { LocalDate } from "@/components/local-date";
 import { PageHeader } from "@/components/page-header";
 import { survivalRate, ageString } from "@/lib/dates";
 import { compareTagId } from "@/lib/utils";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export const metadata = { title: "Litter · RabbitTrack" };
 
@@ -27,26 +28,29 @@ export default async function LitterDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const litter = await prisma.litter.findUnique({
-    where: { id },
-    include: {
-      breeding: {
-        include: {
-          buck: { select: { id: true, tagId: true } },
-          doe: { select: { id: true, tagId: true } },
+  const [litter, { locale, t }] = await Promise.all([
+    prisma.litter.findUnique({
+      where: { id },
+      include: {
+        breeding: {
+          include: {
+            buck: { select: { id: true, tagId: true } },
+            doe: { select: { id: true, tagId: true } },
+          },
+        },
+        kits: {
+          select: {
+            id: true,
+            tagId: true,
+            sex: true,
+            status: true,
+            dateOfBirth: true,
+          },
         },
       },
-      kits: {
-        select: {
-          id: true,
-          tagId: true,
-          sex: true,
-          status: true,
-          dateOfBirth: true,
-        },
-      },
-    },
-  });
+    }),
+    getDictionary(),
+  ]);
   if (!litter) notFound();
   litter.kits.sort((a, b) => compareTagId(a.tagId, b.tagId));
 
@@ -57,16 +61,16 @@ export default async function LitterDetailPage({
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild className="-ms-2 w-fit">
         <Link href={`/breedings/${litter.breedingId}`}>
-          <ArrowLeft className="size-4 rtl:rotate-180" /> العودة إلى التلقيح
+          <ArrowLeft className="size-4 rtl:rotate-180" /> {t.litters.detailBackToBreeding}
         </Link>
       </Button>
 
       <PageHeader
-        title="الولادة"
+        title={t.litters.pageTitle}
         description={`${litter.breeding.buck?.tagId ?? "—"} × ${litter.breeding.doe.tagId ?? "—"}`}
         actions={
           <Button size="sm" asChild>
-            <Link href={`/litters/${litter.id}/edit`}>تعديل الولادة</Link>
+            <Link href={`/litters/${litter.id}/edit`}>{t.litters.editLitterButton}</Link>
           </Button>
         }
       />
@@ -74,21 +78,21 @@ export default async function LitterDetailPage({
       <Card>
         <CardContent>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <DescItem label="تاريخ الولادة">
-              <LocalDate date={litter.kindlingDate} />
+            <DescItem label={t.litters.colKindlingDate}>
+              <LocalDate date={litter.kindlingDate} locale={locale} />
             </DescItem>
-            <DescItem label="إجمالي المواليد">{totalBorn}</DescItem>
-            <DescItem label="مواليد أحياء">{litter.bornAlive}</DescItem>
-            <DescItem label="مواليد أموات">{litter.bornDead}</DescItem>
-            <DescItem label="مفطوم">{litter.weaned ?? "—"}</DescItem>
-            <DescItem label="تاريخ الفطام">
+            <DescItem label={t.litters.colTotalBorn}>{totalBorn}</DescItem>
+            <DescItem label={t.litters.colBornAlive}>{litter.bornAlive}</DescItem>
+            <DescItem label={t.litters.colBornDead}>{litter.bornDead}</DescItem>
+            <DescItem label={t.litters.colWeaned}>{litter.weaned ?? "—"}</DescItem>
+            <DescItem label={t.litters.colWeaningDate}>
               {litter.weaningDate ? (
-                <LocalDate date={litter.weaningDate} />
+                <LocalDate date={litter.weaningDate} locale={locale} />
               ) : (
                 "—"
               )}
             </DescItem>
-            <DescItem label="نسبة البقاء">
+            <DescItem label={t.litters.colSurvivalRate}>
               {rate != null ? (
                 <span className="font-medium text-emerald-600 dark:text-emerald-400">
                   {Math.round(rate * 100)}%
@@ -97,18 +101,18 @@ export default async function LitterDetailPage({
                 "—"
               )}
             </DescItem>
-            <DescItem label="التلقيح">
+            <DescItem label={t.litters.colBreeding}>
               <Link
                 href={`/breedings/${litter.breedingId}`}
                 className="text-primary hover:underline"
               >
-                عرض التلقيح
+                {t.litters.viewBreeding}
               </Link>
             </DescItem>
           </dl>
           {litter.notes ? (
             <div className="mt-4 border-t pt-4">
-              <p className="text-xs font-medium text-muted-foreground">ملاحظات</p>
+              <p className="text-xs font-medium text-muted-foreground">{t.breedings.notesHeading}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm">{litter.notes}</p>
             </div>
           ) : null}
@@ -118,19 +122,18 @@ export default async function LitterDetailPage({
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-base">
-            الخلفات الموسومة ({litter.kits.length})
+            {t.litters.taggedKitsHeading(litter.kits.length)}
           </CardTitle>
           <Button size="sm" variant="outline" asChild>
             <Link href={`/rabbits/new?litterId=${litter.id}`}>
-              <Plus className="size-4" /> وسم خلفة
+              <Plus className="size-4" /> {t.litters.tagKitButton}
             </Link>
           </Button>
         </CardHeader>
         <CardContent>
           {litter.kits.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              لا توجد خلفات موسومة بعد. استخدم "وسم خلفة" لترقية إحداها إلى
-              سجل أرنب كامل (يتم تعبئة الأبوين تلقائيًا من هذه الولادة).
+              {t.litters.noKitsTagged}
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -143,15 +146,15 @@ export default async function LitterDetailPage({
                   <div className="flex items-center gap-3">
                     <RabbitIcon className="size-5 text-muted-foreground/60" />
                     <div>
-                      <p className="font-medium">رقم {k.tagId ?? "—"}</p>
+                      <p className="font-medium">{t.litters.kitTag(k.tagId ?? "—")}</p>
                       <p className="font-mono text-xs text-muted-foreground">
-                        {ageString(k.dateOfBirth)}
+                        {ageString(k.dateOfBirth, new Date(), locale)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <StatusBadge value={k.sex} />
-                    <StatusBadge value={k.status} />
+                    <StatusBadge value={k.sex} locale={locale} />
+                    <StatusBadge value={k.status} locale={locale} />
                   </div>
                 </Link>
               ))}

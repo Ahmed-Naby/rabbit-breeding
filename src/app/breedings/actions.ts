@@ -16,12 +16,15 @@ import {
   type DoeState,
 } from "@/lib/enums";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
 export async function createBreeding(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = breedingSchema.safeParse(formDataToObject(formData));
+  const { t } = await getDictionary();
+  const parsed = breedingSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) {
     return { ok: false, errors: zodErrors(parsed.error) };
   }
@@ -58,14 +61,15 @@ export async function updateBreeding(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = breedingSchema.safeParse(formDataToObject(formData));
+  const { t } = await getDictionary();
+  const parsed = breedingSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) {
     return { ok: false, errors: zodErrors(parsed.error) };
   }
   const data = parsed.data;
 
   const existing = await prisma.breeding.findUnique({ where: { id } });
-  if (!existing) return { ok: false, message: "لم يتم العثور على عملية التلقيح" };
+  if (!existing) return { ok: false, message: t.breedings.notFound };
 
   // Preserve the original gestation offset (snapshot) when the mating date moves.
   // Falls back to the farm default if the mating date had been cleared (failed mating).
@@ -508,7 +512,8 @@ export async function setLitterCount(
   const effectiveBornAlive = bornAlive ?? litter?.bornAlive ?? 0;
   const effectiveWeaned = field === "weaned" ? value : (litter?.weaned ?? null);
   if (effectiveWeaned !== null && effectiveWeaned > effectiveBornAlive) {
-    return { ok: false, message: "لا يمكن أن يتجاوز المفطوم عدد المواليد الأحياء" };
+    const { t } = await getDictionary();
+    return { ok: false, message: t.breedings.weanedExceedsBornAlive };
   }
 
   await prisma.litter.upsert({
@@ -548,7 +553,8 @@ export async function recordNursingKitDeath(
     select: { bornAlive: true },
   });
   if (!litter || litter.bornAlive <= 0) {
-    return { ok: false, message: "لا يوجد مواليد أحياء لتسجيل نافق" };
+    const { t } = await getDictionary();
+    return { ok: false, message: t.breedings.noNursingKitsToRecordDeath };
   }
 
   await prisma.litter.update({
@@ -701,7 +707,8 @@ export async function recordKindling(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = litterSchema.safeParse({
+  const { t } = await getDictionary();
+  const parsed = litterSchema(t.validation).safeParse({
     ...formDataToObject(formData),
     breedingId,
   });
@@ -712,7 +719,7 @@ export async function recordKindling(
 
   const existing = await prisma.litter.findUnique({ where: { breedingId } });
   if (existing) {
-    return { ok: false, message: "توجد بالفعل ولادة مسجلة لهذا التلقيح." };
+    return { ok: false, message: t.breedings.litterAlreadyExists };
   }
 
   const breeding = await prisma.breeding.findUniqueOrThrow({
@@ -782,7 +789,8 @@ export async function recordKindling(
  * ongoing litter on the *previous* breeding row, not her latest one).
  */
 async function resolveCurrentLitter(
-  tagId: string
+  tagId: string,
+  t: Dictionary["breedings"]
 ): Promise<
   | { ok: true; doeId: string; breedingId: string; bornAlive: number }
   | { ok: false; message: string }
@@ -802,7 +810,7 @@ async function resolveCurrentLitter(
       },
     },
   });
-  if (!doe) return { ok: false, message: `لا توجد أم برقم ${tagId}` };
+  if (!doe) return { ok: false, message: t.doeNotFound(tagId) };
 
   const [b, prev] = doe.breedingsAsDoe;
   const prevOngoingLitter =
@@ -810,7 +818,7 @@ async function resolveCurrentLitter(
   const litterRow = prevOngoingLitter ? prev : b;
   const litter = litterRow?.litter;
   if (!litterRow || !litter || litter.weaningDate) {
-    return { ok: false, message: `الأم رقم ${tagId} ليس لديها بطن رضاعة حالي` };
+    return { ok: false, message: t.noCurrentLitter(tagId) };
   }
   return { ok: true, doeId: doe.id, breedingId: litterRow.id, bornAlive: litter.bornAlive };
 }
@@ -826,22 +834,23 @@ export async function transferKits(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = fosterSchema.safeParse(formDataToObject(formData));
+  const { t } = await getDictionary();
+  const parsed = fosterSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) {
     return { ok: false, errors: zodErrors(parsed.error) };
   }
   const data = parsed.data;
 
   const [from, to] = await Promise.all([
-    resolveCurrentLitter(data.fromTagId),
-    resolveCurrentLitter(data.toTagId),
+    resolveCurrentLitter(data.fromTagId, t.breedings),
+    resolveCurrentLitter(data.toTagId, t.breedings),
   ]);
   if (!from.ok) return { ok: false, errors: { fromTagId: from.message } };
   if (!to.ok) return { ok: false, errors: { toTagId: to.message } };
   if (from.bornAlive < data.count) {
     return {
       ok: false,
-      errors: { count: `عدد الأحياء عند الأم ${data.fromTagId} هو ${from.bornAlive} فقط` },
+      errors: { count: t.breedings.notEnoughBornAlive(data.fromTagId, from.bornAlive) },
     };
   }
 
@@ -866,5 +875,5 @@ export async function transferKits(
   revalidatePath(`/rabbits/${from.doeId}`);
   revalidatePath(`/rabbits/${to.doeId}`);
 
-  return { ok: true, message: "تم تسجيل نقل الرضاعة" };
+  return { ok: true, message: t.breedings.transferSuccessToast };
 }

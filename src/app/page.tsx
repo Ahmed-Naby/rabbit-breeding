@@ -18,14 +18,18 @@ import { daysUntil, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { RABBIT_STATUSES } from "@/lib/enums";
 import { cn } from "@/lib/utils";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Dashboard · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.dashboard.heroTitle} · RabbitTrack` };
+}
 
 export default async function DashboardPage() {
   const settings = await getSettings();
   const win = settings.gestationWindowDays;
 
-  const [statusCounts, pending, dueHealth, recentLitters, activeCount] =
+  const [statusCounts, pending, dueHealth, recentLitters, activeCount, { locale, t }] =
     await Promise.all([
       prisma.rabbit.groupBy({ by: ["status"], _count: { _all: true } }),
       prisma.breeding.findMany({
@@ -44,6 +48,7 @@ export default async function DashboardPage() {
         take: 6,
       }),
       prisma.rabbit.count({ where: { status: "active" } }),
+      getDictionary(),
     ]);
 
   const overdueKindlings = pending.filter(
@@ -86,10 +91,10 @@ export default async function DashboardPage() {
         </div>
         <div className="absolute inset-0 flex flex-col justify-center gap-1 px-6 sm:px-8">
           <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            لوحة التحكم
+            {t.dashboard.heroTitle}
           </h1>
           <p className="max-w-md text-sm text-white/85 sm:text-base">
-            كل ما يحتاج انتباهك اليوم في مزرعتك.
+            {t.dashboard.heroDescription}
           </p>
         </div>
       </div>
@@ -98,19 +103,19 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           icon={RabbitIcon}
-          label="الأرانب النشطة"
+          label={t.dashboard.activeRabbits}
           value={activeCount.toString()}
           href="/stock"
         />
         <StatCard
           icon={CalendarClock}
-          label="ولادات قادمة"
+          label={t.dashboard.upcomingKindlings}
           value={upcomingKindlings.length.toString()}
           href="/kindling"
         />
         <StatCard
           icon={AlertTriangle}
-          label="مهام متأخرة"
+          label={t.dashboard.overdueTasks}
           value={(overdueKindlings.length + overdueHealth.length).toString()}
           tone={
             overdueKindlings.length + overdueHealth.length > 0
@@ -120,7 +125,7 @@ export default async function DashboardPage() {
         />
         <StatCard
           icon={TrendingUp}
-          label="نسبة بقاء الفطام"
+          label={t.dashboard.weaningSurvivalRate}
           value={herdSurvival == null ? "—" : `${herdSurvival}%`}
           href="/kindling"
         />
@@ -131,16 +136,16 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Heart className="size-4 text-pink-500" /> الولادات
+              <Heart className="size-4 text-pink-500" /> {t.dashboard.kindlingsHeading}
             </CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/kindling">عرض الكل</Link>
+              <Link href="/kindling">{t.dashboard.viewAll}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {overdueKindlings.length === 0 && upcomingKindlings.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                لا توجد عمليات تلقيح قيد الانتظار.
+                {t.dashboard.noPendingBreedings}
               </p>
             ) : (
               <>
@@ -151,7 +156,7 @@ export default async function DashboardPage() {
                     left={b.doe.tagId ?? "—"}
                     right={
                       <span className="text-red-600 dark:text-red-400">
-                        متأخرة {Math.abs(daysUntil(b.expectedKindlingDate))} يوم
+                        {t.dashboard.overdueDays(Math.abs(daysUntil(b.expectedKindlingDate)))}
                       </span>
                     }
                     warn
@@ -164,7 +169,7 @@ export default async function DashboardPage() {
                     left={b.doe.tagId ?? "—"}
                     right={
                       <span className="text-muted-foreground">
-                        الموعد <LocalDate date={b.expectedKindlingDate} />
+                        {t.dashboard.dueOn} <LocalDate date={b.expectedKindlingDate} locale={locale} />
                       </span>
                     }
                   />
@@ -178,16 +183,16 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Stethoscope className="size-4 text-emerald-500" /> مهام صحية
+              <Stethoscope className="size-4 text-emerald-500" /> {t.dashboard.healthTasksHeading}
             </CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/health">عرض الكل</Link>
+              <Link href="/health">{t.dashboard.viewAll}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {overdueHealth.length === 0 && upcomingHealth.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                لا يوجد شيء مستحق قريبًا.
+                {t.dashboard.noUpcomingHealth}
               </p>
             ) : (
               <>
@@ -197,12 +202,13 @@ export default async function DashboardPage() {
                     href={`/rabbits/${r.rabbit.id}`}
                     left={
                       <span className="flex items-center gap-2">
-                        {r.rabbit.tagId ?? "سلالة"} <StatusBadge value={r.type} />
+                        {r.rabbit.tagId ?? t.dashboard.stockFallback}{" "}
+                        <StatusBadge value={r.type} locale={locale} />
                       </span>
                     }
                     right={
                       <span className="text-red-600 dark:text-red-400">
-                        متأخر {Math.abs(daysUntil(r.nextDueDate!))} يوم
+                        {t.dashboard.overdueHealthDays(Math.abs(daysUntil(r.nextDueDate!)))}
                       </span>
                     }
                     warn
@@ -214,12 +220,13 @@ export default async function DashboardPage() {
                     href={`/rabbits/${r.rabbit.id}`}
                     left={
                       <span className="flex items-center gap-2">
-                        {r.rabbit.tagId ?? "سلالة"} <StatusBadge value={r.type} />
+                        {r.rabbit.tagId ?? t.dashboard.stockFallback}{" "}
+                        <StatusBadge value={r.type} locale={locale} />
                       </span>
                     }
                     right={
                       <span className="text-muted-foreground">
-                        الموعد <LocalDate date={r.nextDueDate} />
+                        {t.dashboard.dueOn} <LocalDate date={r.nextDueDate} locale={locale} />
                       </span>
                     }
                   />
@@ -235,7 +242,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              القطيع حسب الحالة ({totalRabbits})
+              {t.dashboard.herdByStatus(totalRabbits)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -245,7 +252,7 @@ export default async function DashboardPage() {
               return (
                 <div key={s} className="flex items-center gap-3">
                   <div className="w-20 shrink-0">
-                    <StatusBadge value={s} />
+                    <StatusBadge value={s} locale={locale} />
                   </div>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                     <div
@@ -264,16 +271,16 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Baby className="size-4" /> ولادات حديثة
+              <Baby className="size-4" /> {t.dashboard.recentLittersHeading}
             </CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/kindling">عرض الكل</Link>
+              <Link href="/kindling">{t.dashboard.viewAll}</Link>
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
             {recentLitters.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                لا توجد ولادات مفطومة بعد.
+                {t.dashboard.noWeanedLitters}
               </p>
             ) : (
               recentLitters.map((l) => {
@@ -286,7 +293,7 @@ export default async function DashboardPage() {
                     className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-accent/40"
                   >
                     <span className="w-24 shrink-0 text-muted-foreground">
-                      <LocalDate date={l.kindlingDate} />
+                      <LocalDate date={l.kindlingDate} locale={locale} />
                     </span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
                       <div

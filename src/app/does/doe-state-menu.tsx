@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DOE_STATES, label, type DoeState } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 import {
   markMated,
   markMatingFailed,
@@ -34,7 +36,7 @@ const BADGE_CLS: Record<DoeState, string> = {
   excluded: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
-export function DoeStateBadge({ current }: { current: string }) {
+export function DoeStateBadge({ current, locale }: { current: string; locale: Locale }) {
   const state = (DOE_STATES.includes(current as DoeState) ? current : "empty") as DoeState;
   return (
     <span
@@ -43,7 +45,7 @@ export function DoeStateBadge({ current }: { current: string }) {
         BADGE_CLS[state]
       )}
     >
-      {label(state)}
+      {label(state, locale)}
     </span>
   );
 }
@@ -63,6 +65,7 @@ export function DoeActionButton({
   className,
   disabled,
   checked,
+  locale,
 }: {
   id: string;
   breedingId: string;
@@ -72,7 +75,9 @@ export function DoeActionButton({
   disabled?: boolean;
   /** Already reached this state — show a checkmark instead of hiding the button. */
   checked?: boolean;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   if (checked) {
     return (
@@ -91,7 +96,7 @@ export function DoeActionButton({
       onClick={() =>
         startTransition(async () => {
           await confirmPregnant(breedingId, id, target);
-          toast.success(`تم ضبط حالة الأم: ${label(target)}`);
+          toast.success(t.stateSetToast(label(target, locale)));
         })
       }
     >
@@ -126,12 +131,15 @@ export function MateCell({
   doeId,
   canMate,
   buckTagId,
+  locale,
 }: {
   breedingId: string | null;
   doeId: string;
   canMate: boolean;
   buckTagId: string | null;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   const [value, setValue] = useState(() => (canMate ? "" : (buckTagId ?? "")));
   const [valid, setValid] = useState(false);
@@ -172,54 +180,56 @@ export function MateCell({
 
   return (
     <div className="flex flex-col items-center gap-1">
-      {canMate ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending || checking || !valid}
-          className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-          onClick={() =>
-            startTransition(async () => {
-              const buckTag = value.trim();
-              // Re-checked at submit time as a safety net against a buck
-              // being removed in the moment between the debounced check and
-              // the click; the disabled state above covers the normal case.
-              if (!buckTag || !(await buckExists(buckTag))) {
-                setValid(false);
-                toast.error(`لا يوجد ذكر برقم ${buckTag} — التلقيح لم يُسجَّل`);
-                return;
-              }
-              if (breedingId) {
-                await markMated(breedingId, doeId, buckTag);
-              } else {
-                await startBreeding(doeId, buckTag);
-              }
-              toast.success("تم تسجيل التلقيح بتاريخ اليوم");
-            })
-          }
-        >
-          تلقيح
-        </Button>
-      ) : (
-        <span className="inline-flex h-7 w-7 items-center justify-center text-emerald-600 dark:text-emerald-400">
-          <Check className="h-4 w-4" />
-        </span>
-      )}
-      <input
-        type="text"
-        inputMode="numeric"
-        placeholder="رقم الذكر"
-        value={value}
-        disabled={!canMate || pending}
-        onChange={(e) => setValue(e.target.value)}
-        className={cn(
-          "h-7 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
-          showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+      <div className="flex items-center gap-1.5">
+        {canMate ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending || checking || !valid}
+            className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+            onClick={() =>
+              startTransition(async () => {
+                const buckTag = value.trim();
+                // Re-checked at submit time as a safety net against a buck
+                // being removed in the moment between the debounced check and
+                // the click; the disabled state above covers the normal case.
+                if (!buckTag || !(await buckExists(buckTag))) {
+                  setValid(false);
+                  toast.error(t.buckNotFoundToast(buckTag));
+                  return;
+                }
+                if (breedingId) {
+                  await markMated(breedingId, doeId, buckTag);
+                } else {
+                  await startBreeding(doeId, buckTag);
+                }
+                toast.success(t.matedTodayToast);
+              })
+            }
+          >
+            {t.mateButton}
+          </Button>
+        ) : (
+          <span className="inline-flex h-7 w-7 items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <Check className="h-4 w-4" />
+          </span>
         )}
-      />
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder={t.buckTagPlaceholder}
+          value={value}
+          disabled={!canMate || pending}
+          onChange={(e) => setValue(e.target.value)}
+          className={cn(
+            "h-7 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+            showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+          )}
+        />
+      </div>
       {showInvalid ? (
         <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">
-          رقم {value.trim()} غير موجود
+          {t.tagNotFound(value.trim())}
         </span>
       ) : null}
     </div>
@@ -238,12 +248,15 @@ export function KindleButton({
   doeId,
   text,
   doeState,
+  locale,
 }: {
   breedingId: string;
   doeId: string;
   text: string;
   doeState: DoeState;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   const active = doeState === "pregnant" || doeState === "nursing_pregnant";
   const pressed = doeState === "nursing" || doeState === "nursing_bred";
@@ -265,7 +278,7 @@ export function KindleButton({
       onClick={() =>
         startTransition(async () => {
           await markKindled(breedingId, doeId);
-          toast.success("تم تسجيل الولادة");
+          toast.success(t.kindledToast);
         })
       }
     >
@@ -285,10 +298,13 @@ export function KindleButton({
 export function InstallNestBoxButton({
   breedingId,
   doeId,
+  locale,
 }: {
   breedingId: string;
   doeId: string;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -299,11 +315,11 @@ export function InstallNestBoxButton({
       onClick={() =>
         startTransition(async () => {
           await installNestBox(breedingId, doeId);
-          toast.success("تم تسجيل تركيب بيت الولادة");
+          toast.success(t.nestBoxInstalledToast);
         })
       }
     >
-      تركيب
+      {t.installButton}
     </Button>
   );
 }
@@ -323,13 +339,16 @@ export function WeanButton({
   text,
   active,
   weaned,
+  locale,
 }: {
   breedingId: string;
   doeId: string;
   text: string;
   active: boolean;
   weaned: boolean;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
 
   if (!active && !weaned) return null;
@@ -349,7 +368,7 @@ export function WeanButton({
       onClick={() =>
         startTransition(async () => {
           await markWeaned(breedingId, doeId);
-          toast.success("تم تسجيل الفطام بتاريخ اليوم");
+          toast.success(t.weanedTodayToast);
         })
       }
     >
@@ -362,10 +381,13 @@ export function WeanButton({
 export function MatingDateInput({
   breedingId,
   date,
+  locale,
 }: {
   breedingId: string;
   date: string | Date | null;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   const [value, setValue] = useState(() =>
     toDateInputValue(date ? new Date(date) : null)
@@ -388,7 +410,7 @@ export function MatingDateInput({
         setValue(e.target.value);
         startTransition(async () => {
           await setMatingDate(breedingId, e.target.value);
-          toast.success("تم تحديث تاريخ التلقيح");
+          toast.success(t.matingDateUpdatedToast);
         });
       }}
     />
@@ -401,12 +423,15 @@ export function LitterCountInput({
   field,
   value,
   disabled,
+  locale,
 }: {
   breedingId: string;
   field: "bornAlive" | "bornDead" | "weaned";
   value: number | null;
   disabled?: boolean;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   const [text, setText] = useState(() => (value ?? "").toString());
 
@@ -429,7 +454,7 @@ export function LitterCountInput({
         startTransition(async () => {
           const result = await setLitterCount(breedingId, field, parsed);
           if (!result.ok) {
-            toast.error(result.message ?? "قيمة غير صالحة");
+            toast.error(result.message ?? t.invalidValueFallback);
             setText((value ?? "").toString());
           }
         });
@@ -447,11 +472,14 @@ export function ClearDoeButton({
   breedingId,
   doeId,
   text,
+  locale,
 }: {
   breedingId: string;
   doeId: string;
   text: string;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -460,13 +488,11 @@ export function ClearDoeButton({
       disabled={pending}
       className="h-7 px-2 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
       onClick={() => {
-        const confirmed = window.confirm(
-          "سيتم مسح جميع بيانات هذا السطر (التلقيح، الولادة، الفطام) نهائيًا وإعادة الأم إلى حالة \"فاضية\". هل أنت متأكد؟"
-        );
+        const confirmed = window.confirm(t.clearConfirm);
         if (!confirmed) return;
         startTransition(async () => {
           await clearDoeRow(breedingId, doeId);
-          toast.success("تم مسح بيانات الأم وإعادتها لحالة فاضية");
+          toast.success(t.clearedToast);
         });
       }}
     >
@@ -482,13 +508,16 @@ export function MatingFailedButton({
   text,
   className,
   disabled,
+  locale,
 }: {
   breedingId: string;
   doeId: string;
   text: string;
   className?: string;
   disabled?: boolean;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   if (disabled) return null;
   return (
@@ -500,7 +529,7 @@ export function MatingFailedButton({
       onClick={() =>
         startTransition(async () => {
           await markMatingFailed(breedingId, doeId);
-          toast.success("تم إلغاء التلقيح ومسح تاريخه");
+          toast.success(t.matingFailedToast);
         })
       }
     >

@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 /** yyyy-MM-dd key for matching by calendar day, TZ-agnostic since dates are stored at UTC midnight. */
 function dayKey(date: Date) {
@@ -40,6 +42,8 @@ export function BuckBreedingHistoryPanel({
   kindlings,
   litters,
   ongoing,
+  t,
+  locale,
 }: {
   pregnancyTests: {
     matingDate: Date;
@@ -61,6 +65,8 @@ export function BuckBreedingHistoryPanel({
     matingDate: Date | null;
     doe: { id: string; tagId: string | null; breed: string | null };
   }[];
+  t: Dictionary["rabbits"];
+  locale: Locale;
 }) {
   const cycles = new Map<string, Cycle>();
 
@@ -126,8 +132,8 @@ export function BuckBreedingHistoryPanel({
     return (
       <EmptyState
         icon={History}
-        title="لا يوجد سجل تزاوج بعد"
-        description="أي عملية تلقيح لهذا الذكر هتظهر هنا مع نتيجة الجس وعدد المواليد."
+        title={t.historyEmptyTitle}
+        description={t.buckHistoryEmptyDescription}
       />
     );
   }
@@ -137,12 +143,12 @@ export function BuckBreedingHistoryPanel({
       <Table>
         <TableHeader>
           <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">م</TableHead>
-            <TableHead className="text-center">تاريخ التلقيح</TableHead>
-            <TableHead className="text-center">رقم الأنثى</TableHead>
-            <TableHead className="text-center">نوعها</TableHead>
-            <TableHead className="text-center">حالة الأم</TableHead>
-            <TableHead className="text-center">عدد المواليد</TableHead>
+            <TableHead className="text-center">{t.colIndex}</TableHead>
+            <TableHead className="text-center">{t.colMatingDate}</TableHead>
+            <TableHead className="text-center">{t.colDoeTag}</TableHead>
+            <TableHead className="text-center">{t.colDoeBreed}</TableHead>
+            <TableHead className="text-center">{t.colDoeState}</TableHead>
+            <TableHead className="text-center">{t.colBornCount}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -153,7 +159,7 @@ export function BuckBreedingHistoryPanel({
             >
               <TableCell className="text-muted-foreground">{i + 1}</TableCell>
               <TableCell>
-                <LocalDate date={c.matingDate} />
+                <LocalDate date={c.matingDate} locale={locale} />
               </TableCell>
               <TableCell>
                 <Link href={`/rabbits/${c.doeId}`} className="text-primary hover:underline">
@@ -161,11 +167,11 @@ export function BuckBreedingHistoryPanel({
                 </Link>
               </TableCell>
               <TableCell>{c.doeBreed ?? "—"}</TableCell>
-              <TableCell>{c.testResult ? label(c.testResult) : "—"}</TableCell>
+              <TableCell>{c.testResult ? label(c.testResult, locale) : "—"}</TableCell>
               <TableCell>
                 {c.bornAlive != null
                   ? c.bornDead
-                    ? `${c.bornAlive} (+${c.bornDead} نافق)`
+                    ? t.bornWithDead(c.bornAlive, c.bornDead)
                     : c.bornAlive
                   : "—"}
               </TableCell>

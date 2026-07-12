@@ -12,14 +12,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { BREEDING_OUTCOMES, label } from "@/lib/enums";
 import { setBreedingOutcome } from "../actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export function OutcomeMenu({
   id,
   current,
+  locale,
 }: {
   id: string;
   current: string;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).breedings;
   const [pending, startTransition] = useTransition();
   return (
     <DropdownMenu>
@@ -31,7 +36,7 @@ export function OutcomeMenu({
             ) : (
               <ChevronDown className="size-4" />
             )}
-            تحديد النتيجة
+            {t.changeOutcomeButton}
           </Button>
         }
       />
@@ -43,12 +48,12 @@ export function OutcomeMenu({
             onClick={() =>
               startTransition(async () => {
                 await setBreedingOutcome(id, o);
-                toast.success(`تم ضبط النتيجة: ${label(o)}`);
+                toast.success(t.outcomeSetToast(label(o, locale)));
               })
             }
           >
-            {label(o)}
-            {o === current ? " (الحالية)" : ""}
+            {label(o, locale)}
+            {o === current ? t.currentSuffix : ""}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

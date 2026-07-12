@@ -5,14 +5,19 @@ import { SubmitButton } from "@/components/submit-button";
 import { TextField, TextareaField } from "@/components/form-fields";
 import { EMPTY_FORM_STATE, type FormState } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export function KindlingForm({
   action,
   defaultKindlingDate,
+  locale = "ar",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   defaultKindlingDate: string | Date;
+  locale?: Locale;
 }) {
+  const t = getClientDictionary(locale).breedings;
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
 
@@ -27,7 +32,7 @@ export function KindlingForm({
         <TextField
           name="kindlingDate"
           type="date"
-          label="تاريخ الولادة"
+          label={t.kindlingDateLabel}
           required
           defaultValue={toDateInputValue(new Date(defaultKindlingDate))}
           error={e.kindlingDate}
@@ -36,7 +41,7 @@ export function KindlingForm({
           name="bornAlive"
           type="number"
           min={0}
-          label="مواليد أحياء"
+          label={t.bornAliveLabel}
           defaultValue="0"
           error={e.bornAlive}
         />
@@ -44,7 +49,7 @@ export function KindlingForm({
           name="bornDead"
           type="number"
           min={0}
-          label="مواليد أموات"
+          label={t.bornDeadLabel}
           defaultValue="0"
           error={e.bornDead}
         />
@@ -52,25 +57,25 @@ export function KindlingForm({
           name="weaned"
           type="number"
           min={0}
-          label="مفطوم (اختياري)"
-          placeholder="اتركه فارغًا حتى الفطام"
+          label={t.weanedLabel}
+          placeholder={t.weanedPlaceholder}
           error={e.weaned}
         />
         <TextField
           name="weaningDate"
           type="date"
-          label="تاريخ الفطام (اختياري)"
+          label={t.weaningDateLabel}
           error={e.weaningDate}
         />
         <TextareaField
           name="notes"
-          label="ملاحظات"
+          label={t.notesLabel}
           rows={2}
           error={e.notes}
           className="sm:col-span-2"
         />
       </div>
-      <SubmitButton>تسجيل الولادة</SubmitButton>
+      <SubmitButton>{t.recordKindlingButton}</SubmitButton>
     </form>
   );
 }

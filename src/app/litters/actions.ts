@@ -6,19 +6,21 @@ import { prisma } from "@/lib/prisma";
 import { litterSchema } from "@/lib/validations";
 import { fromDateInputValue } from "@/lib/dates";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function updateLitter(
   id: string,
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
+  const { t } = await getDictionary();
   const existing = await prisma.litter.findUnique({
     where: { id },
     include: { breeding: { select: { doeId: true } } },
   });
-  if (!existing) return { ok: false, message: "لم يتم العثور على الولادة" };
+  if (!existing) return { ok: false, message: t.litters.notFound };
 
-  const parsed = litterSchema.safeParse({
+  const parsed = litterSchema(t.validation).safeParse({
     ...formDataToObject(formData),
     breedingId: existing.breedingId,
   });

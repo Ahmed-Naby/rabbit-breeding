@@ -13,23 +13,22 @@ import {
   label,
 } from "@/lib/enums";
 import { createTransaction } from "./actions";
-
-const typeOptions: Option[] = TRANSACTION_TYPES.map((t) => ({
-  value: t,
-  label: label(t),
-}));
-const categoryOptions: Option[] = TRANSACTION_CATEGORIES.map((c) => ({
-  value: c,
-  label: label(c),
-}));
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 export function TransactionForm({
   rabbitOptions,
   currency,
+  tCommon,
+  locale = "ar",
 }: {
   rabbitOptions: Option[];
   currency: string;
+  tCommon: Dictionary["common"];
+  locale?: Locale;
 }) {
+  const t = getClientDictionary(locale).finance;
   const [state, formAction] = useActionState(
     createTransaction,
     EMPTY_FORM_STATE
@@ -37,11 +36,21 @@ export function TransactionForm({
   const formRef = useRef<HTMLFormElement>(null);
   const e = state.errors ?? {};
 
+  const typeOptions: Option[] = TRANSACTION_TYPES.map((type) => ({
+    value: type,
+    label: label(type, locale),
+  }));
+  const categoryOptions: Option[] = TRANSACTION_CATEGORIES.map((c) => ({
+    value: c,
+    label: label(c, locale),
+  }));
+
   useEffect(() => {
     if (state.ok) {
-      toast.success("تمت إضافة المعاملة");
+      toast.success(t.addedToast);
       formRef.current?.reset();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (
@@ -52,21 +61,21 @@ export function TransactionForm({
             <TextField
               name="date"
               type="date"
-              label="التاريخ"
+              label={t.dateLabel}
               required
               defaultValue={toDateInputValue(new Date())}
               error={e.date}
             />
             <SelectField
               name="type"
-              label="النوع"
+              label={t.typeLabel}
               options={typeOptions}
               defaultValue="expense"
               error={e.type}
             />
             <SelectField
               name="category"
-              label="الفئة"
+              label={t.categoryLabel}
               options={categoryOptions}
               defaultValue="feed"
               error={e.category}
@@ -76,22 +85,22 @@ export function TransactionForm({
               type="number"
               step="0.01"
               min={0}
-              label={`المبلغ (${currency})`}
+              label={t.amountLabel(currency)}
               required
               error={e.amount}
             />
             <SelectField
               name="rabbitId"
-              label="الأرنب (اختياري)"
+              label={t.rabbitLabel}
               options={rabbitOptions}
               includeNone
-              noneLabel="على مستوى المزرعة"
-              placeholder="على مستوى المزرعة"
+              noneLabel={t.farmWideOption}
+              placeholder={t.farmWideOption}
               error={e.rabbitId}
             />
-            <TextField name="notes" label="ملاحظات" error={e.notes} />
+            <TextField name="notes" label={t.notesLabel} error={e.notes} />
           </div>
-          <SubmitButton>إضافة معاملة</SubmitButton>
+          <SubmitButton pendingText={tCommon.saving}>{t.submitButton}</SubmitButton>
         </form>
       </CardContent>
     </Card>

@@ -8,26 +8,36 @@ import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { WEIGHT_UNITS, label } from "@/lib/enums";
 import type { AppSettings } from "@/lib/settings";
+import type { Locale } from "@/lib/i18n/locales";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { updateSettings } from "./actions";
 
-const unitOptions: Option[] = WEIGHT_UNITS.map((u) => ({
-  value: u,
-  label: label(u),
-}));
-
-const rebreedOptions: Option[] = [
-  { value: "0", label: "مكثف — تلقيح يوم الولادة" },
-  { value: "15", label: "نصف مكثف — 15 يومًا بعد الولادة" },
-  { value: "30", label: "طبيعي — 30 يومًا بعد الولادة" },
-];
-
-export function SettingsForm({ settings }: { settings: AppSettings }) {
+export function SettingsForm({
+  settings,
+  locale,
+  t,
+}: {
+  settings: AppSettings;
+  locale: Locale;
+  t: Dictionary["settings"];
+}) {
   const [state, formAction] = useActionState(updateSettings, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
 
+  const unitOptions: Option[] = WEIGHT_UNITS.map((u) => ({
+    value: u,
+    label: label(u, locale),
+  }));
+
+  const rebreedOptions: Option[] = [
+    { value: "0", label: t.rebreedIntensive },
+    { value: "15", label: t.rebreedSemiIntensive },
+    { value: "30", label: t.rebreedNatural },
+  ];
+
   useEffect(() => {
-    if (state.ok) toast.success(state.message ?? "تم الحفظ");
-  }, [state]);
+    if (state.ok) toast.success(state.message ?? t.savedToast);
+  }, [state, t.savedToast]);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -35,18 +45,18 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField
             name="weightUnit"
-            label="وحدة الوزن"
+            label={t.weightUnitLabel}
             options={unitOptions}
             defaultValue={settings.weightUnit}
-            hint="كيف تُدخل الأوزان وتُعرض."
+            hint={t.weightUnitHint}
             error={e.weightUnit}
           />
           <TextField
             name="currency"
-            label="رمز العملة"
+            label={t.currencyLabel}
             defaultValue={settings.currency}
             maxLength={3}
-            hint="رمز ISO من 3 أحرف، مثل EGP أو USD أو EUR."
+            hint={t.currencyHint}
             error={e.currency}
           />
           <TextField
@@ -54,9 +64,9 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             type="number"
             min={1}
             max={60}
-            label="مدة الحمل (أيام)"
+            label={t.gestationDaysLabel}
             defaultValue={settings.gestationDays.toString()}
-            hint="تُستخدم لحساب مواعيد الولادة المتوقعة (الافتراضي 31)."
+            hint={t.gestationDaysHint}
             error={e.gestationDays}
           />
           <TextField
@@ -64,9 +74,9 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             type="number"
             min={0}
             max={14}
-            label="نافذة الولادة (± أيام)"
+            label={t.gestationWindowDaysLabel}
             defaultValue={settings.gestationWindowDays.toString()}
-            hint="عدد الأيام المبكرة/المتأخرة التي لا تزال تُحتسب كـ 'مستحقة' وليست 'متأخرة'."
+            hint={t.gestationWindowDaysHint}
             error={e.gestationWindowDays}
           />
           <TextField
@@ -74,9 +84,9 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             type="number"
             min={1}
             max={30}
-            label="مدة انتظار الجس (أيام)"
+            label={t.pregnancyTestDaysLabel}
             defaultValue={settings.pregnancyTestDays.toString()}
-            hint="عدد الأيام بعد التلقيح قبل ما تظهر الأم في صفحة 'عمليات الجس' (الافتراضي 10)."
+            hint={t.pregnancyTestDaysHint}
             error={e.pregnancyTestDays}
           />
           <TextField
@@ -84,9 +94,9 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             type="number"
             min={0}
             max={90}
-            label="مدة انتظار الفطام (أيام)"
+            label={t.weaningDaysLabel}
             defaultValue={settings.weaningDays.toString()}
-            hint="عدد الأيام بعد الولادة قبل ما تظهر الأم في صفحة 'عمليات الفطام' (الافتراضي 28)."
+            hint={t.weaningDaysHint}
             error={e.weaningDays}
           />
           <TextField
@@ -94,31 +104,31 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             type="number"
             min={1}
             max={30}
-            label="مدة تركيب بيت الولادة (أيام)"
+            label={t.nestBoxDaysLabel}
             defaultValue={settings.nestBoxDays.toString()}
-            hint="عدد الأيام بعد التلقيح قبل ما تظهر الأم في صفحة 'تركيب بيوت الولادة' (الافتراضي 27)."
+            hint={t.nestBoxDaysHint}
             error={e.nestBoxDays}
           />
           <TextField
             name="matingWeightGrams"
             type="number"
             min={1}
-            label="وزن التلقيح (جرام)"
+            label={t.matingWeightGramsLabel}
             defaultValue={settings.matingWeightGrams.toString()}
-            hint="مرجعي فقط حاليًا — الإضافة لجدول الأمهات/الذكور تتم يدويًا من صفحة إضافة أرنب."
+            hint={t.matingWeightGramsHint}
             error={e.matingWeightGrams}
           />
           <SelectField
             name="rebreedAfterKindlingDays"
-            label="نظام إعادة التلقيح بعد الولادة"
+            label={t.rebreedLabel}
             options={rebreedOptions}
             defaultValue={settings.rebreedAfterKindlingDays.toString()}
-            hint="المدة قبل ما تصبح الأم المرضعة جاهزة للتلقيح مرة أخرى."
+            hint={t.rebreedHint}
             error={e.rebreedAfterKindlingDays}
           />
         </CardContent>
       </Card>
-      <SubmitButton>حفظ الإعدادات</SubmitButton>
+      <SubmitButton>{t.saveButton}</SubmitButton>
     </form>
   );
 }

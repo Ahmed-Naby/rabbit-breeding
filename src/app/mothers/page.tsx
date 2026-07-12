@@ -18,13 +18,17 @@ import { getBreedOptions } from "@/lib/breeds";
 import { DoeStateBadge } from "../does/doe-state-menu";
 import { AddMotherForm } from "./add-mother-form";
 import { PendingMothersTable, type PendingMotherRow } from "./pending-mothers-table";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "الأمهات · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.mothers.title} · RabbitTrack` };
+}
 
 export default async function MothersPage() {
   // Every doe promoted to the herd (has a tagId) — a plain reference table,
   // not the breeding-workflow board (that's "عمليات المزرعة" at /does).
-  const [does, pendingMothersRaw, settings, breedOptions] = await Promise.all([
+  const [does, pendingMothersRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
       orderBy: { tagId: "asc" },
@@ -54,6 +58,7 @@ export default async function MothersPage() {
     }),
     getSettings(),
     getBreedOptions(),
+    getDictionary(),
   ]);
   const pendingMothers: PendingMotherRow[] = pendingMothersRaw.map((r) => ({
     id: r.id,
@@ -64,35 +69,35 @@ export default async function MothersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="الأمهات" description={`${does.length} أم في القطيع`} />
+      <PageHeader title={t.mothers.title} description={t.mothers.description(does.length)} />
 
-      <AddMotherForm breedOptions={breedOptions} />
+      <AddMotherForm breedOptions={breedOptions} tCommon={t.common} locale={locale} />
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          سلالات في انتظار رقم الأم ({pendingMothers.length})
+          {t.mothers.pendingHeading(pendingMothers.length)}
         </h2>
-        <PendingMothersTable rows={pendingMothers} />
+        <PendingMothersTable rows={pendingMothers} locale={locale} />
       </div>
 
       {does.length === 0 ? (
         <EmptyState
           icon={RabbitIcon}
-          title="لا توجد أمهات في القطيع بعد"
-          description="سجّل سلالة أنثى من صفحة السلالات، وبعد ما تاخد رقم قفص هتظهر في القسم اللي فوق عشان تحدد رقم الأم وتضيفها هنا فعليًا."
+          title={t.mothers.emptyTitle}
+          description={t.mothers.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">تاريخ الإضافة إلى القطيع</TableHead>
-                <TableHead className="text-center">الوزن</TableHead>
-                <TableHead className="text-center">الحالة</TableHead>
-                <TableHead className="text-center">الحالة التناسلية</TableHead>
+                <TableHead className="text-center">{t.mothers.colIndex}</TableHead>
+                <TableHead className="text-center">{t.mothers.colTag}</TableHead>
+                <TableHead className="text-center">{t.mothers.colBreed}</TableHead>
+                <TableHead className="text-center">{t.mothers.colAddedDate}</TableHead>
+                <TableHead className="text-center">{t.mothers.colWeight}</TableHead>
+                <TableHead className="text-center">{t.mothers.colStatus}</TableHead>
+                <TableHead className="text-center">{t.mothers.colDoeState}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -106,21 +111,22 @@ export default async function MothersPage() {
                   </TableCell>
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={doe.acquiredDate} />
+                    <LocalDate date={doe.acquiredDate} locale={locale} />
                   </TableCell>
                   <TableCell>
                     {doe.weightRecords[0]
                       ? formatWeight(
                           doe.weightRecords[0].weightGrams,
-                          settings.weightUnit as "kg" | "lb_oz"
+                          settings.weightUnit as "kg" | "lb_oz",
+                          locale
                         )
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge value={doe.status} />
+                    <StatusBadge value={doe.status} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={doe.doeState} />
+                    <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                 </TableRow>
               ))}

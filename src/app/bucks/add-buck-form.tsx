@@ -8,6 +8,9 @@ import { SubmitButton } from "@/components/submit-button";
 import { TextField, SelectField, type Option } from "@/components/form-fields";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { createBuck, type CreateBuckFormState } from "../rabbits/actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 /**
  * Quick-add form for /bucks: creates a buck straight into the herd with its
@@ -15,7 +18,16 @@ import { createBuck, type CreateBuckFormState } from "../rabbits/actions";
  * "إضافة إلى القطيع" promotion flow. Doesn't navigate away after saving so
  * several bucks can be entered back-to-back.
  */
-export function AddBuckForm({ breedOptions }: { breedOptions: Option[] }) {
+export function AddBuckForm({
+  breedOptions,
+  tCommon,
+  locale = "ar",
+}: {
+  breedOptions: Option[];
+  tCommon: Dictionary["common"];
+  locale?: Locale;
+}) {
+  const t = getClientDictionary(locale).bucks;
   const router = useRouter();
   const [state, formAction] = useActionState<CreateBuckFormState, FormData>(
     createBuck,
@@ -25,7 +37,7 @@ export function AddBuckForm({ breedOptions }: { breedOptions: Option[] }) {
 
   useEffect(() => {
     if (state.ok && state.rabbit) {
-      toast.success(`تمت إضافة الذكر رقم ${state.rabbit.tagId}`);
+      toast.success(t.addedToast(state.rabbit.tagId ?? ""));
       formRef.current?.reset();
       router.refresh();
     }
@@ -37,7 +49,7 @@ export function AddBuckForm({ breedOptions }: { breedOptions: Option[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">إضافة ذكر</CardTitle>
+        <CardTitle className="text-base">{t.addFormTitle}</CardTitle>
       </CardHeader>
       <CardContent>
         <form ref={formRef} action={formAction} className="space-y-4">
@@ -51,18 +63,18 @@ export function AddBuckForm({ breedOptions }: { breedOptions: Option[] }) {
               name="tagId"
               type="text"
               maxLength={10}
-              label="رقم الذكر"
-              placeholder="مثال: 42 أو 5A"
+              label={t.tagLabel}
+              placeholder={t.tagPlaceholder}
               required
               error={e.tagId}
             />
             <SelectField
               name="breed"
-              label="النوع"
+              label={t.breedLabel}
               options={breedOptions}
               includeNone
-              noneLabel="بلا"
-              placeholder="اختر النوع…"
+              noneLabel={tCommon.none}
+              placeholder={tCommon.selectPlaceholder}
               error={e.breed}
             />
             <TextField
@@ -70,12 +82,12 @@ export function AddBuckForm({ breedOptions }: { breedOptions: Option[] }) {
               type="number"
               step="0.001"
               min={0}
-              label="الوزن (كجم)"
-              placeholder="اختياري"
+              label={t.weightLabel}
+              placeholder={t.weightPlaceholder}
               error={e.weightKg}
             />
           </div>
-          <SubmitButton>إضافة الذكر</SubmitButton>
+          <SubmitButton pendingText={tCommon.saving}>{t.submitButton}</SubmitButton>
         </form>
       </CardContent>
     </Card>

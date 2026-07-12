@@ -7,19 +7,23 @@ import { TextField } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { transferKits } from "../breedings/actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
-export function FosterForm() {
+export function FosterForm({ locale = "ar" }: { locale?: Locale }) {
+  const t = getClientDictionary(locale).fostering;
   const [state, formAction] = useActionState(transferKits, EMPTY_FORM_STATE);
   const formRef = useRef<HTMLFormElement>(null);
   const e = state.errors ?? {};
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(state.message ?? "تم تسجيل نقل الرضاعة");
+      toast.success(state.message ?? t.successToast);
       formRef.current?.reset();
     } else if (state.message) {
       toast.error(state.message);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   return (
@@ -29,13 +33,13 @@ export function FosterForm() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <TextField
               name="fromTagId"
-              label="من (رقم الأم المنقول منها)"
+              label={t.fromLabel}
               required
               error={e.fromTagId}
             />
             <TextField
               name="toTagId"
-              label="إلى (رقم الأم المنقول إليها)"
+              label={t.toLabel}
               required
               error={e.toTagId}
             />
@@ -44,12 +48,12 @@ export function FosterForm() {
               type="number"
               min={1}
               step={1}
-              label="العدد"
+              label={t.countLabel}
               required
               error={e.count}
             />
           </div>
-          <SubmitButton>حفظ</SubmitButton>
+          <SubmitButton>{t.submitButton}</SubmitButton>
         </form>
       </CardContent>
     </Card>

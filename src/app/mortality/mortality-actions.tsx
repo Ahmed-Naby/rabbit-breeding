@@ -5,9 +5,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { recordNursingKitDeath } from "../breedings/actions";
 import { setRabbitStatus } from "../rabbits/actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 /** "+1 نافق" on a nursing doe's current litter — moves one kit from "حي" to "نافق". */
-export function NursingKitDeathButton({ breedingId }: { breedingId: string }) {
+export function NursingKitDeathButton({
+  breedingId,
+  locale,
+}: {
+  breedingId: string;
+  locale: Locale;
+}) {
+  const t = getClientDictionary(locale).mortality;
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -16,19 +25,19 @@ export function NursingKitDeathButton({ breedingId }: { breedingId: string }) {
       disabled={pending}
       className="h-7 px-2 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
       onClick={() => {
-        const confirmed = window.confirm("هل تريد تسجيل وفاة رضيع عند هذه الأم؟");
+        const confirmed = window.confirm(t.nursingKitDeathConfirm);
         if (!confirmed) return;
         startTransition(async () => {
           const result = await recordNursingKitDeath(breedingId);
           if (!result.ok) {
-            toast.error(result.message ?? "تعذر تسجيل الوفاة");
+            toast.error(result.message ?? t.recordDeathFailedFallback);
             return;
           }
-          toast.success("تم تسجيل وفاة الرضيع");
+          toast.success(t.kitDeathToast);
         });
       }}
     >
-      +1 نافق
+      {t.plusOneDeceasedButton}
     </Button>
   );
 }
@@ -42,10 +51,13 @@ export function NursingKitDeathButton({ breedingId }: { breedingId: string }) {
 export function MarkDeceasedButton({
   id,
   confirmText,
+  locale,
 }: {
   id: string;
   confirmText: string;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).mortality;
   const [pending, startTransition] = useTransition();
   return (
     <Button
@@ -58,11 +70,11 @@ export function MarkDeceasedButton({
         if (!confirmed) return;
         startTransition(async () => {
           await setRabbitStatus(id, "deceased");
-          toast.success("تم تسجيل النافق");
+          toast.success(t.deceasedToast);
         });
       }}
     >
-      تسجيل نافق
+      {t.recordDeceasedButton}
     </Button>
   );
 }

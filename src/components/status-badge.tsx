@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { label } from "@/lib/enums";
+import type { Locale } from "@/lib/i18n/locales";
 
 // Color mapping for the various enum-like values. Uses Tailwind color utilities
 // directly (works in both light/dark) rather than relying only on badge variants.
@@ -31,16 +32,18 @@ const COLORS: Record<string, string> = {
 export function StatusBadge({
   value,
   className,
+  locale = "ar",
 }: {
   value: string;
   className?: string;
+  locale?: Locale;
 }) {
   return (
     <Badge
       variant="secondary"
       className={cn("border-transparent font-medium", COLORS[value], className)}
     >
-      {label(value)}
+      {label(value, locale)}
     </Badge>
   );
 }

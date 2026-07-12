@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 /** yyyy-MM-dd key for matching by calendar day, TZ-agnostic since dates are stored at UTC midnight. */
 function dayKey(date: Date) {
@@ -43,6 +45,8 @@ export function BreedingHistoryPanel({
   kindlings,
   litters,
   ongoing,
+  t,
+  locale,
 }: {
   pregnancyTests: {
     matingDate: Date;
@@ -63,6 +67,8 @@ export function BreedingHistoryPanel({
     weaned: number | null;
   }[];
   ongoing: { matingDate: Date | null; buck: { tagId: string | null } | null }[];
+  t: Dictionary["rabbits"];
+  locale: Locale;
 }) {
   const cycles = new Map<string, Cycle>();
 
@@ -141,8 +147,8 @@ export function BreedingHistoryPanel({
     return (
       <EmptyState
         icon={History}
-        title="لا يوجد سجل تزاوج بعد"
-        description="أي عملية تلقيح لهذه الأم هتظهر هنا مع كل مراحلها: الجس والولادة والفطام."
+        title={t.historyEmptyTitle}
+        description={t.doeHistoryEmptyDescription}
       />
     );
   }
@@ -152,16 +158,16 @@ export function BreedingHistoryPanel({
       <Table>
         <TableHeader>
           <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">م</TableHead>
-            <TableHead className="text-center">تاريخ التلقيح</TableHead>
-            <TableHead className="text-center">رقم الذكر</TableHead>
-            <TableHead className="text-center">تاريخ الجس</TableHead>
-            <TableHead className="text-center">نتيجة الجس</TableHead>
-            <TableHead className="text-center">تاريخ الولادة</TableHead>
-            <TableHead className="text-center">أحياء</TableHead>
-            <TableHead className="text-center">نافق</TableHead>
-            <TableHead className="text-center">تاريخ الفطام</TableHead>
-            <TableHead className="text-center">عدد الفطام</TableHead>
+            <TableHead className="text-center">{t.colIndex}</TableHead>
+            <TableHead className="text-center">{t.colMatingDate}</TableHead>
+            <TableHead className="text-center">{t.colBuckTag}</TableHead>
+            <TableHead className="text-center">{t.colTestDate}</TableHead>
+            <TableHead className="text-center">{t.colTestResult}</TableHead>
+            <TableHead className="text-center">{t.colKindlingDate}</TableHead>
+            <TableHead className="text-center">{t.colBornAlive}</TableHead>
+            <TableHead className="text-center">{t.colBornDead}</TableHead>
+            <TableHead className="text-center">{t.colWeaningDate}</TableHead>
+            <TableHead className="text-center">{t.colWeanedCount}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -172,18 +178,18 @@ export function BreedingHistoryPanel({
             >
               <TableCell className="text-muted-foreground">{i + 1}</TableCell>
               <TableCell>
-                <LocalDate date={c.matingDate} />
+                <LocalDate date={c.matingDate} locale={locale} />
               </TableCell>
               <TableCell>{c.buckTagId ?? "—"}</TableCell>
-              <TableCell>{c.testDate ? <LocalDate date={c.testDate} /> : "—"}</TableCell>
-              <TableCell>{c.testResult ? label(c.testResult) : "—"}</TableCell>
+              <TableCell>{c.testDate ? <LocalDate date={c.testDate} locale={locale} /> : "—"}</TableCell>
+              <TableCell>{c.testResult ? label(c.testResult, locale) : "—"}</TableCell>
               <TableCell>
-                {c.kindlingDate ? <LocalDate date={c.kindlingDate} /> : "—"}
+                {c.kindlingDate ? <LocalDate date={c.kindlingDate} locale={locale} /> : "—"}
               </TableCell>
               <TableCell>{c.bornAlive ?? "—"}</TableCell>
               <TableCell>{c.bornDead ?? "—"}</TableCell>
               <TableCell>
-                {c.weaningDate ? <LocalDate date={c.weaningDate} /> : "—"}
+                {c.weaningDate ? <LocalDate date={c.weaningDate} locale={locale} /> : "—"}
               </TableCell>
               <TableCell>{c.weaned ?? "—"}</TableCell>
             </TableRow>

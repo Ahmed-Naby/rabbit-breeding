@@ -1,18 +1,14 @@
 import "server-only";
 import { prisma } from "./prisma";
+import type { Settings as SettingsRow } from "@/generated/prisma/client";
 import type { WeightUnit } from "./enums";
 
-export type AppSettings = {
-  id: number;
+// Derived from the Prisma model instead of hand-listed: a new scalar column
+// added to schema.prisma flows through to AppSettings automatically, so this
+// file only needs touching when a field's *type* narrows (like weightUnit
+// below), not for every new setting.
+export type AppSettings = Omit<SettingsRow, "createdAt" | "updatedAt" | "weightUnit"> & {
   weightUnit: WeightUnit;
-  gestationDays: number;
-  gestationWindowDays: number;
-  pregnancyTestDays: number;
-  weaningDays: number;
-  nestBoxDays: number;
-  matingWeightGrams: number;
-  rebreedAfterKindlingDays: number;
-  currency: string;
 };
 
 /**
@@ -21,18 +17,7 @@ export type AppSettings = {
  */
 export async function getSettings(): Promise<AppSettings> {
   const existing = await prisma.settings.findUnique({ where: { id: 1 } });
-  const row =
+  const { createdAt: _createdAt, updatedAt: _updatedAt, ...row } =
     existing ?? (await prisma.settings.create({ data: { id: 1 } }));
-  return {
-    id: row.id,
-    weightUnit: row.weightUnit as WeightUnit,
-    gestationDays: row.gestationDays,
-    gestationWindowDays: row.gestationWindowDays,
-    pregnancyTestDays: row.pregnancyTestDays,
-    weaningDays: row.weaningDays,
-    nestBoxDays: row.nestBoxDays,
-    matingWeightGrams: row.matingWeightGrams,
-    rebreedAfterKindlingDays: row.rebreedAfterKindlingDays,
-    currency: row.currency,
-  };
+  return { ...row, weightUnit: row.weightUnit as WeightUnit };
 }

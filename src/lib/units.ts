@@ -1,4 +1,5 @@
 import type { WeightUnit } from "./enums";
+import type { Locale } from "./i18n/locales";
 
 // --- Weight ---------------------------------------------------------------
 // Canonical storage is integer grams. These helpers convert to/from the two
@@ -34,14 +35,20 @@ export function gramsToLbOz(grams: number): { lb: number; oz: number } {
   return { lb, oz: Math.round(oz * 10) / 10 };
 }
 
+const WEIGHT_UNIT_WORDS: Record<Locale, { kg: string; lb: string; oz: string }> = {
+  ar: { kg: "كجم", lb: "رطل", oz: "أونصة" },
+  en: { kg: "kg", lb: "lb", oz: "oz" },
+};
+
 /** Format grams for display in the user's preferred unit. */
-export function formatWeight(grams: number, unit: WeightUnit): string {
+export function formatWeight(grams: number, unit: WeightUnit, locale: Locale = "ar"): string {
+  const words = WEIGHT_UNIT_WORDS[locale];
   if (unit === "kg") {
-    return `${(grams / GRAMS_PER_KG).toFixed(3).replace(/\.?0+$/, "")} كجم`;
+    return `${(grams / GRAMS_PER_KG).toFixed(3).replace(/\.?0+$/, "")} ${words.kg}`;
   }
   const { lb, oz } = gramsToLbOz(grams);
-  if (lb === 0) return `${oz} أونصة`;
-  return `${lb} رطل ${oz} أونصة`;
+  if (lb === 0) return `${oz} ${words.oz}`;
+  return `${lb} ${words.lb} ${oz} ${words.oz}`;
 }
 
 // --- Money ----------------------------------------------------------------

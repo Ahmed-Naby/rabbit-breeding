@@ -14,8 +14,12 @@ import { LocalDate } from "@/components/local-date";
 import { rebreedDueDate, daysUntil } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, MateCell } from "../does/doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "عمليات التلقيح · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.mating.title} · RabbitTrack` };
+}
 
 export default async function MatingPage() {
   // Same eligibility rule as the "تلقيح" button on /does (canMate): فاضية،
@@ -30,7 +34,7 @@ export default async function MatingPage() {
   // from the "ready now" board above. Reads straight off Breeding (not
   // per-doe latest-only like the board above) so a doe rebred more than
   // once still shows each mating as its own log line.
-  const [doesRaw, matingLog, settings] = await Promise.all([
+  const [doesRaw, matingLog, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -66,6 +70,7 @@ export default async function MatingPage() {
       },
     }),
     getSettings(),
+    getDictionary(),
   ]);
 
   // For plain "nursing" (not nursing_bred/nursing_pregnant — already excluded
@@ -83,26 +88,26 @@ export default async function MatingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="عمليات التلقيح"
-        description={`${does.length} أم جاهزة للتلقيح الآن.`}
+        title={t.mating.title}
+        description={t.mating.description(does.length)}
       />
 
       {does.length === 0 ? (
         <EmptyState
           icon={HeartHandshake}
-          title="لا توجد أمهات جاهزة للتلقيح حاليًا"
-          description="كل الأمهات إما ملقحة أو عشار أو مرضعة، هتظهر هنا تاني أول ما تدخل دورة جديدة."
+          title={t.mating.emptyTitle}
+          description={t.mating.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم الأم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">حالة الأم</TableHead>
-                <TableHead className="text-center">تلقيح</TableHead>
+                <TableHead className="text-center">{t.mating.colIndex}</TableHead>
+                <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
+                <TableHead className="text-center">{t.mating.colBreed}</TableHead>
+                <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
+                <TableHead className="text-center">{t.mating.colMate}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,7 +123,7 @@ export default async function MatingPage() {
                     </TableCell>
                     <TableCell>{doe.breed ?? "—"}</TableCell>
                     <TableCell>
-                      <DoeStateBadge current={doe.doeState} />
+                      <DoeStateBadge current={doe.doeState} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <MateCell
@@ -126,6 +131,7 @@ export default async function MatingPage() {
                         doeId={doe.id}
                         canMate
                         buckTagId={b?.buck?.tagId ?? null}
+                        locale={locale}
                       />
                     </TableCell>
                   </TableRow>
@@ -137,24 +143,24 @@ export default async function MatingPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">سجل التلقيح</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.mating.logHeading}</h2>
         {matingLog.length === 0 ? (
           <EmptyState
             icon={HeartHandshake}
-            title="لا يوجد تلقيح مسجل بعد"
-            description="أي أم يتم تلقيحها هتظهر هنا مع تاريخ التلقيح."
+            title={t.mating.logEmptyTitle}
+            description={t.mating.logEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                  <TableHead className="text-center">حالة الأم</TableHead>
+                  <TableHead className="text-center">{t.mating.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.mating.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mating.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.mating.colMatingDate}</TableHead>
+                  <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -169,10 +175,10 @@ export default async function MatingPage() {
                     <TableCell>{row.doe.breed ?? "—"}</TableCell>
                     <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={row.matingDate} />
+                      <LocalDate date={row.matingDate} locale={locale} />
                     </TableCell>
                     <TableCell>
-                      <DoeStateBadge current={row.doe.doeState} />
+                      <DoeStateBadge current={row.doe.doeState} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}

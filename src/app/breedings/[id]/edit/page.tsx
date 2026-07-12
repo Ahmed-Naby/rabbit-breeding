@@ -8,6 +8,7 @@ import { updateBreeding } from "../../actions";
 import { getBreedingStock } from "../../data";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export const metadata = { title: "Edit mating · RabbitTrack" };
 
@@ -17,10 +18,11 @@ export default async function EditBreedingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [breeding, { buckOptions, doeOptions }, settings] = await Promise.all([
+  const [breeding, { buckOptions, doeOptions }, settings, { locale, t }] = await Promise.all([
     prisma.breeding.findUnique({ where: { id } }),
     getBreedingStock(),
     getSettings(),
+    getDictionary(),
   ]);
   if (!breeding) notFound();
 
@@ -30,17 +32,18 @@ export default async function EditBreedingPage({
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild className="-ms-2 w-fit">
         <Link href={`/breedings/${id}`}>
-          <ArrowLeft className="size-4 rtl:rotate-180" /> العودة إلى التلقيح
+          <ArrowLeft className="size-4 rtl:rotate-180" /> {t.breedings.editPageBack}
         </Link>
       </Button>
-      <PageHeader title="تعديل التلقيح" />
+      <PageHeader title={t.breedings.editPageTitle} />
       <BreedingForm
         action={updateWithId}
         breeding={breeding}
         buckOptions={buckOptions}
         doeOptions={doeOptions}
         gestationDays={settings.gestationDays}
-        submitLabel="حفظ التغييرات"
+        submitLabel={t.breedings.saveChangesButton}
+        locale={locale}
       />
     </div>
   );

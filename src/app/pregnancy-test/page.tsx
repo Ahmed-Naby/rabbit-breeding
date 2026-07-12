@@ -15,8 +15,12 @@ import { pregnancyTestDate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../does/doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "عمليات الجس · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.pregnancyTest.title} · RabbitTrack` };
+}
 
 const RESULT_CLS: Record<string, string> = {
   positive:
@@ -25,17 +29,12 @@ const RESULT_CLS: Record<string, string> = {
     "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
-const RESULT_LABEL: Record<string, string> = {
-  positive: "موجب",
-  negative: "سالب",
-};
-
 export default async function PregnancyTestPage() {
   // Same eligibility rule as "عشار"/"سالبة" on /does (canTestPregnancy): مُلقّحة
   // ولسه منتظرة نتيجة الجس. Extra filter here (not on /does): مدة انتظار الجس
   // المسجلة بالإعدادات لازم تكون عدّت من تاريخ التلقيح — أم اتلقحت من يومين
   // مثلًا لسه بدري عليها، فمش هتظهر هنا لحد ما الميعاد يجيله.
-  const [candidates, settings, testLog] = await Promise.all([
+  const [candidates, settings, testLog, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -71,6 +70,7 @@ export default async function PregnancyTestPage() {
         buck: { select: { tagId: true } },
       },
     }),
+    getDictionary(),
   ]);
 
   const today = new Date();
@@ -87,29 +87,29 @@ export default async function PregnancyTestPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="عمليات الجس"
-        description={`${does.length} أم حان موعد جسها (بعد ${settings.pregnancyTestDays} أيام من التلقيح).`}
+        title={t.pregnancyTest.title}
+        description={t.pregnancyTest.description(does.length, settings.pregnancyTestDays)}
       />
 
       {does.length === 0 ? (
         <EmptyState
           icon={Microscope}
-          title="لا توجد أمهات حان موعد جسها حاليًا"
-          description="الأمهات اللي اتلقحت هتظهر هنا أول ما تعدي مدة انتظار الجس المسجلة بالإعدادات."
+          title={t.pregnancyTest.emptyTitle}
+          description={t.pregnancyTest.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم الأم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">رقم الذكر</TableHead>
-                <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                <TableHead className="text-center">تاريخ الجس</TableHead>
-                <TableHead className="text-center">حالة الأم</TableHead>
-                <TableHead className="text-center">نتيجة الجس</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colBreed}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colTestDate}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colDoeState}</TableHead>
+                <TableHead className="text-center">{t.pregnancyTest.colTestResult}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -124,28 +124,30 @@ export default async function PregnancyTestPage() {
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={b.matingDate} />
+                    <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <LocalDate date={testDate} />
+                    <LocalDate date={testDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={doe.doeState} />
+                    <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap justify-center gap-1.5">
                       <DoeActionButton
                         id={doe.id}
                         breedingId={b.id}
-                        text="عشار"
+                        text={t.pregnancyTest.pregnantButton}
                         target={doe.doeState === "nursing_bred" ? "nursing_pregnant" : "pregnant"}
                         className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                        locale={locale}
                       />
                       <MatingFailedButton
                         breedingId={b.id}
                         doeId={doe.id}
-                        text="سالبة"
+                        text={t.pregnancyTest.negativeButton}
                         className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                        locale={locale}
                       />
                     </div>
                   </TableCell>
@@ -157,25 +159,25 @@ export default async function PregnancyTestPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">سجل الجس</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.pregnancyTest.logHeading}</h2>
         {testLog.length === 0 ? (
           <EmptyState
             icon={Microscope}
-            title="لا يوجد جس مسجل بعد"
-            description="أي أم يتم جسها (موجب أو سالب) هتظهر هنا مع تاريخ التلقيح والجس والنتيجة."
+            title={t.pregnancyTest.logEmptyTitle}
+            description={t.pregnancyTest.logEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                  <TableHead className="text-center">تاريخ الجس</TableHead>
-                  <TableHead className="text-center">نتيجة الجس</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colTestDate}</TableHead>
+                  <TableHead className="text-center">{t.pregnancyTest.colTestResult}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -190,10 +192,10 @@ export default async function PregnancyTestPage() {
                     <TableCell>{row.doe.breed ?? "—"}</TableCell>
                     <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={row.matingDate} />
+                      <LocalDate date={row.matingDate} locale={locale} />
                     </TableCell>
                     <TableCell>
-                      <LocalDate date={row.testDate} />
+                      <LocalDate date={row.testDate} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <span
@@ -202,7 +204,11 @@ export default async function PregnancyTestPage() {
                           RESULT_CLS[row.result]
                         )}
                       >
-                        {RESULT_LABEL[row.result] ?? row.result}
+                        {row.result === "positive"
+                          ? t.pregnancyTest.resultPositive
+                          : row.result === "negative"
+                            ? t.pregnancyTest.resultNegative
+                            : row.result}
                       </span>
                     </TableCell>
                   </TableRow>

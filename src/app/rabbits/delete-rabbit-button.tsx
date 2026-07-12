@@ -6,8 +6,9 @@ import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { deleteRabbit } from "./actions";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
-export function DeleteRabbitButton({ id }: { id: string }) {
+export function DeleteRabbitButton({ id, t }: { id: string; t: Dictionary["stock"] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
@@ -20,10 +21,10 @@ export function DeleteRabbitButton({ id }: { id: string }) {
         start(async () => {
           const result = await deleteRabbit(id);
           if (result.ok) {
-            toast.success("تم حذف السلالة");
+            toast.success(t.deletedToast);
             router.refresh();
           } else {
-            toast.error(result.message ?? "تعذر حذف السلالة");
+            toast.error(result.message ?? t.deleteFailedFallback);
           }
         })
       }

@@ -17,13 +17,17 @@ import { getSettings } from "@/lib/settings";
 import { getBreedOptions } from "@/lib/breeds";
 import { AddBuckForm } from "./add-buck-form";
 import { PendingBucksTable, type PendingBuckRow } from "./pending-bucks-table";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "الذكور · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.bucks.title} · RabbitTrack` };
+}
 
 export default async function BucksPage() {
   // Every buck promoted to the herd (has a tagId) — a plain reference table,
   // mirrors /mothers for the buck side of the herd.
-  const [bucks, pendingBucksRaw, settings, breedOptions] = await Promise.all([
+  const [bucks, pendingBucksRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "buck", tagId: { not: null }, status: { not: "deceased" } },
       orderBy: { tagId: "asc" },
@@ -53,6 +57,7 @@ export default async function BucksPage() {
     }),
     getSettings(),
     getBreedOptions(),
+    getDictionary(),
   ]);
   const pendingBucks: PendingBuckRow[] = pendingBucksRaw.map((r) => ({
     id: r.id,
@@ -63,34 +68,34 @@ export default async function BucksPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="الذكور" description={`${bucks.length} ذكر في القطيع`} />
+      <PageHeader title={t.bucks.title} description={t.bucks.description(bucks.length)} />
 
-      <AddBuckForm breedOptions={breedOptions} />
+      <AddBuckForm breedOptions={breedOptions} tCommon={t.common} locale={locale} />
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          سلالات في انتظار رقم الذكر ({pendingBucks.length})
+          {t.bucks.pendingHeading(pendingBucks.length)}
         </h2>
-        <PendingBucksTable rows={pendingBucks} />
+        <PendingBucksTable rows={pendingBucks} locale={locale} />
       </div>
 
       {bucks.length === 0 ? (
         <EmptyState
           icon={RabbitIcon}
-          title="لا يوجد ذكور في القطيع بعد"
-          description="سجّل سلالة ذكر من صفحة السلالات، وبعد ما تاخد رقم قفص هتظهر في القسم اللي فوق عشان تحدد رقم الذكر وتضيفه هنا فعليًا."
+          title={t.bucks.emptyTitle}
+          description={t.bucks.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">تاريخ الإضافة إلى القطيع</TableHead>
-                <TableHead className="text-center">الوزن</TableHead>
-                <TableHead className="text-center">الحالة</TableHead>
+                <TableHead className="text-center">{t.bucks.colIndex}</TableHead>
+                <TableHead className="text-center">{t.bucks.colTag}</TableHead>
+                <TableHead className="text-center">{t.bucks.colBreed}</TableHead>
+                <TableHead className="text-center">{t.bucks.colAddedDate}</TableHead>
+                <TableHead className="text-center">{t.bucks.colWeight}</TableHead>
+                <TableHead className="text-center">{t.bucks.colStatus}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -104,18 +109,19 @@ export default async function BucksPage() {
                   </TableCell>
                   <TableCell>{buck.breed ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={buck.acquiredDate} />
+                    <LocalDate date={buck.acquiredDate} locale={locale} />
                   </TableCell>
                   <TableCell>
                     {buck.weightRecords[0]
                       ? formatWeight(
                           buck.weightRecords[0].weightGrams,
-                          settings.weightUnit as "kg" | "lb_oz"
+                          settings.weightUnit as "kg" | "lb_oz",
+                          locale
                         )
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge value={buck.status} />
+                    <StatusBadge value={buck.status} locale={locale} />
                   </TableCell>
                 </TableRow>
               ))}

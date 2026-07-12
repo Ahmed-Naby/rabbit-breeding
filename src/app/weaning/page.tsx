@@ -14,15 +14,19 @@ import { LocalDate } from "@/components/local-date";
 import { weaningDueDate, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, WeanButton, LitterCountInput } from "../does/doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "عمليات الفطام · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.weaning.title} · RabbitTrack` };
+}
 
 export default async function WeaningPage() {
   // Only doeStates that can carry an unweaned litter (see does/page.tsx's
   // weanActive logic). "مرضعة و ملقحة/عشار" rebred while still nursing, so
   // her latest breeding row is the new cycle (no litter yet) — the ongoing,
   // not-yet-weaned litter still lives on the *previous* row, hence take: 2.
-  const [candidates, settings, weanedLitters] = await Promise.all([
+  const [candidates, settings, weanedLitters, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -69,6 +73,7 @@ export default async function WeaningPage() {
         },
       },
     }),
+    getDictionary(),
   ]);
 
   const today = new Date();
@@ -88,31 +93,31 @@ export default async function WeaningPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="عمليات الفطام"
-        description={`${does.length} أم حان موعد فطامها (بعد ${settings.weaningDays} يومًا من الولادة).`}
+        title={t.weaning.title}
+        description={t.weaning.description(does.length, settings.weaningDays)}
       />
 
       {does.length === 0 ? (
         <EmptyState
           icon={Milk}
-          title="لا توجد أمهات حان موعد فطامها حاليًا"
-          description="الأمهات المرضعة هتظهر هنا أول ما تعدي مدة انتظار الفطام المسجلة بالإعدادات."
+          title={t.weaning.emptyTitle}
+          description={t.weaning.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم الأم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">رقم الذكر</TableHead>
-                <TableHead className="text-center">تاريخ الولادة</TableHead>
-                <TableHead className="text-center">تاريخ الفطام المتوقع</TableHead>
-                <TableHead className="text-center">حالة الأم</TableHead>
-                <TableHead className="text-center">أحياء</TableHead>
-                <TableHead className="text-center">نافق</TableHead>
-                <TableHead className="text-center">فطام</TableHead>
+                <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
+                <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
+                <TableHead className="text-center">{t.weaning.colBreed}</TableHead>
+                <TableHead className="text-center">{t.weaning.colBuckTag}</TableHead>
+                <TableHead className="text-center">{t.weaning.colKindlingDate}</TableHead>
+                <TableHead className="text-center">{t.weaning.colExpectedWeaningDate}</TableHead>
+                <TableHead className="text-center">{t.weaning.colDoeState}</TableHead>
+                <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
+                <TableHead className="text-center">{t.weaning.colDead}</TableHead>
+                <TableHead className="text-center">{t.weaning.colWean}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,13 +132,13 @@ export default async function WeaningPage() {
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>{litterRow.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={litterRow.actualKindlingDate} />
+                    <LocalDate date={litterRow.actualKindlingDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <LocalDate date={dueDate} />
+                    <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={doe.doeState} />
+                    <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>{litterRow.litter?.bornAlive ?? "—"}</TableCell>
                   <TableCell>{litterRow.litter?.bornDead ?? "—"}</TableCell>
@@ -141,9 +146,10 @@ export default async function WeaningPage() {
                     <WeanButton
                       breedingId={litterRow.id}
                       doeId={doe.id}
-                      text="فطام"
+                      text={t.weaning.weanButton}
                       active
                       weaned={false}
+                      locale={locale}
                     />
                   </TableCell>
                 </TableRow>
@@ -154,28 +160,28 @@ export default async function WeaningPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">سجل الفطام</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.weaning.logHeading}</h2>
         {weanedLitters.length === 0 ? (
           <EmptyState
             icon={Milk}
-            title="لا توجد فطامات مسجلة بعد"
-            description="أي أم يتم تسجيل فطامها هتظهر هنا عشان تدخل عدد الفطام."
+            title={t.weaning.logEmptyTitle}
+            description={t.weaning.logEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">تاريخ الولادة</TableHead>
-                  <TableHead className="text-center">تاريخ الفطام</TableHead>
-                  <TableHead className="text-center">أحياء</TableHead>
-                  <TableHead className="text-center">نافق</TableHead>
-                  <TableHead className="text-center">عدد الفطام</TableHead>
-                  <TableHead className="text-center">نسبة البقاء</TableHead>
+                  <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colKindlingDate}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colWeaningDate}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colDead}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colWeanedCount}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colSurvivalRate}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -192,10 +198,10 @@ export default async function WeaningPage() {
                       <TableCell>{l.breeding.doe.breed ?? "—"}</TableCell>
                       <TableCell>{l.breeding.buck?.tagId ?? "—"}</TableCell>
                       <TableCell>
-                        <LocalDate date={l.kindlingDate} />
+                        <LocalDate date={l.kindlingDate} locale={locale} />
                       </TableCell>
                       <TableCell>
-                        <LocalDate date={l.weaningDate} />
+                        <LocalDate date={l.weaningDate} locale={locale} />
                       </TableCell>
                       <TableCell>{l.bornAlive}</TableCell>
                       <TableCell>{l.bornDead || "—"}</TableCell>
@@ -204,6 +210,7 @@ export default async function WeaningPage() {
                           breedingId={l.breedingId}
                           field="weaned"
                           value={l.weaned}
+                          locale={locale}
                         />
                       </TableCell>
                       <TableCell>

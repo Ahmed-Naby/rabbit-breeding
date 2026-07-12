@@ -12,8 +12,12 @@ import { cn, compareTagId } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { TransactionForm } from "./transaction-form";
 import { DeleteTransactionButton } from "./delete-button";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Finance · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.finance.title} · RabbitTrack` };
+}
 
 type Range = "month" | "year" | "all";
 
@@ -23,12 +27,6 @@ function rangeStart(range: Range): Date | null {
   if (range === "year") return new Date(now.getFullYear(), 0, 1);
   return null;
 }
-
-const RANGES: { key: Range; label: string }[] = [
-  { key: "month", label: "هذا الشهر" },
-  { key: "year", label: "هذه السنة" },
-  { key: "all", label: "كل الوقت" },
-];
 
 export default async function FinancePage({
   searchParams,
@@ -44,14 +42,21 @@ export default async function FinancePage({
     ? { date: { gte: start } }
     : {};
 
-  const [transactions, settings] = await Promise.all([
+  const [transactions, settings, { locale, t }] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: { rabbit: { select: { id: true, tagId: true } } },
       orderBy: { date: "desc" },
     }),
     getSettings(),
+    getDictionary(),
   ]);
+
+  const RANGES: { key: Range; label: string }[] = [
+    { key: "month", label: t.finance.rangeMonth },
+    { key: "year", label: t.finance.rangeYear },
+    { key: "all", label: t.finance.rangeAll },
+  ];
 
   const rabbitList = await prisma.rabbit.findMany({
     select: { id: true, tagId: true, breed: true },
@@ -59,7 +64,7 @@ export default async function FinancePage({
   rabbitList.sort((a, b) => compareTagId(a.tagId, b.tagId));
   const rabbitOptions = rabbitList.map((r) => ({
     value: r.id,
-    label: r.tagId ?? `سلالة${r.breed ? ` (${r.breed})` : ""}`,
+    label: r.tagId ?? `${t.dashboard.stockFallback}${r.breed ? ` (${r.breed})` : ""}`,
   }));
 
   const income = transactions
@@ -72,10 +77,7 @@ export default async function FinancePage({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="المالية"
-        description="الإيرادات والمصروفات والربح / الخسارة."
-      />
+      <PageHeader title={t.finance.title} description={t.finance.description} />
 
       <div className="flex gap-2">
         {RANGES.map((r) => (
@@ -96,72 +98,77 @@ export default async function FinancePage({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
-          label="الإيرادات"
+          label={t.finance.incomeLabel}
           value={formatMoney(income, settings.currency)}
           icon={TrendingUp}
           tone="income"
         />
         <SummaryCard
-          label="المصروفات"
+          label={t.finance.expenseLabel}
           value={formatMoney(expense, settings.currency)}
           icon={TrendingDown}
           tone="expense"
         />
         <SummaryCard
-          label="صافي الربح / الخسارة"
+          label={t.finance.netLabel}
           value={formatMoney(net, settings.currency)}
           icon={Scale}
           tone={net >= 0 ? "income" : "expense"}
         />
       </div>
 
-      <TransactionForm rabbitOptions={rabbitOptions} currency={settings.currency} />
+      <TransactionForm
+        rabbitOptions={rabbitOptions}
+        currency={settings.currency}
+        tCommon={t.common}
+        locale={locale}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">المعاملات</CardTitle>
+          <CardTitle className="text-base">{t.finance.transactionsTitle}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {transactions.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={Wallet}
-                title="لا توجد معاملات في هذا النطاق"
-                description="أضف إيرادات أو مصروفات باستخدام النموذج أعلاه."
+                title={t.finance.emptyTitle}
+                description={t.finance.emptyDescription}
               />
             </div>
           ) : (
             <div className="divide-y">
-              {transactions.map((t) => (
+              {transactions.map((tx) => (
                 <div
-                  key={t.id}
+                  key={tx.id}
                   className="flex items-center justify-between gap-4 px-6 py-3 text-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <StatusBadge value={t.type} />
+                    <StatusBadge value={tx.type} locale={locale} />
                     <div>
                       <p className="font-medium">
-                        {label(t.category)}
-                        {t.notes ? (
+                        {label(tx.category, locale)}
+                        {tx.notes ? (
                           <span className="ms-2 font-normal text-muted-foreground">
-                            {t.notes}
+                            {tx.notes}
                           </span>
                         ) : null}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        <LocalDate date={t.date} />
-                        {t.rabbit ? (
+                        <LocalDate date={tx.date} locale={locale} />
+                        {tx.rabbit ? (
                           <>
                             {" · "}
                             <Link
-                              href={`/rabbits/${t.rabbit.id}`}
+                              href={`/rabbits/${tx.rabbit.id}`}
                               className="hover:underline"
                             >
-                              {t.rabbit.tagId ?? "سلالة"}
+                              {tx.rabbit.tagId ?? t.dashboard.stockFallback}
                             </Link>
                           </>
                         ) : (
-                          " · على مستوى المزرعة"
+                          t.finance.farmWideSuffix
                         )}
                       </p>
                     </div>
@@ -170,15 +177,15 @@ export default async function FinancePage({
                     <span
                       className={cn(
                         "font-medium tabular-nums",
-                        t.type === "income"
+                        tx.type === "income"
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-red-600 dark:text-red-400"
                       )}
                     >
-                      {t.type === "income" ? "+" : "−"}
-                      {formatMoney(t.amountCents, settings.currency)}
+                      {tx.type === "income" ? "+" : "−"}
+                      {formatMoney(tx.amountCents, settings.currency)}
                     </span>
-                    <DeleteTransactionButton id={t.id} />
+                    <DeleteTransactionButton id={tx.id} locale={locale} />
                   </div>
                 </div>
               ))}

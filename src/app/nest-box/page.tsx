@@ -14,15 +14,19 @@ import { LocalDate } from "@/components/local-date";
 import { nestBoxDueDate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, InstallNestBoxButton } from "../does/doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "تركيب بيوت الولادة · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.nestBox.title} · RabbitTrack` };
+}
 
 export default async function NestBoxPage() {
   // Any doe still mid-cycle (mated, kindling not yet recorded) is a nest-box
   // candidate once the configured offset from her mating date has passed —
   // "nursing" is excluded since that means this row's kindling already
   // happened, so the box's window for this cycle is over.
-  const [candidates, settings, installedLog] = await Promise.all([
+  const [candidates, settings, installedLog, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -64,6 +68,7 @@ export default async function NestBoxPage() {
         buck: { select: { tagId: true } },
       },
     }),
+    getDictionary(),
   ]);
 
   const today = new Date();
@@ -80,29 +85,29 @@ export default async function NestBoxPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="تركيب بيوت الولادة"
-        description={`${does.length} أم حان موعد تركيب بيت الولادة لها (بعد ${settings.nestBoxDays} يومًا من التلقيح).`}
+        title={t.nestBox.title}
+        description={t.nestBox.description(does.length, settings.nestBoxDays)}
       />
 
       {does.length === 0 ? (
         <EmptyState
           icon={Box}
-          title="لا توجد أمهات محتاجة تركيب بيت ولادة حاليًا"
-          description="الأمهات العشار هتظهر هنا أول ما تعدي مدة انتظار تركيب البيت المسجلة بالإعدادات."
+          title={t.nestBox.emptyTitle}
+          description={t.nestBox.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">م</TableHead>
-                <TableHead className="text-center">رقم الأم</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">رقم الذكر</TableHead>
-                <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                <TableHead className="text-center">تاريخ تركيب البيت المتوقع</TableHead>
-                <TableHead className="text-center">حالة الأم</TableHead>
-                <TableHead className="text-center">تركيب بيت الولادة</TableHead>
+                <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colBreed}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colBuckTag}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colExpectedInstallDate}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colDoeState}</TableHead>
+                <TableHead className="text-center">{t.nestBox.colInstall}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -117,16 +122,16 @@ export default async function NestBoxPage() {
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
-                    <LocalDate date={b.matingDate} />
+                    <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <LocalDate date={dueDate} />
+                    <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={doe.doeState} />
+                    <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <InstallNestBoxButton breedingId={b.id} doeId={doe.id} />
+                    <InstallNestBoxButton breedingId={b.id} doeId={doe.id} locale={locale} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -136,25 +141,25 @@ export default async function NestBoxPage() {
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">سجل تركيب بيوت الولادة</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.nestBox.logHeading}</h2>
         {installedLog.length === 0 ? (
           <EmptyState
             icon={Box}
-            title="لا يوجد تركيب بيوت ولادة مسجل بعد"
-            description="أي أم يتم تركيب بيت الولادة لها هتظهر هنا مع تاريخ التلقيح والتركيب."
+            title={t.nestBox.logEmptyTitle}
+            description={t.nestBox.logEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">تاريخ التلقيح</TableHead>
-                  <TableHead className="text-center">تاريخ التركيب</TableHead>
-                  <TableHead className="text-center">حالة الأم</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colInstallDate}</TableHead>
+                  <TableHead className="text-center">{t.nestBox.colDoeState}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -169,13 +174,13 @@ export default async function NestBoxPage() {
                     <TableCell>{row.doe.breed ?? "—"}</TableCell>
                     <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={row.matingDate} />
+                      <LocalDate date={row.matingDate} locale={locale} />
                     </TableCell>
                     <TableCell>
-                      <LocalDate date={row.nestBoxDate} />
+                      <LocalDate date={row.nestBoxDate} locale={locale} />
                     </TableCell>
                     <TableCell>
-                      <DoeStateBadge current={row.doe.doeState} />
+                      <DoeStateBadge current={row.doe.doeState} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}

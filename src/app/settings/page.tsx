@@ -3,22 +3,29 @@ import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { SettingsForm } from "./settings-form";
 import { BreedsManager } from "./breeds-manager";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Settings · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.settings.title} · RabbitTrack` };
+}
 
 export default async function SettingsPage() {
-  const [settings, breeds] = await Promise.all([
+  const [settings, breeds, { locale, t }] = await Promise.all([
     getSettings(),
     prisma.breed.findMany({ orderBy: { name: "asc" } }),
+    getDictionary(),
   ]);
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="الإعدادات"
-        description="تفضيلات الوحدات والتزاوج والعملة لكامل المزرعة."
+      <PageHeader title={t.settings.title} description={t.settings.description} />
+      <SettingsForm
+        key={JSON.stringify(settings)}
+        settings={settings}
+        locale={locale}
+        t={t.settings}
       />
-      <SettingsForm key={JSON.stringify(settings)} settings={settings} />
-      <BreedsManager breeds={breeds} />
+      <BreedsManager breeds={breeds} t={t.settings} />
     </div>
   );
 }

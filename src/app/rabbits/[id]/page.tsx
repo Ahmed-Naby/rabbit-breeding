@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { StatusMenu } from "./status-menu";
 import { BreedingHistoryPanel } from "./breeding-history";
 import { BuckBreedingHistoryPanel } from "./buck-breeding-history";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export const metadata = { title: "Rabbit · RabbitTrack" };
 
@@ -17,7 +18,10 @@ export default async function RabbitDetailPage({
 }) {
   const { id } = await params;
 
-  const rabbit = await prisma.rabbit.findUnique({ where: { id } });
+  const [rabbit, { locale, t }] = await Promise.all([
+    prisma.rabbit.findUnique({ where: { id } }),
+    getDictionary(),
+  ]);
   if (!rabbit) notFound();
 
   const isDoe = rabbit.sex === "doe";
@@ -98,12 +102,12 @@ export default async function RabbitDetailPage({
 
   const back =
     rabbit.tagId == null
-      ? { href: "/stock", label: "العودة إلى السلالات" }
+      ? { href: "/stock", label: t.rabbits.detailBackToStock }
       : rabbit.sex === "doe"
-        ? { href: "/mothers", label: "العودة إلى الأمهات" }
+        ? { href: "/mothers", label: t.rabbits.detailBackToMothers }
         : rabbit.sex === "buck"
-          ? { href: "/bucks", label: "العودة إلى الذكور" }
-          : { href: "/stock", label: "العودة إلى السلالات" };
+          ? { href: "/bucks", label: t.rabbits.detailBackToBucks }
+          : { href: "/stock", label: t.rabbits.detailBackToStock };
 
   return (
     <div className="space-y-6">
@@ -120,7 +124,7 @@ export default async function RabbitDetailPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={rabbit.photoUrl}
-                alt={rabbit.tagId ?? "سلالة بدون رقم"}
+                alt={rabbit.tagId ?? t.rabbits.untaggedAlt}
                 className="size-full object-cover"
               />
             ) : (
@@ -129,12 +133,12 @@ export default async function RabbitDetailPage({
           </div>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-tight">
-              {rabbit.tagId ? `رقم ${rabbit.tagId}` : "سلالة بدون رقم"}
+              {rabbit.tagId ? t.rabbits.taggedTitle(rabbit.tagId) : t.rabbits.untaggedTitle}
             </h1>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge value={rabbit.status} />
-              <StatusBadge value={rabbit.sex} />
-              {rabbit.origin ? <StatusBadge value={rabbit.origin} /> : null}
+              <StatusBadge value={rabbit.status} locale={locale} />
+              <StatusBadge value={rabbit.sex} locale={locale} />
+              {rabbit.origin ? <StatusBadge value={rabbit.origin} locale={locale} /> : null}
               {rabbit.breed ? (
                 <span className="text-sm text-muted-foreground">
                   {rabbit.breed}
@@ -144,10 +148,10 @@ export default async function RabbitDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <StatusMenu id={rabbit.id} current={rabbit.status} />
+          <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} />
           <Button size="sm" asChild>
             <Link href={`/rabbits/${rabbit.id}/edit`}>
-              <Pencil className="size-4" /> تعديل
+              <Pencil className="size-4" /> {t.rabbits.editButton}
             </Link>
           </Button>
         </div>
@@ -155,24 +159,28 @@ export default async function RabbitDetailPage({
 
       {isDoe ? (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold tracking-tight">سجل التزاوج</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.breedingHistoryHeading}</h2>
           <BreedingHistoryPanel
             pregnancyTests={doePregnancyTests}
             kindlings={doeKindlings}
             litters={doeLitters}
             ongoing={doeOngoing}
+            t={t.rabbits}
+            locale={locale}
           />
         </div>
       ) : null}
 
       {isBuck ? (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold tracking-tight">سجل التزاوج</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.breedingHistoryHeading}</h2>
           <BuckBreedingHistoryPanel
             pregnancyTests={buckPregnancyTests}
             kindlings={buckKindlings}
             litters={buckLitters}
             ongoing={buckOngoing}
+            t={t.rabbits}
+            locale={locale}
           />
         </div>
       ) : null}

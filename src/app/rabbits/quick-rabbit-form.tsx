@@ -26,6 +26,8 @@ import {
   type QuickRabbitFormState,
 } from "./actions";
 import { DeleteRabbitButton } from "./delete-rabbit-button";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type QuickRabbitRow = {
   id: string;
@@ -35,11 +37,6 @@ export type QuickRabbitRow = {
   cage: string | null;
   weightKg: number | null;
 };
-
-const sexOptions: Option[] = [
-  { value: "doe", label: "أنثى" },
-  { value: "buck", label: "ذكر" },
-];
 
 /**
  * Fast intake: sex + date + breed in one row, covering both does and bucks in
@@ -58,9 +55,15 @@ const sexOptions: Option[] = [
 export function QuickRabbitForm({
   rows,
   breedOptions,
+  t,
+  tCommon,
+  locale,
 }: {
   rows: QuickRabbitRow[];
   breedOptions: Option[];
+  t: Dictionary["stock"];
+  tCommon: Dictionary["common"];
+  locale: Locale;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState<QuickRabbitFormState, FormData>(
@@ -71,7 +74,7 @@ export function QuickRabbitForm({
 
   useEffect(() => {
     if (state.ok && state.rabbit) {
-      toast.success("تم تسجيل السلالة");
+      toast.success(t.registeredToast);
       formRef.current?.reset();
       router.refresh();
     }
@@ -79,6 +82,10 @@ export function QuickRabbitForm({
   }, [state, router]);
 
   const e = state.errors ?? {};
+  const sexOptions: Option[] = [
+    { value: "doe", label: t.sexDoe },
+    { value: "buck", label: t.sexBuck },
+  ];
 
   return (
     <div className="space-y-6">
@@ -93,7 +100,7 @@ export function QuickRabbitForm({
           <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <SelectField
               name="sex"
-              label="الجنس"
+              label={t.sexLabel}
               options={sexOptions}
               defaultValue="doe"
               error={e.sex}
@@ -101,24 +108,24 @@ export function QuickRabbitForm({
             <TextField
               name="date"
               type="date"
-              label="التاريخ"
+              label={t.dateLabel}
               required
               defaultValue={toDateInputValue(new Date())}
               error={e.date}
             />
             <SelectField
               name="breed"
-              label="النوع"
+              label={t.breedLabel}
               options={breedOptions}
               includeNone
-              noneLabel="بلا"
-              placeholder="اختر النوع…"
+              noneLabel={tCommon.none}
+              placeholder={tCommon.selectPlaceholder}
               error={e.breed}
             />
           </CardContent>
         </Card>
 
-        <SubmitButton>تسجيل السلالة</SubmitButton>
+        <SubmitButton>{t.submitButton}</SubmitButton>
       </form>
 
       {rows.length > 0 ? (
@@ -126,11 +133,11 @@ export function QuickRabbitForm({
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">التاريخ</TableHead>
-                <TableHead className="text-center">الجنس</TableHead>
-                <TableHead className="text-center">النوع</TableHead>
-                <TableHead className="text-center">رقم القفص</TableHead>
-                <TableHead className="text-center">الوزن</TableHead>
+                <TableHead className="text-center">{t.colDate}</TableHead>
+                <TableHead className="text-center">{t.colSex}</TableHead>
+                <TableHead className="text-center">{t.colBreed}</TableHead>
+                <TableHead className="text-center">{t.colCage}</TableHead>
+                <TableHead className="text-center">{t.colWeight}</TableHead>
                 <TableHead className="text-center"></TableHead>
                 <TableHead className="text-center"></TableHead>
               </TableRow>
@@ -139,13 +146,13 @@ export function QuickRabbitForm({
               {rows.map((r) => (
                 <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell>
-                    <LocalDate date={r.date} />
+                    <LocalDate date={r.date} locale={locale} />
                   </TableCell>
-                  <TableCell>{label(r.sex)}</TableCell>
+                  <TableCell>{label(r.sex, locale)}</TableCell>
                   <TableCell>{r.breed ?? "—"}</TableCell>
-                  <FinalizeRowCells id={r.id} sex={r.sex} cage={r.cage} weightKg={r.weightKg} />
+                  <FinalizeRowCells id={r.id} sex={r.sex} cage={r.cage} weightKg={r.weightKg} t={t} />
                   <TableCell>
-                    <DeleteRabbitButton id={r.id} />
+                    <DeleteRabbitButton id={r.id} t={t} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -170,11 +177,13 @@ function FinalizeRowCells({
   sex,
   cage,
   weightKg,
+  t,
 }: {
   id: string;
   sex: string;
   cage: string | null;
   weightKg: number | null;
+  t: Dictionary["stock"];
 }) {
   const router = useRouter();
   const [cagePending, startCage] = useTransition();
@@ -189,7 +198,7 @@ function FinalizeRowCells({
           type="text"
           name="cage"
           maxLength={10}
-          placeholder="رقم القفص"
+          placeholder={t.cagePlaceholder}
           defaultValue={cage ?? undefined}
           disabled={cagePending}
           onBlur={(ev) => {
@@ -199,10 +208,10 @@ function FinalizeRowCells({
               const result = await saveQuickRabbitCage(id, value);
               if (result.ok) {
                 setCageError(null);
-                toast.success("تم حفظ رقم القفص");
+                toast.success(t.cageSavedToast);
                 router.refresh();
               } else {
-                setCageError(result.message ?? "رقم قفص غير صالح");
+                setCageError(result.message ?? t.invalidCageFallback);
               }
             });
           }}
@@ -218,7 +227,7 @@ function FinalizeRowCells({
           name="weightKg"
           step="0.001"
           min={0}
-          placeholder="كجم"
+          placeholder={t.weightPlaceholder}
           defaultValue={weightKg ?? undefined}
           disabled={weightPending}
           onBlur={(ev) => {
@@ -228,10 +237,10 @@ function FinalizeRowCells({
               const result = await saveQuickRabbitWeight(id, Number(value));
               if (result.ok) {
                 setWeightError(null);
-                toast.success("تم حفظ الوزن");
+                toast.success(t.weightSavedToast);
                 router.refresh();
               } else {
-                setWeightError(result.message ?? "وزن غير صالح");
+                setWeightError(result.message ?? t.invalidWeightFallback);
               }
             });
           }}
@@ -242,16 +251,16 @@ function FinalizeRowCells({
         ) : null}
       </TableCell>
       <TableCell>
-        <PromoteButton id={id} sex={sex} />
+        <PromoteButton id={id} sex={sex} t={t} />
       </TableCell>
     </>
   );
 }
 
-function PromoteButton({ id, sex }: { id: string; sex: string }) {
+function PromoteButton({ id, sex, t }: { id: string; sex: string; t: Dictionary["stock"] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const label = sex === "buck" ? "نقل إلى عنبر الذكور" : "نقل إلى عنبر الأمهات";
+  const promoteLabel = sex === "buck" ? t.promoteToBuckLine : t.promoteToDoeLine;
 
   return (
     <button
@@ -261,16 +270,16 @@ function PromoteButton({ id, sex }: { id: string; sex: string }) {
         start(async () => {
           const result = await promoteToHerdPen(id);
           if (result.ok) {
-            toast.success("تم النقل");
+            toast.success(t.movedToast);
             router.refresh();
           } else {
-            toast.error(result.message ?? "تعذر النقل");
+            toast.error(result.message ?? t.moveFailedFallback);
           }
         })
       }
       className="h-7 whitespace-nowrap rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
     >
-      {label}
+      {promoteLabel}
     </button>
   );
 }

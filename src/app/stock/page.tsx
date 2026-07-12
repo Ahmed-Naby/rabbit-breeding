@@ -3,8 +3,12 @@ import { PageHeader } from "@/components/page-header";
 import { getBreedOptions } from "@/lib/breeds";
 import { gramsToKg } from "@/lib/units";
 import { QuickRabbitForm, type QuickRabbitRow } from "../rabbits/quick-rabbit-form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "Stock · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.stock.title} · RabbitTrack` };
+}
 
 export default async function StockPage() {
   // Pending intake across both sexes: rabbits without a tagId yet ("سلالة").
@@ -14,7 +18,7 @@ export default async function StockPage() {
   // someone explicitly clicks "نقل إلى العنبر" (see promoteToHerdPen), which
   // is the only thing that moves her/him on to the pending-mothers/bucks
   // table on /mothers or /bucks to get her/his real number.
-  const [rabbits, breedOptions] = await Promise.all([
+  const [rabbits, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { tagId: null, movedToHerdPen: false, status: { not: "deceased" } },
       orderBy: { createdAt: "desc" },
@@ -32,6 +36,7 @@ export default async function StockPage() {
       },
     }),
     getBreedOptions(),
+    getDictionary(),
   ]);
   const rows: QuickRabbitRow[] = rabbits.map((r) => ({
     id: r.id,
@@ -44,11 +49,14 @@ export default async function StockPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="السلالات"
-        description="تسجيل سريع للأرانب الصغيرة قبل ترقيتها إلى القطيع برقم ووزن."
+      <PageHeader title={t.stock.title} description={t.stock.description} />
+      <QuickRabbitForm
+        rows={rows}
+        breedOptions={breedOptions}
+        t={t.stock}
+        tCommon={t.common}
+        locale={locale}
       />
-      <QuickRabbitForm rows={rows} breedOptions={breedOptions} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { daysUntil } from "@/lib/dates";
 import { recordKindling } from "../actions";
 import { KindlingForm } from "./kindling-form";
 import { OutcomeMenu } from "./outcome-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export const metadata = { title: "Mating · RabbitTrack" };
 
@@ -37,14 +38,17 @@ export default async function BreedingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const breeding = await prisma.breeding.findUnique({
-    where: { id },
-    include: {
-      buck: { select: { id: true, tagId: true } },
-      doe: { select: { id: true, tagId: true } },
-      litter: true,
-    },
-  });
+  const [breeding, { locale, t }] = await Promise.all([
+    prisma.breeding.findUnique({
+      where: { id },
+      include: {
+        buck: { select: { id: true, tagId: true } },
+        doe: { select: { id: true, tagId: true } },
+        litter: true,
+      },
+    }),
+    getDictionary(),
+  ]);
   if (!breeding) notFound();
 
   const recordKindlingWithId = recordKindling.bind(null, id);
@@ -54,7 +58,7 @@ export default async function BreedingDetailPage({
     <div className="space-y-6">
       <Button variant="ghost" size="sm" asChild className="-ms-2 w-fit">
         <Link href={`/rabbits/${breeding.doeId}`}>
-          <ArrowLeft className="size-4 rtl:rotate-180" /> العودة إلى الأم
+          <ArrowLeft className="size-4 rtl:rotate-180" /> {t.breedings.detailBackToDoe}
         </Link>
       </Button>
 
@@ -65,13 +69,13 @@ export default async function BreedingDetailPage({
             <Heart className="size-5 text-muted-foreground" />
             {rabbitLink(breeding.doe)}
           </h1>
-          <StatusBadge value={breeding.outcome} />
+          <StatusBadge value={breeding.outcome} locale={locale} />
         </div>
         <div className="flex items-center gap-2">
-          <OutcomeMenu id={breeding.id} current={breeding.outcome} />
+          <OutcomeMenu id={breeding.id} current={breeding.outcome} locale={locale} />
           <Button size="sm" asChild>
             <Link href={`/breedings/${breeding.id}/edit`}>
-              <Pencil className="size-4" /> تعديل
+              <Pencil className="size-4" /> {t.breedings.editButton}
             </Link>
           </Button>
         </div>
@@ -80,40 +84,40 @@ export default async function BreedingDetailPage({
       <Card>
         <CardContent>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <DescItem label="تاريخ التلقيح">
-              <LocalDate date={breeding.matingDate} />
+            <DescItem label={t.breedings.colMatingDate}>
+              <LocalDate date={breeding.matingDate} locale={locale} />
             </DescItem>
-            <DescItem label="موعد الولادة المتوقع">
-              <LocalDate date={breeding.expectedKindlingDate} />
+            <DescItem label={t.breedings.colExpectedKindling}>
+              <LocalDate date={breeding.expectedKindlingDate} locale={locale} />
               {breeding.outcome === "pending" ? (
                 <span className="ms-1 text-muted-foreground">
-                  ({daysLeft >= 0 ? `خلال ${daysLeft} يوم` : `متأخرة ${Math.abs(daysLeft)} يوم`})
+                  ({daysLeft >= 0 ? t.breedings.inDays(daysLeft) : t.breedings.overdueDays(Math.abs(daysLeft))})
                 </span>
               ) : null}
             </DescItem>
-            <DescItem label="تاريخ الولادة الفعلي">
+            <DescItem label={t.breedings.colActualKindling}>
               {breeding.actualKindlingDate ? (
-                <LocalDate date={breeding.actualKindlingDate} />
+                <LocalDate date={breeding.actualKindlingDate} locale={locale} />
               ) : (
                 "—"
               )}
             </DescItem>
-            <DescItem label="الولادة">
+            <DescItem label={t.breedings.colLitter}>
               {breeding.litter ? (
                 <Link
                   href={`/litters/${breeding.litter.id}`}
                   className="text-primary hover:underline"
                 >
-                  عرض الولادة
+                  {t.breedings.viewLitter}
                 </Link>
               ) : (
-                "لم تُسجَّل"
+                t.breedings.notRecorded
               )}
             </DescItem>
           </dl>
           {breeding.notes ? (
             <div className="mt-4 border-t pt-4">
-              <p className="text-xs font-medium text-muted-foreground">ملاحظات</p>
+              <p className="text-xs font-medium text-muted-foreground">{t.breedings.notesHeading}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm">{breeding.notes}</p>
             </div>
           ) : null}
@@ -124,20 +128,20 @@ export default async function BreedingDetailPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Baby className="size-4" /> الولادة
+              <Baby className="size-4" /> {t.breedings.litterCardTitle}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <DescItem label="تاريخ الولادة">
-                <LocalDate date={breeding.litter.kindlingDate} />
+              <DescItem label={t.litters.colKindlingDate}>
+                <LocalDate date={breeding.litter.kindlingDate} locale={locale} />
               </DescItem>
-              <DescItem label="مواليد أحياء">{breeding.litter.bornAlive}</DescItem>
-              <DescItem label="مواليد أموات">{breeding.litter.bornDead}</DescItem>
-              <DescItem label="مفطوم">{breeding.litter.weaned ?? "—"}</DescItem>
+              <DescItem label={t.breedings.colBornAlive}>{breeding.litter.bornAlive}</DescItem>
+              <DescItem label={t.breedings.colBornDead}>{breeding.litter.bornDead}</DescItem>
+              <DescItem label={t.breedings.colWeaned}>{breeding.litter.weaned ?? "—"}</DescItem>
             </dl>
             <Button variant="outline" size="sm" asChild className="mt-4">
-              <Link href={`/litters/${breeding.litter.id}`}>فتح الولادة</Link>
+              <Link href={`/litters/${breeding.litter.id}`}>{t.breedings.openLitterButton}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -145,13 +149,14 @@ export default async function BreedingDetailPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Baby className="size-4" /> تسجيل الولادة
+              <Baby className="size-4" /> {t.breedings.recordKindlingCardTitle}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <KindlingForm
               action={recordKindlingWithId}
               defaultKindlingDate={breeding.expectedKindlingDate}
+              locale={locale}
             />
           </CardContent>
         </Card>

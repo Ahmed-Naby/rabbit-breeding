@@ -25,8 +25,12 @@ import {
   LitterCountInput,
   ClearDoeButton,
 } from "./doe-state-menu";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "عمليات المزرعة · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.does.title} · RabbitTrack` };
+}
 
 export default async function DoesPage() {
   // One row per doe (not per breeding): each doe shows only her latest
@@ -38,7 +42,7 @@ export default async function DoesPage() {
   // it auto-assigns a ready buck instead of asking which one. A tagId-less
   // "سلالة" never reaches this page at all — promotion (assigning a tagId
   // via /stock) is what makes her eligible.
-  const [doesRaw, settings] = await Promise.all([
+  const [doesRaw, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
       select: {
@@ -67,44 +71,45 @@ export default async function DoesPage() {
       orderBy: { tagId: "asc" },
     }),
     getSettings(),
+    getDictionary(),
   ]);
 
   const does = doesRaw;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="عمليات المزرعة" description="متابعة التلقيح واختبار الحمل لكل أم." />
+      <PageHeader title={t.does.title} description={t.does.description} />
 
       {does.length === 0 ? (
         <EmptyState
           icon={RabbitIcon}
-          title="لا توجد أمهات في القطيع بعد"
-          description="أضف رقم أي سلالة من صفحة إضافة أرنب (زر إضافة إلى القطيع) عشان تظهر هنا."
+          title={t.does.emptyTitle}
+          description={t.does.emptyDescription}
         />
       ) : (
         <div className="rounded-xl border bg-card">
           <Table>
             <TableHeader>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center" rowSpan={2}>م</TableHead>
-                <TableHead className="text-center" rowSpan={2}>رقم الأم</TableHead>
-                <TableHead className="text-center" rowSpan={2}>النوع</TableHead>
-                <TableHead className="text-center" rowSpan={2}>حالة الأم</TableHead>
-                <TableHead className="text-center" rowSpan={2}>تلقيح</TableHead>
-                <TableHead className="text-center" rowSpan={2}>تاريخ التلقيح</TableHead>
-                <TableHead className="text-center" rowSpan={2}>تاريخ الجس</TableHead>
-                <TableHead className="text-center" rowSpan={2}>نتيجة الجس</TableHead>
-                <TableHead className="text-center" rowSpan={2}>تاريخ الولادة</TableHead>
-                <TableHead className="text-center" rowSpan={2}>ولادة</TableHead>
-                <TableHead className="text-center" colSpan={2}>عدد المواليد</TableHead>
-                <TableHead className="text-center" rowSpan={2}>فطام</TableHead>
-                <TableHead className="text-center" rowSpan={2}>عدد الفطام</TableHead>
-                <TableHead className="text-center" rowSpan={2}>تاريخ الفطام</TableHead>
-                <TableHead className="text-center" rowSpan={2}>مسح</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colIndex}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colMotherTag}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colBreed}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colDoeState}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colMate}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colMatingDate}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colTestDate}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colTestResult}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colKindlingDate}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colKindle}</TableHead>
+                <TableHead className="text-center" colSpan={2}>{t.does.colBornCount}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colWean}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colWeanedCount}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colWeaningDate}</TableHead>
+                <TableHead className="text-center" rowSpan={2}>{t.does.colClear}</TableHead>
               </TableRow>
               <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">حي</TableHead>
-                <TableHead className="text-center">نافق</TableHead>
+                <TableHead className="text-center">{t.does.colBornAlive}</TableHead>
+                <TableHead className="text-center">{t.does.colBornDead}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -188,7 +193,7 @@ export default async function DoesPage() {
                     </TableCell>
                     <TableCell>{doe.breed ?? "—"}</TableCell>
                     <TableCell>
-                      <DoeStateBadge current={doe.doeState} />
+                      <DoeStateBadge current={doe.doeState} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <MateCell
@@ -196,24 +201,25 @@ export default async function DoesPage() {
                         doeId={doe.id}
                         canMate={canMate}
                         buckTagId={b?.buck?.tagId ?? null}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
                       {b ? (
-                        <MatingDateInput breedingId={b.id} date={b.matingDate} />
+                        <MatingDateInput breedingId={b.id} date={b.matingDate} locale={locale} />
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <LocalDate date={testDate} />
+                      <LocalDate date={testDate} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap justify-center gap-1.5">
                         <DoeActionButton
                           id={doe.id}
                           breedingId={b?.id ?? ""}
-                          text="عشار"
+                          text={t.does.pregnantButton}
                           target={
                             doe.doeState === "nursing_bred"
                               ? "nursing_pregnant"
@@ -225,27 +231,30 @@ export default async function DoesPage() {
                             doe.doeState === "nursing_pregnant"
                           }
                           className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                          locale={locale}
                         />
                         {b ? (
                           <MatingFailedButton
                             breedingId={b.id}
                             doeId={doe.id}
-                            text="سالبة"
+                            text={t.does.negativeButton}
                             disabled={!canTestPregnancy}
                             className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                            locale={locale}
                           />
                         ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <LocalDate date={kindlingDate} />
+                      <LocalDate date={kindlingDate} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <KindleButton
                         breedingId={b?.id ?? ""}
                         doeId={doe.id}
-                        text="ولادة"
+                        text={t.does.kindleButton}
                         doeState={doe.doeState as DoeState}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
@@ -254,6 +263,7 @@ export default async function DoesPage() {
                         field="bornAlive"
                         value={countsRow?.litter?.bornAlive ?? null}
                         disabled={!kindleActive}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
@@ -262,15 +272,17 @@ export default async function DoesPage() {
                         field="bornDead"
                         value={countsRow?.litter?.bornDead ?? null}
                         disabled={!kindleActive}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
                       <WeanButton
                         breedingId={litterRow?.id ?? ""}
                         doeId={doe.id}
-                        text="فطام"
+                        text={t.does.weanButton}
                         active={weanActive}
                         weaned={isWeaned}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
@@ -279,18 +291,19 @@ export default async function DoesPage() {
                         field="weaned"
                         value={countsRow?.litter?.weaned ?? null}
                         disabled={!isWeaned}
+                        locale={locale}
                       />
                     </TableCell>
                     <TableCell>
                       {countsRow?.litter?.weaningDate ? (
-                        <LocalDate date={countsRow.litter.weaningDate} />
+                        <LocalDate date={countsRow.litter.weaningDate} locale={locale} />
                       ) : (
                         "—"
                       )}
                     </TableCell>
                     <TableCell>
                       {b ? (
-                        <ClearDoeButton breedingId={b.id} doeId={doe.id} text="مسح" />
+                        <ClearDoeButton breedingId={b.id} doeId={doe.id} text={t.does.clearButton} locale={locale} />
                       ) : null}
                     </TableCell>
                   </TableRow>

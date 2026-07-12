@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import type { WeightUnit } from "@/lib/enums";
 import { gramsToKg, gramsToLbOz } from "@/lib/units";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type WeightPoint = { dateMs: number; grams: number };
 
@@ -23,16 +25,20 @@ function toDisplay(grams: number, unit: WeightUnit): number {
 export function WeightChart({
   points,
   unit,
+  t,
+  locale,
 }: {
   points: WeightPoint[];
   unit: WeightUnit;
+  t: Dictionary["common"];
+  locale: Locale;
 }) {
-  const unitLabel = unit === "kg" ? "كجم" : "رطل";
+  const unitLabel = unit === "kg" ? t.weightUnitKg : t.weightUnitLb;
   const data = points
     .slice()
     .sort((a, b) => a.dateMs - b.dateMs)
     .map((p) => ({
-      date: new Date(p.dateMs).toLocaleDateString(undefined, {
+      date: new Date(p.dateMs).toLocaleDateString(locale, {
         month: "short",
         day: "numeric",
       }),
@@ -42,7 +48,7 @@ export function WeightChart({
   if (data.length === 0) {
     return (
       <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">
-        لا توجد سجلات وزن بعد.
+        {t.noWeightRecords}
       </div>
     );
   }
@@ -66,7 +72,7 @@ export function WeightChart({
             unit={unitLabel}
           />
           <Tooltip
-            formatter={(v) => [`${v} ${unitLabel}`, "الوزن"]}
+            formatter={(v) => [`${v} ${unitLabel}`, t.weightChartLabel]}
             contentStyle={{
               borderRadius: 8,
               border: "1px solid var(--border)",

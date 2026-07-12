@@ -8,6 +8,8 @@ import { SubmitButton } from "@/components/submit-button";
 import { TextField, TextareaField } from "@/components/form-fields";
 import { EMPTY_FORM_STATE, type FormState } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type LitterValues = {
   id: string;
@@ -22,10 +24,13 @@ export type LitterValues = {
 export function LitterForm({
   action,
   litter,
+  locale = "ar",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   litter: LitterValues;
+  locale?: Locale;
 }) {
+  const t = getClientDictionary(locale).litters;
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
 
@@ -41,7 +46,7 @@ export function LitterForm({
           <TextField
             name="kindlingDate"
             type="date"
-            label="تاريخ الولادة"
+            label={t.kindlingDateLabel}
             required
             defaultValue={toDateInputValue(new Date(litter.kindlingDate))}
             error={e.kindlingDate}
@@ -51,7 +56,7 @@ export function LitterForm({
             name="bornAlive"
             type="number"
             min={0}
-            label="مواليد أحياء"
+            label={t.bornAliveLabel}
             defaultValue={litter.bornAlive.toString()}
             error={e.bornAlive}
           />
@@ -59,7 +64,7 @@ export function LitterForm({
             name="bornDead"
             type="number"
             min={0}
-            label="مواليد أموات"
+            label={t.bornDeadLabel}
             defaultValue={litter.bornDead.toString()}
             error={e.bornDead}
           />
@@ -67,14 +72,14 @@ export function LitterForm({
             name="weaned"
             type="number"
             min={0}
-            label="مفطوم"
+            label={t.weanedLabel}
             defaultValue={litter.weaned?.toString() ?? ""}
             error={e.weaned}
           />
           <TextField
             name="weaningDate"
             type="date"
-            label="تاريخ الفطام"
+            label={t.weaningDateLabel}
             defaultValue={toDateInputValue(
               litter.weaningDate ? new Date(litter.weaningDate) : null
             )}
@@ -82,7 +87,7 @@ export function LitterForm({
           />
           <TextareaField
             name="notes"
-            label="ملاحظات"
+            label={t.notesLabel}
             rows={3}
             defaultValue={litter.notes ?? ""}
             error={e.notes}
@@ -91,9 +96,9 @@ export function LitterForm({
         </CardContent>
       </Card>
       <div className="flex items-center gap-2">
-        <SubmitButton>حفظ التغييرات</SubmitButton>
+        <SubmitButton>{t.saveChangesButton}</SubmitButton>
         <Button variant="ghost" type="button" asChild>
-          <Link href={`/litters/${litter.id}`}>إلغاء</Link>
+          <Link href={`/litters/${litter.id}`}>{t.cancelButton}</Link>
         </Button>
       </div>
     </form>

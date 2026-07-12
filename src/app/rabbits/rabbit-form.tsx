@@ -9,6 +9,9 @@ import { TextField, TextareaField, SelectField, type Option } from "@/components
 import { EMPTY_FORM_STATE, type FormState } from "@/lib/form";
 import { SEXES, RABBIT_STATUSES, label } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type RabbitValues = {
   id?: string;
@@ -27,12 +30,6 @@ export type RabbitValues = {
   photoUrl: string | null;
 };
 
-const sexOptions: Option[] = SEXES.map((s) => ({ value: s, label: label(s) }));
-const statusOptions: Option[] = RABBIT_STATUSES.map((s) => ({
-  value: s,
-  label: label(s),
-}));
-
 export function RabbitForm({
   action,
   rabbit,
@@ -40,7 +37,9 @@ export function RabbitForm({
   doeOptions,
   breedOptions,
   hiddenLitterId,
-  submitLabel = "حفظ الأرنب",
+  submitLabel,
+  tCommon,
+  locale = "ar",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   rabbit?: RabbitValues;
@@ -49,9 +48,18 @@ export function RabbitForm({
   breedOptions: Option[];
   hiddenLitterId?: string;
   submitLabel?: string;
+  tCommon: Dictionary["common"];
+  locale?: Locale;
 }) {
+  const t = getClientDictionary(locale).rabbits;
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
+
+  const sexOptions: Option[] = SEXES.map((s) => ({ value: s, label: label(s, locale) }));
+  const statusOptions: Option[] = RABBIT_STATUSES.map((s) => ({
+    value: s,
+    label: label(s, locale),
+  }));
 
   return (
     <form action={formAction} className="space-y-6">
@@ -70,39 +78,39 @@ export function RabbitForm({
             name="tagId"
             type="text"
             maxLength={10}
-            label="رقم الأرنب"
+            label={t.tagLabel}
             required
-            placeholder="مثال: 42 أو 5A"
+            placeholder={t.tagPlaceholder}
             defaultValue={rabbit?.tagId ?? ""}
             error={e.tagId}
           />
           <SelectField
             name="breed"
-            label="النوع"
+            label={t.breedLabel}
             options={breedOptions}
             defaultValue={rabbit?.breed ?? ""}
             includeNone
-            noneLabel="بلا"
-            placeholder="اختر النوع…"
+            noneLabel={tCommon.none}
+            placeholder={t.breedPlaceholder}
             error={e.breed}
           />
           <TextField
             name="color"
-            label="اللون"
-            placeholder="مثال: أبيض"
+            label={t.colorLabel}
+            placeholder={t.colorPlaceholder}
             defaultValue={rabbit?.color ?? ""}
             error={e.color}
           />
           <SelectField
             name="sex"
-            label="الجنس"
+            label={t.sexLabel}
             options={sexOptions}
             defaultValue={rabbit?.sex ?? "unknown"}
             error={e.sex}
           />
           <SelectField
             name="status"
-            label="الحالة"
+            label={t.statusLabel}
             options={statusOptions}
             defaultValue={rabbit?.status ?? "active"}
             error={e.status}
@@ -110,7 +118,7 @@ export function RabbitForm({
           <TextField
             name="dateOfBirth"
             type="date"
-            label="تاريخ الميلاد"
+            label={t.dobLabel}
             defaultValue={toDateInputValue(
               rabbit?.dateOfBirth ? new Date(rabbit.dateOfBirth) : null
             )}
@@ -118,8 +126,8 @@ export function RabbitForm({
           />
           <TextField
             name="cage"
-            label="القفص / الحظيرة"
-            placeholder="مثال: A1"
+            label={t.cageLabel}
+            placeholder={t.cagePlaceholder}
             defaultValue={rabbit?.cage ?? ""}
             error={e.cage}
           />
@@ -130,28 +138,28 @@ export function RabbitForm({
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField
             name="sireId"
-            label="الأب"
+            label={t.sireLabel}
             options={buckOptions}
             defaultValue={rabbit?.sireId ?? ""}
             includeNone
-            noneLabel="غير معروف / بلا"
-            placeholder="اختر ذكرًا…"
+            noneLabel={t.sireNone}
+            placeholder={t.sirePlaceholder}
             error={e.sireId}
           />
           <SelectField
             name="damId"
-            label="الأم"
+            label={t.damLabel}
             options={doeOptions}
             defaultValue={rabbit?.damId ?? ""}
             includeNone
-            noneLabel="غير معروف / بلا"
-            placeholder="اختر أنثى…"
+            noneLabel={t.damNone}
+            placeholder={t.damPlaceholder}
             error={e.damId}
           />
           <TextField
             name="acquiredDate"
             type="date"
-            label="تاريخ الاقتناء"
+            label={t.acquiredDateLabel}
             defaultValue={toDateInputValue(
               rabbit?.acquiredDate ? new Date(rabbit.acquiredDate) : null
             )}
@@ -159,14 +167,14 @@ export function RabbitForm({
           />
           <TextField
             name="acquiredFrom"
-            label="مصدر الاقتناء"
-            placeholder="مثال: مزرعة مابل ريدج"
+            label={t.acquiredFromLabel}
+            placeholder={t.acquiredFromPlaceholder}
             defaultValue={rabbit?.acquiredFrom ?? ""}
             error={e.acquiredFrom}
           />
           <TextField
             name="photoUrl"
-            label="رابط الصورة"
+            label={t.photoUrlLabel}
             placeholder="https://…"
             defaultValue={rabbit?.photoUrl ?? ""}
             error={e.photoUrl}
@@ -174,7 +182,7 @@ export function RabbitForm({
           />
           <TextareaField
             name="notes"
-            label="ملاحظات"
+            label={t.notesLabel}
             rows={3}
             defaultValue={rabbit?.notes ?? ""}
             error={e.notes}
@@ -184,7 +192,7 @@ export function RabbitForm({
       </Card>
 
       <div className="flex items-center gap-2">
-        <SubmitButton>{submitLabel}</SubmitButton>
+        <SubmitButton pendingText={tCommon.saving}>{submitLabel ?? t.saveButton}</SubmitButton>
         <Button variant="ghost" type="button" asChild>
           <Link
             href={
@@ -195,7 +203,7 @@ export function RabbitForm({
                   : "/stock"
             }
           >
-            إلغاء
+            {t.cancelButton}
           </Link>
         </Button>
       </div>

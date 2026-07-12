@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { finalizeMother, type FinalizeMotherFormState } from "../rabbits/actions";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type PendingMotherRow = {
   id: string;
@@ -29,13 +31,20 @@ export type PendingMotherRow = {
  * for her رقم الأم (a number distinct from her cage) to actually add her to
  * the mothers herd (see finalizeMother).
  */
-export function PendingMothersTable({ rows }: { rows: PendingMotherRow[] }) {
+export function PendingMothersTable({
+  rows,
+  locale = "ar",
+}: {
+  rows: PendingMotherRow[];
+  locale?: Locale;
+}) {
+  const t = getClientDictionary(locale).mothers;
   if (rows.length === 0) {
     return (
       <EmptyState
         icon={Clock}
-        title="لا توجد سلالات أنثى في الانتظار"
-        description="سلالة أنثى تم ترقيمها بقفص من صفحة السلالات هتظهر هنا لحد ما تحدد رقم الأم."
+        title={t.pendingEmptyTitle}
+        description={t.pendingEmptyDescription}
       />
     );
   }
@@ -45,17 +54,17 @@ export function PendingMothersTable({ rows }: { rows: PendingMotherRow[] }) {
       <Table>
         <TableHeader>
           <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">النوع</TableHead>
-            <TableHead className="text-center">الوزن</TableHead>
-            <TableHead className="text-center">رقم القفص</TableHead>
-            <TableHead className="text-center">رقم الأم</TableHead>
+            <TableHead className="text-center">{t.colBreed}</TableHead>
+            <TableHead className="text-center">{t.colWeight}</TableHead>
+            <TableHead className="text-center">{t.colCage}</TableHead>
+            <TableHead className="text-center">{t.colMotherTag}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
               <TableCell>{r.breed ?? "—"}</TableCell>
-              <FinalizeMotherRowCells id={r.id} weightKg={r.weightKg} cage={r.cage} />
+              <FinalizeMotherRowCells id={r.id} weightKg={r.weightKg} cage={r.cage} locale={locale} />
             </TableRow>
           ))}
         </TableBody>
@@ -68,11 +77,14 @@ function FinalizeMotherRowCells({
   id,
   weightKg,
   cage,
+  locale,
 }: {
   id: string;
   weightKg: number | null;
   cage: string | null;
+  locale: Locale;
 }) {
+  const t = getClientDictionary(locale).mothers;
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<
     FinalizeMotherFormState,
@@ -82,9 +94,10 @@ function FinalizeMotherRowCells({
 
   useEffect(() => {
     if (state.ok) {
-      toast.success("تمت إضافتها إلى الأمهات");
+      toast.success(t.finalizedToast);
       router.refresh();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, router]);
 
   const e = state.errors ?? {};
@@ -103,7 +116,7 @@ function FinalizeMotherRowCells({
           min={0}
           required
           defaultValue={weightKg ?? undefined}
-          placeholder="كجم"
+          placeholder={t.weightPlaceholderShort}
           disabled={isPending}
           className="h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50"
         />
@@ -120,7 +133,7 @@ function FinalizeMotherRowCells({
             form={formId}
             maxLength={10}
             required
-            placeholder="رقم الأم"
+            placeholder={t.tagPlaceholderShort}
             disabled={isPending}
             className="h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50"
           />
@@ -130,7 +143,7 @@ function FinalizeMotherRowCells({
             disabled={isPending}
             className="h-7 whitespace-nowrap rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
           >
-            إضافة إلى الأمهات
+            {t.finalizeButton}
           </button>
         </div>
         {e.tagId ? (

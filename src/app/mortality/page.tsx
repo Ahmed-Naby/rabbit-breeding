@@ -13,8 +13,12 @@ import {
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { NursingKitDeathButton, MarkDeceasedButton } from "./mortality-actions";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "حصر النافق · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.mortality.title} · RabbitTrack` };
+}
 
 export default async function MortalityPage() {
   const [
@@ -25,6 +29,7 @@ export default async function MortalityPage() {
     deceasedMothers,
     deceasedBucks,
     deceasedStock,
+    { locale, t },
   ] = await Promise.all([
     // Same "current litter for a doe" resolution as /does — reused here
     // rather than re-derived, then narrowed below to does actually nursing
@@ -77,6 +82,7 @@ export default async function MortalityPage() {
       select: { id: true, sex: true, breed: true, cage: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
+    getDictionary(),
   ]);
 
   const nursingDoes = nursingDoesRaw
@@ -93,31 +99,28 @@ export default async function MortalityPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        title="حصر النافق"
-        description="تسجيل الوفيات اليومية: رضيع عند الأم، أم، ذكر، أو سلالة."
-      />
+      <PageHeader title={t.mortality.title} description={t.mortality.description} />
 
       {/* رضيع الرضاعة */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">نافق الرضاعة</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.mortality.nursingSectionTitle}</h2>
         {nursingDoes.length === 0 ? (
           <EmptyState
             icon={Skull}
-            title="لا توجد أمهات مرضعة حاليًا"
-            description="الأمهات اللي عندها رضاعة أحياء هتظهر هنا عشان تسجل وفاة رضيع."
+            title={t.mortality.nursingEmptyTitle}
+            description={t.mortality.nursingEmptyDescription}
           />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">أحياء</TableHead>
-                  <TableHead className="text-center">نافق</TableHead>
-                  <TableHead className="text-center">تسجيل وفاة</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colAlive}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colDead}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRecordDeath}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -133,7 +136,7 @@ export default async function MortalityPage() {
                     <TableCell>{litter.bornAlive}</TableCell>
                     <TableCell>{litter.bornDead}</TableCell>
                     <TableCell>
-                      <NursingKitDeathButton breedingId={breedingId} />
+                      <NursingKitDeathButton breedingId={breedingId} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -145,18 +148,18 @@ export default async function MortalityPage() {
 
       {/* نافق الأمهات */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">نافق الأمهات</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.mortality.mothersSectionTitle}</h2>
         {activeMothers.length === 0 ? (
-          <EmptyState icon={Skull} title="لا توجد أمهات مسجلة" />
+          <EmptyState icon={Skull} title={t.mortality.mothersEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">تسجيل نافق</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,7 +175,8 @@ export default async function MortalityPage() {
                     <TableCell>
                       <MarkDeceasedButton
                         id={r.id}
-                        confirmText={`هل تريد تسجيل وفاة الأم رقم ${r.tagId ?? ""}؟ سيتم نقلها إلى جدول الأمهات النافقة.`}
+                        confirmText={t.mortality.motherDeathConfirm(r.tagId ?? "")}
+                        locale={locale}
                       />
                     </TableCell>
                   </TableRow>
@@ -185,18 +189,18 @@ export default async function MortalityPage() {
 
       {/* نافق الذكور */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">نافق الذكور</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.mortality.bucksSectionTitle}</h2>
         {activeBucks.length === 0 ? (
-          <EmptyState icon={Skull} title="لا يوجد ذكور مسجلون" />
+          <EmptyState icon={Skull} title={t.mortality.bucksEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">تسجيل نافق</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,7 +216,8 @@ export default async function MortalityPage() {
                     <TableCell>
                       <MarkDeceasedButton
                         id={r.id}
-                        confirmText={`هل تريد تسجيل وفاة الذكر رقم ${r.tagId ?? ""}؟ سيتم نقله إلى جدول الذكور النافقة.`}
+                        confirmText={t.mortality.buckDeathConfirm(r.tagId ?? "")}
+                        locale={locale}
                       />
                     </TableCell>
                   </TableRow>
@@ -225,19 +230,19 @@ export default async function MortalityPage() {
 
       {/* نافق السلالات */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">نافق السلالات</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t.mortality.strainsSectionTitle}</h2>
         {activeStock.length === 0 ? (
-          <EmptyState icon={Skull} title="لا توجد سلالات مسجلة" />
+          <EmptyState icon={Skull} title={t.mortality.strainsEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">السلالة</TableHead>
-                  <TableHead className="text-center">رقم القفص</TableHead>
-                  <TableHead className="text-center">تسجيل نافق</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colStrainBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colCage}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -246,7 +251,7 @@ export default async function MortalityPage() {
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        <StatusBadge value={r.sex} />
+                        <StatusBadge value={r.sex} locale={locale} />
                       </Link>
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>
@@ -254,7 +259,8 @@ export default async function MortalityPage() {
                     <TableCell>
                       <MarkDeceasedButton
                         id={r.id}
-                        confirmText="هل تريد تسجيل وفاة هذه السلالة؟ سيتم نقلها إلى جدول السلالات النافقة."
+                        confirmText={t.mortality.strainDeathConfirm}
+                        locale={locale}
                       />
                     </TableCell>
                   </TableRow>
@@ -268,19 +274,19 @@ export default async function MortalityPage() {
       {/* سجلات النافق */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          الأمهات النافقة ({deceasedMothers.length})
+          {t.mortality.deceasedMothersHeading(deceasedMothers.length)}
         </h2>
         {deceasedMothers.length === 0 ? (
-          <EmptyState icon={Skull} title="لا توجد أمهات نافقة" />
+          <EmptyState icon={Skull} title={t.mortality.deceasedMothersEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الأم</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">تاريخ التسجيل</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -294,7 +300,7 @@ export default async function MortalityPage() {
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={r.updatedAt} />
+                      <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -306,19 +312,19 @@ export default async function MortalityPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          الذكور النافقة ({deceasedBucks.length})
+          {t.mortality.deceasedBucksHeading(deceasedBucks.length)}
         </h2>
         {deceasedBucks.length === 0 ? (
-          <EmptyState icon={Skull} title="لا يوجد ذكور نافقة" />
+          <EmptyState icon={Skull} title={t.mortality.deceasedBucksEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">رقم الذكر</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">تاريخ التسجيل</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBuckTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -332,7 +338,7 @@ export default async function MortalityPage() {
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={r.updatedAt} />
+                      <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -344,19 +350,19 @@ export default async function MortalityPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          السلالات النافقة ({deceasedStock.length})
+          {t.mortality.deceasedStrainsHeading(deceasedStock.length)}
         </h2>
         {deceasedStock.length === 0 ? (
-          <EmptyState icon={Skull} title="لا توجد سلالات نافقة" />
+          <EmptyState icon={Skull} title={t.mortality.deceasedStrainsEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
             <Table>
               <TableHeader>
                 <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">م</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">السلالة</TableHead>
-                  <TableHead className="text-center">تاريخ التسجيل</TableHead>
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colStrainBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -365,12 +371,12 @@ export default async function MortalityPage() {
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        <StatusBadge value={r.sex} />
+                        <StatusBadge value={r.sex} locale={locale} />
                       </Link>
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>
                     <TableCell>
-                      <LocalDate date={r.updatedAt} />
+                      <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
                 ))}

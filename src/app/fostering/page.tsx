@@ -5,38 +5,42 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocalDate } from "@/components/local-date";
 import { FosterForm } from "./foster-form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export const metadata = { title: "التبني · RabbitTrack" };
+export async function generateMetadata() {
+  const { t } = await getDictionary();
+  return { title: `${t.fostering.title} · RabbitTrack` };
+}
 
 export default async function FosteringPage() {
-  const logs = await prisma.fosterLog.findMany({
-    include: {
-      fromDoe: { select: { id: true, tagId: true } },
-      toDoe: { select: { id: true, tagId: true } },
-    },
-    orderBy: { date: "desc" },
-  });
+  const [logs, { locale, t }] = await Promise.all([
+    prisma.fosterLog.findMany({
+      include: {
+        fromDoe: { select: { id: true, tagId: true } },
+        toDoe: { select: { id: true, tagId: true } },
+      },
+      orderBy: { date: "desc" },
+    }),
+    getDictionary(),
+  ]);
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="عمليات التبني"
-        description="نقل رضع من أم إلى أخرى لموازنة أعداد البطون."
-      />
+      <PageHeader title={t.fostering.pageTitle} description={t.fostering.description} />
 
-      <FosterForm />
+      <FosterForm locale={locale} />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">سجل عمليات التبني</CardTitle>
+          <CardTitle className="text-base">{t.fostering.logTitle}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {logs.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={HeartHandshake}
-                title="لا توجد عمليات تبني مسجلة"
-                description="سجل نقل الرضع بين الأمهات باستخدام النموذج أعلاه."
+                title={t.fostering.emptyTitle}
+                description={t.fostering.emptyDescription}
               />
             </div>
           ) : (
@@ -48,17 +52,19 @@ export default async function FosteringPage() {
                 >
                   <div className="flex items-center gap-2">
                     <Link href={`/rabbits/${log.fromDoe.id}`} className="hover:underline">
-                      {log.fromDoe.tagId ?? "سلالة"}
+                      {log.fromDoe.tagId ?? t.dashboard.stockFallback}
                     </Link>
                     <span className="text-muted-foreground">→</span>
                     <Link href={`/rabbits/${log.toDoe.id}`} className="hover:underline">
-                      {log.toDoe.tagId ?? "سلالة"}
+                      {log.toDoe.tagId ?? t.dashboard.stockFallback}
                     </Link>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-medium tabular-nums">{log.count} رضيع</span>
+                    <span className="font-medium tabular-nums">
+                      {t.fostering.kitsUnit(log.count)}
+                    </span>
                     <span className="text-xs text-muted-foreground">
-                      <LocalDate date={log.date} />
+                      <LocalDate date={log.date} locale={locale} />
                     </span>
                   </div>
                 </div>

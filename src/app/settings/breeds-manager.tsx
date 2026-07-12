@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { addBreed, deleteBreed } from "./actions";
 
-function BreedChip({ id, name }: { id: string; name: string }) {
+function BreedChip({ id, name, deletedToast }: { id: string; name: string; deletedToast: string }) {
   const [pending, start] = useTransition();
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 py-1 pe-1 ps-3 text-sm">
@@ -24,7 +25,7 @@ function BreedChip({ id, name }: { id: string; name: string }) {
         onClick={() =>
           start(async () => {
             await deleteBreed(id);
-            toast.success("تم حذف النوع");
+            toast.success(deletedToast);
           })
         }
       >
@@ -36,32 +37,32 @@ function BreedChip({ id, name }: { id: string; name: string }) {
 
 export function BreedsManager({
   breeds,
+  t,
 }: {
   breeds: { id: string; name: string }[];
+  t: Dictionary["settings"];
 }) {
   const [state, formAction] = useActionState(addBreed, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
 
   useEffect(() => {
-    if (state.ok) toast.success(state.message ?? "تم الإضافة");
-  }, [state]);
+    if (state.ok) toast.success(state.message ?? t.breedAdded);
+  }, [state, t.breedAdded]);
 
   return (
     <Card>
       <CardContent className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">أنواع الأرانب</h2>
-          <p className="text-sm text-muted-foreground">
-            الأنواع المسجلة هنا تظهر كقائمة اختيار عند إضافة أو تعديل أرنب.
-          </p>
+          <h2 className="text-lg font-semibold tracking-tight">{t.breedsHeading}</h2>
+          <p className="text-sm text-muted-foreground">{t.breedsDescription}</p>
         </div>
 
         {breeds.length === 0 ? (
-          <p className="text-sm text-muted-foreground">لا توجد أنواع مسجلة بعد.</p>
+          <p className="text-sm text-muted-foreground">{t.noBreeds}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {breeds.map((b) => (
-              <BreedChip key={b.id} id={b.id} name={b.name} />
+              <BreedChip key={b.id} id={b.id} name={b.name} deletedToast={t.breedDeletedToast} />
             ))}
           </div>
         )}
@@ -69,12 +70,12 @@ export function BreedsManager({
         <form action={formAction} className="flex items-end gap-3">
           <TextField
             name="name"
-            label="نوع جديد"
-            placeholder="مثال: نيوزيلندي أبيض"
+            label={t.newBreedLabel}
+            placeholder={t.newBreedPlaceholder}
             error={e.name}
             className="flex-1"
           />
-          <SubmitButton>إضافة</SubmitButton>
+          <SubmitButton>{t.addBreedButton}</SubmitButton>
         </form>
       </CardContent>
     </Card>

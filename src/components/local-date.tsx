@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Locale } from "@/lib/i18n/locales";
 
 type Props = {
   /** ISO string or Date; rendered in the viewer's local timezone. */
@@ -10,6 +11,7 @@ type Props = {
   /** Fallback text when date is null/undefined. */
   fallback?: string;
   className?: string;
+  locale?: Locale;
 };
 
 const DEFAULT_OPTS: Intl.DateTimeFormatOptions = {
@@ -23,7 +25,7 @@ const DEFAULT_OPTS: Intl.DateTimeFormatOptions = {
  * mismatch: the server renders a stable ISO date, then the client swaps in the
  * localized string after mount.
  */
-export function LocalDate({ date, options, fallback = "—", className }: Props) {
+export function LocalDate({ date, options, fallback = "—", className, locale = "ar" }: Props) {
   const iso = date ? new Date(date).toISOString() : null;
   const [text, setText] = useState<string>(iso ? iso.slice(0, 10) : fallback);
 
@@ -33,9 +35,9 @@ export function LocalDate({ date, options, fallback = "—", className }: Props)
       return;
     }
     setText(
-      new Date(iso).toLocaleDateString("ar", options ?? DEFAULT_OPTS)
+      new Date(iso).toLocaleDateString(locale, options ?? DEFAULT_OPTS)
     );
-  }, [iso, options, fallback]);
+  }, [iso, options, fallback, locale]);
 
   return (
     <time dateTime={iso ?? undefined} className={className}>

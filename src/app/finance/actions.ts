@@ -7,12 +7,14 @@ import { transactionSchema } from "@/lib/validations";
 import { fromDateInputValue } from "@/lib/dates";
 import { toCents } from "@/lib/units";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function createTransaction(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const parsed = transactionSchema.safeParse(formDataToObject(formData));
+  const { t } = await getDictionary();
+  const parsed = transactionSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
 

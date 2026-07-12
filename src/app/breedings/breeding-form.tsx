@@ -14,6 +14,8 @@ import {
 import { EMPTY_FORM_STATE, type FormState } from "@/lib/form";
 import { BREEDING_OUTCOMES, label } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import type { Locale } from "@/lib/i18n/locales";
 
 export type BreedingValues = {
   id?: string;
@@ -25,18 +27,14 @@ export type BreedingValues = {
   notes: string | null;
 };
 
-const outcomeOptions: Option[] = BREEDING_OUTCOMES.map((o) => ({
-  value: o,
-  label: label(o),
-}));
-
 export function BreedingForm({
   action,
   breeding,
   buckOptions,
   doeOptions,
   gestationDays,
-  submitLabel = "حفظ التلقيح",
+  submitLabel,
+  locale = "ar",
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   breeding?: BreedingValues;
@@ -44,9 +42,16 @@ export function BreedingForm({
   doeOptions: Option[];
   gestationDays: number;
   submitLabel?: string;
+  locale?: Locale;
 }) {
+  const t = getClientDictionary(locale).breedings;
   const [state, formAction] = useActionState(action, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
+
+  const outcomeOptions: Option[] = BREEDING_OUTCOMES.map((o) => ({
+    value: o,
+    label: label(o, locale),
+  }));
 
   return (
     <form action={formAction} className="space-y-6">
@@ -60,36 +65,36 @@ export function BreedingForm({
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField
             name="buckId"
-            label="الذكر (الأب)"
+            label={t.matingLabel}
             options={buckOptions}
             defaultValue={breeding?.buckId ?? ""}
-            placeholder="اختر ذكرًا…"
+            placeholder={t.buckPlaceholder}
             required
             error={e.buckId}
           />
           <SelectField
             name="doeId"
-            label="الأنثى (الأم)"
+            label={t.doeLabel}
             options={doeOptions}
             defaultValue={breeding?.doeId ?? ""}
-            placeholder="اختر أنثى…"
+            placeholder={t.doePlaceholder}
             required
             error={e.doeId}
           />
           <TextField
             name="matingDate"
             type="date"
-            label="تاريخ التلقيح"
+            label={t.matingDateLabel}
             required
             defaultValue={toDateInputValue(
               breeding?.matingDate ? new Date(breeding.matingDate) : new Date()
             )}
             error={e.matingDate}
-            hint={`يُحسب موعد الولادة المتوقع تلقائيًا كتاريخ التلقيح + ${gestationDays} يومًا.`}
+            hint={t.matingDateHint(gestationDays)}
           />
           <SelectField
             name="outcome"
-            label="النتيجة"
+            label={t.outcomeLabel}
             options={outcomeOptions}
             defaultValue={breeding?.outcome ?? "pending"}
             error={e.outcome}
@@ -97,18 +102,18 @@ export function BreedingForm({
           <TextField
             name="actualKindlingDate"
             type="date"
-            label="تاريخ الولادة الفعلي"
+            label={t.actualKindlingDateLabel}
             defaultValue={toDateInputValue(
               breeding?.actualKindlingDate
                 ? new Date(breeding.actualKindlingDate)
                 : null
             )}
             error={e.actualKindlingDate}
-            hint="اتركه فارغًا حتى تلد."
+            hint={t.actualKindlingDateHint}
           />
           <TextareaField
             name="notes"
-            label="ملاحظات"
+            label={t.notesLabel}
             rows={3}
             defaultValue={breeding?.notes ?? ""}
             error={e.notes}
@@ -118,10 +123,10 @@ export function BreedingForm({
       </Card>
 
       <div className="flex items-center gap-2">
-        <SubmitButton>{submitLabel}</SubmitButton>
+        <SubmitButton>{submitLabel ?? t.saveButton}</SubmitButton>
         <Button variant="ghost" type="button" asChild>
           <Link href={breeding?.id ? `/breedings/${breeding.id}` : "/mating"}>
-            إلغاء
+            {t.cancelButton}
           </Link>
         </Button>
       </div>
