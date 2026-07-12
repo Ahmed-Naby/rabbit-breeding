@@ -15,6 +15,12 @@ const unitOptions: Option[] = WEIGHT_UNITS.map((u) => ({
   label: label(u),
 }));
 
+const rebreedOptions: Option[] = [
+  { value: "0", label: "مكثف — تلقيح يوم الولادة" },
+  { value: "15", label: "نصف مكثف — 15 يومًا بعد الولادة" },
+  { value: "30", label: "طبيعي — 30 يومًا بعد الولادة" },
+];
+
 export function SettingsForm({ settings }: { settings: AppSettings }) {
   const [state, formAction] = useActionState(updateSettings, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
@@ -40,7 +46,7 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             label="رمز العملة"
             defaultValue={settings.currency}
             maxLength={3}
-            hint="رمز ISO من 3 أحرف، مثل USD أو EUR أو GBP."
+            hint="رمز ISO من 3 أحرف، مثل EGP أو USD أو EUR."
             error={e.currency}
           />
           <TextField
@@ -101,6 +107,14 @@ export function SettingsForm({ settings }: { settings: AppSettings }) {
             defaultValue={settings.matingWeightGrams.toString()}
             hint="مرجعي فقط حاليًا — الإضافة لجدول الأمهات/الذكور تتم يدويًا من صفحة إضافة أرنب."
             error={e.matingWeightGrams}
+          />
+          <SelectField
+            name="rebreedAfterKindlingDays"
+            label="نظام إعادة التلقيح بعد الولادة"
+            options={rebreedOptions}
+            defaultValue={settings.rebreedAfterKindlingDays.toString()}
+            hint="المدة قبل ما تصبح الأم المرضعة جاهزة للتلقيح مرة أخرى."
+            error={e.rebreedAfterKindlingDays}
           />
         </CardContent>
       </Card>

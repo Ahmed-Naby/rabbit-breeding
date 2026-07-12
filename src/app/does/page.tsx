@@ -11,7 +11,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
-import { pregnancyTestDate, expectedKindling } from "@/lib/dates";
+import { pregnancyTestDate, expectedKindling, rebreedDueDate, daysUntil } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
 import {
@@ -139,10 +139,22 @@ export default async function DoesPage() {
                   !!prev?.actualKindlingDate && !b?.actualKindlingDate && !b?.litter;
                 const countsRow = prevIsClosingLitter ? prev : b;
                 const isWeaned = !!countsRow?.litter?.weaningDate;
+                // A nursing doe only re-enters "تلقيح" once the configured
+                // rebreed system's cooldown since her kindling has elapsed
+                // (0/15/30 days — مكثف/نصف مكثف/طبيعي, set in الإعدادات).
+                // No kindling date on record means nothing to gate against.
+                const rebreedReady =
+                  !litterRow?.actualKindlingDate ||
+                  daysUntil(
+                    rebreedDueDate(
+                      litterRow.actualKindlingDate,
+                      settings.rebreedAfterKindlingDays
+                    )
+                  ) <= 0;
                 const canMate =
                   doe.doeState === "empty" ||
-                  doe.doeState === "nursing" ||
-                  doe.doeState === "excluded";
+                  doe.doeState === "excluded" ||
+                  (doe.doeState === "nursing" && rebreedReady);
                 const canTestPregnancy =
                   doe.doeState === "bred" || doe.doeState === "nursing_bred";
                 const kindleActive =

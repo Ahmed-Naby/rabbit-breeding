@@ -27,6 +27,7 @@ model Settings {
   weaningDays         Int      @default(28) // kindling -> earliest weaning offset
   nestBoxDays         Int      @default(27) // mating -> earliest nest-box installation offset
   matingWeightGrams   Int      @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
+  rebreedAfterKindlingDays Int @default(0) // kindling -> earliest rebreed offset (0=مكثف, 15=نصف مكثف, 30=طبيعي)
   currency            String   @default("USD")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

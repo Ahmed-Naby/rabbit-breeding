@@ -11,6 +11,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
+import { rebreedDueDate, daysUntil } from "@/lib/dates";
+import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, MateCell } from "../does/doe-state-menu";
 
 export const metadata = { title: "عمليات التلقيح · RabbitTrack" };
@@ -28,7 +30,7 @@ export default async function MatingPage() {
   // from the "ready now" board above. Reads straight off Breeding (not
   // per-doe latest-only like the board above) so a doe rebred more than
   // once still shows each mating as its own log line.
-  const [does, matingLog] = await Promise.all([
+  const [doesRaw, matingLog, settings] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -44,7 +46,11 @@ export default async function MatingPage() {
         breedingsAsDoe: {
           orderBy: { createdAt: "desc" },
           take: 1,
-          select: { id: true, buck: { select: { tagId: true } } },
+          select: {
+            id: true,
+            actualKindlingDate: true,
+            buck: { select: { tagId: true } },
+          },
         },
       },
       orderBy: { tagId: "asc" },
@@ -59,7 +65,20 @@ export default async function MatingPage() {
         buck: { select: { tagId: true } },
       },
     }),
+    getSettings(),
   ]);
+
+  // For plain "nursing" (not nursing_bred/nursing_pregnant — already excluded
+  // from the query above since those mean she's already been rebred), the
+  // latest breeding row (take: 1) is always her kindling row. A nursing doe
+  // only counts as ready once the configured rebreed system's cooldown since
+  // that kindling has elapsed (0/15/30 days, set in الإعدادات).
+  const does = doesRaw.filter((doe) => {
+    if (doe.doeState !== "nursing") return true;
+    const kindlingDate = doe.breedingsAsDoe[0]?.actualKindlingDate;
+    if (!kindlingDate) return true;
+    return daysUntil(rebreedDueDate(kindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
+  });
 
   return (
     <div className="space-y-6">

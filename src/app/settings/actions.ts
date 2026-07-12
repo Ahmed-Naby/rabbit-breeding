@@ -24,6 +24,7 @@ export async function updateSettings(
       weaningDays: d.weaningDays,
       nestBoxDays: d.nestBoxDays,
       matingWeightGrams: d.matingWeightGrams,
+      rebreedAfterKindlingDays: d.rebreedAfterKindlingDays,
       currency: d.currency,
     },
     create: {
@@ -35,6 +36,7 @@ export async function updateSettings(
       weaningDays: d.weaningDays,
       nestBoxDays: d.nestBoxDays,
       matingWeightGrams: d.matingWeightGrams,
+      rebreedAfterKindlingDays: d.rebreedAfterKindlingDays,
       currency: d.currency,
     },
   });

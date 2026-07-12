@@ -11,6 +11,7 @@ export type AppSettings = {
   weaningDays: number;
   nestBoxDays: number;
   matingWeightGrams: number;
+  rebreedAfterKindlingDays: number;
   currency: string;
 };
 
@@ -31,6 +32,7 @@ export async function getSettings(): Promise<AppSettings> {
     weaningDays: row.weaningDays,
     nestBoxDays: row.nestBoxDays,
     matingWeightGrams: row.matingWeightGrams,
+    rebreedAfterKindlingDays: row.rebreedAfterKindlingDays,
     currency: row.currency,
   };
 }

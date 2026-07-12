@@ -24,6 +24,11 @@ export function nestBoxDueDate(matingDate: Date, offsetDays = 27): Date {
   return addDays(matingDate, offsetDays);
 }
 
+/** Earliest rebreed date for a nursing doe = kindling date + offset days. */
+export function rebreedDueDate(kindlingDate: Date, offsetDays: number): Date {
+  return addDays(kindlingDate, offsetDays);
+}
+
 /**
  * Classify how a due/expected date relates to today, for dashboard badges.
  * `windowDays` widens the "due soon" band (used for the kindling window).
