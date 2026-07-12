@@ -52,10 +52,19 @@ export function toCents(amount: number): number {
   return Math.round(amount * 100);
 }
 
-/** Format integer cents as a currency string in the user's locale. */
+/**
+ * Format integer cents as a currency string in the user's locale. Falls back
+ * to a plain "<code> <amount>" format for a currency code Intl doesn't
+ * recognize (e.g. stale/invalid data in Settings.currency) instead of
+ * throwing and taking down the whole page.
+ */
 export function formatMoney(cents: number, currency = "USD"): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  }).format(cents / 100);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+    }).format(cents / 100);
+  } catch {
+    return `${currency} ${(cents / 100).toFixed(2)}`;
+  }
 }

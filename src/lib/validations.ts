@@ -273,7 +273,26 @@ export const settingsSchema = z.object({
   weaningDays: z.coerce.number().int().min(0).max(90),
   nestBoxDays: z.coerce.number().int().min(1).max(30),
   matingWeightGrams: z.coerce.number().int().min(1),
-  currency: z.string().trim().length(3).toUpperCase(),
+  rebreedAfterKindlingDays: z.coerce.number().int().refine(
+    (v) => [0, 15, 30].includes(v),
+    "قيمة غير صالحة"
+  ),
+  currency: z
+    .string()
+    .trim()
+    .length(3)
+    .toUpperCase()
+    .refine((v) => {
+      // Must be a real ISO 4217 code Intl recognizes — a code that merely
+      // looks right (e.g. "L.E" for the Egyptian pound) crashes every
+      // Intl.NumberFormat call that formats money across the app.
+      try {
+        new Intl.NumberFormat(undefined, { style: "currency", currency: v });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "رمز عملة غير صالح — استخدم رمز ISO مثل EGP أو USD"),
 });
 
 export type SettingsInput = z.infer<typeof settingsSchema>;
