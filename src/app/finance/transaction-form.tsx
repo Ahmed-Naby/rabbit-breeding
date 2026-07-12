@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { TextField, TextareaField, SelectField, type Option } from "@/components/form-fields";
@@ -35,6 +35,9 @@ export function TransactionForm({
   );
   const formRef = useRef<HTMLFormElement>(null);
   const e = state.errors ?? {};
+  // Computed once (not inline in JSX) so it stays stable across re-renders —
+  // Base UI's uncontrolled Input warns if defaultValue changes after mount.
+  const [today] = useState(() => toDateInputValue(new Date()));
 
   const typeOptions: Option[] = TRANSACTION_TYPES.map((type) => ({
     value: type,
@@ -63,7 +66,7 @@ export function TransactionForm({
               type="date"
               label={t.dateLabel}
               required
-              defaultValue={toDateInputValue(new Date())}
+              defaultValue={today}
               error={e.date}
             />
             <SelectField

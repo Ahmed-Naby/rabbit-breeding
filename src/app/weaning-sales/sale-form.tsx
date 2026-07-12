@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TextField } from "@/components/form-fields";
@@ -24,6 +24,9 @@ export function SaleForm({
   const [state, formAction] = useActionState(recordKitSale, EMPTY_FORM_STATE);
   const formRef = useRef<HTMLFormElement>(null);
   const e = state.errors ?? {};
+  // Computed once (not inline in JSX) so it stays stable across re-renders —
+  // Base UI's uncontrolled Input warns if defaultValue changes after mount.
+  const [today] = useState(() => toDateInputValue(new Date()));
 
   useEffect(() => {
     if (state.ok) {
@@ -46,7 +49,7 @@ export function SaleForm({
               type="date"
               label={t.dateLabel}
               required
-              defaultValue={toDateInputValue(new Date())}
+              defaultValue={today}
               error={e.date}
             />
             <TextField
