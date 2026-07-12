@@ -304,8 +304,34 @@ model Transaction {
   notes       String?
   createdAt   DateTime @default(now())
 
+  kitStockMovement KitStockMovement?
+
   @@index([date])
   @@index([type])
   @@index([category])
   @@index([rabbitId])
+}
+
+/// Farm-wide ledger of weaned-kit stock movements (batch counts, not tied to
+/// individually tagged rabbits). Positive "wean" entries aren't stored here —
+/// they're derived on read from Litter.weaned grouped by weaningDate — this
+/// table only stores the deductions: sales (with weight/price, mirrored into
+/// a Transaction) and post-weaning deaths.
+model KitStockMovement {
+  id              String   @id @default(cuid())
+  date            DateTime
+  type            String // "sale" | "death"
+  count           Int // always a positive quantity; sign is a display-only concern
+  weightGrams     Int? // total weight sold — "sale" only
+  pricePerKgCents Int? // price/kg on the sale day — "sale" only
+  amountCents     Int? // weightGrams * pricePerKgCents / 1000, rounded — "sale" only
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([type])
 }

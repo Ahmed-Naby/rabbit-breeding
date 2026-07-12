@@ -21,7 +21,7 @@ function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
         const active =
           item.href === "/"
             ? pathname === "/"
-            : pathname.startsWith(item.href);
+            : pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
         return (
           <Link

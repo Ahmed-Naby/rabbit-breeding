@@ -10,9 +10,15 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
-import { NursingKitDeathButton, MarkDeceasedButton } from "./mortality-actions";
+import {
+  NursingKitDeathButton,
+  WeaningStockDeathButton,
+  MarkDeceasedButton,
+} from "./mortality-actions";
+import { getKitStockSummary } from "../weaning-sales/stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -29,6 +35,7 @@ export default async function MortalityPage() {
     deceasedMothers,
     deceasedBucks,
     deceasedStock,
+    { availableStock },
     { locale, t },
   ] = await Promise.all([
     // Same "current litter for a doe" resolution as /does — reused here
@@ -82,6 +89,7 @@ export default async function MortalityPage() {
       select: { id: true, sex: true, breed: true, cage: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
+    getKitStockSummary(),
     getDictionary(),
   ]);
 
@@ -144,6 +152,24 @@ export default async function MortalityPage() {
             </Table>
           </div>
         )}
+      </div>
+
+      {/* نافق الفطام: مخزون الرضع بعد الفطام وقبل البيع */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t.mortality.weaningStockSectionTitle}
+        </h2>
+        <Card>
+          <CardContent className="flex items-center justify-between py-5">
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t.mortality.availableWeanedStockLabel}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{availableStock}</p>
+            </div>
+            <WeaningStockDeathButton locale={locale} availableStock={availableStock} />
+          </CardContent>
+        </Card>
       </div>
 
       {/* نافق الأمهات */}

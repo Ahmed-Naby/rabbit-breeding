@@ -58,6 +58,7 @@ export async function updateLitter(
   revalidatePath("/does");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${existing.breedingId}`);
   revalidatePath(`/rabbits/${existing.breeding.doeId}`);
   revalidatePath(`/litters/${id}`);

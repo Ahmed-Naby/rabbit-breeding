@@ -14,6 +14,7 @@ import {
   Milk,
   Skull,
   ArrowLeftRight,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "./i18n/dictionaries/ar";
@@ -35,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/kindling", labelKey: "kindling", icon: HeartPulse },
   { href: "/fostering", labelKey: "fostering", icon: ArrowLeftRight },
   { href: "/weaning", labelKey: "weaning", icon: Milk },
+  { href: "/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   { href: "/does", labelKey: "does", icon: ClipboardList },
   { href: "/mortality", labelKey: "mortality", icon: Skull },
   { href: "/health", labelKey: "health", icon: Stethoscope },

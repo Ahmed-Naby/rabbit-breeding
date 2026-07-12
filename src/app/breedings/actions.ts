@@ -52,6 +52,7 @@ export async function createBreeding(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${data.doeId}`);
   redirect(`/breedings/${breeding.id}`);
 }
@@ -102,6 +103,7 @@ export async function updateBreeding(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${data.doeId}`);
   if (existing.doeId !== data.doeId) revalidatePath(`/rabbits/${existing.doeId}`);
   revalidatePath(`/breedings/${id}`);
@@ -181,6 +183,7 @@ export async function startBreeding(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${doeId}`);
 
   return { ok: true, buckFound };
@@ -213,6 +216,7 @@ export async function setPregnancyTestResult(id: string, result: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${id}`);
 }
 
@@ -289,6 +293,7 @@ export async function markMated(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 
@@ -335,6 +340,7 @@ export async function confirmPregnant(breedingId: string, doeId: string, target:
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${doeId}`);
 }
 
@@ -362,6 +368,7 @@ export async function installNestBox(breedingId: string, doeId: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
@@ -419,6 +426,7 @@ export async function markKindled(breedingId: string, doeId: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
@@ -476,6 +484,7 @@ export async function markWeaned(breedingId: string, doeId: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
@@ -534,6 +543,7 @@ export async function setLitterCount(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   return { ok: true };
 }
@@ -568,6 +578,7 @@ export async function recordNursingKitDeath(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   return { ok: true };
 }
@@ -635,6 +646,7 @@ export async function markMatingFailed(breedingId: string, doeId: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
@@ -666,6 +678,7 @@ export async function clearDoeRow(breedingId: string, doeId: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
@@ -694,6 +707,7 @@ export async function setMatingDate(breedingId: string, value: string) {
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/breedings/${breedingId}`);
 }
 
@@ -777,6 +791,7 @@ export async function recordKindling(
   revalidatePath("/pregnancy-test");
   revalidatePath("/kindling");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${breeding.doeId}`);
   revalidatePath(`/breedings/${breedingId}`);
   redirect(`/breedings/${breedingId}`);
@@ -872,6 +887,7 @@ export async function transferKits(
   revalidatePath("/fostering");
   revalidatePath("/mortality");
   revalidatePath("/weaning");
+  revalidatePath("/weaning-sales");
   revalidatePath(`/rabbits/${from.doeId}`);
   revalidatePath(`/rabbits/${to.doeId}`);
 

@@ -296,6 +296,20 @@ export function transactionSchema(t: Dictionary["validation"]) {
 
 export type TransactionInput = z.infer<ReturnType<typeof transactionSchema>>;
 
+// Kit stock movements (weaning sales / post-weaning deaths) -----------------
+
+export function kitSaleSchema(t: Dictionary["validation"]) {
+  return z.object({
+    date: requiredDate(t),
+    count: z.coerce.number().int().min(1, t.fosterCountMin),
+    weightKg: z.coerce.number().positive(t.weightPositive),
+    pricePerKg: z.coerce.number().positive(t.amountPositive),
+    notes: optionalText,
+  });
+}
+
+export type KitSaleInput = z.infer<ReturnType<typeof kitSaleSchema>>;
+
 // Settings ------------------------------------------------------------------
 
 export function settingsSchema(t: Dictionary["validation"]) {
