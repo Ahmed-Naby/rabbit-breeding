@@ -1,4 +1,4 @@
-import { Rabbit, ShoppingCart, Skull, Layers } from "lucide-react";
+import { Rabbit, ShoppingCart, Skull, Layers, PawPrint } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/page-header";
 import {
   Table,
@@ -24,14 +24,17 @@ export async function generateMetadata() {
 }
 
 export default async function WeaningSalesPage() {
-  const [{ ledger, totalWeaned, totalSold, totalDied, totalRevenueCents, availableStock }, settings, { locale, t }] =
-    await Promise.all([getKitStockSummary(), getSettings(), getDictionary()]);
+  const [
+    { ledger, totalWeaned, totalSold, totalDied, totalRetained, totalRevenueCents, availableStock },
+    settings,
+    { locale, t },
+  ] = await Promise.all([getKitStockSummary(), getSettings(), getDictionary()]);
 
   return (
     <div className="space-y-6">
       <PageHeader title={t.weaningSales.title} description={t.weaningSales.description} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryCard
           label={t.weaningSales.totalWeanedLabel}
           value={String(totalWeaned)}
@@ -54,6 +57,12 @@ export default async function WeaningSalesPage() {
           label={t.weaningSales.totalDiedLabel}
           value={String(totalDied)}
           icon={Skull}
+          tone="expense"
+        />
+        <SummaryCard
+          label={t.weaningSales.totalRetainedLabel}
+          value={String(totalRetained)}
+          icon={PawPrint}
           tone="expense"
         />
       </div>
@@ -99,14 +108,18 @@ export default async function WeaningSalesPage() {
                           entry.kind === "sale" &&
                             "bg-sky-500/10 text-sky-600 dark:text-sky-400",
                           entry.kind === "death" &&
-                            "bg-red-500/10 text-red-600 dark:text-red-400"
+                            "bg-red-500/10 text-red-600 dark:text-red-400",
+                          entry.kind === "retained" &&
+                            "bg-violet-500/10 text-violet-600 dark:text-violet-400"
                         )}
                       >
                         {entry.kind === "wean"
                           ? t.weaningSales.typeWean
                           : entry.kind === "sale"
                             ? t.weaningSales.typeSale
-                            : t.weaningSales.typeDeath}
+                            : entry.kind === "death"
+                              ? t.weaningSales.typeDeath
+                              : t.weaningSales.typeRetained}
                       </span>
                     </TableCell>
                     <TableCell

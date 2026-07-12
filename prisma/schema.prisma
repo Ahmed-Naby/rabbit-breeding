@@ -82,6 +82,10 @@ model Rabbit {
   litterId String?
   litter   Litter? @relation(fields: [litterId], references: [id], onDelete: SetNull)
 
+  // Set when this rabbit was registered on /stock as a سلالة — the "retained"
+  // KitStockMovement that deducted it from the available weaned-kit pool.
+  kitStockMovement KitStockMovement?
+
   // Breeding participation
   breedingsAsBuck Breeding[] @relation("Buck")
   breedingsAsDoe  Breeding[] @relation("Doe")
@@ -313,14 +317,15 @@ model Transaction {
 }
 
 /// Farm-wide ledger of weaned-kit stock movements (batch counts, not tied to
-/// individually tagged rabbits). Positive "wean" entries aren't stored here —
-/// they're derived on read from Litter.weaned grouped by weaningDate — this
-/// table only stores the deductions: sales (with weight/price, mirrored into
-/// a Transaction) and post-weaning deaths.
+/// individually tagged rabbits, except "retained"). Positive "wean" entries
+/// aren't stored here — they're derived on read from Litter.weaned grouped by
+/// weaningDate — this table only stores the deductions: sales (with
+/// weight/price, mirrored into a Transaction), post-weaning deaths, and kits
+/// kept for breeding (mirrored into a Rabbit, one movement per rabbit).
 model KitStockMovement {
   id              String   @id @default(cuid())
   date            DateTime
-  type            String // "sale" | "death"
+  type            String // "sale" | "death" | "retained"
   count           Int // always a positive quantity; sign is a display-only concern
   weightGrams     Int? // total weight sold — "sale" only
   pricePerKgCents Int? // price/kg on the sale day — "sale" only
@@ -328,6 +333,11 @@ model KitStockMovement {
 
   transactionId String?      @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  // "retained" only — the specific سلالة this kit became. Cascades so
+  // deleting the rabbit (e.g. a mistaken entry) also undoes the deduction.
+  rabbitId String? @unique
+  rabbit   Rabbit? @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
 
   notes     String?
   createdAt DateTime @default(now())

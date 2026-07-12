@@ -118,14 +118,23 @@ export async function createQuickRabbit(
 
   let id: string;
   try {
-    const rabbit = await prisma.rabbit.create({
-      data: {
-        tagId: d.tagId ?? null,
-        breed: d.breed ?? null,
-        sex: d.sex,
-        acquiredDate: date,
-        origin: "farm",
-      },
+    const rabbit = await prisma.$transaction(async (tx) => {
+      const rabbit = await tx.rabbit.create({
+        data: {
+          tagId: d.tagId ?? null,
+          breed: d.breed ?? null,
+          sex: d.sex,
+          acquiredDate: date,
+          origin: "farm",
+        },
+      });
+      // Registering a سلالة here is what removes a weaned kit from the
+      // available weaning-sales pool — it's now this specific rabbit, not a
+      // future sale or death. See stock.ts's availableStock calculation.
+      await tx.kitStockMovement.create({
+        data: { date, type: "retained", count: 1, rabbitId: rabbit.id },
+      });
+      return rabbit;
     });
     id = rabbit.id;
   } catch (e) {
@@ -146,6 +155,8 @@ export async function createQuickRabbit(
   }
 
   revalidatePath("/stock");
+  revalidatePath("/weaning-sales");
+  revalidatePath("/mortality");
   return {
     ok: true,
     rabbit: {
@@ -569,6 +580,10 @@ export async function deleteRabbit(
   revalidatePath("/mothers");
   revalidatePath("/bucks");
   revalidatePath("/does");
+  // If this rabbit had a "retained" KitStockMovement, the DB cascade-deleted
+  // it along with the rabbit, so the weaned-kit pool needs a refresh too.
+  revalidatePath("/weaning-sales");
+  revalidatePath("/mortality");
   return { ok: true };
 }
 

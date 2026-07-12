@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type LedgerEntry = {
   key: string;
   date: Date;
-  kind: "wean" | "sale" | "death";
+  kind: "wean" | "sale" | "death" | "retained";
   count: number; // signed: positive for wean, negative for sale/death
   weightGrams?: number | null;
   pricePerKgCents?: number | null;
@@ -48,7 +48,7 @@ export async function getKitStockSummary() {
     ...movements.map((m) => ({
       key: `move-${m.id}`,
       date: m.date,
-      kind: m.type as "sale" | "death",
+      kind: m.type as "sale" | "death" | "retained",
       count: -m.count,
       weightGrams: m.weightGrams,
       pricePerKgCents: m.pricePerKgCents,
@@ -65,10 +65,21 @@ export async function getKitStockSummary() {
   const totalDied = movements
     .filter((m) => m.type === "death")
     .reduce((s, m) => s + m.count, 0);
+  const totalRetained = movements
+    .filter((m) => m.type === "retained")
+    .reduce((s, m) => s + m.count, 0);
   const totalRevenueCents = movements
     .filter((m) => m.type === "sale")
     .reduce((s, m) => s + (m.amountCents ?? 0), 0);
-  const availableStock = totalWeaned - totalSold - totalDied;
+  const availableStock = totalWeaned - totalSold - totalDied - totalRetained;
 
-  return { ledger, totalWeaned, totalSold, totalDied, totalRevenueCents, availableStock };
+  return {
+    ledger,
+    totalWeaned,
+    totalSold,
+    totalDied,
+    totalRetained,
+    totalRevenueCents,
+    availableStock,
+  };
 }

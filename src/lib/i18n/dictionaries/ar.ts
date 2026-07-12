@@ -375,6 +375,7 @@ export const ar = {
     availableStockLabel: "المخزون المتاح حاليًا",
     totalSoldLabel: "إجمالي المباع",
     totalDiedLabel: "إجمالي النافق",
+    totalRetainedLabel: "احتفاظ للتربية",
     saleFormHeading: "تسجيل بيع",
     dateLabel: "التاريخ",
     countLabel: "العدد",
@@ -394,9 +395,10 @@ export const ar = {
     typeWean: "فطام",
     typeSale: "بيع",
     typeDeath: "نافق",
+    typeRetained: "احتفاظ للتربية",
     emptyTitle: "لا توجد حركات مسجلة بعد",
     emptyDescription:
-      "أعداد الفطام تظهر هنا تلقائيًا. سجل البيع من النموذج أعلاه، وسجل النافق من صفحة حصر النافق.",
+      "أعداد الفطام تظهر هنا تلقائيًا. سجل البيع من النموذج أعلاه، وسجل النافق من صفحة حصر النافق، ويُخصم الاحتفاظ للتربية تلقائيًا عند إضافة سلالة إلى القطيع.",
   },
   fostering: {
     title: "التبني",

@@ -380,6 +380,7 @@ export const en: Dictionary = {
     availableStockLabel: "Currently available",
     totalSoldLabel: "Total sold",
     totalDiedLabel: "Total died",
+    totalRetainedLabel: "Kept for breeding",
     saleFormHeading: "Record a sale",
     dateLabel: "Date",
     countLabel: "Count",
@@ -399,9 +400,10 @@ export const en: Dictionary = {
     typeWean: "Weaned",
     typeSale: "Sold",
     typeDeath: "Died",
+    typeRetained: "Kept for breeding",
     emptyTitle: "No movements recorded yet",
     emptyDescription:
-      "Weaned counts show up here automatically. Record a sale with the form above, and record deaths from the mortality census page.",
+      "Weaned counts show up here automatically. Record a sale with the form above, record deaths from the mortality census page, and kits kept for breeding are deducted automatically when a juvenile is added to the herd.",
   },
   fostering: {
     title: "Fostering",
