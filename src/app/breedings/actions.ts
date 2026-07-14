@@ -549,27 +549,64 @@ export async function setLitterCount(
 }
 
 /**
- * "+1 نافق" from the daily mortality census (/mortality): a nursing kit died
- * before weaning. Moves one unit from "حي" to "نافق" atomically — quicker and
- * less error-prone than recomputing both counts by hand via setLitterCount,
- * since the person recording this just watched one kit die and doesn't want
- * to do subtraction in their head.
+ * "الوزن (جم)" inline edit on سجل الفطام — total litter weight in grams at
+ * weaning. Upserts for the same reason setLitterCount does: the board's
+ * quick "فطام" action doesn't create a litter row by itself.
+ */
+export async function setLitterWeaningWeight(
+  breedingId: string,
+  weaningWeightGrams: number | null
+): Promise<{ ok: boolean; message?: string }> {
+  if (
+    weaningWeightGrams !== null &&
+    (!Number.isInteger(weaningWeightGrams) || weaningWeightGrams < 0)
+  ) {
+    const { t } = await getDictionary();
+    return { ok: false, message: t.doeStateMenu.invalidValueFallback };
+  }
+
+  const breeding = await prisma.breeding.findUniqueOrThrow({
+    where: { id: breedingId },
+    select: { actualKindlingDate: true },
+  });
+
+  await prisma.litter.upsert({
+    where: { breedingId },
+    create: {
+      breedingId,
+      kindlingDate: breeding.actualKindlingDate ?? new Date(),
+      weaningWeightGrams,
+    },
+    update: { weaningWeightGrams },
+  });
+
+  revalidatePath("/weaning");
+  revalidatePath(`/breedings/${breedingId}`);
+  return { ok: true };
+}
+
+/**
+ * "تسجيل نافق" from the daily mortality census (/mortality): one or more
+ * nursing kits died before weaning. Moves `count` units from "حي" to "نافق"
+ * atomically — quicker and less error-prone than recomputing both counts by
+ * hand via setLitterCount.
  */
 export async function recordNursingKitDeath(
-  breedingId: string
+  breedingId: string,
+  count: number = 1
 ): Promise<{ ok: boolean; message?: string }> {
   const litter = await prisma.litter.findUnique({
     where: { breedingId },
     select: { bornAlive: true },
   });
-  if (!litter || litter.bornAlive <= 0) {
+  if (!litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
     const { t } = await getDictionary();
     return { ok: false, message: t.breedings.noNursingKitsToRecordDeath };
   }
 
   await prisma.litter.update({
     where: { breedingId },
-    data: { bornAlive: { decrement: 1 }, bornDead: { increment: 1 } },
+    data: { bornAlive: { decrement: count }, bornDead: { increment: count } },
   });
 
   revalidatePath("/does");

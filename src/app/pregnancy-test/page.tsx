@@ -104,11 +104,11 @@ export default async function PregnancyTestPage() {
               <TableRow className="[&>th]:border-x">
                 <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
                 <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colBreed}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colBreed}</TableHead>
                 <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
                 <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colTestDate}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colDoeState}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colTestDate}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colDoeState}</TableHead>
                 <TableHead className="text-center">{t.pregnancyTest.colTestResult}</TableHead>
               </TableRow>
             </TableHeader>
@@ -121,15 +121,15 @@ export default async function PregnancyTestPage() {
                       {doe.tagId ?? "—"}
                     </Link>
                   </TableCell>
-                  <TableCell>{doe.breed ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
                   <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
                     <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <LocalDate date={testDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
@@ -173,7 +173,7 @@ export default async function PregnancyTestPage() {
                 <TableRow className="[&>th]:border-x">
                   <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
                   <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colBreed}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colBreed}</TableHead>
                   <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
                   <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
                   <TableHead className="text-center">{t.pregnancyTest.colTestDate}</TableHead>
@@ -189,7 +189,7 @@ export default async function PregnancyTestPage() {
                         {row.doe.tagId ?? "—"}
                       </Link>
                     </TableCell>
-                    <TableCell>{row.doe.breed ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
                     <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
                       <LocalDate date={row.matingDate} locale={locale} />

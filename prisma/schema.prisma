@@ -244,6 +244,7 @@ model Litter {
   bornDead     Int       @default(0)
   weaned       Int? // number that survived to weaning
   weaningDate  DateTime?
+  weaningWeightGrams Int? // total litter weight at weaning
   notes        String?
 
   kits Rabbit[] // rabbits promoted from this litter

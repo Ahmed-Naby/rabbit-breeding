@@ -16,6 +16,7 @@ import {
   markWeaned,
   setMatingDate,
   setLitterCount,
+  setLitterWeaningWeight,
   clearDoeRow,
   startBreeding,
   buckExists,
@@ -424,12 +425,14 @@ export function LitterCountInput({
   value,
   disabled,
   locale,
+  className,
 }: {
   breedingId: string;
   field: "bornAlive" | "bornDead" | "weaned";
   value: number | null;
   disabled?: boolean;
   locale: Locale;
+  className?: string;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
@@ -446,7 +449,10 @@ export function LitterCountInput({
       inputMode="numeric"
       value={text}
       disabled={pending || disabled}
-      className="h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50"
+      className={cn(
+        "h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+        className
+      )}
       onChange={(e) => setText(e.target.value)}
       onBlur={(e) => {
         const parsed = e.target.value === "" ? null : Number(e.target.value);
@@ -456,6 +462,57 @@ export function LitterCountInput({
           if (!result.ok) {
             toast.error(result.message ?? t.invalidValueFallback);
             setText((value ?? "").toString());
+          }
+        });
+      }}
+    />
+  );
+}
+
+/** "الوزن (جم)": total litter weight in grams at weaning, committed on blur. */
+export function LitterWeightInput({
+  breedingId,
+  valueGrams,
+  disabled,
+  locale,
+  className,
+}: {
+  breedingId: string;
+  valueGrams: number | null;
+  disabled?: boolean;
+  locale: Locale;
+  className?: string;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, startTransition] = useTransition();
+  const [text, setText] = useState(() => (valueGrams ?? "").toString());
+
+  useEffect(() => {
+    setText((valueGrams ?? "").toString());
+  }, [valueGrams]);
+
+  return (
+    <input
+      type="number"
+      min={0}
+      step="1"
+      inputMode="numeric"
+      value={text}
+      disabled={pending || disabled}
+      className={cn(
+        "h-7 w-20 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+        className
+      )}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={(e) => {
+        const parsed = e.target.value === "" ? null : Number(e.target.value);
+        if (parsed === valueGrams) return;
+        if (parsed !== null && Number.isNaN(parsed)) return;
+        startTransition(async () => {
+          const result = await setLitterWeaningWeight(breedingId, parsed);
+          if (!result.ok) {
+            toast.error(result.message ?? t.invalidValueFallback);
+            setText((valueGrams ?? "").toString());
           }
         });
       }}

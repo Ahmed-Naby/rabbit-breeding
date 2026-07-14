@@ -144,7 +144,11 @@ export default async function MortalityPage() {
                     <TableCell>{litter.bornAlive}</TableCell>
                     <TableCell>{litter.bornDead}</TableCell>
                     <TableCell>
-                      <NursingKitDeathButton breedingId={breedingId} locale={locale} />
+                      <NursingKitDeathButton
+                        breedingId={breedingId}
+                        bornAlive={litter.bornAlive}
+                        locale={locale}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

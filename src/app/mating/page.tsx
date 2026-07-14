@@ -105,7 +105,7 @@ export default async function MatingPage() {
               <TableRow className="[&>th]:border-x">
                 <TableHead className="text-center">{t.mating.colIndex}</TableHead>
                 <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
-                <TableHead className="text-center">{t.mating.colBreed}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.mating.colBreed}</TableHead>
                 <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
                 <TableHead className="text-center">{t.mating.colMate}</TableHead>
               </TableRow>
@@ -121,7 +121,7 @@ export default async function MatingPage() {
                         {doe.tagId ?? "—"}
                       </Link>
                     </TableCell>
-                    <TableCell>{doe.breed ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
                     <TableCell>
                       <DoeStateBadge current={doe.doeState} locale={locale} />
                     </TableCell>
@@ -157,7 +157,7 @@ export default async function MatingPage() {
                 <TableRow className="[&>th]:border-x">
                   <TableHead className="text-center">{t.mating.colIndex}</TableHead>
                   <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.mating.colBreed}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.mating.colBreed}</TableHead>
                   <TableHead className="text-center">{t.mating.colBuckTag}</TableHead>
                   <TableHead className="text-center">{t.mating.colMatingDate}</TableHead>
                   <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
@@ -172,7 +172,7 @@ export default async function MatingPage() {
                         {row.doe.tagId ?? "—"}
                       </Link>
                     </TableCell>
-                    <TableCell>{row.doe.breed ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
                     <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
                       <LocalDate date={row.matingDate} locale={locale} />

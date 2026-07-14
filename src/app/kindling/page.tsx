@@ -137,11 +137,11 @@ export default async function KindlingPage() {
               <TableRow className="[&>th]:border-x">
                 <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
                 <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
-                <TableHead className="text-center">{t.kindling.colBreed}</TableHead>
-                <TableHead className="text-center">{t.kindling.colBuckTag}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBreed}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBuckTag}</TableHead>
                 <TableHead className="text-center">{t.kindling.colMatingDate}</TableHead>
-                <TableHead className="text-center">{t.kindling.colExpectedKindling}</TableHead>
-                <TableHead className="text-center">{t.kindling.colDoeState}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colExpectedKindling}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colDoeState}</TableHead>
                 <TableHead className="text-center">{t.kindling.colKindle}</TableHead>
               </TableRow>
             </TableHeader>
@@ -154,15 +154,15 @@ export default async function KindlingPage() {
                       {doe.tagId ?? "—"}
                     </Link>
                   </TableCell>
-                  <TableCell>{doe.breed ?? "—"}</TableCell>
-                  <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
                     <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
@@ -196,9 +196,9 @@ export default async function KindlingPage() {
                 <TableRow className="[&>th]:border-x">
                   <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
                   <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colMatingDate}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBreed}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBuckTag}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colMatingDate}</TableHead>
                   <TableHead className="text-center">{t.kindling.colKindlingDate}</TableHead>
                   <TableHead className="text-center">{t.kindling.colBornAlive}</TableHead>
                   <TableHead className="text-center">{t.kindling.colBornDead}</TableHead>
@@ -217,9 +217,9 @@ export default async function KindlingPage() {
                           {row.doe.tagId ?? "—"}
                         </Link>
                       </TableCell>
-                      <TableCell>{row.doe.breed ?? "—"}</TableCell>
-                      <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{row.buck?.tagId ?? "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <LocalDate date={row.matingDate} locale={locale} />
                       </TableCell>
                       <TableCell>

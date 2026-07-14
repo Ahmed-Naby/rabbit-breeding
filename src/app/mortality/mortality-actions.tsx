@@ -10,37 +10,58 @@ import { setRabbitStatus } from "../rabbits/actions";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
 
-/** "+1 نافق" on a nursing doe's current litter — moves one kit from "حي" to "نافق". */
+/** "تسجيل نافق" on a nursing doe's current litter — moves N kits from "حي" to "نافق". */
 export function NursingKitDeathButton({
   breedingId,
+  bornAlive,
   locale,
 }: {
   breedingId: string;
+  bornAlive: number;
   locale: Locale;
 }) {
   const t = getClientDictionary(locale).mortality;
   const [pending, startTransition] = useTransition();
+  const [count, setCount] = useState(1);
+  const disabled = bornAlive <= 0;
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={pending}
-      className="h-7 px-2 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-      onClick={() => {
-        const confirmed = window.confirm(t.nursingKitDeathConfirm);
-        if (!confirmed) return;
-        startTransition(async () => {
-          const result = await recordNursingKitDeath(breedingId);
-          if (!result.ok) {
-            toast.error(result.message ?? t.recordDeathFailedFallback);
-            return;
-          }
-          toast.success(t.kitDeathToast);
-        });
-      }}
-    >
-      {t.plusOneDeceasedButton}
-    </Button>
+    <div className="flex items-center justify-center gap-2">
+      <Input
+        type="number"
+        min={1}
+        max={Math.max(bornAlive, 1)}
+        value={count}
+        disabled={pending || disabled}
+        aria-label={t.nursingKitCountInputLabel}
+        className="h-7 w-16 px-2 text-xs"
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (Number.isNaN(next)) return;
+          setCount(next);
+        }}
+      />
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pending || disabled || count < 1 || count > bornAlive}
+        className="h-7 px-2 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+        onClick={() => {
+          const confirmed = window.confirm(t.nursingKitDeathConfirm(count));
+          if (!confirmed) return;
+          startTransition(async () => {
+            const result = await recordNursingKitDeath(breedingId, count);
+            if (!result.ok) {
+              toast.error(result.message ?? t.recordDeathFailedFallback);
+              return;
+            }
+            toast.success(t.kitDeathToast(count));
+            setCount(1);
+          });
+        }}
+      >
+        {t.recordNursingDeathButton}
+      </Button>
+    </div>
   );
 }
 

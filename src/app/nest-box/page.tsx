@@ -102,11 +102,11 @@ export default async function NestBoxPage() {
               <TableRow className="[&>th]:border-x">
                 <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
                 <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colBreed}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colBuckTag}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBreed}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBuckTag}</TableHead>
                 <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colExpectedInstallDate}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colDoeState}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colExpectedInstallDate}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colDoeState}</TableHead>
                 <TableHead className="text-center">{t.nestBox.colInstall}</TableHead>
               </TableRow>
             </TableHeader>
@@ -119,15 +119,15 @@ export default async function NestBoxPage() {
                       {doe.tagId ?? "—"}
                     </Link>
                   </TableCell>
-                  <TableCell>{doe.breed ?? "—"}</TableCell>
-                  <TableCell>{b.buck?.tagId ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{b.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
                     <LocalDate date={b.matingDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
@@ -155,11 +155,11 @@ export default async function NestBoxPage() {
                 <TableRow className="[&>th]:border-x">
                   <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
                   <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colBuckTag}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBreed}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBuckTag}</TableHead>
                   <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
                   <TableHead className="text-center">{t.nestBox.colInstallDate}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colDoeState}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colDoeState}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -171,15 +171,15 @@ export default async function NestBoxPage() {
                         {row.doe.tagId ?? "—"}
                       </Link>
                     </TableCell>
-                    <TableCell>{row.doe.breed ?? "—"}</TableCell>
-                    <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{row.buck?.tagId ?? "—"}</TableCell>
                     <TableCell>
                       <LocalDate date={row.matingDate} locale={locale} />
                     </TableCell>
                     <TableCell>
                       <LocalDate date={row.nestBoxDate} locale={locale} />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <DoeStateBadge current={row.doe.doeState} locale={locale} />
                     </TableCell>
                   </TableRow>

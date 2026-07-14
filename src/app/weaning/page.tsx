@@ -13,7 +13,7 @@ import {
 import { LocalDate } from "@/components/local-date";
 import { weaningDueDate, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
-import { DoeStateBadge, WeanButton, LitterCountInput } from "../does/doe-state-menu";
+import { DoeStateBadge, WeanButton, LitterCountInput, LitterWeightInput } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -65,6 +65,7 @@ export default async function WeaningPage() {
         bornAlive: true,
         bornDead: true,
         weaned: true,
+        weaningWeightGrams: true,
         breeding: {
           select: {
             doe: { select: { id: true, tagId: true, breed: true } },
@@ -110,11 +111,11 @@ export default async function WeaningPage() {
               <TableRow className="[&>th]:border-x">
                 <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
                 <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
-                <TableHead className="text-center">{t.weaning.colBreed}</TableHead>
-                <TableHead className="text-center">{t.weaning.colBuckTag}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBreed}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBuckTag}</TableHead>
                 <TableHead className="text-center">{t.weaning.colKindlingDate}</TableHead>
-                <TableHead className="text-center">{t.weaning.colExpectedWeaningDate}</TableHead>
-                <TableHead className="text-center">{t.weaning.colDoeState}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colExpectedWeaningDate}</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colDoeState}</TableHead>
                 <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
                 <TableHead className="text-center">{t.weaning.colDead}</TableHead>
                 <TableHead className="text-center">{t.weaning.colWean}</TableHead>
@@ -129,15 +130,15 @@ export default async function WeaningPage() {
                       {doe.tagId ?? "—"}
                     </Link>
                   </TableCell>
-                  <TableCell>{doe.breed ?? "—"}</TableCell>
-                  <TableCell>{litterRow.buck?.tagId ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                  <TableCell className="hidden sm:table-cell">{litterRow.buck?.tagId ?? "—"}</TableCell>
                   <TableCell>
                     <LocalDate date={litterRow.actualKindlingDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <LocalDate date={dueDate} locale={locale} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>{litterRow.litter?.bornAlive ?? "—"}</TableCell>
@@ -174,14 +175,15 @@ export default async function WeaningPage() {
                 <TableRow className="[&>th]:border-x">
                   <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
                   <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colKindlingDate}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBreed}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBuckTag}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colKindlingDate}</TableHead>
                   <TableHead className="text-center">{t.weaning.colWeaningDate}</TableHead>
                   <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
                   <TableHead className="text-center">{t.weaning.colDead}</TableHead>
                   <TableHead className="text-center">{t.weaning.colWeanedCount}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colSurvivalRate}</TableHead>
+                  <TableHead className="text-center">{t.weaning.colWeaningWeight}</TableHead>
+                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colSurvivalRate}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -195,9 +197,9 @@ export default async function WeaningPage() {
                           {l.breeding.doe.tagId ?? "—"}
                         </Link>
                       </TableCell>
-                      <TableCell>{l.breeding.doe.breed ?? "—"}</TableCell>
-                      <TableCell>{l.breeding.buck?.tagId ?? "—"}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">{l.breeding.doe.breed ?? "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{l.breeding.buck?.tagId ?? "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <LocalDate date={l.kindlingDate} locale={locale} />
                       </TableCell>
                       <TableCell>
@@ -211,9 +213,18 @@ export default async function WeaningPage() {
                           field="weaned"
                           value={l.weaned}
                           locale={locale}
+                          className="w-12"
                         />
                       </TableCell>
                       <TableCell>
+                        <LitterWeightInput
+                          breedingId={l.breedingId}
+                          valueGrams={l.weaningWeightGrams}
+                          locale={locale}
+                          className="w-16"
+                        />
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {r != null ? (
                           <span className="font-medium text-emerald-600 dark:text-emerald-400">
                             {Math.round(r * 100)}%
