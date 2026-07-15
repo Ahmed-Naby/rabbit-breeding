@@ -8,6 +8,7 @@ import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
+import { weaningDueDate } from "@/lib/dates";
 
 export type DoeRow = {
   id: string;
@@ -494,48 +495,87 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const rows = await queryAll<{
+
+  // 1. Fetch candidates (active nursing does)
+  const candidates = await queryAll<{
     id: string;
-    breedingId: string;
-    kindlingDate: string;
-    bornAlive: number;
-    bornDead: number;
-    doeId: string;
-    buckId: string | null;
+    tagId: string;
+    breed: string | null;
+    doeState: string;
   }>(
     db,
-    `SELECT l.id, l.breedingId, l.kindlingDate, l.bornAlive, l.bornDead, b.doeId, b.buckId
-     FROM litter l
-     JOIN breeding b ON l.breedingId = b.id
-     WHERE l.weaned IS NULL
-     ORDER BY l.kindlingDate ASC`
+    `SELECT id, tagId, breed, doeState 
+     FROM rabbit 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+       AND doeState IN ('nursing', 'nursing_bred', 'nursing_pregnant') 
+     ORDER BY tagId ASC`
   );
 
   const litters: WeaningLitterRow[] = [];
-  for (const row of rows) {
-    const doe = await queryOne<{ tagId: string | null; breed: string | null; doeState: string }>(
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include full day
+
+  for (const doe of candidates) {
+    // Fetch latest 2 breedings for this doe
+    const breedings = await queryAll<{
+      id: string;
+      actualKindlingDate: string | null;
+      buckId: string | null;
+    }>(
       db,
-      "SELECT tagId, breed, doeState FROM rabbit WHERE id = ?",
-      [row.doeId]
+      "SELECT id, actualKindlingDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
+      [doe.id]
     );
-    const buck = row.buckId
-      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+
+    if (breedings.length === 0) continue;
+
+    const b = breedings[0];
+    const prev = breedings[1];
+
+    // Check if previous breeding has ongoing litter
+    let prevOngoingLitter = false;
+    if (prev && prev.actualKindlingDate) {
+      const prevLitter = await queryOne<{ weaningDate: string | null }>(
+        db,
+        "SELECT weaningDate FROM litter WHERE breedingId = ?",
+        [prev.id]
+      );
+      prevOngoingLitter = !prevLitter || !prevLitter.weaningDate;
+    }
+
+    const litterRow = (prevOngoingLitter && (!b || !b.actualKindlingDate)) ? prev : b;
+    if (!litterRow || !litterRow.actualKindlingDate) continue;
+
+    const litter = await queryOne<{ id: string; bornAlive: number; bornDead: number; weaningDate: string | null }>(
+      db,
+      "SELECT id, bornAlive, bornDead, weaningDate FROM litter WHERE breedingId = ?",
+      [litterRow.id]
+    );
+
+    if (!litter || litter.weaningDate) continue;
+
+    const dueDate = weaningDueDate(new Date(litterRow.actualKindlingDate), settings.weaningDays);
+    if (dueDate > today) continue;
+
+    const buck = litterRow.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [litterRow.buckId])
       : null;
+
     litters.push({
-      id: row.id,
-      breedingId: row.breedingId,
-      kindlingDate: row.kindlingDate,
-      bornAlive: row.bornAlive,
-      bornDead: row.bornDead,
-      doeId: row.doeId,
-      doeTagId: doe?.tagId ?? null,
-      doeBreed: doe?.breed ?? null,
-      doeState: doe?.doeState ?? "empty",
+      id: litter.id,
+      breedingId: litterRow.id,
+      kindlingDate: litterRow.actualKindlingDate,
+      bornAlive: litter.bornAlive,
+      bornDead: litter.bornDead,
+      doeId: doe.id,
+      doeTagId: doe.tagId,
+      doeBreed: doe.breed,
+      doeState: doe.doeState,
       buckTagId: buck?.tagId ?? null,
     });
   }
 
-  // Get weaned log entries derived from litter table
+  // 2. Get weaned log entries derived from litter table
   const logRows = await queryAll<{
     breedingId: string;
     kindlingDate: string;
