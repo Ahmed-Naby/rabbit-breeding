@@ -459,3 +459,88 @@ export function MatingFailedButton({
     </Button>
   );
 }
+
+export function InstallNestBoxButton({
+  breedingId,
+  doeId,
+  locale,
+  onDone,
+}: {
+  breedingId: string;
+  doeId: string;
+  locale: Locale;
+  onDone: () => void;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, setPending] = useState(false);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      className="h-8 px-2.5 text-xs border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+      onClick={async () => {
+        setPending(true);
+        await enqueue("installNestBox", { breedingId, doeId });
+        toast.success(t.nestBoxInstalledToast);
+        setPending(false);
+        onDone();
+      }}
+    >
+      {t.installButton}
+    </Button>
+  );
+}
+
+export function LitterWeightInput({
+  breedingId,
+  valueGrams,
+  disabled,
+  locale,
+  className,
+  onDone,
+}: {
+  breedingId: string;
+  valueGrams: number | null;
+  disabled?: boolean;
+  locale: Locale;
+  className?: string;
+  onDone: () => void;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, setPending] = useState(false);
+  const [text, setText] = useState(() => (valueGrams ?? "").toString());
+
+  useEffect(() => {
+    setText((valueGrams ?? "").toString());
+  }, [valueGrams]);
+
+  return (
+    <input
+      type="number"
+      min={0}
+      step="1"
+      inputMode="numeric"
+      value={text}
+      disabled={pending || disabled}
+      className={cn(
+        "h-8 w-20 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+        className
+      )}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={async (e) => {
+        const parsed = e.target.value === "" ? null : Number(e.target.value);
+        if (parsed === valueGrams) return;
+        if (parsed !== null && Number.isNaN(parsed)) return;
+        setPending(true);
+        const { outcome } = await enqueue("setLitterWeaningWeight", { breedingId, weaningWeightGrams: parsed });
+        if (outcome.status === "rejected") {
+          toast.error(outcome.resultMessage || t.invalidValueFallback);
+          setText((valueGrams ?? "").toString());
+        }
+        setPending(false);
+        onDone();
+      }}
+    />
+  );
+}

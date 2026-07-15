@@ -9,4 +9,4 @@ const env = (import.meta as unknown as { env?: Record<string, string | undefined
 // shell at, so sync works even before Phase 3 wires up the mobile build's
 // own .env.
 export const SYNC_API_BASE_URL = env.VITE_SYNC_API_BASE_URL ?? "https://rabbit-breeding-ahmed-nabys-projects.vercel.app";
-export const SYNC_SHARED_SECRET = env.VITE_SYNC_SHARED_SECRET ?? "";
+export const SYNC_SHARED_SECRET = env.VITE_SYNC_SHARED_SECRET ?? "4306932d06b7341f489c2ecb485efbb81af4008cd854aea9445071a58d5a160d";

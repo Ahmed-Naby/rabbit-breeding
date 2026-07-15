@@ -32,6 +32,7 @@ import {
   markMatedOp,
   confirmPregnantOp,
   installNestBoxOp,
+  transferKitsOp,
 } from "@/lib/breeding-ops";
 import {
   setDoeStateOp,
@@ -184,4 +185,134 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   promoteToHerdPen: async (p) => fromOpResult(await promoteToHerdPenOp(p.id as string)),
+
+  transferKits: async (p) =>
+    fromOpResult(
+      await transferKitsOp({
+        fromTagId: p.fromTagId as string,
+        toTagId: p.toTagId as string,
+        count: p.count as number,
+      })
+    ),
+
+  recordKitSale: async (p) => {
+    const date = new Date(p.date as string);
+    const weightGrams = p.weightGrams as number | null;
+    const pricePerKgCents = p.pricePerKgCents as number | null;
+    const amountCents = p.amountCents as number | null;
+
+    await prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.create({
+        data: {
+          id: p.transactionId as string | undefined,
+          date,
+          type: "income",
+          category: "sale",
+          amountCents: amountCents ?? 0,
+          notes: (p.notes as string | null) ?? null,
+        },
+      });
+      await tx.kitStockMovement.create({
+        data: {
+          id: p.id as string | undefined,
+          date,
+          type: "sale",
+          count: p.count as number,
+          weightGrams,
+          pricePerKgCents,
+          amountCents,
+          transactionId: transaction.id,
+          notes: (p.notes as string | null) ?? null,
+        },
+      });
+    });
+    return applied;
+  },
+
+  recordWeanedKitDeath: async (p) => {
+    await prisma.kitStockMovement.create({
+      data: {
+        id: p.id as string | undefined,
+        date: new Date(p.date as string),
+        type: "death",
+        count: p.count as number,
+        notes: (p.notes as string | null) ?? null,
+      },
+    });
+    return applied;
+  },
+
+  deleteKitStockMovement: async (p) => {
+    await prisma.$transaction(async (tx) => {
+      const movement = await tx.kitStockMovement.delete({ where: { id: p.id as string } });
+      if (movement.transactionId) {
+        await tx.transaction.delete({ where: { id: movement.transactionId } });
+      }
+    });
+    return applied;
+  },
+
+  createHealthRecord: async (p) => {
+    await prisma.healthRecord.create({
+      data: {
+        id: p.id as string | undefined,
+        rabbitId: p.rabbitId as string,
+        date: new Date(p.date as string),
+        type: p.type as string,
+        description: p.description as string,
+        nextDueDate: p.nextDueDate ? new Date(p.nextDueDate as string) : null,
+      },
+    });
+    return applied;
+  },
+
+  deleteHealthRecord: async (p) => {
+    await prisma.healthRecord.delete({ where: { id: p.id as string } });
+    return applied;
+  },
+
+  createTransaction: async (p) => {
+    await prisma.transaction.create({
+      data: {
+        id: p.id as string | undefined,
+        date: new Date(p.date as string),
+        type: p.type as "income" | "expense",
+        category: p.category as string,
+        amountCents: p.amountCents as number,
+        notes: (p.notes as string | null) ?? null,
+      },
+    });
+    return applied;
+  },
+
+  deleteTransaction: async (p) => {
+    await prisma.transaction.delete({ where: { id: p.id as string } });
+    return applied;
+  },
+
+  updateSettings: async (p) => {
+    const d = { ...p };
+    delete d.id;
+    await prisma.settings.upsert({
+      where: { id: 1 },
+      update: d,
+      create: { id: 1, ...d } as any,
+    });
+    return applied;
+  },
+
+  addBreed: async (p) => {
+    await prisma.breed.create({
+      data: {
+        id: p.id as string | undefined,
+        name: p.name as string,
+      },
+    });
+    return applied;
+  },
+
+  deleteBreed: async (p) => {
+    await prisma.breed.delete({ where: { id: p.id as string } });
+    return applied;
+  },
 };

@@ -101,6 +101,11 @@ type PullResponse = {
   breedings: Record<string, unknown>[];
   litters: Record<string, unknown>[];
   weightRecords: Record<string, unknown>[];
+  fosterLogs?: Record<string, unknown>[];
+  kitStockMovements?: Record<string, unknown>[];
+  healthRecords?: Record<string, unknown>[];
+  transactions?: Record<string, unknown>[];
+  breeds?: Record<string, unknown>[];
 };
 
 function applyPulledSettings(db: SQLiteDBConnection, s: Record<string, unknown>) {
@@ -204,18 +209,155 @@ export async function pull(): Promise<void> {
     : `/api/sync/bootstrap`;
   const data = (await syncFetch(path)) as PullResponse;
 
-  await withTransaction(async (txDb) => {
-    if (data.settings) await applyPulledSettings(txDb, data.settings);
-    for (const r of data.rabbits) await applyPulledRabbit(txDb, r);
-    for (const b of data.breedings) await applyPulledBreeding(txDb, b);
-    for (const l of data.litters) await applyPulledLitter(txDb, l);
-    for (const w of data.weightRecords) await applyPulledWeightRecord(txDb, w);
+  const set: { statement: string; values?: any[] }[] = [];
 
-    await run(txDb, "UPDATE sync_cursor SET since = ?, lastSyncAt = ? WHERE id = 1", [
-      data.serverTime,
-      nowIso(),
-    ]);
+  if (data.settings) {
+    const s = data.settings;
+    set.push({
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
+         gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
+         weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
+         matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
+         currency = excluded.currency`,
+      values: [
+        s.weightUnit,
+        s.gestationDays,
+        s.gestationWindowDays,
+        s.pregnancyTestDays,
+        s.weaningDays,
+        s.nestBoxDays,
+        s.matingWeightGrams,
+        s.rebreedAfterKindlingDays,
+        s.currency,
+      ],
+    });
+  }
+
+  for (const r of data.rabbits) {
+    set.push({
+      statement: `INSERT OR REPLACE INTO rabbit (id, tagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      values: [
+        r.id, r.tagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
+        r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
+        r.litterId, r.createdAt, r.updatedAt,
+      ],
+    });
+  }
+
+  for (const b of data.breedings) {
+    set.push({
+      statement: `INSERT OR REPLACE INTO breeding (id, buckId, doeId, matingDate, expectedKindlingDate, actualKindlingDate, nestBoxDate, outcome, pregnancyTestResult, notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      values: [
+        b.id, b.buckId, b.doeId, b.matingDate, b.expectedKindlingDate, b.actualKindlingDate, b.nestBoxDate,
+        b.outcome, b.pregnancyTestResult, b.notes, b.createdAt, b.updatedAt,
+      ],
+    });
+  }
+
+  for (const l of data.litters) {
+    set.push({
+      statement: `INSERT INTO litter (id, breedingId, kindlingDate, bornAlive, bornDead, weaned, weaningDate, weaningWeightGrams, notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(breedingId) DO UPDATE SET
+         id = excluded.id, kindlingDate = excluded.kindlingDate, bornAlive = excluded.bornAlive,
+         bornDead = excluded.bornDead, weaned = excluded.weaned, weaningDate = excluded.weaningDate,
+         weaningWeightGrams = excluded.weaningWeightGrams, notes = excluded.notes, updatedAt = excluded.updatedAt`,
+      values: [
+        l.id, l.breedingId, l.kindlingDate, l.bornAlive, l.bornDead, l.weaned, l.weaningDate,
+        l.weaningWeightGrams, l.notes, l.createdAt, l.updatedAt,
+      ],
+    });
+  }
+
+  for (const w of data.weightRecords) {
+    set.push({
+      statement: "DELETE FROM weight_record WHERE id LIKE 'local-%' AND rabbitId = ? AND date = ?",
+      values: [w.rabbitId, w.date],
+    });
+    set.push({
+      statement: `INSERT OR REPLACE INTO weight_record (id, rabbitId, date, weightGrams, notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      values: [w.id, w.rabbitId, w.date, w.weightGrams, w.notes, w.createdAt, w.updatedAt],
+    });
+  }
+
+  if (data.fosterLogs) {
+    for (const f of data.fosterLogs) {
+      set.push({
+        statement: `INSERT OR REPLACE INTO foster_log (id, fromDoeId, toDoeId, count, date, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        values: [f.id, f.fromDoeId, f.toDoeId, f.count, f.date, f.createdAt, f.updatedAt],
+      });
+    }
+  }
+
+  if (data.kitStockMovements) {
+    for (const m of data.kitStockMovements) {
+      set.push({
+        statement: "DELETE FROM kit_stock_movement WHERE id = ? OR (id LIKE 'local-%' AND type = ? AND date = ? AND count = ?)",
+        values: [m.id, m.type, m.date, m.count],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [m.id, m.date, m.type, m.count, m.weightGrams, m.pricePerKgCents, m.amountCents, m.transactionId, m.rabbitId, m.notes, m.createdAt, m.updatedAt],
+      });
+    }
+  }
+
+  if (data.healthRecords) {
+    for (const h of data.healthRecords) {
+      set.push({
+        statement: "DELETE FROM health_record WHERE id = ? OR (id LIKE 'local-%' AND rabbitId = ? AND date = ? AND type = ?)",
+        values: [h.id, h.rabbitId, h.date, h.type],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO health_record (id, rabbitId, date, type, description, nextDueDate, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [h.id, h.rabbitId, h.date, h.type, h.description, h.nextDueDate, h.createdAt, h.updatedAt],
+      });
+    }
+  }
+
+  if (data.transactions) {
+    for (const t of data.transactions) {
+      set.push({
+        statement: "DELETE FROM transaction_ledger WHERE id = ? OR (id LIKE 'local-%' AND date = ? AND type = ? AND category = ? AND amountCents = ?)",
+        values: [t.id, t.date, t.type, t.category, t.amountCents],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, feedLogId, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [t.id, t.date, t.type, t.category, t.amountCents, t.notes, t.rabbitId, t.feedLogId, t.createdAt, t.updatedAt],
+      });
+    }
+  }
+
+  if (data.breeds) {
+    set.push({ statement: "DELETE FROM breed", values: [] });
+    for (const b of data.breeds) {
+      set.push({
+        statement: "INSERT OR REPLACE INTO breed (id, name, createdAt) VALUES (?, ?, ?)",
+        values: [b.id, b.name, b.createdAt],
+      });
+    }
+  }
+
+  set.push({
+    statement: "UPDATE sync_cursor SET since = ?, lastSyncAt = ? WHERE id = 1",
+    values: [data.serverTime, nowIso()],
   });
+
+  if (set.length > 0) {
+    console.log(`[DB] Executing batch of ${set.length} sync operations...`);
+    await db.executeSet(set);
+    console.log("[DB] Sync operations batch execution finished successfully.");
+  }
 }
 
 // --- push ----------------------------------------------------------------

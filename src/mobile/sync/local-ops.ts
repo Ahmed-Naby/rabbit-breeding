@@ -602,4 +602,212 @@ export const localOpRegistry: Record<
   saveQuickRabbitWeight: saveQuickRabbitWeight as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   promoteToHerdPen: promoteToHerdPen as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transferKits: transferKits as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recordKitSale: recordKitSale as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recordWeanedKitDeath: recordWeanedKitDeath as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteKitStockMovement: deleteKitStockMovement as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createHealthRecord: createHealthRecord as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteHealthRecord: deleteHealthRecord as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createTransaction: createTransaction as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteTransaction: deleteTransaction as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateSettings: updateSettings as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addBreed: addBreed as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteBreed: deleteBreed as any,
 };
+
+export async function transferKits(
+  db: SQLiteDBConnection,
+  payload: { fromTagId: string; toTagId: string; count: number }
+): Promise<LocalOpOutcome> {
+  const fromDoe = await queryOne<{ id: string; doeState: string }>(db, "SELECT id, doeState FROM rabbit WHERE tagId = ?", [payload.fromTagId]);
+  const toDoe = await queryOne<{ id: string; doeState: string }>(db, "SELECT id, doeState FROM rabbit WHERE tagId = ?", [payload.toTagId]);
+  if (!fromDoe) return rejected(`Source doe tag "${payload.fromTagId}" not found`);
+  if (!toDoe) return rejected(`Target doe tag "${payload.toTagId}" not found`);
+
+  const fromBreeding = await queryOne<{ id: string }>(
+    db,
+    "SELECT id FROM breeding WHERE doeId = ? AND actualKindlingDate IS NOT NULL ORDER BY createdAt DESC LIMIT 1",
+    [fromDoe.id]
+  );
+  const toBreeding = await queryOne<{ id: string }>(
+    db,
+    "SELECT id FROM breeding WHERE doeId = ? AND actualKindlingDate IS NOT NULL ORDER BY createdAt DESC LIMIT 1",
+    [toDoe.id]
+  );
+  if (!fromBreeding) return rejected("Source doe has no active litter");
+  if (!toBreeding) return rejected("Target doe has no active litter");
+
+  const fromLitter = await queryOne<{ bornAlive: number }>(
+    db,
+    "SELECT bornAlive FROM litter WHERE breedingId = ?",
+    [fromBreeding.id]
+  );
+  const toLitter = await queryOne<{ bornAlive: number }>(
+    db,
+    "SELECT bornAlive FROM litter WHERE breedingId = ?",
+    [toBreeding.id]
+  );
+  if (!fromLitter) return rejected("Source doe has no active litter row");
+  if (!toLitter) return rejected("Target doe has no active litter row");
+
+  if (fromLitter.bornAlive < payload.count) {
+    return rejected(`Not enough kits in source litter (available: ${fromLitter.bornAlive})`);
+  }
+
+  const now = nowIso();
+  await run(db, "UPDATE litter SET bornAlive = bornAlive - ?, updatedAt = ? WHERE breedingId = ?", [payload.count, now, fromBreeding.id]);
+  await run(db, "UPDATE litter SET bornAlive = bornAlive + ?, updatedAt = ? WHERE breedingId = ?", [payload.count, now, toBreeding.id]);
+  await run(
+    db,
+    "INSERT INTO foster_log (id, fromDoeId, toDoeId, count, date, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [`local-${createId()}`, fromDoe.id, toDoe.id, payload.count, todayIso(), now, now]
+  );
+
+  return applied;
+}
+
+export async function recordKitSale(
+  db: SQLiteDBConnection,
+  payload: { date: string; count: number; weightKg: number | null; pricePerKg: number | null; notes: string | null }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  const date = payload.date;
+  const weightGrams = payload.weightKg != null ? toGrams({ kg: payload.weightKg }, "kg") : null;
+  const pricePerKgCents = payload.pricePerKg != null ? Math.round(payload.pricePerKg * 100) : null;
+  const amountCents = (weightGrams != null && pricePerKgCents != null) ? Math.round((weightGrams * pricePerKgCents) / 1000) : null;
+
+  await run(
+    db,
+    `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'sale', ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+    [`local-${createId()}`, date, payload.count, weightGrams, pricePerKgCents, amountCents, `local-${createId()}`, payload.notes ?? null, now, now]
+  );
+  return applied;
+}
+
+export async function recordWeanedKitDeath(
+  db: SQLiteDBConnection,
+  payload: { count: number; date?: string; notes?: string | null }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  const date = payload.date ?? todayIso();
+  await run(
+    db,
+    `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'death', ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`,
+    [`local-${createId()}`, date, payload.count, payload.notes ?? null, now, now]
+  );
+  return applied;
+}
+
+export async function deleteKitStockMovement(
+  db: SQLiteDBConnection,
+  payload: { id: string }
+): Promise<LocalOpOutcome> {
+  await run(db, "DELETE FROM kit_stock_movement WHERE id = ?", [payload.id]);
+  return applied;
+}
+
+export async function createHealthRecord(
+  db: SQLiteDBConnection,
+  payload: { rabbitId: string; date: string; type: string; description: string; nextDueDate?: string | null }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO health_record (id, rabbitId, date, type, description, nextDueDate, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [`local-${createId()}`, payload.rabbitId, payload.date, payload.type, payload.description, payload.nextDueDate ?? null, now, now]
+  );
+  return applied;
+}
+
+export async function deleteHealthRecord(
+  db: SQLiteDBConnection,
+  payload: { id: string }
+): Promise<LocalOpOutcome> {
+  await run(db, "DELETE FROM health_record WHERE id = ?", [payload.id]);
+  return applied;
+}
+
+export async function createTransaction(
+  db: SQLiteDBConnection,
+  payload: { date: string; type: string; category: string; amountCents: number; notes?: string | null }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, feedLogId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+    [`local-${createId()}`, payload.date, payload.type, payload.category, payload.amountCents, payload.notes ?? null, now, now]
+  );
+  return applied;
+}
+
+export async function deleteTransaction(
+  db: SQLiteDBConnection,
+  payload: { id: string }
+): Promise<LocalOpOutcome> {
+  await run(db, "DELETE FROM transaction_ledger WHERE id = ?", [payload.id]);
+  return applied;
+}
+
+export async function updateSettings(
+  db: SQLiteDBConnection,
+  payload: Record<string, any>
+): Promise<LocalOpOutcome> {
+  await run(
+    db,
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
+       gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
+       weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
+       matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
+       currency = excluded.currency`,
+    [
+      payload.weightUnit ?? 'kg',
+      payload.gestationDays ?? 31,
+      payload.gestationWindowDays ?? 3,
+      payload.pregnancyTestDays ?? 10,
+      payload.weaningDays ?? 28,
+      payload.nestBoxDays ?? 27,
+      payload.matingWeightGrams ?? 3000,
+      payload.rebreedAfterKindlingDays ?? 0,
+      payload.currency ?? 'USD'
+    ]
+  );
+  return applied;
+}
+
+export async function addBreed(
+  db: SQLiteDBConnection,
+  payload: { name: string }
+): Promise<LocalOpOutcome> {
+  await run(db, "INSERT OR IGNORE INTO breed (id, name, createdAt) VALUES (?, ?, ?)", [
+    `local-${createId()}`,
+    payload.name,
+    nowIso()
+  ]);
+  return applied;
+}
+
+export async function deleteBreed(
+  db: SQLiteDBConnection,
+  payload: { id: string }
+): Promise<LocalOpOutcome> {
+  await run(db, "DELETE FROM breed WHERE id = ?", [payload.id]);
+  return applied;
+}

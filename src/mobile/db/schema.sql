@@ -117,3 +117,63 @@ CREATE TABLE IF NOT EXISTS outbox (
   createdAt     TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox(status);
+
+CREATE TABLE IF NOT EXISTS foster_log (
+  id        TEXT PRIMARY KEY,
+  fromDoeId TEXT NOT NULL,
+  toDoeId   TEXT NOT NULL,
+  count     INTEGER NOT NULL,
+  date      TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_foster_log_fromDoeId ON foster_log(fromDoeId);
+CREATE INDEX IF NOT EXISTS idx_foster_log_toDoeId ON foster_log(toDoeId);
+
+CREATE TABLE IF NOT EXISTS kit_stock_movement (
+  id              TEXT PRIMARY KEY,
+  date            TEXT NOT NULL,
+  type            TEXT NOT NULL, -- 'sale' | 'death' | 'retained'
+  count           INTEGER NOT NULL,
+  weightGrams     INTEGER,
+  pricePerKgCents INTEGER,
+  amountCents     INTEGER,
+  transactionId   TEXT,
+  rabbitId        TEXT,
+  notes           TEXT,
+  createdAt       TEXT NOT NULL,
+  updatedAt       TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kit_stock_movement_date ON kit_stock_movement(date);
+
+CREATE TABLE IF NOT EXISTS health_record (
+  id          TEXT PRIMARY KEY,
+  rabbitId    TEXT NOT NULL,
+  date        TEXT NOT NULL,
+  type        TEXT NOT NULL, -- 'vaccination' | 'treatment' | 'illness' | 'checkup'
+  description TEXT NOT NULL,
+  nextDueDate TEXT,
+  createdAt   TEXT NOT NULL,
+  updatedAt   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_health_record_rabbitId ON health_record(rabbitId);
+
+CREATE TABLE IF NOT EXISTS transaction_ledger (
+  id            TEXT PRIMARY KEY,
+  date          TEXT NOT NULL,
+  type          TEXT NOT NULL, -- 'income' | 'expense'
+  category      TEXT NOT NULL, -- 'sale' | 'purchase' | 'feed' | 'vet' | 'equipment' | 'other'
+  amountCents   INTEGER NOT NULL,
+  notes         TEXT,
+  rabbitId      TEXT,
+  feedLogId     TEXT,
+  createdAt     TEXT NOT NULL,
+  updatedAt     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_transaction_ledger_date ON transaction_ledger(date);
+
+CREATE TABLE IF NOT EXISTS breed (
+  id        TEXT PRIMARY KEY,
+  name      TEXT UNIQUE NOT NULL,
+  createdAt TEXT NOT NULL
+);

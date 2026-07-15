@@ -1,0 +1,170 @@
+import { useEffect, useState, useCallback } from "react";
+import { Microscope } from "lucide-react";
+import type { Locale } from "@/lib/i18n/locales";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import { getDb } from "../db/client";
+import { fetchPregnancyPageData, type PregnancyTestLogEntry } from "../db/queries";
+import { LocalDate } from "@/components/local-date";
+import { cn } from "@/lib/utils";
+import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../components/doe-state-menu";
+
+const RESULT_CLS: Record<string, string> = {
+  positive:
+    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  negative:
+    "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
+};
+
+export function PregnancyTestPage({ locale }: { locale: Locale }) {
+  const t = getClientDictionary(locale);
+  const [data, setData] = useState<{
+    candidates: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; buckTagId: string | null; breedingId: string }[];
+    testLog: PregnancyTestLogEntry[];
+    pregnancyTestDays: number;
+  } | null>(null);
+
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchPregnancyPageData(db);
+    setData({
+      candidates: res.candidates,
+      testLog: res.testLog,
+      pregnancyTestDays: res.settings.pregnancyTestDays,
+    });
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!data) {
+    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+  }
+
+  const { candidates, testLog, pregnancyTestDays } = data;
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1.5">
+        <h1 className="text-2xl font-bold tracking-tight">{t.pregnancyTest.title}</h1>
+        <p className="text-sm text-muted-foreground">
+          {locale === "ar"
+            ? `أمهات حان موعد جسها بعد مرور ${pregnancyTestDays} أيام من التلقيح (${candidates.length} أمهات)`
+            : `Does ready for testing after ${pregnancyTestDays} days (${candidates.length} does)`}
+        </p>
+      </div>
+
+      {candidates.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
+          <Microscope className="h-8 w-8 text-muted-foreground" />
+          <p className="font-medium">{t.pregnancyTest.emptyTitle}</p>
+          <p className="text-sm">{t.pregnancyTest.emptyDescription}</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border bg-card overflow-x-auto">
+          <table className="w-full text-sm text-left rtl:text-right">
+            <thead className="bg-muted text-muted-foreground text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "نتيجة الجس" : "Test Result"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {candidates.map((row, index) => (
+                <tr key={row.id} className="hover:bg-muted/40">
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                  <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
+                  <td className="px-4 py-3.5">{row.breed ?? "—"}</td>
+                  <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
+                  <td className="px-4 py-3.5">
+                    {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <DoeStateBadge current={row.doeState} locale={locale} />
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-1.5">
+                      <DoeActionButton
+                        id={row.id}
+                        breedingId={row.breedingId}
+                        text={t.pregnancyTest.pregnantButton}
+                        target={row.doeState === "nursing_bred" ? "nursing_pregnant" : "pregnant"}
+                        className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                        locale={locale}
+                        onDone={() => void load()}
+                      />
+                      <MatingFailedButton
+                        breedingId={row.breedingId}
+                        doeId={row.id}
+                        text={t.pregnancyTest.negativeButton}
+                        className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                        locale={locale}
+                        onDone={() => void load()}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="space-y-3 pt-4 border-t">
+        <h2 className="text-lg font-bold">{locale === "ar" ? "سجل الجس" : "Pregnancy Test Log"}</h2>
+        {testLog.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات جس بعد." : "No pregnancy test logs yet."}</p>
+        ) : (
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right">
+              <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "النتيجة" : "Result"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {testLog.map((log, index) => (
+                  <tr key={log.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                    <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">{log.doeBreed ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">
+                      {log.matingDate ? <LocalDate date={log.matingDate} /> : "—"}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <LocalDate date={log.testDate} />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider",
+                          RESULT_CLS[log.result] ?? "border-zinc-300 bg-zinc-50 text-zinc-700"
+                        )}
+                      >
+                        {log.result === "positive"
+                          ? (locale === "ar" ? "عشار" : "Positive")
+                          : (locale === "ar" ? "سالبة" : "Negative")}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

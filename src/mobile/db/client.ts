@@ -20,33 +20,42 @@ let dbPromise: Promise<SQLiteDBConnection> | null = null;
  */
 async function initWebStoreIfNeeded(): Promise<void> {
   if (Capacitor.getPlatform() !== "web") return;
+  console.log("[DB] initWebStoreIfNeeded starting");
   await sqlite.initWebStore();
+  console.log("[DB] initWebStoreIfNeeded finished");
 }
 
 async function openConnection(): Promise<SQLiteDBConnection> {
+  console.log("[DB] openConnection starting");
   await initWebStoreIfNeeded();
 
+  console.log("[DB] checking if connection exists");
   const alreadyOpen = await sqlite.isConnection(DB_NAME, false);
+  console.log("[DB] connection check result:", alreadyOpen.result);
   const db = alreadyOpen.result
     ? await sqlite.retrieveConnection(DB_NAME, false)
     : await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
 
+  console.log("[DB] opening database");
   await db.open();
+  console.log("[DB] database opened, applying schema");
   await applySchema(db);
+  console.log("[DB] schema applied, connection ready");
   return db;
 }
 
 async function applySchema(db: SQLiteDBConnection): Promise<void> {
-  // Every statement in schema.sql is CREATE TABLE/INDEX IF NOT EXISTS, so
-  // re-running this on every app launch is a cheap no-op once the schema
-  // already exists — no separate migration/versioning system needed yet.
+  console.log("[DB] applySchema starting");
   await db.execute(schemaSql);
+  console.log("[DB] applySchema finished");
 }
 
 /** Returns the (lazily opened, singleton) local database connection. */
 export function getDb(): Promise<SQLiteDBConnection> {
   if (!dbPromise) {
+    console.log("[DB] getDb creating new connection promise");
     dbPromise = openConnection().catch((err) => {
+      console.error("[DB] getDb failed:", err);
       dbPromise = null; // allow retry on next getDb() call
       throw err;
     });
