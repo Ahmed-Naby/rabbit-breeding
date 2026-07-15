@@ -49,3 +49,14 @@ prisma/dev.db*
 
 .vercel
 .env*
+
+# capacitor / android signing
+/android-keystore/
+android/keystore.properties
+*.keystore
+*.jks
+
+# build outputs
+/dist/
+/www/
+*.log

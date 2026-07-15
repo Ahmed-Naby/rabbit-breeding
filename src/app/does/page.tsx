@@ -11,9 +11,9 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
-import { pregnancyTestDate, expectedKindling, rebreedDueDate, daysUntil } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
+import { computeDoeBoardRow } from "@/lib/does-board";
 import {
   DoeStateBadge,
   DoeActionButton,
@@ -119,70 +119,29 @@ export default async function DoesPage() {
                 // renders through this same row — every cell but "تلقيح"
                 // naturally reads as blank/disabled since her doeState is
                 // "empty" — instead of a separate simplified row.
-                const [b, prev] = doe.breedingsAsDoe;
-                // If she was rebred while nursing, the latest row is the
-                // fresh rebreed attempt — her still-unweaned litter lives on
-                // the previous row instead. Detected from the data itself
-                // (kindled, not yet weaned, and the new row hasn't kindled
-                // yet) rather than doeState, since doeState moves on to
-                // "pregnant" once the new mating is confirmed while she may
-                // still be nursing the old litter.
-                const prevOngoingLitter =
-                  !!prev?.actualKindlingDate &&
-                  !prev?.litter?.weaningDate &&
-                  !b?.actualKindlingDate;
-                const litterRow = prevOngoingLitter ? prev : b;
-                // Broader than prevOngoingLitter: keeps showing the previous
-                // cycle's litter numbers (born counts, weaning date) right
-                // after it's weaned too, as long as the new breeding row
-                // hasn't produced its own litter yet — otherwise completing
-                // "فطام" would immediately blank its own just-saved numbers.
-                // Guarded by "b has never had a litter recorded" so reusing
-                // an old row for a brand-new unrelated cycle doesn't pull in
-                // ancient, unrelated litter history.
-                const prevIsClosingLitter =
-                  !!prev?.actualKindlingDate && !b?.actualKindlingDate && !b?.litter;
-                const countsRow = prevIsClosingLitter ? prev : b;
-                const isWeaned = !!countsRow?.litter?.weaningDate;
-                // A nursing doe only re-enters "تلقيح" once the configured
-                // rebreed system's cooldown since her kindling has elapsed
-                // (0/15/30 days — مكثف/نصف مكثف/طبيعي, set in الإعدادات).
-                // No kindling date on record means nothing to gate against.
-                const rebreedReady =
-                  !litterRow?.actualKindlingDate ||
-                  daysUntil(
-                    rebreedDueDate(
-                      litterRow.actualKindlingDate,
-                      settings.rebreedAfterKindlingDays
-                    )
-                  ) <= 0;
-                const canMate =
-                  doe.doeState === "empty" ||
-                  doe.doeState === "excluded" ||
-                  (doe.doeState === "nursing" && rebreedReady);
-                const canTestPregnancy =
-                  doe.doeState === "bred" || doe.doeState === "nursing_bred";
-                const kindleActive =
-                  doe.doeState === "pregnant" ||
-                  doe.doeState === "nursing" ||
-                  doe.doeState === "nursing_bred" ||
-                  doe.doeState === "nursing_pregnant";
-                const weanActive =
-                  doe.doeState === "nursing" ||
-                  doe.doeState === "nursing_bred" ||
-                  doe.doeState === "nursing_pregnant" ||
-                  prevOngoingLitter;
-                const testDate = b?.matingDate
-                  ? pregnancyTestDate(b.matingDate, settings.pregnancyTestDays)
-                  : null;
-                const kindlingDate =
-                  litterRow?.actualKindlingDate ??
-                  (b?.matingDate &&
-                  (doe.doeState === "pregnant" ||
-                    doe.doeState === "nursing" ||
-                    doe.doeState === "nursing_pregnant")
-                    ? expectedKindling(b.matingDate, 30)
-                    : null);
+                const {
+                  current: b,
+                  prevOngoingLitter,
+                  litterRow,
+                  countsRow,
+                  isWeaned,
+                  canMate,
+                  canTestPregnancy,
+                  kindleActive,
+                  weanActive,
+                  testDate,
+                  kindlingDate,
+                } = computeDoeBoardRow(
+                  doe.doeState as DoeState,
+                  doe.breedingsAsDoe.map((x) => ({
+                    id: x.id,
+                    matingDate: x.matingDate,
+                    actualKindlingDate: x.actualKindlingDate,
+                    buckTagId: x.buck?.tagId ?? null,
+                    litter: x.litter,
+                  })),
+                  settings
+                );
                 return (
                   <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
@@ -200,7 +159,7 @@ export default async function DoesPage() {
                         breedingId={b?.id ?? null}
                         doeId={doe.id}
                         canMate={canMate}
-                        buckTagId={b?.buck?.tagId ?? null}
+                        buckTagId={b?.buckTagId ?? null}
                         locale={locale}
                       />
                     </TableCell>

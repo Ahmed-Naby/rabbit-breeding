@@ -264,6 +264,10 @@ model WeightRecord {
   weightGrams Int
   notes       String?
   createdAt   DateTime @default(now())
+  // Needed so the sync pull endpoint can find rows changed since a cursor —
+  // this is the one non-Breeding/Rabbit/Litter model actually mutated in
+  // place today (saveQuickRabbitWeight/finalizeMother/finalizeBuck).
+  updatedAt   DateTime @updatedAt
 
   @@index([rabbitId, date])
 }
@@ -345,4 +349,37 @@ model KitStockMovement {
 
   @@index([date])
   @@index([type])
+}
+
+/// A device (phone/tablet) participating in offline sync. Not an auth/user
+/// system — just an identity to attribute queued operations to and track.
+model SyncDevice {
+  id         String    @id @default(cuid())
+  label      String?
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  operations SyncOperation[]
+}
+
+/// Idempotency + audit ledger for offline-queued business operations
+/// replayed from a SyncDevice. clientOpId is generated on-device at enqueue
+/// time; looking it up first on push is what makes resending a push batch
+/// safe after a partial network failure (already-applied ops are skipped,
+/// not re-run).
+model SyncOperation {
+  id            String     @id @default(cuid())
+  clientOpId    String     @unique
+  deviceId      String
+  device        SyncDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  opType        String
+  payload       Json
+  clientAt      DateTime
+  status        String // "applied" | "rejected"
+  resultMessage String?
+  appliedAt     DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([deviceId])
+  @@index([opType])
 }

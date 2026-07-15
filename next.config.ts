@@ -7,6 +7,21 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  async redirects() {
+    return [
+      {
+        source: "/rabbits",
+        destination: "/mothers",
+        permanent: true,
+      },
+      {
+        source: "/breedings",
+        destination: "/mating",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
+

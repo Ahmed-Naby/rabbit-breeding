@@ -1,0 +1,331 @@
+/**
+ * Foreground + network-online orchestration: pull() then push(), per the
+ * sync plan's stated order (pull first so push's optimistic-vs-server
+ * reconciliation below has the latest state to compare against). Phase 3's
+ * app shell is expected to call `syncNow()` on mount/resume and whenever
+ * `@capacitor/network`'s status flips to connected; this file only exposes
+ * the mechanism; the app-shell/App-state-change wiring is out of Phase 2's
+ * "background sync only, no UI port yet" scope.
+ */
+import { Network } from "@capacitor/network";
+import { getDb, withTransaction } from "../db/client";
+import { queryAll, queryOne, run, nowIso } from "../db/helpers";
+import { SYNC_API_BASE_URL, SYNC_SHARED_SECRET } from "../config";
+import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
+import { createId } from "@paralleldrive/cuid2";
+
+const PUSH_BATCH_SIZE = 25;
+const BACKOFF_BASE_MS = 5_000;
+const BACKOFF_MAX_MS = 300_000;
+
+// --- status store -------------------------------------------------------
+
+export type SyncStatus = "offline" | "idle" | "syncing" | "error";
+
+export type SyncState = {
+  status: SyncStatus;
+  pendingCount: number;
+  lastSyncAt: string | null;
+  lastError: string | null;
+};
+
+let state: SyncState = { status: "idle", pendingCount: 0, lastSyncAt: null, lastError: null };
+const listeners = new Set<(s: SyncState) => void>();
+
+function setState(patch: Partial<SyncState>) {
+  state = { ...state, ...patch };
+  listeners.forEach((l) => l(state));
+}
+
+/** Returns an unsubscribe function. Immediately invoked once with current state. */
+export function subscribeSyncStatus(listener: (s: SyncState) => void): () => void {
+  listeners.add(listener);
+  listener(state);
+  return () => listeners.delete(listener);
+}
+
+export function getSyncStatus(): SyncState {
+  return state;
+}
+
+async function refreshPendingCount(db: SQLiteDBConnection) {
+  const row = await queryOne<{ n: number }>(
+    db,
+    "SELECT COUNT(*) as n FROM outbox WHERE status IN ('pending', 'syncing')"
+  );
+  setState({ pendingCount: row?.n ?? 0 });
+}
+
+// --- fetch helper ---------------------------------------------------------
+
+async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
+  const res = await fetch(`${SYNC_API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      "x-sync-key": SYNC_SHARED_SECRET,
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!res.ok) {
+    let text = await res.text().catch(() => "");
+    if (text.includes("<html") || text.includes("<!DOCTYPE")) {
+      text = "HTML response received instead of JSON. Your Vercel deployment might have 'Deployment Protection' enabled.";
+    }
+    throw new Error(`${path} failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
+
+// --- device/cursor bookkeeping ---------------------------------------------
+
+type CursorRow = { id: 1; deviceId: string; since: string | null; lastSyncAt: string | null };
+
+async function getOrInitCursor(db: SQLiteDBConnection): Promise<CursorRow> {
+  const existing = await queryOne<CursorRow>(db, "SELECT * FROM sync_cursor WHERE id = 1");
+  if (existing) return existing;
+
+  const deviceId = createId();
+  await run(db, "INSERT INTO sync_cursor (id, deviceId, since, lastSyncAt) VALUES (1, ?, NULL, NULL)", [
+    deviceId,
+  ]);
+  return { id: 1, deviceId, since: null, lastSyncAt: null };
+}
+
+// --- pull --------------------------------------------------------------
+
+type PullResponse = {
+  serverTime: string;
+  settings: Record<string, unknown> | null;
+  rabbits: Record<string, unknown>[];
+  breedings: Record<string, unknown>[];
+  litters: Record<string, unknown>[];
+  weightRecords: Record<string, unknown>[];
+};
+
+function applyPulledSettings(db: SQLiteDBConnection, s: Record<string, unknown>) {
+  return run(
+    db,
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
+       gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
+       weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
+       matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
+       currency = excluded.currency`,
+    [
+      s.weightUnit,
+      s.gestationDays,
+      s.gestationWindowDays,
+      s.pregnancyTestDays,
+      s.weaningDays,
+      s.nestBoxDays,
+      s.matingWeightGrams,
+      s.rebreedAfterKindlingDays,
+      s.currency,
+    ]
+  );
+}
+
+function applyPulledRabbit(db: SQLiteDBConnection, r: Record<string, unknown>) {
+  return run(
+    db,
+    `INSERT OR REPLACE INTO rabbit (id, tagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      r.id, r.tagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
+      r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
+      r.litterId, r.createdAt, r.updatedAt,
+    ]
+  );
+}
+
+function applyPulledBreeding(db: SQLiteDBConnection, b: Record<string, unknown>) {
+  return run(
+    db,
+    `INSERT OR REPLACE INTO breeding (id, buckId, doeId, matingDate, expectedKindlingDate, actualKindlingDate, nestBoxDate, outcome, pregnancyTestResult, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      b.id, b.buckId, b.doeId, b.matingDate, b.expectedKindlingDate, b.actualKindlingDate, b.nestBoxDate,
+      b.outcome, b.pregnancyTestResult, b.notes, b.createdAt, b.updatedAt,
+    ]
+  );
+}
+
+/**
+ * Keyed by breedingId (UNIQUE locally), not id — this is what lets a
+ * server-confirmed litter row transparently replace a locally-created
+ * placeholder (see local-ops.ts's upsertLitterByBreedingId) without any
+ * separate cleanup pass: the placeholder's id column just gets overwritten.
+ */
+function applyPulledLitter(db: SQLiteDBConnection, l: Record<string, unknown>) {
+  return run(
+    db,
+    `INSERT INTO litter (id, breedingId, kindlingDate, bornAlive, bornDead, weaned, weaningDate, weaningWeightGrams, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(breedingId) DO UPDATE SET
+       id = excluded.id, kindlingDate = excluded.kindlingDate, bornAlive = excluded.bornAlive,
+       bornDead = excluded.bornDead, weaned = excluded.weaned, weaningDate = excluded.weaningDate,
+       weaningWeightGrams = excluded.weaningWeightGrams, notes = excluded.notes, updatedAt = excluded.updatedAt`,
+    [
+      l.id, l.breedingId, l.kindlingDate, l.bornAlive, l.bornDead, l.weaned, l.weaningDate,
+      l.weaningWeightGrams, l.notes, l.createdAt, l.updatedAt,
+    ]
+  );
+}
+
+/**
+ * WeightRecord has no natural unique key the way litter has breedingId (a
+ * rabbit can have many). Locally-created placeholders use a "local-"-prefixed
+ * id (see local-ops.ts's upsertLatestWeightRecord); the (rabbitId, date) pair
+ * they were created with is a safe-enough match for the server's real row —
+ * delete the placeholder first, then insert the authoritative one.
+ */
+async function applyPulledWeightRecord(db: SQLiteDBConnection, w: Record<string, unknown>) {
+  await run(db, "DELETE FROM weight_record WHERE id LIKE 'local-%' AND rabbitId = ? AND date = ?", [
+    w.rabbitId,
+    w.date,
+  ]);
+  await run(
+    db,
+    `INSERT OR REPLACE INTO weight_record (id, rabbitId, date, weightGrams, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [w.id, w.rabbitId, w.date, w.weightGrams, w.notes, w.createdAt, w.updatedAt]
+  );
+}
+
+export async function pull(): Promise<void> {
+  const db = await getDb();
+  const cursor = await getOrInitCursor(db);
+
+  const path = cursor.since
+    ? `/api/sync/pull?since=${encodeURIComponent(cursor.since)}`
+    : `/api/sync/bootstrap`;
+  const data = (await syncFetch(path)) as PullResponse;
+
+  await withTransaction(async (txDb) => {
+    if (data.settings) await applyPulledSettings(txDb, data.settings);
+    for (const r of data.rabbits) await applyPulledRabbit(txDb, r);
+    for (const b of data.breedings) await applyPulledBreeding(txDb, b);
+    for (const l of data.litters) await applyPulledLitter(txDb, l);
+    for (const w of data.weightRecords) await applyPulledWeightRecord(txDb, w);
+
+    await run(txDb, "UPDATE sync_cursor SET since = ?, lastSyncAt = ? WHERE id = 1", [
+      data.serverTime,
+      nowIso(),
+    ]);
+  });
+}
+
+// --- push ----------------------------------------------------------------
+
+type OutboxRow = { clientOpId: string; opType: string; payload: string; clientAt: string };
+type PushResult = { clientOpId: string; status: "applied" | "rejected" | "already_applied"; resultMessage?: string | null };
+
+export async function push(): Promise<void> {
+  const db = await getDb();
+  const cursor = await getOrInitCursor(db);
+
+  const pending = await queryAll<OutboxRow>(
+    db,
+    "SELECT clientOpId, opType, payload, clientAt FROM outbox WHERE status = 'pending' ORDER BY createdAt ASC LIMIT ?",
+    [PUSH_BATCH_SIZE]
+  );
+  if (pending.length === 0) return;
+
+  const ids = pending.map((p) => p.clientOpId);
+  await run(
+    db,
+    `UPDATE outbox SET status = 'syncing' WHERE clientOpId IN (${ids.map(() => "?").join(",")})`,
+    ids
+  );
+
+  let response: { serverTime: string; results: PushResult[] };
+  try {
+    response = (await syncFetch("/api/sync/push", {
+      method: "POST",
+      body: JSON.stringify({
+        deviceId: cursor.deviceId,
+        operations: pending.map((p) => ({
+          clientOpId: p.clientOpId,
+          opType: p.opType,
+          payload: JSON.parse(p.payload),
+          clientAt: p.clientAt,
+        })),
+      }),
+    })) as { serverTime: string; results: PushResult[] };
+  } catch (err) {
+    // Network/server failure: put everything back to pending so the next
+    // sync cycle retries — never leave a batch stuck in "syncing".
+    await run(
+      db,
+      `UPDATE outbox SET status = 'pending' WHERE clientOpId IN (${ids.map(() => "?").join(",")})`,
+      ids
+    );
+    throw err;
+  }
+
+  await withTransaction(async (txDb) => {
+    for (const result of response.results) {
+      await run(txDb, "UPDATE outbox SET status = ?, resultMessage = ? WHERE clientOpId = ?", [
+        result.status,
+        result.resultMessage ?? null,
+        result.clientOpId,
+      ]);
+    }
+  });
+}
+
+// --- orchestrator + backoff ------------------------------------------------
+
+let retryDelayMs = BACKOFF_BASE_MS;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearRetryTimer() {
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
+}
+
+export async function syncNow(): Promise<void> {
+  const netStatus = await Network.getStatus();
+  if (!netStatus.connected) {
+    setState({ status: "offline" });
+    return;
+  }
+
+  clearRetryTimer();
+  setState({ status: "syncing", lastError: null });
+  try {
+    await pull();
+    await push();
+    retryDelayMs = BACKOFF_BASE_MS;
+    const db = await getDb();
+    await refreshPendingCount(db);
+    setState({ status: "idle", lastSyncAt: nowIso(), lastError: null });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    setState({ status: "error", lastError: message });
+    retryTimer = setTimeout(() => {
+      void syncNow();
+    }, retryDelayMs);
+    retryDelayMs = Math.min(retryDelayMs * 2, BACKOFF_MAX_MS);
+  }
+}
+
+let networkListenerAttached = false;
+
+/** Idempotent — safe to call from Phase 3's app-shell mount without tracking whether it's already wired up. */
+export function attachNetworkListener(): void {
+  if (networkListenerAttached) return;
+  networkListenerAttached = true;
+  Network.addListener("networkStatusChange", (status) => {
+    if (status.connected) {
+      void syncNow();
+    } else {
+      setState({ status: "offline" });
+    }
+  });
+}

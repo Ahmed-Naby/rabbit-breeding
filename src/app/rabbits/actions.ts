@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import {
   rabbitSchema,
   quickRabbitSchema,
@@ -15,22 +14,30 @@ import {
   type RabbitInput,
 } from "@/lib/validations";
 import { fromDateInputValue } from "@/lib/dates";
-import { toGrams } from "@/lib/units";
-import {
-  RABBIT_STATUSES,
-  type RabbitStatus,
-  DOE_STATES,
-  type DoeState,
-} from "@/lib/enums";
 import {
   type FormState,
   zodErrors,
   formDataToObject,
 } from "@/lib/form";
-import { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import {
+  type RabbitData,
+  createRabbitOp,
+  createQuickRabbitOp,
+  createMotherOp,
+  createBuckOp,
+  saveQuickRabbitCageOp,
+  saveQuickRabbitWeightOp,
+  promoteToHerdPenOp,
+  finalizeMotherOp,
+  finalizeBuckOp,
+  updateRabbitOp,
+  deleteRabbitOp,
+  setRabbitStatusOp,
+  setDoeStateOp,
+} from "@/lib/rabbit-ops";
 
-function buildData(input: RabbitInput) {
+function buildData(input: RabbitInput): RabbitData {
   return {
     tagId: input.tagId,
     breed: input.breed ?? null,
@@ -63,25 +70,12 @@ export async function createRabbit(
     return { ok: false, errors: zodErrors(parsed.error) };
   }
 
-  let id: string;
-  try {
-    // Only reachable via /rabbits/new?litterId=... (promoting a kit from a
-    // recorded breeding) — always farm origin, see NewRabbitPage's redirect.
-    const rabbit = await prisma.rabbit.create({
-      data: { ...buildData(parsed.data), origin: "farm" },
-    });
-    id = rabbit.id;
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
-    }
-    throw e;
+  const result = await createRabbitOp(buildData(parsed.data));
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
   }
 
-  redirect(`/rabbits/${id}`);
+  redirect(`/rabbits/${result.data.id}`);
 }
 
 export type QuickRabbitFormState = FormState & {
@@ -96,14 +90,6 @@ export type QuickRabbitFormState = FormState & {
 };
 
 /**
- * Fast intake: one row (sex, date, breed, optionally tag + weight) instead of
- * the full form. Sex is a field on the row itself now (the unified /stock
- * table covers both does and bucks) — tag numbers are still independent per
- * sex (@@unique([tagId, sex])), so the same number can exist once per sex.
- * Leaving tagId/weightKg blank registers the rabbit as a juvenile (sex known
- * but not yet promoted); assigning its tag later via finalizeQuickRabbit is
- * what promotes it. Registering here means it's raised on the farm, not
- * bought in — origin: "farm", carried through both finalize steps unchanged.
  * Stays on the page (no redirect) so several rabbits can be added in a row.
  */
 export async function createQuickRabbit(
@@ -116,42 +102,15 @@ export async function createQuickRabbit(
   const d = parsed.data;
   const date = fromDateInputValue(d.date);
 
-  let id: string;
-  try {
-    const rabbit = await prisma.$transaction(async (tx) => {
-      const rabbit = await tx.rabbit.create({
-        data: {
-          tagId: d.tagId ?? null,
-          breed: d.breed ?? null,
-          sex: d.sex,
-          acquiredDate: date,
-          origin: "farm",
-        },
-      });
-      // Registering a سلالة here is what removes a weaned kit from the
-      // available weaning-sales pool — it's now this specific rabbit, not a
-      // future sale or death. See stock.ts's availableStock calculation.
-      await tx.kitStockMovement.create({
-        data: { date, type: "retained", count: 1, rabbitId: rabbit.id },
-      });
-      return rabbit;
-    });
-    id = rabbit.id;
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
-    }
-    throw e;
-  }
-
-  if (d.weightKg != null) {
-    const grams = toGrams({ kg: d.weightKg }, "kg");
-    await prisma.weightRecord.create({
-      data: { rabbitId: id, date, weightGrams: grams },
-    });
+  const result = await createQuickRabbitOp({
+    tagId: d.tagId ?? null,
+    breed: d.breed ?? null,
+    sex: d.sex,
+    date,
+    weightKg: d.weightKg ?? null,
+  });
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
   }
 
   revalidatePath("/stock");
@@ -160,7 +119,7 @@ export async function createQuickRabbit(
   return {
     ok: true,
     rabbit: {
-      id,
+      id: result.data.id,
       tagId: d.tagId ?? null,
       breed: d.breed ?? null,
       sex: d.sex,
@@ -179,13 +138,7 @@ export type CreateMotherFormState = FormState & {
 };
 
 /**
- * Quick-add on /mothers: creates a doe straight into the herd with its tag
- * assigned immediately (sex: doe, status: active, doeState: empty) — unlike
- * createQuickRabbit's tagId-less juvenile intake, this row belongs on the
- * mothers table right away, not the /stock promotion queue. Bypassing /stock
- * means she was never registered as a juvenile first, so this is always an
- * externally-acquired rabbit — origin: "external". Stays on the page (no
- * redirect) so several mothers can be added in a row.
+ * Stays on the page (no redirect) so several mothers can be added in a row.
  */
 export async function createMother(
   _prev: CreateMotherFormState,
@@ -196,40 +149,18 @@ export async function createMother(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
 
-  let id: string;
-  try {
-    const rabbit = await prisma.rabbit.create({
-      data: {
-        tagId: d.tagId,
-        breed: d.breed ?? null,
-        sex: "doe",
-        status: "active",
-        doeState: "empty",
-        acquiredDate: new Date(),
-        origin: "external",
-      },
-    });
-    id = rabbit.id;
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.motherTagInUse } };
-    }
-    throw e;
-  }
-
-  if (d.weightKg != null) {
-    const grams = toGrams({ kg: d.weightKg }, "kg");
-    await prisma.weightRecord.create({
-      data: { rabbitId: id, date: new Date(), weightGrams: grams },
-    });
+  const result = await createMotherOp({
+    tagId: d.tagId,
+    breed: d.breed ?? null,
+    weightKg: d.weightKg ?? null,
+  });
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.motherTagInUse } };
   }
 
   revalidatePath("/mothers");
   revalidatePath("/does");
-  return { ok: true, rabbit: { id, tagId: d.tagId, breed: d.breed ?? null } };
+  return { ok: true, rabbit: { id: result.data.id, tagId: d.tagId, breed: d.breed ?? null } };
 }
 
 export type CreateBuckFormState = FormState & {
@@ -240,12 +171,6 @@ export type CreateBuckFormState = FormState & {
   };
 };
 
-/**
- * Quick-add on /bucks — mirrors createMother for the buck side of the herd:
- * creates a buck straight in with its tag assigned immediately (sex: buck,
- * status: active), skipping the /stock promotion queue — origin: "external",
- * same reasoning as createMother.
- */
 export async function createBuck(
   _prev: CreateBuckFormState,
   formData: FormData
@@ -255,46 +180,22 @@ export async function createBuck(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
 
-  let id: string;
-  try {
-    const rabbit = await prisma.rabbit.create({
-      data: {
-        tagId: d.tagId,
-        breed: d.breed ?? null,
-        sex: "buck",
-        status: "active",
-        acquiredDate: new Date(),
-        origin: "external",
-      },
-    });
-    id = rabbit.id;
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.buckTagInUse } };
-    }
-    throw e;
-  }
-
-  if (d.weightKg != null) {
-    const grams = toGrams({ kg: d.weightKg }, "kg");
-    await prisma.weightRecord.create({
-      data: { rabbitId: id, date: new Date(), weightGrams: grams },
-    });
+  const result = await createBuckOp({
+    tagId: d.tagId,
+    breed: d.breed ?? null,
+    weightKg: d.weightKg ?? null,
+  });
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.buckTagInUse } };
   }
 
   revalidatePath("/bucks");
-  return { ok: true, rabbit: { id, tagId: d.tagId, breed: d.breed ?? null } };
+  return { ok: true, rabbit: { id: result.data.id, tagId: d.tagId, breed: d.breed ?? null } };
 }
 
 /**
- * Records a juvenile's cage number while it's still raised in the /stock
- * nursery pen — does NOT move it off that page; only the explicit "move to
- * herd" button does that (see promoteToHerdPen). Saves as soon as it's
- * entered (called onBlur, not behind a submit button) so the value isn't
- * lost if the user navigates away before clicking anything.
+ * Saves as soon as it's entered (called onBlur, not behind a submit button)
+ * so the value isn't lost if the user navigates away before clicking anything.
  */
 export async function saveQuickRabbitCage(
   id: string,
@@ -306,10 +207,7 @@ export async function saveQuickRabbitCage(
     return { ok: false, message: parsed.error.issues[0]?.message ?? t.rabbits.invalidCageFallback };
   }
 
-  await prisma.rabbit.update({
-    where: { id: parsed.data.id },
-    data: { cage: parsed.data.cage },
-  });
+  await saveQuickRabbitCageOp(parsed.data.id, parsed.data.cage);
 
   revalidatePath("/stock");
   revalidatePath("/mothers");
@@ -318,13 +216,6 @@ export async function saveQuickRabbitCage(
   return { ok: true };
 }
 
-/**
- * Weight side of the same autosave-on-blur intake step (see
- * saveQuickRabbitCage) — independent of the cage save, so either can be
- * entered first. Updates the latest WeightRecord in place rather than
- * creating a new one on every blur, since re-editing before the row leaves
- * /stock is fixing the same intake weighing, not a fresh measurement.
- */
 export async function saveQuickRabbitWeight(
   id: string,
   weightKg: number
@@ -335,21 +226,7 @@ export async function saveQuickRabbitWeight(
     return { ok: false, message: parsed.error.issues[0]?.message ?? t.rabbits.invalidWeightFallback };
   }
 
-  const grams = toGrams({ kg: parsed.data.weightKg }, "kg");
-  const latest = await prisma.weightRecord.findFirst({
-    where: { rabbitId: parsed.data.id },
-    orderBy: { date: "desc" },
-  });
-  if (latest) {
-    await prisma.weightRecord.update({
-      where: { id: latest.id },
-      data: { weightGrams: grams },
-    });
-  } else {
-    await prisma.weightRecord.create({
-      data: { rabbitId: parsed.data.id, date: new Date(), weightGrams: grams },
-    });
-  }
+  await saveQuickRabbitWeightOp(parsed.data.id, parsed.data.weightKg);
 
   revalidatePath("/stock");
   revalidatePath("/mothers");
@@ -358,33 +235,20 @@ export async function saveQuickRabbitWeight(
   return { ok: true };
 }
 
-/**
- * The only thing that moves a juvenile off /stock: an explicit click, never
- * automatic just because cage/weight got filled in — it may sit in the
- * nursery pen for months first. Requires both to already be recorded (via
- * saveQuickRabbitCage / saveQuickRabbitWeight) before allowing the move.
- */
 export async function promoteToHerdPen(
   id: string
 ): Promise<{ ok: boolean; message?: string }> {
   const { t } = await getDictionary();
-  const rabbit = await prisma.rabbit.findUnique({
-    where: { id },
-    select: {
-      cage: true,
-      weightRecords: { take: 1, select: { id: true } },
-    },
-  });
-  if (!rabbit) return { ok: false, message: t.rabbits.strainNotFound };
-  if (!rabbit.cage) return { ok: false, message: t.rabbits.cageRequiredFirst };
-  if (rabbit.weightRecords.length === 0) {
-    return { ok: false, message: t.rabbits.weightRequiredFirst };
+  const result = await promoteToHerdPenOp(id);
+  if (!result.ok) {
+    const message =
+      result.code === "NOT_FOUND"
+        ? t.rabbits.strainNotFound
+        : result.code === "CAGE_REQUIRED"
+          ? t.rabbits.cageRequiredFirst
+          : t.rabbits.weightRequiredFirst;
+    return { ok: false, message };
   }
-
-  await prisma.rabbit.update({
-    where: { id },
-    data: { movedToHerdPen: true },
-  });
 
   revalidatePath("/stock");
   revalidatePath("/mothers");
@@ -398,11 +262,6 @@ export type FinalizeMotherFormState = FormState & {
 };
 
 /**
- * Second step of a doe's two-stage intake: assigns her tagId, completing the
- * promotion started by finalizeQuickRabbit on /stock (which only assigned
- * her cage + weight). Also lets her weight be corrected here — updates the
- * latest WeightRecord in place rather than adding a new one, since this is
- * fixing/confirming the same intake weighing, not a fresh measurement.
  * Triggered from the pending-mothers table on /mothers.
  */
 export async function finalizeMother(
@@ -414,35 +273,9 @@ export async function finalizeMother(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
 
-  try {
-    await prisma.rabbit.update({
-      where: { id: d.id },
-      data: { tagId: d.tagId },
-    });
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.motherTagInUse } };
-    }
-    throw e;
-  }
-
-  const grams = toGrams({ kg: d.weightKg }, "kg");
-  const latest = await prisma.weightRecord.findFirst({
-    where: { rabbitId: d.id },
-    orderBy: { date: "desc" },
-  });
-  if (latest) {
-    await prisma.weightRecord.update({
-      where: { id: latest.id },
-      data: { weightGrams: grams },
-    });
-  } else {
-    await prisma.weightRecord.create({
-      data: { rabbitId: d.id, date: new Date(), weightGrams: grams },
-    });
+  const result = await finalizeMotherOp(d.id, d.tagId, d.weightKg);
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.motherTagInUse } };
   }
 
   revalidatePath("/mothers");
@@ -459,10 +292,7 @@ export type FinalizeBuckFormState = FormState & {
 };
 
 /**
- * Second step of a buck's two-stage intake: assigns his tagId, mirroring
- * finalizeMother for the buck side, including the same
- * update-latest-weight-record-in-place behavior. Triggered from the
- * pending-bucks table on /bucks.
+ * Triggered from the pending-bucks table on /bucks.
  */
 export async function finalizeBuck(
   _prev: FinalizeBuckFormState,
@@ -473,35 +303,9 @@ export async function finalizeBuck(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
 
-  try {
-    await prisma.rabbit.update({
-      where: { id: d.id },
-      data: { tagId: d.tagId },
-    });
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.buckTagInUse } };
-    }
-    throw e;
-  }
-
-  const grams = toGrams({ kg: d.weightKg }, "kg");
-  const latest = await prisma.weightRecord.findFirst({
-    where: { rabbitId: d.id },
-    orderBy: { date: "desc" },
-  });
-  if (latest) {
-    await prisma.weightRecord.update({
-      where: { id: latest.id },
-      data: { weightGrams: grams },
-    });
-  } else {
-    await prisma.weightRecord.create({
-      data: { rabbitId: d.id, date: new Date(), weightGrams: grams },
-    });
+  const result = await finalizeBuckOp(d.id, d.tagId, d.weightKg);
+  if (!result.ok) {
+    return { ok: false, errors: { tagId: t.rabbits.buckTagInUse } };
   }
 
   revalidatePath("/bucks");
@@ -520,24 +324,12 @@ export async function updateRabbit(
     return { ok: false, errors: zodErrors(parsed.error) };
   }
 
-  // Guard: a rabbit can't be its own parent.
-  if (parsed.data.sireId === id || parsed.data.damId === id) {
-    return {
-      ok: false,
-      errors: { _form: t.rabbits.selfParentError },
-    };
-  }
-
-  try {
-    await prisma.rabbit.update({ where: { id }, data: buildData(parsed.data) });
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
+  const result = await updateRabbitOp(id, buildData(parsed.data));
+  if (!result.ok) {
+    if (result.code === "SELF_PARENT") {
+      return { ok: false, errors: { _form: t.rabbits.selfParentError } };
     }
-    throw e;
+    return { ok: false, errors: { tagId: t.rabbits.tagInUse } };
   }
 
   // Any field here — tagId, sex, breed, cage, status — can change which of
@@ -551,30 +343,13 @@ export async function updateRabbit(
   redirect(`/rabbits/${id}`);
 }
 
-/**
- * Hard delete — removes the rabbit and its weight/health records entirely.
- * Blocked at the DB level (Breeding.buck/doe use onDelete: Restrict) if the
- * rabbit has any breeding history, to protect pedigree data; use the status
- * menu (excluded/deceased) for that case instead. Sire/dam refs on other
- * rabbits are SetNull'd automatically, so this never orphans a pedigree FK.
- */
 export async function deleteRabbit(
   id: string
 ): Promise<{ ok: boolean; message?: string }> {
   const { t } = await getDictionary();
-  try {
-    await prisma.rabbit.delete({ where: { id } });
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2003"
-    ) {
-      return {
-        ok: false,
-        message: t.rabbits.deleteBlockedByBreeding,
-      };
-    }
-    throw e;
+  const result = await deleteRabbitOp(id);
+  if (!result.ok) {
+    return { ok: false, message: t.rabbits.deleteBlockedByBreeding };
   }
   revalidatePath("/stock");
   revalidatePath("/mothers");
@@ -587,15 +362,8 @@ export async function deleteRabbit(
   return { ok: true };
 }
 
-/** Soft-delete / lifecycle change. Never hard-deletes (preserves pedigree). */
 export async function setRabbitStatus(id: string, status: string) {
-  if (!RABBIT_STATUSES.includes(status as RabbitStatus)) {
-    throw new Error(`Invalid status: ${status}`);
-  }
-  await prisma.rabbit.update({
-    where: { id },
-    data: { status: status as RabbitStatus },
-  });
+  await setRabbitStatusOp(id, status);
   // Status is shown as a badge on all three herd tables, and a rabbit
   // flipping to/from "deceased" moves which of /stock's nursery pen, the
   // herd tables, and every breeding-workflow board (a deceased doe must stop
@@ -612,18 +380,8 @@ export async function setRabbitStatus(id: string, status: string) {
   revalidatePath(`/rabbits/${id}`);
 }
 
-/**
- * Manual doe reproductive state, set exclusively via the six action buttons
- * on the does page (mate/pregnant/negative/kindle/wean/exclude).
- */
 export async function setDoeState(id: string, state: string) {
-  if (!DOE_STATES.includes(state as DoeState)) {
-    throw new Error(`Invalid doe state: ${state}`);
-  }
-  await prisma.rabbit.update({
-    where: { id },
-    data: { doeState: state as DoeState },
-  });
+  await setDoeStateOp(id, state);
   revalidatePath("/does");
   // /mothers shows doeState too (reproductive state column).
   revalidatePath("/mothers");
