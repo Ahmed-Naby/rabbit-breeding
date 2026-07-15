@@ -20,6 +20,7 @@ import {
 } from "./mortality-actions";
 import { getKitStockSummary } from "../weaning-sales/stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { resolveNursingLitterRow, isNursingKitDeathCandidate } from "@/lib/breeding-filters";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -95,13 +96,9 @@ export default async function MortalityPage() {
 
   const nursingDoes = nursingDoesRaw
     .map((doe) => {
-      const [b, prev] = doe.breedingsAsDoe;
-      const prevOngoingLitter =
-        !!prev?.actualKindlingDate && !prev?.litter?.weaningDate && !b?.actualKindlingDate;
-      const litterRow = prevOngoingLitter ? prev : b;
-      const litter = litterRow?.litter;
-      if (!litter || litter.weaningDate || litter.bornAlive <= 0) return null;
-      return { doe, breedingId: litterRow!.id, litter };
+      const litterRow = resolveNursingLitterRow(doe.breedingsAsDoe);
+      if (!litterRow || !isNursingKitDeathCandidate(litterRow)) return null;
+      return { doe, breedingId: litterRow.id, litter: litterRow.litter! };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
 

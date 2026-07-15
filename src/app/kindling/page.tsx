@@ -16,6 +16,7 @@ import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
 import { DoeStateBadge, KindleButton, LitterCountInput } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { isKindlingCandidate } from "@/lib/breeding-filters";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -92,9 +93,8 @@ export default async function KindlingPage() {
   const does = candidates
     .map((doe) => {
       const b = doe.breedingsAsDoe[0];
-      if (!b?.matingDate) return null;
-      const dueDate = expectedKindling(b.matingDate, settings.gestationDays);
-      if (dueDate > today) return null;
+      if (!b || !isKindlingCandidate({ ...b, actualKindlingDate: null }, settings.gestationDays, today)) return null;
+      const dueDate = expectedKindling(new Date(b.matingDate!), settings.gestationDays);
       return { doe, b, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);

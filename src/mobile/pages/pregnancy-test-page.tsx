@@ -7,6 +7,7 @@ import { fetchPregnancyPageData, type PregnancyTestLogEntry } from "../db/querie
 import { LocalDate } from "@/components/local-date";
 import { cn } from "@/lib/utils";
 import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../components/doe-state-menu";
+import { pregnancyTestDate } from "@/lib/dates";
 
 const RESULT_CLS: Record<string, string> = {
   positive:
@@ -64,52 +65,62 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
-              <tr>
+              <tr className="[&>th]:border-x">
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "نتيجة الجس" : "Test Result"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الجس المتوقع" : "Expected Test Date"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "نتيجة الجس" : "Test Result"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {candidates.map((row, index) => (
-                <tr key={row.id} className="hover:bg-muted/40">
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
-                  <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
-                  <td className="px-4 py-3.5">{row.breed ?? "—"}</td>
-                  <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
-                  <td className="px-4 py-3.5">
-                    {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <DoeStateBadge current={row.doeState} locale={locale} />
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1.5">
-                      <DoeActionButton
-                        id={row.id}
-                        breedingId={row.breedingId}
-                        text={t.pregnancyTest.pregnantButton}
-                        target={row.doeState === "nursing_bred" ? "nursing_pregnant" : "pregnant"}
-                        className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-                        locale={locale}
-                        onDone={() => void load()}
-                      />
-                      <MatingFailedButton
-                        breedingId={row.breedingId}
-                        doeId={row.id}
-                        text={t.pregnancyTest.negativeButton}
-                        className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-                        locale={locale}
-                        onDone={() => void load()}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {candidates.map((row, index) => {
+                const expectedTest = row.matingDate
+                  ? pregnancyTestDate(new Date(row.matingDate), data.pregnancyTestDays)
+                  : null;
+
+                return (
+                  <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                    <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                    <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">{row.breed ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">
+                      {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
+                    </td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      {expectedTest ? <LocalDate date={expectedTest} /> : "—"}
+                    </td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      <DoeStateBadge current={row.doeState} locale={locale} />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        <DoeActionButton
+                          id={row.id}
+                          breedingId={row.breedingId}
+                          text={t.pregnancyTest.pregnantButton}
+                          target={row.doeState === "nursing_bred" ? "nursing_pregnant" : "pregnant"}
+                          className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                          locale={locale}
+                          onDone={() => void load()}
+                        />
+                        <MatingFailedButton
+                          breedingId={row.breedingId}
+                          doeId={row.id}
+                          text={t.pregnancyTest.negativeButton}
+                          className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                          locale={locale}
+                          onDone={() => void load()}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -123,22 +134,22 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr>
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "النتيجة" : "Result"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "النتيجة" : "Result"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {testLog.map((log, index) => (
-                  <tr key={log.id} className="hover:bg-muted/40">
+                  <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{log.doeBreed ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                     <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       {log.matingDate ? <LocalDate date={log.matingDate} /> : "—"}

@@ -15,6 +15,7 @@ import { weaningDueDate, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, WeanButton, LitterCountInput, LitterWeightInput } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { resolveNursingLitterRow, isWeaningCandidate } from "@/lib/breeding-filters";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -80,13 +81,9 @@ export default async function WeaningPage() {
   const today = new Date();
   const does = candidates
     .map((doe) => {
-      const [b, prev] = doe.breedingsAsDoe;
-      const prevOngoingLitter =
-        !!prev?.actualKindlingDate && !prev?.litter?.weaningDate && !b?.actualKindlingDate;
-      const litterRow = prevOngoingLitter ? prev : b;
-      if (!litterRow?.actualKindlingDate || litterRow.litter?.weaningDate) return null;
-      const dueDate = weaningDueDate(litterRow.actualKindlingDate, settings.weaningDays);
-      if (dueDate > today) return null;
+      const litterRow = resolveNursingLitterRow(doe.breedingsAsDoe);
+      if (!litterRow || !isWeaningCandidate(litterRow, settings.weaningDays, today)) return null;
+      const dueDate = weaningDueDate(new Date(litterRow.actualKindlingDate!), settings.weaningDays);
       return { doe, litterRow, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);

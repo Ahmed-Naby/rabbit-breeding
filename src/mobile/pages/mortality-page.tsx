@@ -124,7 +124,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="border-b">
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.mortality.colIndex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
@@ -137,7 +137,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
                 {nursingDoes.map(({ doe, breedingId, litter }, i) => {
                   const countInput = nursingCounts[breedingId] || 1;
                   return (
-                    <tr key={doe.id} className="hover:bg-muted/40">
+                    <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                       <td className="px-4 py-3.5 text-center text-muted-foreground">{i + 1}</td>
                       <td className="px-4 py-3.5 text-center font-bold">{doe.tagId}</td>
                       <td className="px-4 py-3.5 text-center">{doe.breed ?? "—"}</td>
@@ -220,7 +220,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="border-b">
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
@@ -229,7 +229,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               </thead>
               <tbody className="divide-y">
                 {activeMothers.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40">
+                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
                     <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
@@ -263,7 +263,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="border-b">
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colBuckTag}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
@@ -272,7 +272,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               </thead>
               <tbody className="divide-y">
                 {activeBucks.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40">
+                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
                     <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
@@ -306,7 +306,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="border-b">
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colSex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colStrainBreed}</th>
@@ -316,7 +316,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               </thead>
               <tbody className="divide-y">
                 {activeStock.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40">
+                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center">
                       {r.sex === "doe" ? (locale === "ar" ? "أنثى" : "Doe") : (locale === "ar" ? "ذكر" : "Buck")}
@@ -353,17 +353,17 @@ export function MortalityPage({ locale }: { locale: Locale }) {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="border-b">
-                  <th className="px-4 py-3">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "السلالة" : "Breed"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "الجنس" : "Sex"}</th>
+                <tr className="[&>th]:border-x">
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "التاريخ" : "Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "السلالة" : "Breed"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "الجنس" : "Sex"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {deceasedRabbits.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-muted/40">
-                    <td className="px-4 py-3.5">
+                  <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                    <td className="px-4 py-3.5 text-center">
                       <LocalDate date={new Date(entry.updatedAt)} />
                     </td>
                     <td className="px-4 py-3.5 font-bold">{entry.tagId ?? "—"}</td>

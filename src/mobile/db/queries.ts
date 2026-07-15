@@ -9,6 +9,15 @@ import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
 import { weaningDueDate, nestBoxDueDate } from "@/lib/dates";
+import {
+  resolveNursingLitterRow,
+  isWeaningCandidate,
+  isNestBoxCandidate,
+  isPregnancyTestCandidate,
+  isKindlingCandidate,
+  isNursingKitDeathCandidate,
+  type BaseBreeding
+} from "@/lib/breeding-filters";
 
 export type DoeRow = {
   id: string;
@@ -265,7 +274,9 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
   );
 
   const candidates: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; buckTagId: string | null; breedingId: string }[] = [];
+  const today = new Date();
   for (const c of candidatesRaw) {
+    if (!isPregnancyTestCandidate({ id: c.breedingId, matingDate: c.matingDate, actualKindlingDate: null }, settings.pregnancyTestDays, today)) continue;
     const buck = c.buckId
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [c.buckId])
       : null;
@@ -380,10 +391,9 @@ export async function fetchNestBoxPageData(db: SQLiteDBConnection): Promise<{
       [doe.id]
     );
 
-    if (!b || !b.matingDate || b.nestBoxDate) continue;
+    if (!b || !isNestBoxCandidate({ id: b.id, matingDate: b.matingDate, nestBoxDate: b.nestBoxDate, actualKindlingDate: null }, settings.nestBoxDays, today)) continue;
 
-    const dueDate = nestBoxDueDate(new Date(b.matingDate), settings.nestBoxDays);
-    if (dueDate > today) continue;
+    const dueDate = nestBoxDueDate(new Date(b.matingDate!), settings.nestBoxDays);
 
     const buck = b.buckId
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [b.buckId])
@@ -495,10 +505,7 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
       [doe.id]
     );
 
-    if (!b || !b.matingDate) continue;
-
-    const dueDate = new Date(b.expectedKindlingDate);
-    if (dueDate > today) continue;
+    if (!b || !isKindlingCandidate({ id: b.id, matingDate: b.matingDate, actualKindlingDate: null }, settings.gestationDays, today)) continue;
 
     const buck = b.buckId
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [b.buckId])
@@ -643,44 +650,41 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
 
     if (breedings.length === 0) continue;
 
-    const b = breedings[0];
-    const prev = breedings[1];
-
-    // Check if previous breeding has ongoing litter
-    let prevOngoingLitter = false;
-    if (prev && prev.actualKindlingDate) {
-      const prevLitter = await queryOne<{ weaningDate: string | null }>(
+    const mappedBreedings: BaseBreeding[] = [];
+    for (const br of breedings) {
+      const lit = await queryOne<{ bornAlive: number; bornDead: number; weaningDate: string | null }>(
         db,
-        "SELECT weaningDate FROM litter WHERE breedingId = ?",
-        [prev.id]
+        "SELECT bornAlive, bornDead, weaningDate FROM litter WHERE breedingId = ?",
+        [br.id]
       );
-      prevOngoingLitter = !prevLitter || !prevLitter.weaningDate;
+      mappedBreedings.push({
+        id: br.id,
+        matingDate: null,
+        actualKindlingDate: br.actualKindlingDate,
+        litter: lit ? { bornAlive: lit.bornAlive, bornDead: lit.bornDead, weaningDate: lit.weaningDate } : null
+      });
     }
 
-    const litterRow = (prevOngoingLitter && (!b || !b.actualKindlingDate)) ? prev : b;
-    if (!litterRow || !litterRow.actualKindlingDate) continue;
+    const resolved = resolveNursingLitterRow(mappedBreedings);
+    if (!resolved || !isWeaningCandidate(resolved, settings.weaningDays, today)) continue;
 
-    const litter = await queryOne<{ id: string; bornAlive: number; bornDead: number; weaningDate: string | null }>(
+    const originalBreeding = breedings.find(x => x.id === resolved.id)!;
+    const litRow = await queryOne<{ id: string }>(
       db,
-      "SELECT id, bornAlive, bornDead, weaningDate FROM litter WHERE breedingId = ?",
-      [litterRow.id]
+      "SELECT id FROM litter WHERE breedingId = ?",
+      [resolved.id]
     );
 
-    if (!litter || litter.weaningDate) continue;
-
-    const dueDate = weaningDueDate(new Date(litterRow.actualKindlingDate), settings.weaningDays);
-    if (dueDate > today) continue;
-
-    const buck = litterRow.buckId
-      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [litterRow.buckId])
+    const buck = originalBreeding.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [originalBreeding.buckId])
       : null;
 
     litters.push({
-      id: litter.id,
-      breedingId: litterRow.id,
-      kindlingDate: litterRow.actualKindlingDate,
-      bornAlive: litter.bornAlive,
-      bornDead: litter.bornDead,
+      id: litRow?.id ?? "",
+      breedingId: originalBreeding.id,
+      kindlingDate: originalBreeding.actualKindlingDate!,
+      bornAlive: resolved.litter!.bornAlive,
+      bornDead: resolved.litter!.bornDead,
       doeId: doe.id,
       doeTagId: doe.tagId,
       doeBreed: doe.breed,
@@ -941,35 +945,29 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
     );
     if (breedings.length === 0) continue;
 
-    const b = breedings[0];
-    const prev = breedings[1];
-
-    // Check if previous breeding has ongoing litter
-    let prevOngoingLitter = false;
-    if (prev && prev.actualKindlingDate) {
-      const prevLitter = await queryOne<{ weaningDate: string | null }>(
-        db,
-        "SELECT weaningDate FROM litter WHERE breedingId = ?",
-        [prev.id]
-      );
-      prevOngoingLitter = !prevLitter || !prevLitter.weaningDate;
-    }
-
-    const litterRow = (prevOngoingLitter && (!b || !b.actualKindlingDate)) ? prev : b;
-    if (litterRow && litterRow.actualKindlingDate) {
-      const litter = await queryOne<{ bornAlive: number; bornDead: number; weaningDate: string | null }>(
+    const mappedBreedings: BaseBreeding[] = [];
+    for (const br of breedings) {
+      const lit = await queryOne<{ bornAlive: number; bornDead: number; weaningDate: string | null }>(
         db,
         "SELECT bornAlive, bornDead, weaningDate FROM litter WHERE breedingId = ?",
-        [litterRow.id]
+        [br.id]
       );
-      if (litter && litter.bornAlive > 0 && !litter.weaningDate) {
-        nursingDoes.push({
-          doe: { id: doe.id, tagId: doe.tagId, breed: doe.breed },
-          breedingId: litterRow.id,
-          litter: { bornAlive: litter.bornAlive, bornDead: litter.bornDead },
-        });
-      }
+      mappedBreedings.push({
+        id: br.id,
+        matingDate: null,
+        actualKindlingDate: br.actualKindlingDate,
+        litter: lit ? { bornAlive: lit.bornAlive, bornDead: lit.bornDead, weaningDate: lit.weaningDate } : null
+      });
     }
+
+    const resolved = resolveNursingLitterRow(mappedBreedings);
+    if (!resolved || !isNursingKitDeathCandidate(resolved)) continue;
+
+    nursingDoes.push({
+      doe: { id: doe.id, tagId: doe.tagId, breed: doe.breed },
+      breedingId: resolved.id,
+      litter: { bornAlive: resolved.litter!.bornAlive, bornDead: resolved.litter!.bornDead },
+    });
   }
 
   // 6. Available stock

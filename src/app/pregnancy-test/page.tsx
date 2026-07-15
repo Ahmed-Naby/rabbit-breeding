@@ -16,6 +16,7 @@ import { getSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { isPregnancyTestCandidate } from "@/lib/breeding-filters";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -77,9 +78,8 @@ export default async function PregnancyTestPage() {
   const does = candidates
     .map((doe) => {
       const b = doe.breedingsAsDoe[0];
-      if (!b?.matingDate) return null;
-      const testDate = pregnancyTestDate(b.matingDate, settings.pregnancyTestDays);
-      if (testDate > today) return null;
+      if (!b || !isPregnancyTestCandidate({ ...b, actualKindlingDate: null }, settings.pregnancyTestDays, today)) return null;
+      const testDate = pregnancyTestDate(new Date(b.matingDate!), settings.pregnancyTestDays);
       return { doe, b, testDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);

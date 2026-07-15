@@ -60,21 +60,21 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
-              <tr>
+              <tr className="[&>th]:border-x">
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "تاريخ التركيب المتوقع" : "Expected Install Date"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "التركيب" : "Install"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التركيب المتوقع" : "Expected Install Date"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "التركيب" : "Install"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {does.map((row, index) => (
-                <tr key={row.id} className="hover:bg-muted/40">
+                <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
                   <td className="px-4 py-3.5">{row.breed ?? "—"}</td>
@@ -113,21 +113,21 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
           <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات تركيب بعد." : "No installation logs yet."}</p>
         ) : (
           <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right">
+             <table className="w-full text-sm text-left rtl:text-right">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr>
+                <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التركيب" : "Install Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التركيب" : "Install Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {installedLog.map((row, index) => (
-                  <tr key={row.id} className="hover:bg-muted/40">
+                  <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{row.doeTagId ?? "—"}</td>
                     <td className="px-4 py-3.5">{row.doeBreed ?? "—"}</td>
