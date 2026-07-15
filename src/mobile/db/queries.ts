@@ -934,21 +934,38 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   );
   const nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[] = [];
   for (const doe of does) {
-    const latestBreeding = await queryOne<{ id: string; actualKindlingDate: string | null }>(
+    const breedings = await queryAll<{ id: string; actualKindlingDate: string | null }>(
       db,
-      "SELECT id, actualKindlingDate FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 1",
+      "SELECT id, actualKindlingDate FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
       [doe.id]
     );
-    if (latestBreeding && latestBreeding.actualKindlingDate) {
+    if (breedings.length === 0) continue;
+
+    const b = breedings[0];
+    const prev = breedings[1];
+
+    // Check if previous breeding has ongoing litter
+    let prevOngoingLitter = false;
+    if (prev && prev.actualKindlingDate) {
+      const prevLitter = await queryOne<{ weaningDate: string | null }>(
+        db,
+        "SELECT weaningDate FROM litter WHERE breedingId = ?",
+        [prev.id]
+      );
+      prevOngoingLitter = !prevLitter || !prevLitter.weaningDate;
+    }
+
+    const litterRow = (prevOngoingLitter && (!b || !b.actualKindlingDate)) ? prev : b;
+    if (litterRow && litterRow.actualKindlingDate) {
       const litter = await queryOne<{ bornAlive: number; bornDead: number; weaningDate: string | null }>(
         db,
         "SELECT bornAlive, bornDead, weaningDate FROM litter WHERE breedingId = ?",
-        [latestBreeding.id]
+        [litterRow.id]
       );
       if (litter && litter.bornAlive > 0 && !litter.weaningDate) {
         nursingDoes.push({
           doe: { id: doe.id, tagId: doe.tagId, breed: doe.breed },
-          breedingId: latestBreeding.id,
+          breedingId: litterRow.id,
           litter: { bornAlive: litter.bornAlive, bornDead: litter.bornDead },
         });
       }
