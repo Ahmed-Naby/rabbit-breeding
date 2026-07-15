@@ -11,7 +11,10 @@ import type { NextRequest } from "next/server";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-sync-key",
+  // Must list every header sync-manager.ts's syncFetch() actually sends
+  // (see src/mobile/sync/sync-manager.ts) — the preflight is rejected
+  // client-side if any requested header isn't explicitly allowed here.
+  "Access-Control-Allow-Headers": "Content-Type, x-sync-key, Cache-Control, Pragma, Expires",
 };
 
 export function proxy(request: NextRequest) {
