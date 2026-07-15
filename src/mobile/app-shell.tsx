@@ -48,6 +48,7 @@ import { WeaningPage } from "./pages/weaning-page";
 import { RabbitsPage } from "./pages/rabbits-page";
 import { MothersPage } from "./pages/mothers-page";
 import { BucksPage } from "./pages/bucks-page";
+import { StockPage } from "./pages/stock-page";
 import { FosteringPage } from "./pages/fostering-page";
 import { WeaningSalesPage } from "./pages/weaning-sales-page";
 import { MortalityPage } from "./pages/mortality-page";
@@ -299,7 +300,7 @@ export function AppShell() {
           {route === "#/weaning" && <WeaningPage locale={locale} />}
 
           {/* Roster lists */}
-          {route === "#/stock" && <RabbitsPage locale={locale} initialSex="all" />}
+          {route === "#/stock" && <StockPage locale={locale} />}
           {route === "#/mothers" && <MothersPage locale={locale} />}
           {route === "#/bucks" && <BucksPage locale={locale} />}
 

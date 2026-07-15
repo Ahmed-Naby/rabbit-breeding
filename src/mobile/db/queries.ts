@@ -1202,3 +1202,45 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
   return { bucks, pendingBucks, breedOptions: breeds, settings };
 }
 
+export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
+  rabbits: { id: string; sex: string; breed: string | null; cage: string | null; date: string; weightKg: number | null }[];
+  breedOptions: string[];
+  settings: LocalSettings;
+}> {
+  const settings = await getLocalSettings(db);
+  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
+  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
+  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+
+  const rabbitsRaw = await queryAll<{
+    id: string;
+    sex: string;
+    breed: string | null;
+    cage: string | null;
+    acquiredDate: string | null;
+    createdAt: string;
+  }>(
+    db,
+    "SELECT id, sex, breed, cage, acquiredDate, createdAt FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status != 'deceased' ORDER BY createdAt DESC"
+  );
+
+  const rabbits = [];
+  for (const r of rabbitsRaw) {
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+      [r.id]
+    );
+    rabbits.push({
+      id: r.id,
+      sex: r.sex,
+      breed: r.breed,
+      cage: r.cage,
+      date: r.acquiredDate || r.createdAt,
+      weightKg: w ? w.weightGrams / 1000 : null,
+    });
+  }
+
+  return { rabbits, breedOptions: breeds, settings };
+}
+

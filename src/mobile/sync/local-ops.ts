@@ -627,6 +627,8 @@ export const localOpRegistry: Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   finalizeBuck: finalizeBuck as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deleteRabbit: deleteRabbit as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveQuickRabbitCage: saveQuickRabbitCage as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveQuickRabbitWeight: saveQuickRabbitWeight as any,
@@ -839,5 +841,20 @@ export async function deleteBreed(
   payload: { id: string }
 ): Promise<LocalOpOutcome> {
   await run(db, "DELETE FROM breed WHERE id = ?", [payload.id]);
+  return applied;
+}
+
+export async function deleteRabbit(
+  db: SQLiteDBConnection,
+  payload: { id: string }
+): Promise<LocalOpOutcome> {
+  const doeRef = await queryOne<{ n: number }>(db, "SELECT COUNT(*) as n FROM breeding WHERE doeId = ?", [payload.id]);
+  const buckRef = await queryOne<{ n: number }>(db, "SELECT COUNT(*) as n FROM breeding WHERE buckId = ?", [payload.id]);
+  if ((doeRef && doeRef.n > 0) || (buckRef && buckRef.n > 0)) {
+    return rejected("DELETE_BLOCKED_BY_BREEDING");
+  }
+
+  await run(db, "DELETE FROM weight_record WHERE rabbitId = ?", [payload.id]);
+  await run(db, "DELETE FROM rabbit WHERE id = ?", [payload.id]);
   return applied;
 }

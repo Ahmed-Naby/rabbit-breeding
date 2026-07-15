@@ -43,6 +43,7 @@ import {
   promoteToHerdPenOp,
   finalizeMotherOp,
   finalizeBuckOp,
+  deleteRabbitOp,
 } from "@/lib/rabbit-ops";
 import { prisma } from "@/lib/prisma";
 
@@ -315,6 +316,10 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
     }
     return fromOpResult(await finalizeBuckOp(p.id as string, p.tagId as string, p.weightKg as number));
+  },
+
+  deleteRabbit: async (p, clientAt) => {
+    return fromOpResult(await deleteRabbitOp(p.id as string));
   },
 
   recordKitSale: async (p, clientAt) => {
