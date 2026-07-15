@@ -291,7 +291,7 @@ export async function pull(): Promise<void> {
       set.push({
         statement: `INSERT OR REPLACE INTO foster_log (id, fromDoeId, toDoeId, count, date, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        values: [f.id, f.fromDoeId, f.toDoeId, f.count, f.date, f.createdAt, f.updatedAt],
+        values: [f.id, f.fromDoeId, f.toDoeId, f.count, f.date, f.createdAt, f.updatedAt ?? f.createdAt],
       });
     }
   }
@@ -305,7 +305,10 @@ export async function pull(): Promise<void> {
       set.push({
         statement: `INSERT OR REPLACE INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        values: [m.id, m.date, m.type, m.count, m.weightGrams, m.pricePerKgCents, m.amountCents, m.transactionId, m.rabbitId, m.notes, m.createdAt, m.updatedAt],
+        values: [
+          m.id, m.date, m.type, m.count, m.weightGrams, m.pricePerKgCents, m.amountCents,
+          m.transactionId, m.rabbitId, m.notes, m.createdAt, m.updatedAt ?? m.createdAt,
+        ],
       });
     }
   }
@@ -319,7 +322,10 @@ export async function pull(): Promise<void> {
       set.push({
         statement: `INSERT OR REPLACE INTO health_record (id, rabbitId, date, type, description, nextDueDate, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        values: [h.id, h.rabbitId, h.date, h.type, h.description, h.nextDueDate, h.createdAt, h.updatedAt],
+        values: [
+          h.id, h.rabbitId, h.date, h.type, h.description, h.nextDueDate,
+          h.createdAt, h.updatedAt ?? h.createdAt,
+        ],
       });
     }
   }
@@ -333,7 +339,10 @@ export async function pull(): Promise<void> {
       set.push({
         statement: `INSERT OR REPLACE INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, feedLogId, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        values: [t.id, t.date, t.type, t.category, t.amountCents, t.notes, t.rabbitId, t.feedLogId, t.createdAt, t.updatedAt],
+        values: [
+          t.id, t.date, t.type, t.category, t.amountCents, t.notes, t.rabbitId,
+          t.feedLogId, t.createdAt, t.updatedAt ?? t.createdAt,
+        ],
       });
     }
   }
