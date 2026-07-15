@@ -8,7 +8,7 @@ import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
-import { weaningDueDate } from "@/lib/dates";
+import { weaningDueDate, nestBoxDueDate } from "@/lib/dates";
 
 export type DoeRow = {
   id: string;
@@ -317,49 +317,130 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
   return { candidates, testLog, settings };
 }
 
+export type LocalNestBoxCandidate = {
+  id: string;
+  tagId: string | null;
+  breed: string | null;
+  doeState: string;
+  matingDate: string | null;
+  expectedKindlingDate: string;
+  buckTagId: string | null;
+  breedingId: string;
+  expectedInstallDate: string;
+};
+
+export type LocalInstalledNestBoxLogEntry = {
+  id: string;
+  doeId: string;
+  doeTagId: string | null;
+  doeBreed: string | null;
+  doeState: string;
+  buckTagId: string | null;
+  matingDate: string | null;
+  nestBoxDate: string;
+};
+
 export async function fetchNestBoxPageData(db: SQLiteDBConnection): Promise<{
-  does: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; expectedKindlingDate: string; buckTagId: string | null; breedingId: string }[];
+  does: LocalNestBoxCandidate[];
+  installedLog: LocalInstalledNestBoxLogEntry[];
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const rows = await queryAll<{
+
+  // Get active doe candidates
+  const candidates = await queryAll<{
     id: string;
-    tagId: string | null;
+    tagId: string;
     breed: string | null;
     doeState: string;
-    breedingId: string;
-    matingDate: string | null;
-    expectedKindlingDate: string;
-    buckId: string | null;
   }>(
     db,
-    `SELECT r.id, r.tagId, r.breed, r.doeState, b.id as breedingId, b.matingDate, b.expectedKindlingDate, b.buckId 
-     FROM rabbit r
-     JOIN breeding b ON r.id = b.doeId
-     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status != 'deceased' 
-       AND r.doeState IN ('pregnant', 'bred', 'nursing_bred')
-       AND b.nestBoxDate IS NULL
-     ORDER BY b.expectedKindlingDate ASC`
+    `SELECT id, tagId, breed, doeState 
+     FROM rabbit 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+       AND doeState IN ('bred', 'pregnant', 'nursing_bred', 'nursing_pregnant') 
+     ORDER BY tagId ASC`
   );
 
-  const does: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; expectedKindlingDate: string; buckTagId: string | null; breedingId: string }[] = [];
-  for (const c of rows) {
-    const buck = c.buckId
-      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [c.buckId])
+  const does: LocalNestBoxCandidate[] = [];
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include full day
+
+  for (const doe of candidates) {
+    // Get latest breeding
+    const b = await queryOne<{
+      id: string;
+      matingDate: string | null;
+      nestBoxDate: string | null;
+      expectedKindlingDate: string;
+      buckId: string | null;
+    }>(
+      db,
+      "SELECT id, matingDate, nestBoxDate, expectedKindlingDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 1",
+      [doe.id]
+    );
+
+    if (!b || !b.matingDate || b.nestBoxDate) continue;
+
+    const dueDate = nestBoxDueDate(new Date(b.matingDate), settings.nestBoxDays);
+    if (dueDate > today) continue;
+
+    const buck = b.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [b.buckId])
       : null;
+
     does.push({
-      id: c.id,
-      tagId: c.tagId,
-      breed: c.breed,
-      doeState: c.doeState,
-      matingDate: c.matingDate,
-      expectedKindlingDate: c.expectedKindlingDate,
+      id: doe.id,
+      tagId: doe.tagId,
+      breed: doe.breed,
+      doeState: doe.doeState,
+      matingDate: b.matingDate,
+      expectedKindlingDate: b.expectedKindlingDate,
       buckTagId: buck?.tagId ?? null,
-      breedingId: c.breedingId,
+      breedingId: b.id,
+      expectedInstallDate: dueDate.toISOString(),
     });
   }
 
-  return { does, settings };
+  // Get installed logs straight off current Breeding rows (nestBoxDate is not null)
+  const logRows = await queryAll<{
+    id: string;
+    matingDate: string | null;
+    nestBoxDate: string;
+    doeId: string;
+    buckId: string | null;
+  }>(
+    db,
+    `SELECT id, matingDate, nestBoxDate, doeId, buckId 
+     FROM breeding 
+     WHERE nestBoxDate IS NOT NULL 
+     ORDER BY nestBoxDate DESC LIMIT 100`
+  );
+
+  const installedLog: LocalInstalledNestBoxLogEntry[] = [];
+  for (const row of logRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null; doeState: string }>(
+      db,
+      "SELECT tagId, breed, doeState FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    const buck = row.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+      : null;
+
+    installedLog.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTagId: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      doeState: doe?.doeState ?? "empty",
+      buckTagId: buck?.tagId ?? null,
+      matingDate: row.matingDate,
+      nestBoxDate: row.nestBoxDate,
+    });
+  }
+
+  return { does, installedLog, settings };
 }
 
 export type KindlingLogEntry = {

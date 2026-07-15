@@ -3,14 +3,15 @@ import { Box } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
-import { fetchNestBoxPageData } from "../db/queries";
+import { fetchNestBoxPageData, type LocalNestBoxCandidate, type LocalInstalledNestBoxLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, InstallNestBoxButton } from "../components/doe-state-menu";
 
 export function NestBoxPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
-    does: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; expectedKindlingDate: string; buckTagId: string | null; breedingId: string }[];
+    does: LocalNestBoxCandidate[];
+    installedLog: LocalInstalledNestBoxLogEntry[];
     nestBoxDays: number;
   } | null>(null);
 
@@ -19,6 +20,7 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
     const res = await fetchNestBoxPageData(db);
     setData({
       does: res.does,
+      installedLog: res.installedLog,
       nestBoxDays: res.settings.nestBoxDays,
     });
   }, []);
@@ -31,7 +33,7 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
 
-  const { does, nestBoxDays } = data;
+  const { does, installedLog, nestBoxDays } = data;
 
   return (
     <div className="space-y-6">
@@ -64,6 +66,7 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
                 <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                <th className="px-4 py-3">{locale === "ar" ? "تاريخ التركيب المتوقع" : "Expected Install Date"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "التركيب" : "Install"}</th>
@@ -78,6 +81,9 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
                   <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
                   <td className="px-4 py-3.5">
                     {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <LocalDate date={row.expectedInstallDate} />
                   </td>
                   <td className="px-4 py-3.5">
                     <LocalDate date={row.expectedKindlingDate} />
@@ -99,6 +105,49 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
           </table>
         </div>
       )}
+
+      {/* Log section */}
+      <div className="space-y-3 pt-4 border-t">
+        <h2 className="text-lg font-bold">{locale === "ar" ? "سجل تركيب بيوت الولادة" : "Nest Box Installation Log"}</h2>
+        {installedLog.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات تركيب بعد." : "No installation logs yet."}</p>
+        ) : (
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right">
+              <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التركيب" : "Install Date"}</th>
+                  <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {installedLog.map((row, index) => (
+                  <tr key={row.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                    <td className="px-4 py-3.5 font-bold">{row.doeTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">{row.doeBreed ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">
+                      {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <LocalDate date={row.nestBoxDate} />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <DoeStateBadge current={row.doeState} locale={locale} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
