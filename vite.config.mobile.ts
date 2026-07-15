@@ -11,6 +11,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   root: path.resolve(__dirname, "src/mobile"),
   base: "",
+  envDir: path.resolve(__dirname),
   plugins: [react()],
   resolve: {
     alias: {

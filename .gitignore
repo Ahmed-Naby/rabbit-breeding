@@ -59,4 +59,5 @@ android/keystore.properties
 # build outputs
 /dist/
 /www/
+/public/app/
 *.log

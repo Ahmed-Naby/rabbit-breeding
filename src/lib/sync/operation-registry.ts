@@ -9,7 +9,6 @@
  * Scope: only operations reachable from the offline-supported boards (does,
  * mating, pregnancy-test, nest-box, kindling, weaning, mortality, /stock
  * intake — see the sync plan). Not registered, deliberately:
- *  - transferKitsOp (fostering) — explicitly deferred, higher conflict-risk.
  *  - createBreedingOp/updateBreedingOp/createRabbitOp/createMotherOp/
  *    createBuckOp/finalizeMotherOp/finalizeBuckOp/updateRabbitOp/
  *    deleteRabbitOp — full desktop-style forms (add/edit breeding, rabbit
