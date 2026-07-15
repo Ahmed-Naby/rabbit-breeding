@@ -19,7 +19,7 @@ let dbPromise: Promise<SQLiteDBConnection> | null = null;
  * can be created. Native (Android) needs neither.
  */
 async function initWebStoreIfNeeded(): Promise<void> {
-  if (Capacitor.getPlatform() !== "web") return;
+  if (Capacitor.getPlatform() === "android" || Capacitor.getPlatform() === "ios") return;
   console.log("[DB] initWebStoreIfNeeded starting");
   await sqlite.initWebStore();
   console.log("[DB] initWebStoreIfNeeded finished");
@@ -47,7 +47,7 @@ async function openConnection(): Promise<SQLiteDBConnection> {
 async function applySchema(db: SQLiteDBConnection): Promise<void> {
   console.log("[DB] applySchema starting");
   await db.execute(schemaSql);
-  if (Capacitor.getPlatform() === "web") {
+  if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
     await sqlite.saveToStore(DB_NAME);
   }
   console.log("[DB] applySchema finished");
@@ -78,7 +78,7 @@ export async function withTransaction<T>(fn: (db: SQLiteDBConnection) => Promise
   try {
     const result = await fn(db);
     await db.commitTransaction();
-    if (Capacitor.getPlatform() === "web") {
+    if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
       await sqlite.saveToStore(DB_NAME);
     }
     return result;

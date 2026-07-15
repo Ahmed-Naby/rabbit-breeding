@@ -15,7 +15,7 @@ import "@/app/globals.css";
  * none of this — the plugin talks to a real SQLite file directly.
  */
 async function ensureWebSqliteStore(): Promise<void> {
-  if (Capacitor.getPlatform() !== "web") return;
+  if (Capacitor.getPlatform() === "android" || Capacitor.getPlatform() === "ios") return;
   const { defineCustomElements } = await import("jeep-sqlite/loader");
   defineCustomElements(window);
   if (!document.querySelector("jeep-sqlite")) {
