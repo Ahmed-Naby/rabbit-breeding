@@ -8,7 +8,8 @@
  * "background sync only, no UI port yet" scope.
  */
 import { Network } from "@capacitor/network";
-import { getDb, withTransaction } from "../db/client";
+import { getDb, withTransaction, sqlite } from "../db/client";
+import { Capacitor } from "@capacitor/core";
 import { queryAll, queryOne, run, nowIso } from "../db/helpers";
 import { SYNC_API_BASE_URL, SYNC_SHARED_SECRET } from "../config";
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
@@ -365,6 +366,9 @@ export async function pull(): Promise<void> {
   if (set.length > 0) {
     console.log(`[DB] Executing batch of ${set.length} sync operations...`);
     await db.executeSet(set);
+    if (Capacitor.getPlatform() === "web") {
+      await sqlite.saveToStore("rabbittrack");
+    }
     console.log("[DB] Sync operations batch execution finished successfully.");
   }
 }
@@ -391,6 +395,9 @@ export async function push(): Promise<void> {
     `UPDATE outbox SET status = 'syncing' WHERE clientOpId IN (${ids.map(() => "?").join(",")})`,
     ids
   );
+  if (Capacitor.getPlatform() === "web") {
+    await sqlite.saveToStore("rabbittrack");
+  }
 
   let response: { serverTime: string; results: PushResult[] };
   try {
@@ -414,6 +421,9 @@ export async function push(): Promise<void> {
       `UPDATE outbox SET status = 'pending' WHERE clientOpId IN (${ids.map(() => "?").join(",")})`,
       ids
     );
+    if (Capacitor.getPlatform() === "web") {
+      await sqlite.saveToStore("rabbittrack");
+    }
     throw err;
   }
 

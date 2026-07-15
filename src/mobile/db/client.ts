@@ -8,7 +8,7 @@ import schemaSql from "./schema.sql?raw";
 
 const DB_NAME = "rabbittrack";
 
-const sqlite = new SQLiteConnection(CapacitorSQLite);
+export const sqlite = new SQLiteConnection(CapacitorSQLite);
 
 let dbPromise: Promise<SQLiteDBConnection> | null = null;
 
@@ -47,6 +47,9 @@ async function openConnection(): Promise<SQLiteDBConnection> {
 async function applySchema(db: SQLiteDBConnection): Promise<void> {
   console.log("[DB] applySchema starting");
   await db.execute(schemaSql);
+  if (Capacitor.getPlatform() === "web") {
+    await sqlite.saveToStore(DB_NAME);
+  }
   console.log("[DB] applySchema finished");
 }
 
@@ -75,6 +78,9 @@ export async function withTransaction<T>(fn: (db: SQLiteDBConnection) => Promise
   try {
     const result = await fn(db);
     await db.commitTransaction();
+    if (Capacitor.getPlatform() === "web") {
+      await sqlite.saveToStore(DB_NAME);
+    }
     return result;
   } catch (err) {
     await db.rollbackTransaction();
