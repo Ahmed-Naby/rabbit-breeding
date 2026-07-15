@@ -1066,6 +1066,15 @@ export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
   return { settings, breeds };
 }
 
+// Settings-defined breeds, plus any legacy free-text breed values already
+// saved on rabbits but never added to the breed table — so a rabbit tagged
+// before this table existed doesn't drop out of the filter.
+async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
+  const definedBreeds = await queryAll<{ name: string }>(db, "SELECT name FROM breed ORDER BY name ASC");
+  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
+  return Array.from(new Set([...definedBreeds.map(b => b.name), ...distinctBreeds.map(b => b.breed!)]));
+}
+
 export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
   does: { id: string; tagId: string | null; breed: string | null; acquiredDate: string; weightGrams: number | null; status: string; doeState: string }[];
   pendingMothers: { id: string; breed: string | null; cage: string | null; weightKg: number | null }[];
@@ -1073,9 +1082,7 @@ export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
-  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
-  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+  const breeds = await fetchBreedOptions(db);
 
   const doesRaw = await queryAll<{
     id: string;
@@ -1142,9 +1149,7 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
-  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
-  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+  const breeds = await fetchBreedOptions(db);
 
   const bucksRaw = await queryAll<{
     id: string;
@@ -1208,9 +1213,7 @@ export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
-  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
-  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+  const breeds = await fetchBreedOptions(db);
 
   const rabbitsRaw = await queryAll<{
     id: string;
