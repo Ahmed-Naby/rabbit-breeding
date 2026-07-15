@@ -521,6 +521,32 @@ export async function createQuickRabbit(
   return applied;
 }
 
+export async function finalizeMother(
+  db: SQLiteDBConnection,
+  payload: { id: string; tagId: string; weightKg: number }
+): Promise<LocalOpOutcome> {
+  const clash = await queryOne<{ id: string }>(db, "SELECT id FROM rabbit WHERE tagId = ?", [payload.tagId]);
+  if (clash) return rejected("TAG_IN_USE");
+
+  const now = nowIso();
+  await run(
+    db,
+    "UPDATE rabbit SET tagId = ?, acquiredDate = ?, movedToHerdPen = 1, updatedAt = ? WHERE id = ?",
+    [payload.tagId, now, now, payload.id]
+  );
+
+  const grams = toGrams({ kg: payload.weightKg }, "kg");
+  await upsertLatestWeightRecord(db, payload.id, grams);
+  return applied;
+}
+
+export async function finalizeBuck(
+  db: SQLiteDBConnection,
+  payload: { id: string; tagId: string; weightKg: number }
+): Promise<LocalOpOutcome> {
+  return finalizeMother(db, payload);
+}
+
 export async function saveQuickRabbitCage(
   db: SQLiteDBConnection,
   payload: { id: string; cage: string }
@@ -596,6 +622,10 @@ export const localOpRegistry: Record<
   setRabbitStatus: setRabbitStatus as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createQuickRabbit: createQuickRabbit as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  finalizeMother: finalizeMother as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  finalizeBuck: finalizeBuck as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   saveQuickRabbitCage: saveQuickRabbitCage as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

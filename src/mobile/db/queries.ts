@@ -1060,9 +1060,145 @@ export type LocalBreed = {
 export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
   breeds: LocalBreed[];
-}> {
+ }> {
   const settings = await getLocalSettings(db);
   const breeds = await queryAll<LocalBreed>(db, "SELECT id, name FROM breed ORDER BY name ASC");
   return { settings, breeds };
+}
+
+export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
+  does: { id: string; tagId: string | null; breed: string | null; acquiredDate: string; weightGrams: number | null; status: string; doeState: string }[];
+  pendingMothers: { id: string; breed: string | null; cage: string | null; weightKg: number | null }[];
+  breedOptions: string[];
+  settings: LocalSettings;
+}> {
+  const settings = await getLocalSettings(db);
+  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
+  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
+  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+
+  const doesRaw = await queryAll<{
+    id: string;
+    tagId: string | null;
+    breed: string | null;
+    acquiredDate: string | null;
+    createdAt: string;
+    status: string;
+    doeState: string;
+  }>(
+    db,
+    "SELECT id, tagId, breed, acquiredDate, createdAt, status, doeState FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+  );
+
+  const does = [];
+  for (const d of doesRaw) {
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+      [d.id]
+    );
+    does.push({
+      id: d.id,
+      tagId: d.tagId,
+      breed: d.breed,
+      acquiredDate: d.acquiredDate || d.createdAt,
+      weightGrams: w?.weightGrams ?? null,
+      status: d.status,
+      doeState: d.doeState,
+    });
+  }
+
+  const pendingRaw = await queryAll<{
+    id: string;
+    breed: string | null;
+    cage: string | null;
+  }>(
+    db,
+    "SELECT id, breed, cage FROM rabbit WHERE sex = 'doe' AND tagId IS NULL AND movedToHerdPen = 1 AND status != 'deceased' ORDER BY createdAt DESC"
+  );
+
+  const pendingMothers = [];
+  for (const p of pendingRaw) {
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+      [p.id]
+    );
+    pendingMothers.push({
+      id: p.id,
+      breed: p.breed,
+      cage: p.cage,
+      weightKg: w ? w.weightGrams / 1000 : null,
+    });
+  }
+
+  return { does, pendingMothers, breedOptions: breeds, settings };
+}
+
+export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
+  bucks: { id: string; tagId: string | null; breed: string | null; acquiredDate: string; weightGrams: number | null; status: string }[];
+  pendingBucks: { id: string; breed: string | null; cage: string | null; weightKg: number | null }[];
+  breedOptions: string[];
+  settings: LocalSettings;
+}> {
+  const settings = await getLocalSettings(db);
+  const breedOptions = ["New Zealand White", "Californian", "بلجيكي", "إسكندرية", "جنت", "شنشلا", "هاي بلس", "ركس"];
+  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
+  const breeds = Array.from(new Set([...distinctBreeds.map(b => b.breed!), ...breedOptions]));
+
+  const bucksRaw = await queryAll<{
+    id: string;
+    tagId: string | null;
+    breed: string | null;
+    acquiredDate: string | null;
+    createdAt: string;
+    status: string;
+  }>(
+    db,
+    "SELECT id, tagId, breed, acquiredDate, createdAt, status FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+  );
+
+  const bucks = [];
+  for (const b of bucksRaw) {
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+      [b.id]
+    );
+    bucks.push({
+      id: b.id,
+      tagId: b.tagId,
+      breed: b.breed,
+      acquiredDate: b.acquiredDate || b.createdAt,
+      weightGrams: w?.weightGrams ?? null,
+      status: b.status,
+    });
+  }
+
+  const pendingRaw = await queryAll<{
+    id: string;
+    breed: string | null;
+    cage: string | null;
+  }>(
+    db,
+    "SELECT id, breed, cage FROM rabbit WHERE sex = 'buck' AND tagId IS NULL AND movedToHerdPen = 1 AND status != 'deceased' ORDER BY createdAt DESC"
+  );
+
+  const pendingBucks = [];
+  for (const p of pendingRaw) {
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+      [p.id]
+    );
+    pendingBucks.push({
+      id: p.id,
+      breed: p.breed,
+      cage: p.cage,
+      weightKg: w ? w.weightGrams / 1000 : null,
+    });
+  }
+
+  return { bucks, pendingBucks, breedOptions: breeds, settings };
 }
 

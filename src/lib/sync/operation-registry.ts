@@ -41,6 +41,8 @@ import {
   saveQuickRabbitCageOp,
   saveQuickRabbitWeightOp,
   promoteToHerdPenOp,
+  finalizeMotherOp,
+  finalizeBuckOp,
 } from "@/lib/rabbit-ops";
 import { prisma } from "@/lib/prisma";
 
@@ -300,6 +302,20 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
         count: p.count as number,
       })
     ),
+
+  finalizeMother: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
+    return fromOpResult(await finalizeMotherOp(p.id as string, p.tagId as string, p.weightKg as number));
+  },
+
+  finalizeBuck: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
+    return fromOpResult(await finalizeBuckOp(p.id as string, p.tagId as string, p.weightKg as number));
+  },
 
   recordKitSale: async (p, clientAt) => {
     const date = new Date(p.date as string);
