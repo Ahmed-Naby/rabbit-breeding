@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       outcome = { status: "rejected", resultMessage: `Unknown opType: ${op.opType}` };
     } else {
       try {
-        outcome = await handler(op.payload ?? {});
+        outcome = await handler(op.payload ?? {}, new Date(op.clientAt));
       } catch (e) {
         outcome = { status: "rejected", resultMessage: e instanceof Error ? e.message : String(e) };
       }

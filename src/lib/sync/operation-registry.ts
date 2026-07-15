@@ -48,9 +48,25 @@ export type SyncOpOutcome =
   | { status: "applied"; resultMessage?: string }
   | { status: "rejected"; resultMessage: string };
 
-type SyncOpHandler = (payload: Record<string, unknown>) => Promise<SyncOpOutcome>;
+type SyncOpHandler = (payload: Record<string, unknown>, clientAt: Date) => Promise<SyncOpOutcome>;
 
 const applied: SyncOpOutcome = { status: "applied" };
+
+async function shouldSkipUpdate(
+  modelName: "rabbit" | "breeding" | "litter" | "settings",
+  id: string | number,
+  clientAt: Date
+): Promise<boolean> {
+  const existing = await (prisma[modelName] as any).findUnique({
+    where: { id },
+    select: { updatedAt: true }
+  });
+  if (existing && existing.updatedAt && existing.updatedAt > clientAt) {
+    console.log(`[Sync] Skipping ${modelName} ID ${id} update: server updatedAt (${existing.updatedAt.toISOString()}) is newer than clientAt (${clientAt.toISOString()})`);
+    return true;
+  }
+  return false;
+}
 
 function fromOpResult(result: { ok: true; data: unknown } | { ok: false; code: unknown }): SyncOpOutcome {
   if (result.ok) return applied;
@@ -70,77 +86,148 @@ function toDateOrNull(value: unknown): Date | null {
 }
 
 export const operationRegistry: Record<string, SyncOpHandler> = {
-  startBreeding: async (p) => {
+  startBreeding: async (p, clientAt) => {
     await startBreedingOp(p.doeId as string, p.buckTagId as string | undefined, { id: p.id as string | undefined });
     return applied;
   },
 
-  setBreedingOutcome: async (p) => {
+  setBreedingOutcome: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("breeding", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await setBreedingOutcomeOp(p.id as string, p.outcome as string);
     return applied;
   },
 
-  setPregnancyTestResult: async (p) => {
+  setPregnancyTestResult: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("breeding", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await setPregnancyTestResultOp(p.id as string, p.result as string);
     return applied;
   },
 
-  markMated: async (p) => {
+  markMated: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await markMatedOp(p.breedingId as string, p.doeId as string, p.buckTagId as string | undefined, {
       id: p.id as string | undefined,
     });
     return applied;
   },
 
-  confirmPregnant: async (p) => {
+  confirmPregnant: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await confirmPregnantOp(p.breedingId as string, p.doeId as string, p.target as string);
     return applied;
   },
 
-  installNestBox: async (p) => {
+  installNestBox: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await installNestBoxOp(p.breedingId as string);
     return applied;
   },
 
-  markKindled: async (p) => fromOpResult(await markKindledOp(p.breedingId as string, p.doeId as string)),
+  markKindled: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
+    return fromOpResult(await markKindledOp(p.breedingId as string, p.doeId as string));
+  },
 
-  markWeaned: async (p) => {
+  markWeaned: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await markWeanedOp(p.breedingId as string, p.doeId as string);
     return applied;
   },
 
-  setLitterCount: async (p) =>
-    fromOpResult(
+  setLitterCount: async (p, clientAt) => {
+    if (p.breedingId) {
+      const existingLitter = await prisma.litter.findUnique({
+        where: { breedingId: p.breedingId as string },
+        select: { updatedAt: true }
+      });
+      if (existingLitter && existingLitter.updatedAt > clientAt) {
+        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
+      }
+    }
+    return fromOpResult(
       await setLitterCountOp(
         p.breedingId as string,
         p.field as "bornAlive" | "bornDead" | "weaned",
         p.value as number | null
       )
-    ),
+    );
+  },
 
-  setLitterWeaningWeight: async (p) =>
-    fromOpResult(await setLitterWeaningWeightOp(p.breedingId as string, p.weaningWeightGrams as number | null)),
+  setLitterWeaningWeight: async (p, clientAt) => {
+    if (p.breedingId) {
+      const existingLitter = await prisma.litter.findUnique({
+        where: { breedingId: p.breedingId as string },
+        select: { updatedAt: true }
+      });
+      if (existingLitter && existingLitter.updatedAt > clientAt) {
+        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
+      }
+    }
+    return fromOpResult(await setLitterWeaningWeightOp(p.breedingId as string, p.weaningWeightGrams as number | null));
+  },
 
-  recordNursingKitDeath: async (p) =>
-    fromOpResult(await recordNursingKitDeathOp(p.breedingId as string, (p.count as number | undefined) ?? 1)),
+  recordNursingKitDeath: async (p, clientAt) => {
+    if (p.breedingId) {
+      const existingLitter = await prisma.litter.findUnique({
+        where: { breedingId: p.breedingId as string },
+        select: { updatedAt: true }
+      });
+      if (existingLitter && existingLitter.updatedAt > clientAt) {
+        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
+      }
+    }
+    return fromOpResult(await recordNursingKitDeathOp(p.breedingId as string, (p.count as number | undefined) ?? 1));
+  },
 
-  markMatingFailed: async (p) => {
+  markMatingFailed: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await markMatingFailedOp(p.breedingId as string, p.doeId as string);
     return applied;
   },
 
-  clearDoeRow: async (p) => {
+  clearDoeRow: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await clearDoeRowOp(p.breedingId as string, p.doeId as string);
     return applied;
   },
 
-  setMatingDate: async (p) => {
+  setMatingDate: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
     await setMatingDateOp(p.breedingId as string, toDateOrNull(p.matingDate));
     return applied;
   },
 
-  recordKindling: async (p) =>
-    fromOpResult(
+  recordKindling: async (p, clientAt) => {
+    if (p.breedingId) {
+      const existingLitter = await prisma.litter.findUnique({
+        where: { breedingId: p.breedingId as string },
+        select: { updatedAt: true }
+      });
+      if (existingLitter && existingLitter.updatedAt > clientAt) {
+        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
+      }
+    }
+    return fromOpResult(
       await recordKindlingOp(p.breedingId as string, {
         kindlingDate: toDate(p.kindlingDate),
         bornAlive: p.bornAlive as number,
@@ -149,19 +236,26 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
         weaningDate: toDateOrNull(p.weaningDate),
         notes: (p.notes as string | null) ?? null,
       })
-    ),
+    );
+  },
 
-  setDoeState: async (p) => {
+  setDoeState: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
     await setDoeStateOp(p.id as string, p.state as string);
     return applied;
   },
 
-  setRabbitStatus: async (p) => {
+  setRabbitStatus: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
     await setRabbitStatusOp(p.id as string, p.status as string);
     return applied;
   },
 
-  createQuickRabbit: async (p) =>
+  createQuickRabbit: async (p, clientAt) =>
     fromOpResult(
       await createQuickRabbitOp(
         {
@@ -175,19 +269,30 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       )
     ),
 
-  saveQuickRabbitCage: async (p) => {
+  saveQuickRabbitCage: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
     await saveQuickRabbitCageOp(p.id as string, p.cage as string);
     return applied;
   },
 
-  saveQuickRabbitWeight: async (p) => {
+  saveQuickRabbitWeight: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
     await saveQuickRabbitWeightOp(p.id as string, p.weightKg as number);
     return applied;
   },
 
-  promoteToHerdPen: async (p) => fromOpResult(await promoteToHerdPenOp(p.id as string)),
+  promoteToHerdPen: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
+    return fromOpResult(await promoteToHerdPenOp(p.id as string));
+  },
 
-  transferKits: async (p) =>
+  transferKits: async (p, clientAt) =>
     fromOpResult(
       await transferKitsOp({
         fromTagId: p.fromTagId as string,
@@ -196,7 +301,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       })
     ),
 
-  recordKitSale: async (p) => {
+  recordKitSale: async (p, clientAt) => {
     const date = new Date(p.date as string);
     const weightGrams = p.weightGrams as number | null;
     const pricePerKgCents = p.pricePerKgCents as number | null;
@@ -230,7 +335,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  recordWeanedKitDeath: async (p) => {
+  recordWeanedKitDeath: async (p, clientAt) => {
     await prisma.kitStockMovement.create({
       data: {
         id: p.id as string | undefined,
@@ -243,7 +348,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  deleteKitStockMovement: async (p) => {
+  deleteKitStockMovement: async (p, clientAt) => {
     await prisma.$transaction(async (tx) => {
       const movement = await tx.kitStockMovement.delete({ where: { id: p.id as string } });
       if (movement.transactionId) {
@@ -253,7 +358,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  createHealthRecord: async (p) => {
+  createHealthRecord: async (p, clientAt) => {
     await prisma.healthRecord.create({
       data: {
         id: p.id as string | undefined,
@@ -267,12 +372,12 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  deleteHealthRecord: async (p) => {
+  deleteHealthRecord: async (p, clientAt) => {
     await prisma.healthRecord.delete({ where: { id: p.id as string } });
     return applied;
   },
 
-  createTransaction: async (p) => {
+  createTransaction: async (p, clientAt) => {
     await prisma.transaction.create({
       data: {
         id: p.id as string | undefined,
@@ -286,12 +391,15 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  deleteTransaction: async (p) => {
+  deleteTransaction: async (p, clientAt) => {
     await prisma.transaction.delete({ where: { id: p.id as string } });
     return applied;
   },
 
-  updateSettings: async (p) => {
+  updateSettings: async (p, clientAt) => {
+    if (await shouldSkipUpdate("settings", 1, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer settings edit exists on server" };
+    }
     const d = { ...p };
     delete d.id;
     await prisma.settings.upsert({
@@ -302,7 +410,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  addBreed: async (p) => {
+  addBreed: async (p, clientAt) => {
     await prisma.breed.create({
       data: {
         id: p.id as string | undefined,
@@ -312,7 +420,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
-  deleteBreed: async (p) => {
+  deleteBreed: async (p, clientAt) => {
     await prisma.breed.delete({ where: { id: p.id as string } });
     return applied;
   },
