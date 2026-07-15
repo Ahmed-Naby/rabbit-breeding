@@ -27,10 +27,10 @@ export async function runPull(since: Date) {
     prisma.breeding.findMany({ where: { updatedAt: { gt: since } } }),
     prisma.litter.findMany({ where: { updatedAt: { gt: since } } }),
     prisma.weightRecord.findMany({ where: { updatedAt: { gt: since } } }),
-    prisma.fosterLog.findMany({ where: { updatedAt: { gt: since } } }),
-    prisma.kitStockMovement.findMany({ where: { updatedAt: { gt: since } } }),
-    prisma.healthRecord.findMany({ where: { date: { gt: since } } }), // HealthRecords are date-based
-    prisma.transaction.findMany({ where: { updatedAt: { gt: since } } }),
+    prisma.fosterLog.findMany({ where: { createdAt: { gt: since } } }),
+    prisma.kitStockMovement.findMany({ where: { createdAt: { gt: since } } }),
+    prisma.healthRecord.findMany({ where: { createdAt: { gt: since } } }),
+    prisma.transaction.findMany({ where: { createdAt: { gt: since } } }),
     prisma.breed.findMany({}),
   ]);
 

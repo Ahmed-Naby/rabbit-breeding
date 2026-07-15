@@ -181,7 +181,7 @@ export function FinancePage({ locale }: { locale: Locale }) {
 
               <div className="space-y-2">
                 <Label htmlFor="category">{locale === "ar" ? "الفئة" : "Category"}</Label>
-                <Select value={category} onValueChange={setCategory} disabled={submitting}>
+                <Select value={category} onValueChange={(v) => setCategory(v ?? "")} disabled={submitting}>
                   <SelectTrigger id="category">
                     <SelectValue />
                   </SelectTrigger>

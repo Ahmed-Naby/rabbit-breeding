@@ -42,6 +42,7 @@ import {
   saveQuickRabbitWeightOp,
   promoteToHerdPenOp,
 } from "@/lib/rabbit-ops";
+import { prisma } from "@/lib/prisma";
 
 export type SyncOpOutcome =
   | { status: "applied"; resultMessage?: string }

@@ -81,7 +81,7 @@ export function WeaningPage({ locale }: { locale: Locale }) {
             </thead>
             <tbody className="divide-y">
               {litters.map((row, index) => {
-                const dueDate = weaningDueDate(row.kindlingDate, weaningDays);
+                const dueDate = weaningDueDate(new Date(row.kindlingDate), weaningDays);
 
                 return (
                   <tr key={row.id} className="hover:bg-muted/40">

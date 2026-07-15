@@ -114,7 +114,7 @@ export function HealthPage({ locale }: { locale: Locale }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="rabbitId">{locale === "ar" ? "الأرنب" : "Rabbit"}</Label>
-                <Select value={rabbitId} onValueChange={setRabbitId} disabled={submitting}>
+                <Select value={rabbitId} onValueChange={(v) => setRabbitId(v ?? "")} disabled={submitting}>
                   <SelectTrigger id="rabbitId">
                     <SelectValue placeholder={locale === "ar" ? "اختر أرنب..." : "Select rabbit..."} />
                   </SelectTrigger>

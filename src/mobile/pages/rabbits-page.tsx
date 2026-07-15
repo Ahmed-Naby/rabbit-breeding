@@ -3,7 +3,8 @@ import { Users, Venus, Mars } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
-import { fetchRabbitsRoster, type LocalRabbit } from "../db/queries";
+import { fetchRabbitsRoster } from "../db/queries";
+import type { LocalRabbit } from "../db/types";
 import { cn } from "@/lib/utils";
 import { LABELS } from "@/lib/enums";
 

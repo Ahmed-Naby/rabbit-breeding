@@ -6,7 +6,7 @@
  */
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { queryAll, queryOne } from "./helpers";
-import type { LocalSettings } from "./types";
+import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
 
 export type DoeRow = {
@@ -582,22 +582,11 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
   return { litters, weanedLog, settings };
 }
 
-export type LocalRabbit = {
-  id: string;
-  tagId: string | null;
-  breed: string | null;
-  color: string | null;
-  sex: string;
-  doeState: string;
-  cage: string | null;
-  status: string;
-};
-
 export async function fetchRabbitsRoster(
   db: SQLiteDBConnection,
   sexFilter?: "doe" | "buck" | "all"
 ): Promise<LocalRabbit[]> {
-  let query = "SELECT id, tagId, breed, color, sex, doeState, cage, status FROM rabbit WHERE status != 'deceased'";
+  let query = "SELECT * FROM rabbit WHERE status != 'deceased'";
   const params: unknown[] = [];
   if (sexFilter === "doe") {
     query += " AND sex = 'doe' AND tagId IS NOT NULL";
@@ -763,19 +752,19 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   // 1. Active mothers (does with tagId)
   const activeMothers = await queryAll<LocalRabbit>(
     db,
-    "SELECT id, tagId, breed, color, sex, doeState, cage, status FROM rabbit WHERE status != 'deceased' AND sex = 'doe' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status != 'deceased' AND sex = 'doe' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
   );
 
   // 2. Active bucks (bucks with tagId)
   const activeBucks = await queryAll<LocalRabbit>(
     db,
-    "SELECT id, tagId, breed, color, sex, doeState, cage, status FROM rabbit WHERE status != 'deceased' AND sex = 'buck' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status != 'deceased' AND sex = 'buck' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
   );
 
   // 3. Active stock (rabbits without tagId)
   const activeStock = await queryAll<LocalRabbit>(
     db,
-    "SELECT id, tagId, breed, color, sex, doeState, cage, status FROM rabbit WHERE status != 'deceased' AND tagId IS NULL ORDER BY id ASC"
+    "SELECT * FROM rabbit WHERE status != 'deceased' AND tagId IS NULL ORDER BY id ASC"
   );
 
   // 4. Deceased rabbits log
@@ -849,7 +838,7 @@ export async function fetchHealthPageData(db: SQLiteDBConnection): Promise<{
 }> {
   const activeRabbits = await queryAll<LocalRabbit>(
     db,
-    "SELECT id, tagId, breed, color, sex, doeState, cage, status FROM rabbit WHERE status != 'deceased' ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status != 'deceased' ORDER BY tagId ASC, id ASC"
   );
 
   const rows = await queryAll<{
