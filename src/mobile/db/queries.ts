@@ -462,44 +462,61 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
-  const rows = await queryAll<{
+
+  // 1. Fetch candidates (active pregnant does)
+  const candidates = await queryAll<{
     id: string;
-    tagId: string | null;
+    tagId: string;
     breed: string | null;
     doeState: string;
-    breedingId: string;
-    matingDate: string | null;
-    expectedKindlingDate: string;
-    buckId: string | null;
   }>(
     db,
-    `SELECT r.id, r.tagId, r.breed, r.doeState, b.id as breedingId, b.matingDate, b.expectedKindlingDate, b.buckId 
-     FROM rabbit r
-     JOIN breeding b ON r.id = b.doeId
-     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status != 'deceased' 
-       AND r.doeState IN ('pregnant', 'bred', 'nursing_bred')
-       AND b.actualKindlingDate IS NULL
-     ORDER BY b.expectedKindlingDate ASC`
+    `SELECT id, tagId, breed, doeState 
+     FROM rabbit 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+       AND doeState IN ('pregnant', 'nursing_pregnant') 
+     ORDER BY tagId ASC`
   );
 
   const does: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; expectedKindlingDate: string; buckTagId: string | null; breedingId: string }[] = [];
-  for (const c of rows) {
-    const buck = c.buckId
-      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [c.buckId])
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include full day
+
+  for (const doe of candidates) {
+    // Get latest breeding
+    const b = await queryOne<{
+      id: string;
+      matingDate: string | null;
+      expectedKindlingDate: string;
+      buckId: string | null;
+    }>(
+      db,
+      "SELECT id, matingDate, expectedKindlingDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 1",
+      [doe.id]
+    );
+
+    if (!b || !b.matingDate) continue;
+
+    const dueDate = new Date(b.expectedKindlingDate);
+    if (dueDate > today) continue;
+
+    const buck = b.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [b.buckId])
       : null;
+
     does.push({
-      id: c.id,
-      tagId: c.tagId,
-      breed: c.breed,
-      doeState: c.doeState,
-      matingDate: c.matingDate,
-      expectedKindlingDate: c.expectedKindlingDate,
+      id: doe.id,
+      tagId: doe.tagId,
+      breed: doe.breed,
+      doeState: doe.doeState,
+      matingDate: b.matingDate,
+      expectedKindlingDate: b.expectedKindlingDate,
       buckTagId: buck?.tagId ?? null,
-      breedingId: c.breedingId,
+      breedingId: b.id,
     });
   }
 
-  // Get kindling log entries derived from kindling_log table
+  // 2. Fetch kindling log from local kindling_log table
   const logRows = await queryAll<{
     id: string;
     matingDate: string | null;

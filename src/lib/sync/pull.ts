@@ -34,8 +34,8 @@ export async function runPull(since: Date) {
     prisma.healthRecord.findMany({ where: { createdAt: { gt: since } } }),
     prisma.transaction.findMany({ where: { createdAt: { gt: since } } }),
     prisma.breed.findMany({}),
-    prisma.pregnancyTestLog.findMany({ where: { createdAt: { gt: since } } }),
-    prisma.kindlingLog.findMany({ where: { createdAt: { gt: since } } }),
+    prisma.pregnancyTestLog.findMany({ orderBy: { testDate: "desc" }, take: 100 }),
+    prisma.kindlingLog.findMany({ orderBy: { kindlingDate: "desc" }, take: 100 }),
   ]);
 
   return {
