@@ -61,10 +61,14 @@ async function refreshPendingCount(db: SQLiteDBConnection) {
 
 async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(`${SYNC_API_BASE_URL}${path}`, {
+    cache: "no-store",
     ...init,
     headers: {
       "content-type": "application/json",
       "x-sync-key": SYNC_SHARED_SECRET,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
       ...(init?.headers ?? {}),
     },
   });
@@ -205,9 +209,10 @@ export async function pull(): Promise<void> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
 
+  const cb = Date.now();
   const path = cursor.since
-    ? `/api/sync/pull?since=${encodeURIComponent(cursor.since)}`
-    : `/api/sync/bootstrap`;
+    ? `/api/sync/pull?since=${encodeURIComponent(cursor.since)}&_cb=${cb}`
+    : `/api/sync/bootstrap?_cb=${cb}`;
   const data = (await syncFetch(path)) as PullResponse;
 
   const set: { statement: string; values?: any[] }[] = [];

@@ -7,5 +7,14 @@ export async function GET(request: Request) {
   if (authError) return authError;
 
   const data = await runPull(new Date(0));
-  return Response.json({ serverTime: new Date().toISOString(), ...data });
+  return Response.json(
+    { serverTime: new Date().toISOString(), ...data },
+    {
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      },
+    }
+  );
 }

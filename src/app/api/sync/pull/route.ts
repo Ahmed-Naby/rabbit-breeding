@@ -21,5 +21,14 @@ export async function GET(request: Request) {
   }
 
   const data = await runPull(since);
-  return Response.json({ serverTime: new Date().toISOString(), ...data });
+  return Response.json(
+    { serverTime: new Date().toISOString(), ...data },
+    {
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      },
+    }
+  );
 }
