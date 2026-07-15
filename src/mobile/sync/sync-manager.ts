@@ -383,7 +383,7 @@ export async function pull(): Promise<void> {
 type OutboxRow = { clientOpId: string; opType: string; payload: string; clientAt: string };
 type PushResult = { clientOpId: string; status: "applied" | "rejected" | "already_applied"; resultMessage?: string | null };
 
-export async function push(): Promise<void> {
+export async function push(): Promise<boolean> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
 
@@ -392,7 +392,7 @@ export async function push(): Promise<void> {
     "SELECT clientOpId, opType, payload, clientAt FROM outbox WHERE status = 'pending' ORDER BY createdAt ASC LIMIT ?",
     [PUSH_BATCH_SIZE]
   );
-  if (pending.length === 0) return;
+  if (pending.length === 0) return false;
 
   const ids = pending.map((p) => p.clientOpId);
   await run(
@@ -441,6 +441,7 @@ export async function push(): Promise<void> {
       ]);
     }
   });
+  return true;
 }
 
 // --- orchestrator + backoff ------------------------------------------------
@@ -466,11 +467,18 @@ export async function syncNow(): Promise<void> {
   setState({ status: "syncing", lastError: null });
   try {
     await pull();
-    await push();
+    const hasPushed = await push();
+    if (hasPushed) {
+      await pull();
+    }
     retryDelayMs = BACKOFF_BASE_MS;
     const db = await getDb();
     await refreshPendingCount(db);
     setState({ status: "idle", lastSyncAt: nowIso(), lastError: null });
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("local-db-updated"));
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     setState({ status: "error", lastError: message });

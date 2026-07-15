@@ -158,11 +158,20 @@ export function AppShell() {
   const route = useHashRoute();
   const dir = locale === "ar" ? "rtl" : "ltr";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dbVersion, setDbVersion] = useState(0);
 
   useEffect(() => {
     document.documentElement.dir = dir;
     document.documentElement.lang = locale;
   }, [dir, locale]);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setDbVersion((v) => v + 1);
+    };
+    window.addEventListener("local-db-updated", handleUpdate);
+    return () => window.removeEventListener("local-db-updated", handleUpdate);
+  }, []);
 
   // Navigation Items
   const navItems = Object.entries(ROUTES).map(([key, value]) => ({
@@ -278,7 +287,7 @@ export function AppShell() {
         )}
 
         {/* Page Content Panel */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+        <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
           {route === "#/does" && <DoesPage locale={locale} />}
           {route === "#/mating" && <MatingPage locale={locale} />}
