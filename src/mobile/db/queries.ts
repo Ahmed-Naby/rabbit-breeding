@@ -280,17 +280,17 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  // Generate a test log from closed breeding attempts where pregnancyTestResult is resolved
+  // Get test log entries straight off pregnancy_test_log table
   const logRows = await queryAll<{
     id: string;
-    matingDate: string | null;
-    updatedAt: string;
-    pregnancyTestResult: string;
+    matingDate: string;
+    testDate: string;
+    result: string;
     doeId: string;
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, updatedAt, pregnancyTestResult, doeId, buckId FROM breeding WHERE pregnancyTestResult IN ('positive', 'negative') ORDER BY updatedAt DESC LIMIT 100"
+    "SELECT id, matingDate, testDate, result, doeId, buckId FROM pregnancy_test_log ORDER BY testDate DESC LIMIT 100"
   );
 
   const testLog: PregnancyTestLogEntry[] = [];
@@ -306,8 +306,8 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
     testLog.push({
       id: row.id,
       matingDate: row.matingDate,
-      testDate: row.updatedAt,
-      result: row.pregnancyTestResult,
+      testDate: row.testDate,
+      result: row.result,
       doeTagId: doe?.tagId ?? null,
       doeBreed: doe?.breed ?? null,
       buckTagId: buck?.tagId ?? null,
@@ -499,22 +499,16 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  // Get kindling log entries derived from litter table
+  // Get kindling log entries derived from kindling_log table
   const logRows = await queryAll<{
     id: string;
-    breedingId: string;
+    matingDate: string | null;
     kindlingDate: string;
-    bornAlive: number;
-    bornDead: number;
     doeId: string;
     buckId: string | null;
-    matingDate: string | null;
   }>(
     db,
-    `SELECT l.id, l.breedingId, l.kindlingDate, l.bornAlive, l.bornDead, b.doeId, b.buckId, b.matingDate
-     FROM litter l
-     JOIN breeding b ON l.breedingId = b.id
-     ORDER BY l.kindlingDate DESC LIMIT 100`
+    "SELECT id, matingDate, kindlingDate, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
   );
 
   const kindlingLog: KindlingLogEntry[] = [];
@@ -527,13 +521,35 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
     const buck = row.buckId
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
       : null;
+
+    // Find counts from litter table (matched by doe + kindlingDate day)
+    let bornAlive = 0;
+    let bornDead = 0;
+    let breedingId = "";
+    if (row.kindlingDate) {
+      const dateStr = row.kindlingDate.slice(0, 10);
+      const matchingLitter = await queryOne<{ bornAlive: number; bornDead: number; breedingId: string }>(
+        db,
+        `SELECT l.bornAlive, l.bornDead, l.breedingId 
+         FROM litter l 
+         JOIN breeding b ON l.breedingId = b.id 
+         WHERE b.doeId = ? AND substr(l.kindlingDate, 1, 10) = ?`,
+        [row.doeId, dateStr]
+      );
+      if (matchingLitter) {
+        bornAlive = matchingLitter.bornAlive;
+        bornDead = matchingLitter.bornDead;
+        breedingId = matchingLitter.breedingId;
+      }
+    }
+
     kindlingLog.push({
       id: row.id,
-      breedingId: row.breedingId,
+      breedingId,
       kindlingDate: row.kindlingDate,
       matingDate: row.matingDate,
-      bornAlive: row.bornAlive,
-      bornDead: row.bornDead,
+      bornAlive,
+      bornDead,
       doeId: row.doeId,
       doeTagId: doe?.tagId ?? null,
       doeBreed: doe?.breed ?? null,

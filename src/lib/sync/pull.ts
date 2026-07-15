@@ -21,6 +21,8 @@ export async function runPull(since: Date) {
     healthRecords,
     transactions,
     breeds,
+    pregnancyTestLogs,
+    kindlingLogs,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { id: 1 } }),
     prisma.rabbit.findMany({ where: { updatedAt: { gt: since } } }),
@@ -32,6 +34,8 @@ export async function runPull(since: Date) {
     prisma.healthRecord.findMany({ where: { createdAt: { gt: since } } }),
     prisma.transaction.findMany({ where: { createdAt: { gt: since } } }),
     prisma.breed.findMany({}),
+    prisma.pregnancyTestLog.findMany({ where: { createdAt: { gt: since } } }),
+    prisma.kindlingLog.findMany({ where: { createdAt: { gt: since } } }),
   ]);
 
   return {
@@ -45,5 +49,7 @@ export async function runPull(since: Date) {
     healthRecords,
     transactions,
     breeds,
+    pregnancyTestLogs,
+    kindlingLogs,
   };
 }

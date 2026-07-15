@@ -177,3 +177,24 @@ CREATE TABLE IF NOT EXISTS breed (
   name      TEXT UNIQUE NOT NULL,
   createdAt TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS pregnancy_test_log (
+  id         TEXT PRIMARY KEY,
+  doeId      TEXT NOT NULL,
+  buckId     TEXT,
+  matingDate TEXT NOT NULL,
+  testDate   TEXT NOT NULL,
+  result     TEXT NOT NULL,
+  createdAt  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pregnancy_test_log_doeId ON pregnancy_test_log(doeId);
+
+CREATE TABLE IF NOT EXISTS kindling_log (
+  id           TEXT PRIMARY KEY,
+  doeId        TEXT NOT NULL,
+  buckId       TEXT,
+  matingDate   TEXT,
+  kindlingDate TEXT NOT NULL,
+  createdAt    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kindling_log_doeId ON kindling_log(doeId);

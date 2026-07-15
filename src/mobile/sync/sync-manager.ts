@@ -111,6 +111,8 @@ type PullResponse = {
   healthRecords?: Record<string, unknown>[];
   transactions?: Record<string, unknown>[];
   breeds?: Record<string, unknown>[];
+  pregnancyTestLogs?: Record<string, unknown>[];
+  kindlingLogs?: Record<string, unknown>[];
 };
 
 function applyPulledSettings(db: SQLiteDBConnection, s: Record<string, unknown>) {
@@ -359,6 +361,26 @@ export async function pull(): Promise<void> {
       set.push({
         statement: "INSERT OR REPLACE INTO breed (id, name, createdAt) VALUES (?, ?, ?)",
         values: [b.id, b.name, b.createdAt],
+      });
+    }
+  }
+
+  if (data.pregnancyTestLogs) {
+    for (const log of data.pregnancyTestLogs) {
+      set.push({
+        statement: `INSERT OR REPLACE INTO pregnancy_test_log (id, doeId, buckId, matingDate, testDate, result, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        values: [log.id, log.doeId, log.buckId, log.matingDate, log.testDate, log.result, log.createdAt],
+      });
+    }
+  }
+
+  if (data.kindlingLogs) {
+    for (const log of data.kindlingLogs) {
+      set.push({
+        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        values: [log.id, log.doeId, log.buckId, log.matingDate, log.kindlingDate, log.createdAt],
       });
     }
   }
