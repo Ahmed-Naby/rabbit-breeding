@@ -127,7 +127,6 @@ export function MortalityPage({ locale }: { locale: Locale }) {
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.mortality.colIndex}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colAlive}</th>
                   <th className="px-4 py-3 text-center">{t.mortality.colDead}</th>
                   <th className="px-4 py-3 text-center w-48">{t.mortality.colRecordDeath}</th>
@@ -140,7 +139,6 @@ export function MortalityPage({ locale }: { locale: Locale }) {
                     <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                       <td className="px-4 py-3.5 text-center text-muted-foreground">{i + 1}</td>
                       <td className="px-4 py-3.5 text-center font-bold">{doe.tagId}</td>
-                      <td className="px-4 py-3.5 text-center">{doe.breed ?? "—"}</td>
                       <td className="px-4 py-3.5 text-center font-semibold text-emerald-600 dark:text-emerald-400">{litter.bornAlive}</td>
                       <td className="px-4 py-3.5 text-center font-semibold text-red-600 dark:text-red-400">{litter.bornDead}</td>
                       <td className="px-4 py-3.5">

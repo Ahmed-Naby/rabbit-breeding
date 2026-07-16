@@ -8,11 +8,14 @@
  *
  * Scope: only operations reachable from the offline-supported boards (does,
  * mating, pregnancy-test, nest-box, kindling, weaning, mortality, /stock
- * intake — see the sync plan). Not registered, deliberately:
+ * intake — see the sync plan) plus the mobile rabbit detail page's status
+ * change and scoped field-edit. Not registered, deliberately:
  *  - createBreedingOp/updateBreedingOp/createRabbitOp/createMotherOp/
- *    createBuckOp/finalizeMotherOp/finalizeBuckOp/updateRabbitOp/
- *    deleteRabbitOp — full desktop-style forms (add/edit breeding, rabbit
- *    detail/edit, mothers/bucks quick-add), out of scope for the offline app.
+ *    createBuckOp/finalizeMotherOp/finalizeBuckOp/updateRabbitOp —
+ *    full desktop-style forms (add/edit breeding, rabbit create, pedigree/
+ *    tagId/sex/photo editing), out of scope for the offline app. The mobile
+ *    detail page's edit form uses updateRabbitDetailsOp instead, a narrower
+ *    field set (breed/color/cage/dateOfBirth/acquiredDate/acquiredFrom/notes).
  *  - buckExistsOp — a read-only pre-flight check, not a mutating operation.
  */
 import {
@@ -43,6 +46,7 @@ import {
   finalizeMotherOp,
   finalizeBuckOp,
   deleteRabbitOp,
+  updateRabbitDetailsOp,
 } from "@/lib/rabbit-ops";
 import { prisma } from "@/lib/prisma";
 
@@ -254,6 +258,22 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
     }
     await setRabbitStatusOp(p.id as string, p.status as string);
+    return applied;
+  },
+
+  updateRabbitDetails: async (p, clientAt) => {
+    if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
+    }
+    await updateRabbitDetailsOp(p.id as string, {
+      breed: (p.breed as string | null) ?? null,
+      color: (p.color as string | null) ?? null,
+      cage: (p.cage as string | null) ?? null,
+      dateOfBirth: toDateOrNull(p.dateOfBirth),
+      acquiredDate: toDateOrNull(p.acquiredDate),
+      acquiredFrom: (p.acquiredFrom as string | null) ?? null,
+      notes: (p.notes as string | null) ?? null,
+    });
     return applied;
   },
 

@@ -410,3 +410,25 @@ export async function setDoeStateOp(id: string, state: string): Promise<Rabbit> 
     data: { doeState: state as DoeState },
   });
 }
+
+export type RabbitDetailsPatch = {
+  breed: string | null;
+  color: string | null;
+  cage: string | null;
+  dateOfBirth: Date | null;
+  acquiredDate: Date | null;
+  acquiredFrom: string | null;
+  notes: string | null;
+};
+
+/**
+ * Scoped-down edit for the offline app's rabbit detail page — only the
+ * fields that don't touch pedigree/identity/state (tagId, sex, status,
+ * sireId/damId, photoUrl are handled elsewhere or out of scope offline).
+ */
+export async function updateRabbitDetailsOp(id: string, data: RabbitDetailsPatch): Promise<Rabbit> {
+  return prisma.rabbit.update({
+    where: { id },
+    data,
+  });
+}

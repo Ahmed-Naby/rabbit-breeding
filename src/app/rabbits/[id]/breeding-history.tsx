@@ -18,7 +18,7 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-type Cycle = {
+export type DoeCycle = {
   matingDate: Date;
   buckTagId: string | null;
   testDate: Date | null;
@@ -39,14 +39,15 @@ type Cycle = {
  * even after the underlying Breeding row has moved on to a newer cycle.
  * A still-in-progress cycle (mated but not yet tested/kindled) has no log
  * entry yet, so it's seeded from the doe's current Breeding row instead.
+ *
+ * Exported so page.tsx can build the cycles once and feed both this table
+ * and the fertility-stats badges from the same rows.
  */
-export function BreedingHistoryPanel({
+export function buildDoeCycles({
   pregnancyTests,
   kindlings,
   litters,
   ongoing,
-  t,
-  locale,
 }: {
   pregnancyTests: {
     matingDate: Date;
@@ -67,10 +68,8 @@ export function BreedingHistoryPanel({
     weaned: number | null;
   }[];
   ongoing: { matingDate: Date | null; buck: { tagId: string | null } | null }[];
-  t: Dictionary["rabbits"];
-  locale: Locale;
-}) {
-  const cycles = new Map<string, Cycle>();
+}): DoeCycle[] {
+  const cycles = new Map<string, DoeCycle>();
 
   function ensure(matingDate: Date, buckTagId: string | null) {
     const key = matingDate.toISOString();
@@ -139,10 +138,20 @@ export function BreedingHistoryPanel({
     }
   }
 
-  const rows = Array.from(cycles.values()).sort(
+  return Array.from(cycles.values()).sort(
     (a, b) => b.matingDate.getTime() - a.matingDate.getTime()
   );
+}
 
+export function BreedingHistoryPanel({
+  cycles: rows,
+  t,
+  locale,
+}: {
+  cycles: DoeCycle[];
+  t: Dictionary["rabbits"];
+  locale: Locale;
+}) {
   if (rows.length === 0) {
     return (
       <EmptyState

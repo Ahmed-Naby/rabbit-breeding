@@ -1,13 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Pencil, Rabbit as RabbitIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  Rabbit as RabbitIcon,
+  Percent,
+  Baby,
+  Repeat2,
+  Egg,
+  Users,
+  ShieldCheck,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusMenu } from "./status-menu";
-import { BreedingHistoryPanel } from "./breeding-history";
-import { BuckBreedingHistoryPanel } from "./buck-breeding-history";
+import { BreedingHistoryPanel, buildDoeCycles } from "./breeding-history";
+import { BuckBreedingHistoryPanel, buildBuckCycles } from "./buck-breeding-history";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { MetricBadge } from "@/components/metric-badge";
+import { MetricCard } from "@/components/metric-card";
+import { LocalDate } from "@/components/local-date";
+import { computeDoeFertilityStats } from "@/lib/doe-stats";
 
 export const metadata = { title: "Rabbit · RabbitTrack" };
 
@@ -100,6 +114,35 @@ export default async function RabbitDetailPage({
       ])
     : [[], [], [], []];
 
+  const doeCycles = isDoe
+    ? buildDoeCycles({
+        pregnancyTests: doePregnancyTests,
+        kindlings: doeKindlings,
+        litters: doeLitters,
+        ongoing: doeOngoing,
+      })
+    : [];
+  const doeStats = isDoe ? computeDoeFertilityStats(doeCycles) : null;
+
+  const buckCycles = isBuck
+    ? buildBuckCycles({
+        pregnancyTests: buckPregnancyTests,
+        kindlings: buckKindlings,
+        litters: buckLitters,
+        ongoing: buckOngoing,
+      })
+    : [];
+  const buckStats = isBuck
+    ? computeDoeFertilityStats(
+        buckCycles.map((c) => ({
+          testResult: c.testResult,
+          kindlingDate: c.kindlingDate,
+          bornAlive: c.bornAlive,
+          weaned: null,
+        }))
+      )
+    : null;
+
   const back =
     rabbit.tagId == null
       ? { href: "/stock", label: t.rabbits.detailBackToStock }
@@ -144,6 +187,12 @@ export default async function RabbitDetailPage({
                   {rabbit.breed}
                 </span>
               ) : null}
+              {rabbit.acquiredDate ? (
+                <MetricBadge
+                  label={t.rabbits.joinedHerdLabel}
+                  value={<LocalDate date={rabbit.acquiredDate} locale={locale} />}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -157,31 +206,72 @@ export default async function RabbitDetailPage({
         </div>
       </div>
 
+      {isDoe && doeStats ? (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.fertilityStatsHeading}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <MetricCard icon={Repeat2} tone="violet" label={t.rabbits.totalMatingsLabel} value={doeStats.totalMatings} />
+            <MetricCard icon={Egg} tone="fuchsia" label={t.rabbits.totalKindlingsLabel} value={doeStats.totalKindlings} />
+            <MetricCard
+              icon={Percent}
+              tone="emerald"
+              label={t.rabbits.fertilityRateLabel}
+              value={doeStats.fertilityRatePct != null ? `${Math.round(doeStats.fertilityRatePct)}%` : "—"}
+            />
+            <MetricCard
+              icon={Baby}
+              tone="sky"
+              label={t.rabbits.avgLitterSizeLabel}
+              value={doeStats.avgLitterSize != null ? doeStats.avgLitterSize.toFixed(1) : "—"}
+            />
+            <MetricCard
+              icon={Users}
+              tone="amber"
+              label={t.rabbits.avgWeanedLabel}
+              value={doeStats.avgWeaned != null ? doeStats.avgWeaned.toFixed(1) : "—"}
+            />
+            <MetricCard
+              icon={ShieldCheck}
+              tone="rose"
+              label={t.rabbits.weaningRetentionLabel}
+              value={doeStats.weaningRetentionPct != null ? `${Math.round(doeStats.weaningRetentionPct)}%` : "—"}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {isBuck && buckStats ? (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.fertilityStatsHeading}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <MetricCard icon={Repeat2} tone="violet" label={t.rabbits.totalMatingsLabel} value={buckStats.totalMatings} />
+            <MetricCard
+              icon={Percent}
+              tone="emerald"
+              label={t.rabbits.fertilityRateLabel}
+              value={buckStats.fertilityRatePct != null ? `${Math.round(buckStats.fertilityRatePct)}%` : "—"}
+            />
+            <MetricCard
+              icon={Baby}
+              tone="sky"
+              label={t.rabbits.avgLitterSizeLabel}
+              value={buckStats.avgLitterSize != null ? buckStats.avgLitterSize.toFixed(1) : "—"}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {isDoe ? (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.breedingHistoryHeading}</h2>
-          <BreedingHistoryPanel
-            pregnancyTests={doePregnancyTests}
-            kindlings={doeKindlings}
-            litters={doeLitters}
-            ongoing={doeOngoing}
-            t={t.rabbits}
-            locale={locale}
-          />
+          <BreedingHistoryPanel cycles={doeCycles} t={t.rabbits} locale={locale} />
         </div>
       ) : null}
 
       {isBuck ? (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.rabbits.breedingHistoryHeading}</h2>
-          <BuckBreedingHistoryPanel
-            pregnancyTests={buckPregnancyTests}
-            kindlings={buckKindlings}
-            litters={buckLitters}
-            ongoing={buckOngoing}
-            t={t.rabbits}
-            locale={locale}
-          />
+          <BuckBreedingHistoryPanel cycles={buckCycles} t={t.rabbits} locale={locale} />
         </div>
       ) : null}
     </div>

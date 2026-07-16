@@ -49,6 +49,7 @@ import { WeaningPage } from "./pages/weaning-page";
 import { RabbitsPage } from "./pages/rabbits-page";
 import { MothersPage } from "./pages/mothers-page";
 import { BucksPage } from "./pages/bucks-page";
+import { RabbitDetailPage } from "./pages/rabbit-detail-page";
 import { StockPage } from "./pages/stock-page";
 import { FosteringPage } from "./pages/fostering-page";
 import { WeaningSalesPage } from "./pages/weaning-sales-page";
@@ -68,19 +69,24 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   "#/kindling": { path: "#/kindling", labelKey: "kindling", icon: HeartPulse },
   "#/fostering": { path: "#/fostering", labelKey: "fostering", icon: ArrowLeftRight },
   "#/weaning": { path: "#/weaning", labelKey: "weaning", icon: Milk },
-  "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
-  "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/mortality": { path: "#/mortality", labelKey: "mortality", icon: Skull },
+  "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
+  "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   "#/finance": { path: "#/finance", labelKey: "finance", icon: Wallet },
   "#/settings": { path: "#/settings", labelKey: "settings", icon: Settings },
 };
 const DEFAULT_ROUTE = "#/";
+const RABBIT_DETAIL_PREFIX = "#/rabbits/";
+
+function isKnownRoute(hash: string): boolean {
+  return Boolean(ROUTES[hash]) || hash.startsWith(RABBIT_DETAIL_PREFIX);
+}
 
 function useHashRoute(): string {
-  const [hash, setHash] = useState(() => (ROUTES[window.location.hash] ? window.location.hash : DEFAULT_ROUTE));
+  const [hash, setHash] = useState(() => (isKnownRoute(window.location.hash) ? window.location.hash : DEFAULT_ROUTE));
   useEffect(() => {
-    const onHashChange = () => setHash(ROUTES[window.location.hash] ? window.location.hash : DEFAULT_ROUTE);
+    const onHashChange = () => setHash(isKnownRoute(window.location.hash) ? window.location.hash : DEFAULT_ROUTE);
     window.addEventListener("hashchange", onHashChange);
     if (!window.location.hash) window.location.hash = DEFAULT_ROUTE;
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -340,6 +346,9 @@ export function AppShell() {
           {route === "#/stock" && <StockPage locale={locale} />}
           {route === "#/mothers" && <MothersPage locale={locale} />}
           {route === "#/bucks" && <BucksPage locale={locale} />}
+          {route.startsWith(RABBIT_DETAIL_PREFIX) && (
+            <RabbitDetailPage locale={locale} rabbitId={route.slice(RABBIT_DETAIL_PREFIX.length)} />
+          )}
 
           {/* Fostering and Weaning Sales offline pages */}
           {route === "#/fostering" && <FosteringPage locale={locale} />}

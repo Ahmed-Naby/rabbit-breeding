@@ -493,6 +493,31 @@ export async function setRabbitStatus(
   return applied;
 }
 
+export async function updateRabbitDetails(
+  db: SQLiteDBConnection,
+  payload: {
+    id: string;
+    breed: string | null;
+    color: string | null;
+    cage: string | null;
+    dateOfBirth: string | null;
+    acquiredDate: string | null;
+    acquiredFrom: string | null;
+    notes: string | null;
+  }
+): Promise<LocalOpOutcome> {
+  await updateRabbit(db, payload.id, {
+    breed: payload.breed,
+    color: payload.color,
+    cage: payload.cage,
+    dateOfBirth: payload.dateOfBirth,
+    acquiredDate: payload.acquiredDate,
+    acquiredFrom: payload.acquiredFrom,
+    notes: payload.notes,
+  });
+  return applied;
+}
+
 export async function createQuickRabbit(
   db: SQLiteDBConnection,
   payload: { tagId: string | null; breed: string | null; sex: "doe" | "buck"; date: string; weightKg: number | null; id?: string }
@@ -620,6 +645,8 @@ export const localOpRegistry: Record<
   setDoeState: setDoeState as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setRabbitStatus: setRabbitStatus as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateRabbitDetails: updateRabbitDetails as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createQuickRabbit: createQuickRabbit as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

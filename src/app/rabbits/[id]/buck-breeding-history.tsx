@@ -19,7 +19,7 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-type Cycle = {
+export type BuckCycle = {
   doeId: string;
   doeTagId: string | null;
   doeBreed: string | null;
@@ -31,19 +31,17 @@ type Cycle = {
 };
 
 /**
- * Mirror of BreedingHistoryPanel but anchored on a buck: one row per doe he
- * mated, keyed by doeId+matingDate (a buck's cycles span many does, unlike a
- * doe's own history where matingDate alone is enough). Same reasoning as the
- * doe panel applies to why this can't just walk Breeding rows directly — see
+ * Mirror of buildDoeCycles but anchored on a buck: one row per doe he mated,
+ * keyed by doeId+matingDate (a buck's cycles span many does, unlike a doe's
+ * own history where matingDate alone is enough). Same reasoning as the doe
+ * panel applies to why this can't just walk Breeding rows directly — see
  * breeding-history.tsx.
  */
-export function BuckBreedingHistoryPanel({
+export function buildBuckCycles({
   pregnancyTests,
   kindlings,
   litters,
   ongoing,
-  t,
-  locale,
 }: {
   pregnancyTests: {
     matingDate: Date;
@@ -65,10 +63,8 @@ export function BuckBreedingHistoryPanel({
     matingDate: Date | null;
     doe: { id: string; tagId: string | null; breed: string | null };
   }[];
-  t: Dictionary["rabbits"];
-  locale: Locale;
-}) {
-  const cycles = new Map<string, Cycle>();
+}): BuckCycle[] {
+  const cycles = new Map<string, BuckCycle>();
 
   function ensure(
     doe: { id: string; tagId: string | null; breed: string | null },
@@ -124,10 +120,20 @@ export function BuckBreedingHistoryPanel({
     }
   }
 
-  const rows = Array.from(cycles.values()).sort(
+  return Array.from(cycles.values()).sort(
     (a, b) => b.matingDate.getTime() - a.matingDate.getTime()
   );
+}
 
+export function BuckBreedingHistoryPanel({
+  cycles: rows,
+  t,
+  locale,
+}: {
+  cycles: BuckCycle[];
+  t: Dictionary["rabbits"];
+  locale: Locale;
+}) {
   if (rows.length === 0) {
     return (
       <EmptyState

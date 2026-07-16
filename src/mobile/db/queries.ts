@@ -546,24 +546,27 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
       : null;
 
-    // Find counts from litter table (matched by doe + kindlingDate day)
+    // Resolve breedingId from the breeding table itself (matched by doe + kindlingDate day),
+    // not via litter — litter rows are only created lazily once a count is first entered
+    // (see local-ops.ts), so a doe just marked as kindled has no litter row yet and an
+    // inner join through litter would leave breedingId unresolvable forever.
     let bornAlive = 0;
     let bornDead = 0;
     let breedingId = "";
     if (row.kindlingDate) {
       const dateStr = row.kindlingDate.slice(0, 10);
-      const matchingLitter = await queryOne<{ bornAlive: number; bornDead: number; breedingId: string }>(
+      const matchingBreeding = await queryOne<{ id: string; bornAlive: number | null; bornDead: number | null }>(
         db,
-        `SELECT l.bornAlive, l.bornDead, l.breedingId 
-         FROM litter l 
-         JOIN breeding b ON l.breedingId = b.id 
-         WHERE b.doeId = ? AND substr(l.kindlingDate, 1, 10) = ?`,
+        `SELECT b.id, l.bornAlive, l.bornDead
+         FROM breeding b
+         LEFT JOIN litter l ON l.breedingId = b.id
+         WHERE b.doeId = ? AND substr(b.actualKindlingDate, 1, 10) = ?`,
         [row.doeId, dateStr]
       );
-      if (matchingLitter) {
-        bornAlive = matchingLitter.bornAlive;
-        bornDead = matchingLitter.bornDead;
-        breedingId = matchingLitter.breedingId;
+      if (matchingBreeding) {
+        bornAlive = matchingBreeding.bornAlive ?? 0;
+        bornDead = matchingBreeding.bornDead ?? 0;
+        breedingId = matchingBreeding.id;
       }
     }
 
@@ -1070,7 +1073,7 @@ export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
 // (src/lib/breeds.ts). These dropdowns are all add-new-rabbit breed fields,
 // not filters, so legacy free-text rabbit.breed values (old seed data, typos)
 // shouldn't appear as selectable choices here.
-async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
+export async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
   const definedBreeds = await queryAll<{ name: string }>(db, "SELECT name FROM breed ORDER BY name ASC");
   return definedBreeds.map(b => b.name);
 }
@@ -1245,5 +1248,253 @@ export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
   }
 
   return { rabbits, breedOptions: breeds, settings };
+}
+
+export type LocalRabbitBasic = {
+  id: string;
+  tagId: string | null;
+  breed: string | null;
+  color: string | null;
+  sex: string;
+  status: string;
+  doeState: string;
+  origin: string | null;
+  cage: string | null;
+  dateOfBirth: string | null;
+  acquiredDate: string | null;
+  acquiredFrom: string | null;
+  notes: string | null;
+};
+
+export async function fetchRabbitBasic(db: SQLiteDBConnection, id: string): Promise<LocalRabbitBasic | null> {
+  return queryOne<LocalRabbitBasic>(
+    db,
+    "SELECT id, tagId, breed, color, sex, status, doeState, origin, cage, dateOfBirth, acquiredDate, acquiredFrom, notes FROM rabbit WHERE id = ?",
+    [id]
+  );
+}
+
+/** yyyy-MM-dd key for matching by calendar day — mirrors src/app/rabbits/[id]/breeding-history.tsx's dayKey. */
+function dayKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+export type DoeBreedingHistoryRow = {
+  matingDate: string;
+  buckTagId: string | null;
+  testDate: string | null;
+  testResult: string | null;
+  kindlingDate: string | null;
+  bornAlive: number | null;
+  bornDead: number | null;
+  weaningDate: string | null;
+  weaned: number | null;
+};
+
+/**
+ * Local-SQLite port of BreedingHistoryPanel's stitching algorithm
+ * (src/app/rabbits/[id]/breeding-history.tsx) — one row per breeding cycle,
+ * anchored on matingDate since Breeding rows themselves get reused/
+ * overwritten on the doe's next mating (see markMated in local-ops.ts). Must
+ * stay in lockstep with the web version's logic, not just its output shape.
+ */
+export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: string): Promise<DoeBreedingHistoryRow[]> {
+  const cycles = new Map<string, DoeBreedingHistoryRow>();
+
+  function ensure(matingDate: string, buckTagId: string | null): DoeBreedingHistoryRow {
+    let c = cycles.get(matingDate);
+    if (!c) {
+      c = {
+        matingDate,
+        buckTagId,
+        testDate: null,
+        testResult: null,
+        kindlingDate: null,
+        bornAlive: null,
+        bornDead: null,
+        weaningDate: null,
+        weaned: null,
+      };
+      cycles.set(matingDate, c);
+    } else if (!c.buckTagId && buckTagId) {
+      c.buckTagId = buckTagId;
+    }
+    return c;
+  }
+
+  async function buckTag(buckId: string | null): Promise<string | null> {
+    if (!buckId) return null;
+    const buck = await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [buckId]);
+    return buck?.tagId ?? null;
+  }
+
+  const ongoing = await queryAll<{ matingDate: string | null; buckId: string | null }>(
+    db,
+    "SELECT matingDate, buckId FROM breeding WHERE doeId = ? AND matingDate IS NOT NULL",
+    [doeId]
+  );
+  for (const b of ongoing) {
+    if (!b.matingDate) continue;
+    ensure(b.matingDate, await buckTag(b.buckId));
+  }
+
+  const pregnancyTests = await queryAll<{ matingDate: string; testDate: string; result: string; buckId: string | null }>(
+    db,
+    "SELECT matingDate, testDate, result, buckId FROM pregnancy_test_log WHERE doeId = ?",
+    [doeId]
+  );
+  for (const row of pregnancyTests) {
+    const c = ensure(row.matingDate, await buckTag(row.buckId));
+    c.testDate = row.testDate;
+    c.testResult = row.result;
+  }
+
+  const kindlings = await queryAll<{ matingDate: string | null; kindlingDate: string; buckId: string | null }>(
+    db,
+    "SELECT matingDate, kindlingDate, buckId FROM kindling_log WHERE doeId = ?",
+    [doeId]
+  );
+  for (const row of kindlings) {
+    const tag = await buckTag(row.buckId);
+    const c = row.matingDate ? ensure(row.matingDate, tag) : ensure(row.kindlingDate, tag);
+    c.kindlingDate = row.kindlingDate;
+  }
+
+  const litters = await queryAll<{
+    kindlingDate: string;
+    bornAlive: number;
+    bornDead: number;
+    weaningDate: string | null;
+    weaned: number | null;
+  }>(
+    db,
+    `SELECT l.kindlingDate, l.bornAlive, l.bornDead, l.weaningDate, l.weaned
+     FROM litter l JOIN breeding b ON b.id = l.breedingId
+     WHERE b.doeId = ?`,
+    [doeId]
+  );
+  const litterByDay = new Map<string, { bornAlive: number; bornDead: number; weaningDate: string | null; weaned: number | null }>();
+  for (const l of litters) {
+    litterByDay.set(dayKey(l.kindlingDate), {
+      bornAlive: l.bornAlive,
+      bornDead: l.bornDead,
+      weaningDate: l.weaningDate,
+      weaned: l.weaned,
+    });
+  }
+  for (const c of cycles.values()) {
+    if (!c.kindlingDate) continue;
+    const m = litterByDay.get(dayKey(c.kindlingDate));
+    if (m) {
+      c.bornAlive = m.bornAlive;
+      c.bornDead = m.bornDead;
+      c.weaningDate = m.weaningDate;
+      c.weaned = m.weaned;
+    }
+  }
+
+  return Array.from(cycles.values()).sort((a, b) => new Date(b.matingDate).getTime() - new Date(a.matingDate).getTime());
+}
+
+export type BuckBreedingHistoryRow = {
+  doeId: string;
+  doeTagId: string | null;
+  doeBreed: string | null;
+  matingDate: string;
+  testResult: string | null;
+  kindlingDate: string | null;
+  bornAlive: number | null;
+  bornDead: number | null;
+};
+
+/**
+ * Local-SQLite port of BuckBreedingHistoryPanel (src/app/rabbits/[id]/buck-breeding-history.tsx)
+ * — one row per doe he mated, keyed by doeId+matingDate since a buck's
+ * cycles span many does. See fetchDoeBreedingHistory for why this can't
+ * just walk Breeding rows directly.
+ */
+export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: string): Promise<BuckBreedingHistoryRow[]> {
+  const cycles = new Map<string, BuckBreedingHistoryRow>();
+
+  async function doeInfo(doeId: string): Promise<{ tagId: string | null; breed: string | null }> {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [doeId]
+    );
+    return { tagId: doe?.tagId ?? null, breed: doe?.breed ?? null };
+  }
+
+  async function ensure(doeId: string, matingDate: string): Promise<BuckBreedingHistoryRow> {
+    const key = `${doeId}_${matingDate}`;
+    let c = cycles.get(key);
+    if (!c) {
+      const doe = await doeInfo(doeId);
+      c = {
+        doeId,
+        doeTagId: doe.tagId,
+        doeBreed: doe.breed,
+        matingDate,
+        testResult: null,
+        kindlingDate: null,
+        bornAlive: null,
+        bornDead: null,
+      };
+      cycles.set(key, c);
+    }
+    return c;
+  }
+
+  const ongoing = await queryAll<{ matingDate: string | null; doeId: string }>(
+    db,
+    "SELECT matingDate, doeId FROM breeding WHERE buckId = ? AND matingDate IS NOT NULL",
+    [buckId]
+  );
+  for (const b of ongoing) {
+    if (!b.matingDate) continue;
+    await ensure(b.doeId, b.matingDate);
+  }
+
+  const pregnancyTests = await queryAll<{ matingDate: string; result: string; doeId: string }>(
+    db,
+    "SELECT matingDate, result, doeId FROM pregnancy_test_log WHERE buckId = ?",
+    [buckId]
+  );
+  for (const row of pregnancyTests) {
+    const c = await ensure(row.doeId, row.matingDate);
+    c.testResult = row.result;
+  }
+
+  const kindlings = await queryAll<{ matingDate: string | null; kindlingDate: string; doeId: string }>(
+    db,
+    "SELECT matingDate, kindlingDate, doeId FROM kindling_log WHERE buckId = ?",
+    [buckId]
+  );
+  const kindlingKeyByDoeDay = new Map<string, string>();
+  for (const row of kindlings) {
+    const matingKey = row.matingDate ?? row.kindlingDate;
+    const c = await ensure(row.doeId, matingKey);
+    c.kindlingDate = row.kindlingDate;
+    kindlingKeyByDoeDay.set(`${row.doeId}_${dayKey(row.kindlingDate)}`, `${row.doeId}_${matingKey}`);
+  }
+
+  const litters = await queryAll<{ kindlingDate: string; bornAlive: number; bornDead: number; doeId: string }>(
+    db,
+    `SELECT l.kindlingDate, l.bornAlive, l.bornDead, b.doeId as doeId
+     FROM litter l JOIN breeding b ON b.id = l.breedingId
+     WHERE b.buckId = ?`,
+    [buckId]
+  );
+  for (const l of litters) {
+    const cycleKey = kindlingKeyByDoeDay.get(`${l.doeId}_${dayKey(l.kindlingDate)}`);
+    if (!cycleKey) continue;
+    const c = cycles.get(cycleKey);
+    if (c) {
+      c.bornAlive = l.bornAlive;
+      c.bornDead = l.bornDead;
+    }
+  }
+
+  return Array.from(cycles.values()).sort((a, b) => new Date(b.matingDate).getTime() - new Date(a.matingDate).getTime());
 }
 
