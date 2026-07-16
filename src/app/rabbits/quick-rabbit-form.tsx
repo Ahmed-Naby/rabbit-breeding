@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmitButton } from "@/components/submit-button";
-import { TextField, SelectField, type Option } from "@/components/form-fields";
+import { Field, TextField, SelectField, type Option } from "@/components/form-fields";
 import {
   Table,
   TableHeader,
@@ -71,15 +71,27 @@ export function QuickRabbitForm({
     EMPTY_FORM_STATE
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const cageRef = useRef<HTMLInputElement>(null);
   // Computed once (not inline in JSX) so it stays stable across re-renders —
   // Base UI's uncontrolled Input warns if defaultValue changes after mount.
   const [today] = useState(() => toDateInputValue(new Date()));
 
   useEffect(() => {
     if (state.ok && state.rabbit) {
+      const cage = cageRef.current?.value.trim();
+      const rabbitId = state.rabbit.id;
       toast.success(t.registeredToast);
       formRef.current?.reset();
-      router.refresh();
+      if (cage) {
+        void saveQuickRabbitCage(rabbitId, cage).then((result) => {
+          if (!result.ok) {
+            toast.error(result.message ?? t.invalidCageFallback);
+          }
+          router.refresh();
+        });
+      } else {
+        router.refresh();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, router]);
@@ -100,7 +112,7 @@ export function QuickRabbitForm({
         ) : null}
 
         <Card>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <SelectField
               name="sex"
               label={t.sexLabel}
@@ -125,6 +137,25 @@ export function QuickRabbitForm({
               placeholder={tCommon.selectPlaceholder}
               error={e.breed}
             />
+            <TextField
+              name="weightKg"
+              type="number"
+              step="0.001"
+              min={0}
+              label={t.weightLabel}
+              placeholder={t.weightPlaceholder}
+              error={e.weightKg}
+            />
+            <Field label={t.cageLabel} htmlFor="cage">
+              <input
+                ref={cageRef}
+                id="cage"
+                type="text"
+                maxLength={10}
+                placeholder={t.cagePlaceholder}
+                className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+              />
+            </Field>
           </CardContent>
         </Card>
 

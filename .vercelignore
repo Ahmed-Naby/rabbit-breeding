@@ -1,0 +1,10 @@
+# Not needed for the Next.js (web) deployment — these are for the
+# Capacitor/Electron mobile & desktop builds and are large/irrelevant here.
+/android
+/dist
+/www
+/electron
+/android-keystore
+
+# Vercel reinstalls dependencies itself; no need to upload the local copy.
+/node_modules
