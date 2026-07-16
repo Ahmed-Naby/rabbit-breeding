@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Trash2 } from "lucide-react";
+import { createId } from "@paralleldrive/cuid2";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -42,19 +43,29 @@ export function StockPage({ locale }: { locale: Locale }) {
     const sex = formData.get("sex") as "doe" | "buck";
     const date = formData.get("date") as string;
     const breed = formData.get("breed") as string;
+    const weightRaw = (formData.get("weightKg") as string) || "";
+    const cageRaw = ((formData.get("cage") as string) || "").trim();
 
     try {
+      const id = createId();
       const res = await enqueue("createQuickRabbit", {
+        id,
         tagId: null,
         breed: breed === "none" ? null : breed,
         sex,
         date: new Date(date).toISOString(),
-        weightKg: null,
+        weightKg: weightRaw ? parseFloat(weightRaw) : null,
       });
 
       if (res.outcome.status === "rejected") {
         toast.error(res.outcome.resultMessage);
       } else {
+        if (cageRaw) {
+          const cageRes = await enqueue("saveQuickRabbitCage", { id, cage: cageRaw });
+          if (cageRes.outcome.status === "rejected") {
+            toast.error(cageRes.outcome.resultMessage);
+          }
+        }
         toast.success(t.registeredToast);
         addFormRef.current?.reset();
         await load();
@@ -63,35 +74,6 @@ export function StockPage({ locale }: { locale: Locale }) {
       toast.error(String(err));
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSaveCage = async (id: string, value: string) => {
-    try {
-      const res = await enqueue("saveQuickRabbitCage", { id, cage: value });
-      if (res.outcome.status === "rejected") {
-        toast.error(res.outcome.resultMessage);
-      } else {
-        toast.success(t.cageSavedToast);
-        await load();
-      }
-    } catch (err) {
-      toast.error(String(err));
-    }
-  };
-
-  const handleSaveWeight = async (id: string, value: string) => {
-    if (!value) return;
-    try {
-      const res = await enqueue("saveQuickRabbitWeight", { id, weightKg: parseFloat(value) });
-      if (res.outcome.status === "rejected") {
-        toast.error(res.outcome.resultMessage);
-      } else {
-        toast.success(t.weightSavedToast);
-        await load();
-      }
-    } catch (err) {
-      toast.error(String(err));
     }
   };
 
@@ -154,7 +136,7 @@ export function StockPage({ locale }: { locale: Locale }) {
       <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
         <div className="p-6">
           <form ref={addFormRef} onSubmit={handleAddRabbit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold">{t.sexLabel}</label>
                 <select
@@ -195,6 +177,29 @@ export function StockPage({ locale }: { locale: Locale }) {
                   ))}
                 </select>
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold">{t.weightLabel}</label>
+                <input
+                  name="weightKg"
+                  type="number"
+                  step="0.001"
+                  min={0}
+                  placeholder={t.weightPlaceholder}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold">{t.cageLabel}</label>
+                <input
+                  name="cage"
+                  type="text"
+                  maxLength={10}
+                  placeholder={t.cagePlaceholder}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+              </div>
             </div>
             <button
               type="submit"
@@ -232,29 +237,8 @@ export function StockPage({ locale }: { locale: Locale }) {
                     </td>
                     <td className="px-4 py-3.5">{label(r.sex, locale)}</td>
                     <td className="px-4 py-3.5">{r.breed ?? "—"}</td>
-                    <td className="px-4 py-3.5">
-                      <input
-                        type="text"
-                        name="cage"
-                        maxLength={10}
-                        placeholder={t.cagePlaceholder}
-                        defaultValue={r.cage ?? undefined}
-                        onBlur={(ev) => void handleSaveCage(r.id, ev.target.value.trim())}
-                        className="h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs focus-visible:outline-none"
-                      />
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <input
-                        type="number"
-                        name="weightKg"
-                        step="0.001"
-                        min={0}
-                        placeholder={t.weightPlaceholder}
-                        defaultValue={r.weightKg ?? undefined}
-                        onBlur={(ev) => void handleSaveWeight(r.id, ev.target.value)}
-                        className="h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs focus-visible:outline-none"
-                      />
-                    </td>
+                    <td className="px-4 py-3.5">{r.cage ?? "—"}</td>
+                    <td className="px-4 py-3.5">{r.weightKg ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       <button
                         type="button"

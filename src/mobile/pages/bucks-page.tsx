@@ -252,33 +252,43 @@ export function BucksPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{t.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.colTag}</th>
-                  <th className="px-4 py-3 text-center">{t.colBreed}</th>
-                  <th className="px-4 py-3 text-center">{t.colAddedDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colWeight}</th>
-                  <th className="px-4 py-3 text-center">{t.colStatus}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colIndex}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colTag}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colBreed}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colAddedDate}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colWeight}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colStatus}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {bucks.map((buck, i) => (
                   <tr key={buck.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3.5 text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3.5 font-bold">{buck.tagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{buck.breed ?? "—"}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#/rabbits/${buck.id}`;
+                        }}
+                        className="hover:underline"
+                      >
+                        {buck.tagId ?? "—"}
+                      </button>
+                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">{buck.breed ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <LocalDate date={buck.acquiredDate} />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       {buck.weightGrams
                         ? formatWeight(
                             buck.weightGrams,
                             settings.weightUnit as "kg" | "lb_oz",
                             locale
-                          )
+                          ).replace(/\s*(كجم|kg)$/, "")
                         : "—"}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <StatusBadge value={buck.status} locale={locale} />
                     </td>
                   </tr>

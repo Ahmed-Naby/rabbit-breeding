@@ -57,17 +57,17 @@ export function MatingPage({ locale }: { locale: Locale }) {
         </div>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
-          <table className="w-full text-sm text-left rtl:text-right">
+          <table className="w-full border-collapse text-sm text-left rtl:text-right [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-4 py-3 hidden md:table-cell">{locale === "ar" ? "النوع" : "Breed"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "التلقيح" : "Mating"}</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {does.map((doe, index) => {
                 const { current, canMate } = computeDoeBoardRow(doe.doeState as DoeState, doe.breedings, settings);
                 const b = doe.breedings[0];
@@ -76,7 +76,7 @@ export function MatingPage({ locale }: { locale: Locale }) {
                   <tr key={doe.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{doe.tagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{doe.breed ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">{doe.breed ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       <DoeStateBadge current={doe.doeState} locale={locale} />
                     </td>
@@ -104,23 +104,23 @@ export function MatingPage({ locale }: { locale: Locale }) {
           <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا يوجد سجل تلقيح بعد." : "No mating log yet."}</p>
         ) : (
           <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right">
+            <table className="w-full border-collapse text-sm text-left rtl:text-right [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                   <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3 hidden md:table-cell">{locale === "ar" ? "النوع" : "Breed"}</th>
                   <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
                   <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
                   <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody>
                 {matingLog.map((log, index) => (
                   <tr key={log.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{log.doeBreed ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                     <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       <LocalDate date={log.matingDate} />

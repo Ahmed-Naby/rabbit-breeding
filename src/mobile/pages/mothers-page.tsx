@@ -253,37 +253,47 @@ export function MothersPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{t.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.colTag}</th>
-                  <th className="px-4 py-3 text-center">{t.colBreed}</th>
-                  <th className="px-4 py-3 text-center">{t.colAddedDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colWeight}</th>
-                  <th className="px-4 py-3 text-center">{t.colStatus}</th>
-                  <th className="px-4 py-3 text-center">{t.colDoeState}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colIndex}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colTag}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 w-20 md:w-auto text-center">{t.colBreed}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colAddedDate}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colWeight}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colStatus}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colDoeState}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {does.map((doe, i) => (
                   <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3.5 text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3.5 font-bold">{doe.tagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{doe.breed ?? "—"}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#/rabbits/${doe.id}`;
+                        }}
+                        className="hover:underline"
+                      >
+                        {doe.tagId ?? "—"}
+                      </button>
+                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 truncate max-w-20 md:max-w-none">{doe.breed ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <LocalDate date={doe.acquiredDate} />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       {doe.weightGrams
                         ? formatWeight(
                             doe.weightGrams,
                             settings.weightUnit as "kg" | "lb_oz",
                             locale
-                          )
+                          ).replace(/\s*(كجم|kg)$/, "")
                         : "—"}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <StatusBadge value={doe.status} locale={locale} />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <DoeStateBadge current={doe.doeState} locale={locale} />
                     </td>
                   </tr>

@@ -64,11 +64,11 @@ export function KindlingPage({ locale }: { locale: Locale }) {
               <tr className="[&>th]:border-x">
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "الولادة" : "Kindle"}</th>
               </tr>
             </thead>
@@ -77,15 +77,15 @@ export function KindlingPage({ locale }: { locale: Locale }) {
                 <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
-                  <td className="px-4 py-3.5">{row.breed ?? "—"}</td>
-                  <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 hidden md:table-cell">{row.breed ?? "—"}</td>
+                  <td className="px-4 py-3.5 hidden md:table-cell font-bold">{row.buckTagId ?? "—"}</td>
+                  <td className="px-4 py-3.5 hidden md:table-cell">
                     {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
                   </td>
                   <td className="px-4 py-3.5">
                     <LocalDate date={row.expectedKindlingDate} />
                   </td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 hidden md:table-cell">
                     <DoeStateBadge current={row.doeState} locale={locale} />
                   </td>
                   <td className="px-4 py-3.5">
@@ -116,9 +116,9 @@ export function KindlingPage({ locale }: { locale: Locale }) {
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
+                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "أحياء" : "Born Alive"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "نافق" : "Born Dead"}</th>
@@ -129,9 +129,9 @@ export function KindlingPage({ locale }: { locale: Locale }) {
                   <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{log.doeBreed ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                     <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 hidden md:table-cell">
                       {log.matingDate ? <LocalDate date={log.matingDate} /> : "—"}
                     </td>
                     <td className="px-4 py-3.5">
@@ -144,6 +144,7 @@ export function KindlingPage({ locale }: { locale: Locale }) {
                         value={log.bornAlive}
                         locale={locale}
                         onDone={() => void load()}
+                        className="h-6 w-10 md:h-8 md:w-16"
                       />
                     </td>
                     <td className="px-4 py-3.5 text-center">
@@ -153,6 +154,7 @@ export function KindlingPage({ locale }: { locale: Locale }) {
                         value={log.bornDead}
                         locale={locale}
                         onDone={() => void load()}
+                        className="h-6 w-10 md:h-8 md:w-16"
                       />
                     </td>
                   </tr>

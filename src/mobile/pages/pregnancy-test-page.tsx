@@ -69,7 +69,7 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
                 <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
                 <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الجس المتوقع" : "Expected Test Date"}</th>
                 <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
@@ -87,7 +87,7 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
                     <td className="px-4 py-3.5 hidden md:table-cell">{row.breed ?? "—"}</td>
-                    <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
+                    <td className="px-4 py-3.5 hidden md:table-cell font-bold">{row.buckTagId ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       {row.matingDate ? <LocalDate date={row.matingDate} /> : "—"}
                     </td>
@@ -140,7 +140,7 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
                   <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
+                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
                   <th className="px-4 py-3 text-center">{locale === "ar" ? "النتيجة" : "Result"}</th>
                 </tr>
               </thead>
@@ -154,7 +154,7 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
                     <td className="px-4 py-3.5">
                       {log.matingDate ? <LocalDate date={log.matingDate} /> : "—"}
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 hidden md:table-cell">
                       <LocalDate date={log.testDate} />
                     </td>
                     <td className="px-4 py-3.5">

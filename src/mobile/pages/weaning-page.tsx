@@ -67,16 +67,16 @@ export function WeaningPage({ locale }: { locale: Locale }) {
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
-                <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الفطام المتوقع" : "Expected Weaning"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "الفطام" : "Wean"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الفطام المتوقع" : "Expected Weaning"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "الفطام" : "Wean"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -85,22 +85,22 @@ export function WeaningPage({ locale }: { locale: Locale }) {
 
                 return (
                   <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
-                    <td className="px-4 py-3.5 font-bold">{row.doeTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">{row.doeBreed ?? "—"}</td>
-                    <td className="px-4 py-3.5 font-bold">{row.buckTagId ?? "—"}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">{row.doeTagId ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">{row.doeBreed ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell font-bold">{row.buckTagId ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <LocalDate date={row.kindlingDate} />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">
                       <LocalDate date={dueDate} />
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">
                       <DoeStateBadge current={row.doeState} locale={locale} />
                     </td>
-                    <td className="px-4 py-3.5 text-center">{row.bornAlive}</td>
-                    <td className="px-4 py-3.5 text-center">{row.bornDead}</td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornAlive}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornDead}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <WeanButton
                         breedingId={row.breedingId}
                         doeId={row.doeId}
@@ -128,17 +128,17 @@ export function WeaningPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الفطام" : "Weaning Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "عدد المفطومين" : "Weaned Count"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "وزن الفطام (جم)" : "Weaning Weight (g)"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "نسبة النجاح" : "Survival Rate"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "تاريخ الفطام" : "Weaning Date"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "عدد المفطومين" : "Weaned Count"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "وزن الفطام (جم)" : "Weaning Weight (g)"}</th>
+                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "نسبة النجاح" : "Survival Rate"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -147,38 +147,38 @@ export function WeaningPage({ locale }: { locale: Locale }) {
 
                   return (
                     <tr key={log.breedingId} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                      <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
-                      <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
-                      <td className="px-4 py-3.5">{log.doeBreed ?? "—"}</td>
-                      <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell font-bold">{log.buckTagId ?? "—"}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">
                         <LocalDate date={log.kindlingDate} />
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-2 py-2 md:px-4 md:py-3.5">
                         <LocalDate date={log.weaningDate} />
                       </td>
-                      <td className="px-4 py-3.5 text-center">{log.bornAlive}</td>
-                      <td className="px-4 py-3.5 text-center">{log.bornDead || "—"}</td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornAlive}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornDead || "—"}</td>
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">
                         <LitterCountInput
                           breedingId={log.breedingId}
                           field="weaned"
                           value={log.weaned}
                           locale={locale}
-                          className="w-12 mx-auto"
+                          className="w-9 md:w-12 mx-auto"
                           onDone={() => void load()}
                         />
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">
                         <LitterWeightInput
                           breedingId={log.breedingId}
                           valueGrams={log.weaningWeightGrams}
                           locale={locale}
-                          className="w-16 mx-auto"
+                          className="w-12 md:w-16 mx-auto"
                           onDone={() => void load()}
                         />
                       </td>
-                      <td className="px-4 py-3.5 text-center font-semibold">
+                      <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell text-center font-semibold">
                         {rate != null ? (
                           <span className="text-emerald-600 dark:text-emerald-400">
                             {Math.round(rate * 100)}%
