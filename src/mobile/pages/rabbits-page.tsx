@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Users, Venus, Mars } from "lucide-react";
+import { Users, Venus, Mars, Rabbit as RabbitIcon } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -94,6 +94,7 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr>
+                <th className="px-4 py-3 w-14"><span className="sr-only">{locale === "ar" ? "صورة" : "Photo"}</span></th>
                 <th className="px-4 py-3">{locale === "ar" ? "رقم الأرنب" : "Tag ID"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
                 <th className="px-4 py-3">{locale === "ar" ? "اللون" : "Color"}</th>
@@ -111,6 +112,20 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
 
                 return (
                   <tr key={r.id} className="hover:bg-muted/40">
+                    <td className="px-4 py-3.5">
+                      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                        {r.photoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={r.photoUrl}
+                            alt={r.tagId ?? ""}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <RabbitIcon className="size-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3.5 font-medium">{r.tagId ?? "—"}</td>
                     <td className="px-4 py-3.5">{r.breed ?? "—"}</td>
                     <td className="px-4 py-3.5">{r.color ?? "—"}</td>
