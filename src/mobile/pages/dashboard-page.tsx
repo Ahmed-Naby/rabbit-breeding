@@ -57,13 +57,24 @@ export function DashboardPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {locale === "ar" ? "لوحة التحكم" : "Dashboard"}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar" ? "ملخص حالة المزرعة والعمليات الجارية حاليًا." : "Summary of farm status and current operations."}
-        </p>
+      {/* Hero */}
+      <div className="relative isolate overflow-hidden rounded-2xl">
+        <div className="relative h-44 w-full sm:h-52">
+          <img
+            src="/images/hero-dashboard.jpg"
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+          />
+          <div className="absolute inset-0 bg-linear-to-l from-black/65 via-black/35 to-black/10" />
+        </div>
+        <div className="absolute inset-0 flex flex-col justify-center gap-1 px-6 sm:px-8">
+          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            {t.dashboard.heroTitle}
+          </h1>
+          <p className="max-w-md text-sm text-white/85 sm:text-base">
+            {t.dashboard.heroDescription}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

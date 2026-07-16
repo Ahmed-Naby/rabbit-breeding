@@ -249,7 +249,19 @@ export function AppShell() {
               );
             })}
           </nav>
-          <div className="mt-auto pt-4 border-t border-sidebar-border/40 text-center">
+          <div className="mt-auto space-y-2 pt-4 border-t border-sidebar-border/40 text-center">
+            <div className="overflow-hidden rounded-xl border border-sidebar-border/60 text-start">
+              <div className="relative h-24 w-full">
+                <img
+                  src="/images/nest-box.jpg"
+                  alt=""
+                  className="absolute inset-0 size-full object-cover opacity-90"
+                />
+              </div>
+              <div className="bg-sidebar-accent/60 px-3 py-2 text-xs text-sidebar-foreground/70">
+                {t.nav.tagline}
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => void Browser.open({ url: SYNC_API_BASE_URL })}
