@@ -7,6 +7,7 @@
  * today (Phase 3); Phase 4 adds siblings the same way.
  */
 import { useEffect, useState } from "react";
+import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import {
   ExternalLink,
@@ -87,6 +88,29 @@ function useHashRoute(): string {
   return hash;
 }
 
+/**
+ * Capacitor's BridgeActivity doesn't auto-navigate WebView history on the
+ * Android hardware back button (that default was dropped in Capacitor 3) —
+ * without this listener it just backgrounds/exits the app. canGoBack
+ * reflects the WebView's own history stack, which every hash-route change
+ * (an <a href="#/..."> navigation) already pushes onto. No-op on
+ * web/Electron: AppWeb never emits "backButton".
+ */
+function useAndroidBackButton(): void {
+  useEffect(() => {
+    const handle = App.addListener("backButton", ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        void App.exitApp();
+      }
+    });
+    return () => {
+      void handle.then((h) => h.remove());
+    };
+  }, []);
+}
+
 function syncStatusLabel(state: SyncState, locale: Locale): string {
   if (state.status === "offline") return locale === "ar" ? "غير متصل" : "Offline";
   if (state.status === "syncing") return locale === "ar" ? "جارِ المزامنة…" : "Syncing…";
@@ -159,6 +183,7 @@ export function AppShell() {
   const locale: Locale = DEFAULT_LOCALE;
   const t = getClientDictionary(locale);
   const route = useHashRoute();
+  useAndroidBackButton();
   const dir = locale === "ar" ? "rtl" : "ltr";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dbVersion, setDbVersion] = useState(0);
