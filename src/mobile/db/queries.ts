@@ -1066,13 +1066,13 @@ export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
   return { settings, breeds };
 }
 
-// Settings-defined breeds, plus any legacy free-text breed values already
-// saved on rabbits but never added to the breed table — so a rabbit tagged
-// before this table existed doesn't drop out of the filter.
+// Settings-managed breed list only — matches the web app's getBreedOptions()
+// (src/lib/breeds.ts). These dropdowns are all add-new-rabbit breed fields,
+// not filters, so legacy free-text rabbit.breed values (old seed data, typos)
+// shouldn't appear as selectable choices here.
 async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
   const definedBreeds = await queryAll<{ name: string }>(db, "SELECT name FROM breed ORDER BY name ASC");
-  const distinctBreeds = await queryAll<{ breed: string | null }>(db, "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL");
-  return Array.from(new Set([...definedBreeds.map(b => b.name), ...distinctBreeds.map(b => b.breed!)]));
+  return definedBreeds.map(b => b.name);
 }
 
 export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
