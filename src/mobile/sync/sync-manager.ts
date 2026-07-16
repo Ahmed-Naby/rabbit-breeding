@@ -23,6 +23,11 @@ const BACKOFF_MAX_MS = 300_000;
 // on a metered connection; paused while backgrounded (see attachAppLifecycleSync)
 // so it never runs, or drains data/battery, while the app isn't in use.
 const PERIODIC_SYNC_INTERVAL_MS = 4 * 60_000;
+// Android's "appStateChange" resume event fires on more than app-switching —
+// screen lock/unlock, the notification shade, permission dialogs — so a
+// resume-triggered sync is skipped if the last one finished more recently
+// than this, instead of stacking on top of the periodic timer.
+const MIN_RESUME_SYNC_GAP_MS = 90_000;
 
 // --- status store -------------------------------------------------------
 
@@ -573,7 +578,10 @@ export function attachAppLifecycleSync(): void {
 
   App.addListener("appStateChange", ({ isActive }) => {
     if (isActive) {
-      void syncNow();
+      const sinceLastSync = state.lastSyncAt ? Date.now() - new Date(state.lastSyncAt).getTime() : Infinity;
+      if (state.status !== "syncing" && sinceLastSync >= MIN_RESUME_SYNC_GAP_MS) {
+        void syncNow();
+      }
       startPeriodicSync();
     } else {
       stopPeriodicSync();
