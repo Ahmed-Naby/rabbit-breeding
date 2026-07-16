@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster } from "sonner";
 import { Capacitor } from "@capacitor/core";
 import { AppShell } from "./app-shell";
-import { attachNetworkListener, syncNow } from "./sync/sync-manager";
+import { attachNetworkListener, attachAppLifecycleSync, syncNow } from "./sync/sync-manager";
 import "@/app/globals.css";
 
 /**
@@ -28,6 +28,7 @@ async function bootstrap() {
   await ensureWebSqliteStore();
 
   attachNetworkListener();
+  attachAppLifecycleSync();
   void syncNow();
 
   createRoot(document.getElementById("root")!).render(

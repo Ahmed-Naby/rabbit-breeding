@@ -8,6 +8,7 @@
  * "background sync only, no UI port yet" scope.
  */
 import { Network } from "@capacitor/network";
+import { App } from "@capacitor/app";
 import { getDb, withTransaction, sqlite } from "../db/client";
 import { Capacitor } from "@capacitor/core";
 import { queryAll, queryOne, run, nowIso } from "../db/helpers";
@@ -18,6 +19,10 @@ import { createId } from "@paralleldrive/cuid2";
 const PUSH_BATCH_SIZE = 25;
 const BACKOFF_BASE_MS = 5_000;
 const BACKOFF_MAX_MS = 300_000;
+// Pulls are cheap (delta-only, since-cursor) so a foreground timer is fine
+// on a metered connection; paused while backgrounded (see attachAppLifecycleSync)
+// so it never runs, or drains data/battery, while the app isn't in use.
+const PERIODIC_SYNC_INTERVAL_MS = 4 * 60_000;
 
 // --- status store -------------------------------------------------------
 
@@ -522,6 +527,44 @@ export function attachNetworkListener(): void {
       void syncNow();
     } else {
       setState({ status: "offline" });
+    }
+  });
+}
+
+let periodicSyncTimer: ReturnType<typeof setInterval> | null = null;
+
+function startPeriodicSync(): void {
+  if (periodicSyncTimer) return;
+  periodicSyncTimer = setInterval(() => void syncNow(), PERIODIC_SYNC_INTERVAL_MS);
+}
+
+function stopPeriodicSync(): void {
+  if (periodicSyncTimer) {
+    clearInterval(periodicSyncTimer);
+    periodicSyncTimer = null;
+  }
+}
+
+let lifecycleListenerAttached = false;
+
+/**
+ * Idempotent — call once from main.tsx alongside attachNetworkListener().
+ * Starts the foreground periodic sync immediately (the app is active on
+ * launch) and re-syncs on every foreground resume; stops the timer while
+ * backgrounded so it never fires with the app out of view.
+ */
+export function attachAppLifecycleSync(): void {
+  if (lifecycleListenerAttached) return;
+  lifecycleListenerAttached = true;
+
+  startPeriodicSync();
+
+  App.addListener("appStateChange", ({ isActive }) => {
+    if (isActive) {
+      void syncNow();
+      startPeriodicSync();
+    } else {
+      stopPeriodicSync();
     }
   });
 }
