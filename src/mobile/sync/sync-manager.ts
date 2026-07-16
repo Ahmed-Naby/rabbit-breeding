@@ -212,7 +212,7 @@ async function applyPulledWeightRecord(db: SQLiteDBConnection, w: Record<string,
   );
 }
 
-export async function pull(): Promise<void> {
+export async function pull(): Promise<boolean> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
 
@@ -390,6 +390,11 @@ export async function pull(): Promise<void> {
     }
   }
 
+  // Whether this pull actually brought down any real data, as opposed to
+  // just advancing the cursor with nothing new — the UI only needs to
+  // refresh (see syncNow's "local-db-updated" dispatch) in the former case.
+  const hasChanges = set.length > 0;
+
   set.push({
     statement: "UPDATE sync_cursor SET since = ?, lastSyncAt = ? WHERE id = 1",
     values: [data.serverTime, nowIso()],
@@ -403,6 +408,8 @@ export async function pull(): Promise<void> {
     }
     console.log("[DB] Sync operations batch execution finished successfully.");
   }
+
+  return hasChanges;
 }
 
 // --- push ----------------------------------------------------------------
@@ -493,17 +500,22 @@ export async function syncNow(): Promise<void> {
   clearRetryTimer();
   setState({ status: "syncing", lastError: null });
   try {
-    await pull();
+    let changed = await pull();
     const hasPushed = await push();
     if (hasPushed) {
-      await pull();
+      changed = (await pull()) || changed;
     }
     retryDelayMs = BACKOFF_BASE_MS;
     const db = await getDb();
     await refreshPendingCount(db);
     setState({ status: "idle", lastSyncAt: nowIso(), lastError: null });
 
-    if (typeof window !== "undefined") {
+    // Only force the visible page to refresh when a sync actually brought
+    // down new/changed data — most foreground/periodic syncs are no-ops on a
+    // farm with infrequent real changes, and re-dispatching on every one of
+    // them was remounting whatever page was open (see app-shell's
+    // key={dbVersion}), producing a visible loading-flash for nothing.
+    if (changed && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("local-db-updated"));
     }
   } catch (err) {
