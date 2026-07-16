@@ -220,7 +220,15 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">{locale === "ar" ? "نوع الحركة" : "Movement Type"}</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)} disabled={submitting}>
+                <Select
+                  items={[
+                    { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
+                    { value: "death", label: locale === "ar" ? "نافق فطام" : "Weaned Death" },
+                  ]}
+                  value={type}
+                  onValueChange={(v: any) => setType(v)}
+                  disabled={submitting}
+                >
                   <SelectTrigger id="type">
                     <SelectValue />
                   </SelectTrigger>

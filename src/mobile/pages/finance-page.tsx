@@ -163,7 +163,12 @@ export function FinancePage({ locale }: { locale: Locale }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="type">{locale === "ar" ? "نوع المعاملة" : "Transaction Type"}</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)} disabled={submitting}>
+                <Select
+                  items={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))}
+                  value={type}
+                  onValueChange={(v: any) => setType(v)}
+                  disabled={submitting}
+                >
                   <SelectTrigger id="type">
                     <SelectValue />
                   </SelectTrigger>
@@ -181,7 +186,12 @@ export function FinancePage({ locale }: { locale: Locale }) {
 
               <div className="space-y-2">
                 <Label htmlFor="category">{locale === "ar" ? "الفئة" : "Category"}</Label>
-                <Select value={category} onValueChange={(v) => setCategory(v ?? "")} disabled={submitting}>
+                <Select
+                  items={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
+                  value={category}
+                  onValueChange={(v) => setCategory(v ?? "")}
+                  disabled={submitting}
+                >
                   <SelectTrigger id="category">
                     <SelectValue />
                   </SelectTrigger>

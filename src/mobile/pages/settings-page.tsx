@@ -153,7 +153,16 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         <Card>
           <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2 p-6">
             <FieldLayout label={t.settings.weightUnitLabel} hint={t.settings.weightUnitHint}>
-              <Select value={weightUnit} onValueChange={(v) => setWeightUnit(v ?? "kg")} disabled={savingSettings}>
+              <Select
+                items={[
+                  { value: "kg", label: "كيلوجرام" },
+                  { value: "g", label: "جرام" },
+                  { value: "lbs", label: "رطل" },
+                ]}
+                value={weightUnit}
+                onValueChange={(v) => setWeightUnit(v ?? "kg")}
+                disabled={savingSettings}
+              >
                 <SelectTrigger id="weightUnit">
                   <SelectValue />
                 </SelectTrigger>
@@ -248,7 +257,12 @@ export function SettingsPage({ locale }: { locale: Locale }) {
 
             <div className="sm:col-span-2">
               <FieldLayout label={t.settings.rebreedLabel} hint={t.settings.rebreedHint}>
-                <Select value={rebreedAfterKindlingDays} onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")} disabled={savingSettings}>
+                <Select
+                  items={rebreedOptions}
+                  value={rebreedAfterKindlingDays}
+                  onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")}
+                  disabled={savingSettings}
+                >
                   <SelectTrigger id="rebreedAfterKindlingDays">
                     <SelectValue />
                   </SelectTrigger>

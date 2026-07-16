@@ -114,7 +114,12 @@ export function HealthPage({ locale }: { locale: Locale }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="rabbitId">{locale === "ar" ? "الأرنب" : "Rabbit"}</Label>
-                <Select value={rabbitId} onValueChange={(v) => setRabbitId(v ?? "")} disabled={submitting}>
+                <Select
+                  items={activeRabbits.map((r) => ({ value: r.id, label: r.tagId ?? `${r.breed ?? "—"} (${r.cage ?? "—"})` }))}
+                  value={rabbitId}
+                  onValueChange={(v) => setRabbitId(v ?? "")}
+                  disabled={submitting}
+                >
                   <SelectTrigger id="rabbitId">
                     <SelectValue placeholder={locale === "ar" ? "اختر أرنب..." : "Select rabbit..."} />
                   </SelectTrigger>
@@ -135,7 +140,12 @@ export function HealthPage({ locale }: { locale: Locale }) {
 
               <div className="space-y-2">
                 <Label htmlFor="type">{locale === "ar" ? "نوع الإجراء" : "Procedure Type"}</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)} disabled={submitting}>
+                <Select
+                  items={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))}
+                  value={type}
+                  onValueChange={(v: any) => setType(v)}
+                  disabled={submitting}
+                >
                   <SelectTrigger id="type">
                     <SelectValue />
                   </SelectTrigger>
