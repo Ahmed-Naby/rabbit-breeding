@@ -569,7 +569,14 @@ export async function finalizeMother(
   db: SQLiteDBConnection,
   payload: { id: string; tagId: string; weightKg: number }
 ): Promise<LocalOpOutcome> {
-  const clash = await queryOne<{ id: string }>(db, "SELECT id FROM rabbit WHERE tagId = ?", [payload.tagId]);
+  // Scoped by sex (tagId is only unique per-sex, mirroring the DB's
+  // @@unique([tagId, sex])) — otherwise a buck already holding this number
+  // would wrongly block a doe (or vice versa) from reusing it.
+  const clash = await queryOne<{ id: string }>(
+    db,
+    `SELECT id FROM rabbit WHERE tagId = ? AND sex = (SELECT sex FROM rabbit WHERE id = ?) AND id != ?`,
+    [payload.tagId, payload.id, payload.id]
+  );
   if (clash) return rejected("TAG_IN_USE");
 
   const now = nowIso();
