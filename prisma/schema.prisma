@@ -44,6 +44,13 @@ model Rabbit {
   // rabbit is still a "سلالة" (juvenile, sex known but not yet promoted) —
   // assigning a tagId via the quick-add finalize action IS the promotion.
   tagId        String? // rabbit/cage number, up to 10 chars, digits and letters (tattoo / ear ID)
+  // Set automatically (see setRabbitStatusOp) when a tagged rabbit's status
+  // moves to "deceased": captures her old tagId + death date for display,
+  // while tagId itself is cleared to null so the number is immediately free
+  // for a new rabbit of the same sex — @@unique([tagId, sex]) allows any
+  // number of NULLs. Free-text, not validated by tagIdSchema (it's
+  // system-generated, never typed into a form).
+  retiredTagId String?
   breed        String?
   color        String?
   sex          String    @default("unknown") // "buck" | "doe" | "unknown"

@@ -24,6 +24,7 @@ export type DoeRow = {
   tagId: string | null;
   breed: string | null;
   doeState: string;
+  status: string;
   /** Most-recent-first, at most 2 — see does-board.ts's file header for why 2. */
   breedings: DoeBoardBreeding[];
 };
@@ -53,9 +54,9 @@ export async function getLocalSettings(db: SQLiteDBConnection): Promise<LocalSet
 export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: DoeRow[]; settings: LocalSettings }> {
   const [settings, doeRows] = await Promise.all([
     getLocalSettings(db),
-    queryAll<{ id: string; tagId: string | null; breed: string | null; doeState: string }>(
+    queryAll<{ id: string; tagId: string | null; breed: string | null; doeState: string; status: string }>(
       db,
-      "SELECT id, tagId, breed, doeState FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+      "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
     ),
   ]);
 
@@ -100,7 +101,7 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
       });
     }
 
-    does.push({ id: doe.id, tagId: doe.tagId, breed: doe.breed, doeState: doe.doeState, breedings });
+    does.push({ id: doe.id, tagId: doe.tagId, breed: doe.breed, doeState: doe.doeState, status: doe.status, breedings });
   }
 
   return { does, settings };
@@ -157,9 +158,10 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
     tagId: string | null;
     breed: string | null;
     doeState: string;
+    status: string;
   }>(
     db,
-    "SELECT id, tagId, breed, doeState FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' AND doeState IN ('empty', 'nursing', 'excluded') ORDER BY tagId ASC"
+    "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled', 'resting') AND doeState IN ('empty', 'nursing', 'excluded') ORDER BY tagId ASC"
   );
 
   const does: DoeRow[] = [];
@@ -203,7 +205,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
       });
     }
 
-    does.push({ id: doe.id, tagId: doe.tagId, breed: doe.breed, doeState: doe.doeState, breedings });
+    does.push({ id: doe.id, tagId: doe.tagId, breed: doe.breed, doeState: doe.doeState, status: doe.status, breedings });
   }
 
   const logRows = await queryAll<{
@@ -758,6 +760,31 @@ export async function fetchRabbitsRoster(
   return queryAll<LocalRabbit>(db, query, params);
 }
 
+export type LocalRabbitSearchResult = {
+  id: string;
+  tagId: string | null;
+  breed: string | null;
+  cage: string | null;
+  sex: string;
+};
+
+/** Header search box (offline): find a rabbit by tag number, cage, or breed. */
+export async function searchRabbits(db: SQLiteDBConnection, query: string): Promise<LocalRabbitSearchResult[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const like = `%${q}%`;
+  // Deceased rabbits are already excluded here (status != 'deceased'), so
+  // there's no retiredTagId to search — unlike the web header search.
+  return queryAll<LocalRabbitSearchResult>(
+    db,
+    `SELECT id, tagId, breed, cage, sex FROM rabbit
+     WHERE status != 'deceased' AND (tagId LIKE ? OR cage LIKE ? OR breed LIKE ?)
+     ORDER BY tagId ASC
+     LIMIT 8`,
+    [like, like, like]
+  );
+}
+
 export type LocalFosterLogEntry = {
   id: string;
   fromDoeId: string;
@@ -897,6 +924,7 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
 export type LocalDeceasedRabbit = {
   id: string;
   tagId: string | null;
+  retiredTagId: string | null;
   breed: string | null;
   sex: string;
   updatedAt: string;
@@ -931,7 +959,7 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   // 4. Deceased rabbits log
   const deceasedRabbits = await queryAll<LocalDeceasedRabbit>(
     db,
-    "SELECT id, tagId, breed, sex, updatedAt FROM rabbit WHERE status = 'deceased' ORDER BY updatedAt DESC LIMIT 100"
+    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'deceased' ORDER BY updatedAt DESC LIMIT 100"
   );
 
   // 5. Nursing does
@@ -1253,6 +1281,7 @@ export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
 export type LocalRabbitBasic = {
   id: string;
   tagId: string | null;
+  retiredTagId: string | null;
   breed: string | null;
   color: string | null;
   sex: string;
@@ -1269,7 +1298,7 @@ export type LocalRabbitBasic = {
 export async function fetchRabbitBasic(db: SQLiteDBConnection, id: string): Promise<LocalRabbitBasic | null> {
   return queryOne<LocalRabbitBasic>(
     db,
-    "SELECT id, tagId, breed, color, sex, status, doeState, origin, cage, dateOfBirth, acquiredDate, acquiredFrom, notes FROM rabbit WHERE id = ?",
+    "SELECT id, tagId, retiredTagId, breed, color, sex, status, doeState, origin, cage, dateOfBirth, acquiredDate, acquiredFrom, notes FROM rabbit WHERE id = ?",
     [id]
   );
 }
@@ -1496,5 +1525,195 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
   }
 
   return Array.from(cycles.values()).sort((a, b) => new Date(b.matingDate).getTime() - new Date(a.matingDate).getTime());
+}
+
+export type WeightBracket = { heavy: number; medium: number; light: number; total: number };
+
+export type FollowUpReport = {
+  herd: { does: number; bucks: number };
+  stock: { males: WeightBracket; females: WeightBracket };
+  deaths: {
+    newborn: number | null;
+    weanedStock: number;
+    total: number | null;
+    stock: number;
+    does: number;
+    bucks: number;
+    culledExcluded: number | null;
+  };
+  culls: number;
+  weaning: { totalWeaned: number; sold: number; retained: number; remainingStock: number };
+  health: {
+    mangeStock: null; mangeDoes: null; mangeBucks: null;
+    uterineInfection: null; mastitis: null;
+  };
+  breeding: { matings: number; pregnancyPositive: number; kindlings: number };
+};
+
+const HEAVY_G = 2250;
+const MEDIUM_G = 2000;
+
+/** Weaned-stock ledger balance as of (exclusive) a point in time — running total, not period-bound. */
+async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string): Promise<number> {
+  const weanedSum = await queryOne<{ total: number | null }>(
+    db,
+    "SELECT SUM(weaned) as total FROM litter WHERE weaningDate IS NOT NULL AND weaningDate < ? AND weaned IS NOT NULL",
+    [toIso]
+  );
+  const movements = await queryAll<{ type: string; total: number }>(
+    db,
+    "SELECT type, SUM(count) as total FROM kit_stock_movement WHERE date < ? GROUP BY type",
+    [toIso]
+  );
+  let sold = 0, died = 0, retained = 0;
+  for (const m of movements) {
+    if (m.type === "sale") sold = m.total;
+    else if (m.type === "death") died = m.total;
+    else if (m.type === "retained") retained = m.total;
+  }
+  return (weanedSum?.total ?? 0) - sold - died - retained;
+}
+
+/**
+ * Local-SQLite port of getFollowUpReport (src/app/reports/report-data.ts).
+ * `toIso` is the EXCLUSIVE upper bound (start of the day after the last day
+ * to include) — same contract as the web version. Herd/stock counts are a
+ * current snapshot; death/sale/weaning/breeding-event counts are bounded to
+ * [fromIso, toIso). Untracked fields (mange, uterine infection, mastitis,
+ * per-event newborn-kit death dates) are always null and must render "—".
+ */
+export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: string, toIso: string): Promise<FollowUpReport> {
+  const [does, bucks] = await Promise.all([
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active'"),
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'active'"),
+  ]);
+
+  const stockRabbits = await queryAll<{ id: string; sex: string }>(
+    db,
+    "SELECT id, sex FROM rabbit WHERE tagId IS NULL AND status = 'active'"
+  );
+  const males: WeightBracket = { heavy: 0, medium: 0, light: 0, total: 0 };
+  const females: WeightBracket = { heavy: 0, medium: 0, light: 0, total: 0 };
+  for (const r of stockRabbits) {
+    const bracket = r.sex === "buck" ? males : r.sex === "doe" ? females : null;
+    if (!bracket) continue;
+    bracket.total++;
+    const w = await queryOne<{ weightGrams: number }>(
+      db,
+      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC LIMIT 1",
+      [r.id]
+    );
+    if (!w) continue;
+    if (w.weightGrams >= HEAVY_G) bracket.heavy++;
+    else if (w.weightGrams >= MEDIUM_G) bracket.medium++;
+    else bracket.light++;
+  }
+
+  const [
+    weanedStockDeathAgg,
+    stockDeaths,
+    doeDeaths,
+    buckDeaths,
+    culls,
+    weanedLittersInRange,
+    soldAgg,
+    retainedAgg,
+    remainingStock,
+    matings,
+    pregnancyPositive,
+    kindlings,
+  ] = await Promise.all([
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM rabbit WHERE status = 'culled' AND updatedAt >= ? AND updatedAt < ?",
+      [fromIso, toIso]
+    ),
+    queryAll<{ weaned: number }>(
+      db,
+      "SELECT weaned FROM litter WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL",
+      [fromIso, toIso]
+    ),
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'sale' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'retained' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    getLocalKitStockBalanceAsOf(db, toIso),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM breeding WHERE matingDate >= ? AND matingDate < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM pregnancy_test_log WHERE result = 'positive' AND testDate >= ? AND testDate < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM kindling_log WHERE kindlingDate >= ? AND kindlingDate < ?",
+      [fromIso, toIso]
+    ),
+  ]);
+
+  const totalWeaned = weanedLittersInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
+
+  return {
+    herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
+    stock: { males, females },
+    deaths: {
+      newborn: null,
+      weanedStock: weanedStockDeathAgg?.total ?? 0,
+      total: null,
+      stock: stockDeaths?.count ?? 0,
+      does: doeDeaths?.count ?? 0,
+      bucks: buckDeaths?.count ?? 0,
+      culledExcluded: null,
+    },
+    culls: culls?.count ?? 0,
+    weaning: {
+      totalWeaned,
+      sold: soldAgg?.total ?? 0,
+      retained: retainedAgg?.total ?? 0,
+      remainingStock,
+    },
+    health: {
+      mangeStock: null,
+      mangeDoes: null,
+      mangeBucks: null,
+      uterineInfection: null,
+      mastitis: null,
+    },
+    breeding: {
+      matings: matings?.count ?? 0,
+      pregnancyPositive: pregnancyPositive?.count ?? 0,
+      kindlings: kindlings?.count ?? 0,
+    },
+  };
 }
 

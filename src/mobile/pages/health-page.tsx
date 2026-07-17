@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LocalRabbit } from "../db/types";
 import { toDateInputValue } from "@/lib/dates";
+import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
 
 export function HealthPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -23,6 +24,7 @@ export function HealthPage({ locale }: { locale: Locale }) {
   const [rabbitId, setRabbitId] = useState("");
   const [date, setDate] = useState(() => toDateInputValue(new Date()));
   const [type, setType] = useState<"vaccination" | "treatment" | "illness" | "deworming" | "checkup">("treatment");
+  const [disease, setDisease] = useState<DiseaseType>("other");
   const [description, setDescription] = useState("");
   const [nextDueDate, setNextDueDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +62,7 @@ export function HealthPage({ locale }: { locale: Locale }) {
       });
 
       toast.success(locale === "ar" ? "تم تسجيل الملف الصحي بنجاح" : "Health record logged successfully");
+      setDisease("other");
       setDescription("");
       setNextDueDate("");
       void load();
@@ -158,6 +161,33 @@ export function HealthPage({ locale }: { locale: Locale }) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {type === "illness" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="disease">{locale === "ar" ? "نوع المرض" : "Disease type"}</Label>
+                  <Select
+                    items={DISEASE_TYPES.map((value) => ({ value, label: diseaseTypeLabel(value, locale) }))}
+                    value={disease}
+                    onValueChange={(v) => {
+                      const next = (v ?? "other") as DiseaseType;
+                      setDisease(next);
+                      setDescription(next === "other" ? "" : diseaseTypeLabel(next, locale));
+                    }}
+                    disabled={submitting}
+                  >
+                    <SelectTrigger id="disease">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DISEASE_TYPES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {diseaseTypeLabel(value, locale)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <Label htmlFor="description">{locale === "ar" ? "التشخيص/العلاج/الجرعة" : "Description / Dosage"}</Label>

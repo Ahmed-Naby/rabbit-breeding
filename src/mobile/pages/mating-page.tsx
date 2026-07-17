@@ -69,7 +69,7 @@ export function MatingPage({ locale }: { locale: Locale }) {
             </thead>
             <tbody>
               {does.map((doe, index) => {
-                const { current, canMate } = computeDoeBoardRow(doe.doeState as DoeState, doe.breedings, settings);
+                const { current, canMate } = computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings);
                 const b = doe.breedings[0];
 
                 return (

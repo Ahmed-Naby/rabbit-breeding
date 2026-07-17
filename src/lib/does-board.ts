@@ -5,7 +5,7 @@
  * works from both a Prisma query result and a local SQLite row shape.
  */
 import { pregnancyTestDate, expectedKindling, rebreedDueDate, daysUntil } from "./dates";
-import type { DoeState } from "./enums";
+import type { DoeState, RabbitStatus } from "./enums";
 
 export type DoeBoardBreeding = {
   id: string;
@@ -52,6 +52,7 @@ export type DoeBoardRow = {
  */
 export function computeDoeBoardRow(
   doeState: DoeState,
+  status: RabbitStatus | string,
   breedings: DoeBoardBreeding[],
   settings: DoeBoardSettings
 ): DoeBoardRow {
@@ -86,8 +87,14 @@ export function computeDoeBoardRow(
     !litterRow?.actualKindlingDate ||
     daysUntil(rebreedDueDate(litterRow.actualKindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
 
+  // "استبعاد"/"راحة" (culled/resting herd status) override the reproductive
+  // cycle entirely — a doe pulled from the breeding rotation this way can
+  // never re-enter mating until her status is set back to active, regardless
+  // of what doeState says.
+  const restedOrCulled = status === "culled" || status === "resting";
   const canMate =
-    doeState === "empty" || doeState === "excluded" || (doeState === "nursing" && rebreedReady);
+    !restedOrCulled &&
+    (doeState === "empty" || doeState === "excluded" || (doeState === "nursing" && rebreedReady));
   const canTestPregnancy = doeState === "bred" || doeState === "nursing_bred";
   const kindleActive =
     doeState === "pregnant" ||

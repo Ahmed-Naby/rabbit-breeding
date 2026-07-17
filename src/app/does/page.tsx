@@ -50,6 +50,7 @@ export default async function DoesPage() {
         tagId: true,
         breed: true,
         doeState: true,
+        status: true,
         breedingsAsDoe: {
           orderBy: { createdAt: "desc" },
           // Two, not one: for "مرضعة و ملقحة" (nursing_bred), the latest
@@ -133,6 +134,7 @@ export default async function DoesPage() {
                   kindlingDate,
                 } = computeDoeBoardRow(
                   doe.doeState as DoeState,
+                  doe.status,
                   doe.breedingsAsDoe.map((x) => ({
                     id: x.id,
                     matingDate: x.matingDate,

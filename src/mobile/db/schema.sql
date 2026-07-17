@@ -12,6 +12,7 @@
 CREATE TABLE IF NOT EXISTS rabbit (
   id             TEXT PRIMARY KEY,
   tagId          TEXT,
+  retiredTagId   TEXT,
   breed          TEXT,
   color          TEXT,
   sex            TEXT NOT NULL DEFAULT 'unknown',

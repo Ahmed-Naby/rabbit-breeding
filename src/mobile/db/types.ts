@@ -6,6 +6,7 @@
 export type LocalRabbit = {
   id: string;
   tagId: string | null;
+  retiredTagId: string | null;
   breed: string | null;
   color: string | null;
   sex: string;

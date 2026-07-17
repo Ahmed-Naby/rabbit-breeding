@@ -12,6 +12,7 @@ const COLORS: Record<string, string> = {
   culled: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   deceased: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
   reference: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300",
+  resting: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300",
   // breeding outcome
   pending: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
   successful: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",

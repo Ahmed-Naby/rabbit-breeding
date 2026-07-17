@@ -39,7 +39,7 @@ export default async function MatingPage() {
       where: {
         sex: "doe",
         tagId: { not: null },
-        status: { not: "deceased" },
+        status: { notIn: ["deceased", "culled", "resting"] },
         doeState: { in: ["empty", "nursing", "excluded"] },
       },
       select: {

@@ -11,6 +11,7 @@ export const RABBIT_STATUSES = [
   "culled",
   "deceased",
   "reference",
+  "resting",
 ] as const;
 export type RabbitStatus = (typeof RABBIT_STATUSES)[number];
 
@@ -117,6 +118,7 @@ export const LABELS: Record<Locale, Record<string, string>> = {
     nursing_bred: "مرضعة و ملقحة",
     nursing_pregnant: "مرضعة و عشار",
     excluded: "مستبعدة",
+    resting: "راحة",
     external: "من خارج المزرعة",
     farm: "من سلالات المزرعة",
   },
@@ -157,6 +159,7 @@ export const LABELS: Record<Locale, Record<string, string>> = {
     nursing_bred: "Nursing & bred",
     nursing_pregnant: "Nursing & pregnant",
     excluded: "Excluded",
+    resting: "Resting",
     external: "From outside the farm",
     farm: "Farm-bred",
   },

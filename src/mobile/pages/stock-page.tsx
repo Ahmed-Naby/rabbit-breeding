@@ -233,7 +233,15 @@ export function StockPage({ locale }: { locale: Locale }) {
                 return (
                   <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5">
-                      <LocalDate date={r.date} locale={locale} />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#/rabbits/${r.id}`;
+                        }}
+                        className="hover:underline"
+                      >
+                        <LocalDate date={r.date} locale={locale} />
+                      </button>
                     </td>
                     <td className="px-4 py-3.5">{label(r.sex, locale)}</td>
                     <td className="px-4 py-3.5">{r.breed ?? "—"}</td>

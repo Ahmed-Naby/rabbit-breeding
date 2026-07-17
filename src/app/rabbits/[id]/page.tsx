@@ -143,8 +143,12 @@ export default async function RabbitDetailPage({
       )
     : null;
 
+  // A deceased rabbit's tagId is cleared to free the number for reuse (see
+  // setRabbitStatusOp) — retiredTagId is what's left to tell "was tagged"
+  // from "still an untagged سلالة" apart once tagId itself is null.
+  const displayTag = rabbit.tagId ?? rabbit.retiredTagId;
   const back =
-    rabbit.tagId == null
+    displayTag == null
       ? { href: "/stock", label: t.rabbits.detailBackToStock }
       : rabbit.sex === "doe"
         ? { href: "/mothers", label: t.rabbits.detailBackToMothers }
@@ -167,7 +171,7 @@ export default async function RabbitDetailPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={rabbit.photoUrl}
-                alt={rabbit.tagId ?? t.rabbits.untaggedAlt}
+                alt={displayTag ?? t.rabbits.untaggedAlt}
                 className="size-full object-cover"
               />
             ) : (
@@ -176,7 +180,7 @@ export default async function RabbitDetailPage({
           </div>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-tight">
-              {rabbit.tagId ? t.rabbits.taggedTitle(rabbit.tagId) : t.rabbits.untaggedTitle}
+              {displayTag ? t.rabbits.taggedTitle(displayTag) : t.rabbits.untaggedTitle}
             </h1>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge value={rabbit.status} locale={locale} />

@@ -75,18 +75,31 @@ export default async function MortalityPage() {
       select: { id: true, sex: true, breed: true, cage: true },
       orderBy: { createdAt: "desc" },
     }),
+    // A deceased rabbit's tagId is cleared (see setRabbitStatusOp's tag-
+    // retiring logic) so the number can be reused — "was this ever a
+    // tagged mother/buck" has to be checked via retiredTagId too, or every
+    // rabbit that died after this feature shipped would wrongly fall into
+    // the untagged "سلالات" bucket below.
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: { not: null }, status: "deceased" },
-      select: { id: true, tagId: true, breed: true, updatedAt: true },
+      where: {
+        sex: "doe",
+        status: "deceased",
+        OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      },
+      select: { id: true, tagId: true, retiredTagId: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.rabbit.findMany({
-      where: { sex: "buck", tagId: { not: null }, status: "deceased" },
-      select: { id: true, tagId: true, breed: true, updatedAt: true },
+      where: {
+        sex: "buck",
+        status: "deceased",
+        OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      },
+      select: { id: true, tagId: true, retiredTagId: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.rabbit.findMany({
-      where: { tagId: null, status: "deceased" },
+      where: { tagId: null, retiredTagId: null, status: "deceased" },
       select: { id: true, sex: true, breed: true, cage: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
@@ -322,7 +335,7 @@ export default async function MortalityPage() {
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.tagId ?? "—"}
+                        {r.retiredTagId ?? r.tagId ?? "—"}
                       </Link>
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>
@@ -360,7 +373,7 @@ export default async function MortalityPage() {
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.tagId ?? "—"}
+                        {r.retiredTagId ?? r.tagId ?? "—"}
                       </Link>
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>

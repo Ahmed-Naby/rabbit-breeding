@@ -76,7 +76,8 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
   const BackIcon = locale === "ar" ? ChevronRight : ChevronLeft;
   const backHref = rabbit.sex === "buck" ? "#/bucks" : "#/mothers";
   const backLabel = rabbit.sex === "buck" ? t.detailBackToBucks : t.detailBackToMothers;
-  const title = rabbit.tagId ? t.taggedTitle(rabbit.tagId) : t.untaggedTitle;
+  const displayTag = rabbit.tagId ?? rabbit.retiredTagId;
+  const title = displayTag ? t.taggedTitle(displayTag) : t.untaggedTitle;
 
   return (
     <div className="space-y-6">

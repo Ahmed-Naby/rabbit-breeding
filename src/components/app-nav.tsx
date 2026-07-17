@@ -8,6 +8,7 @@ import { Menu, X, Rabbit as RabbitIcon } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { LocaleToggle } from "@/components/locale-toggle";
+import { RabbitSearch } from "@/components/rabbit-search";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
@@ -64,6 +65,7 @@ export function Sidebar({ locale, t }: { locale: Locale; t: NavT }) {
       <div className="mb-6">
         <Brand />
       </div>
+      <RabbitSearch t={t} className="mb-4" />
       <NavLinks t={t} />
       <div className="mt-auto space-y-2">
         <LocaleToggle
@@ -115,6 +117,7 @@ export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
       </div>
       {open ? (
         <div className="bg-sidebar px-3 py-3 text-sidebar-foreground">
+          <RabbitSearch t={t} className="mb-3" />
           <NavLinks t={t} onNavigate={() => setOpen(false)} />
         </div>
       ) : null}

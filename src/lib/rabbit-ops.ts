@@ -386,10 +386,32 @@ export async function deleteRabbitOp(id: string): Promise<OpResult<void, "DELETE
   return { ok: true, data: undefined };
 }
 
-/** Soft-delete / lifecycle change. Never hard-deletes (preserves pedigree). */
+/**
+ * Soft-delete / lifecycle change. Never hard-deletes (preserves pedigree).
+ *
+ * Marking a tagged rabbit "deceased" also retires her tagId: it's copied
+ * (with today's date) into retiredTagId for display, then cleared to null.
+ * @@unique([tagId, sex]) treats NULL as non-conflicting, so her old number
+ * becomes immediately assignable to a new rabbit of the same sex — the
+ * pedigree/breeding-history row itself is untouched, only the number moves.
+ */
 export async function setRabbitStatusOp(id: string, status: string): Promise<Rabbit> {
   if (!RABBIT_STATUSES.includes(status as RabbitStatus)) {
     throw new Error(`Invalid status: ${status}`);
+  }
+  if (status === "deceased") {
+    const current = await prisma.rabbit.findUnique({ where: { id }, select: { tagId: true } });
+    if (current?.tagId) {
+      const today = new Date().toISOString().slice(0, 10);
+      return prisma.rabbit.update({
+        where: { id },
+        data: {
+          status: "deceased",
+          tagId: null,
+          retiredTagId: `${current.tagId} (نافق ${today})`,
+        },
+      });
+    }
   }
   return prisma.rabbit.update({
     where: { id },

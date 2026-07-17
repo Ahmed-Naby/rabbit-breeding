@@ -44,9 +44,26 @@ async function openConnection(): Promise<SQLiteDBConnection> {
   return db;
 }
 
+// schema.sql's CREATE TABLE IF NOT EXISTS is a no-op on a device that
+// already provisioned its local DB before a column was added — there's no
+// migration framework here, so new columns on existing tables need an
+// explicit, individually-guarded ALTER TABLE. Errors (column already
+// exists) are swallowed; this only ever needs to succeed once per device.
+async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
+  const migrations = [`ALTER TABLE rabbit ADD COLUMN retiredTagId TEXT`];
+  for (const sql of migrations) {
+    try {
+      await db.execute(sql);
+    } catch {
+      // Column already exists — fine.
+    }
+  }
+}
+
 async function applySchema(db: SQLiteDBConnection): Promise<void> {
   console.log("[DB] applySchema starting");
   await db.execute(schemaSql);
+  await applyColumnMigrations(db);
   if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
     await sqlite.saveToStore(DB_NAME);
   }

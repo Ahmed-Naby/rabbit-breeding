@@ -12,7 +12,7 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DOE_STATES, label, type DoeState } from "@/lib/enums";
+import { DOE_STATES, label, type DoeState, type RabbitStatus } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
@@ -36,6 +36,75 @@ export function DoeStateBadge({ current, locale }: { current: string; locale: Lo
     <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium", BADGE_CLS[state])}>
       {label(state, locale)}
     </span>
+  );
+}
+
+/**
+ * Manual herd-status override — independent of the reproductive cycle state
+ * (mate/pregnant/kindle/wean, shown by DoeStateBadge above). Writes through
+ * the existing setRabbitStatus op, same field/op the herd StatusBadge reads.
+ */
+export function DoeAvailabilityToggle({
+  id,
+  current,
+  locale,
+  onDone,
+}: {
+  id: string;
+  current: string;
+  locale: Locale;
+  onDone: () => void;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, setPending] = useState<RabbitStatus | null>(null);
+
+  const options: { status: RabbitStatus; text: string; activeCls: string }[] = [
+    {
+      status: "active",
+      text: locale === "ar" ? "نشط" : "Active",
+      activeCls:
+        "border-emerald-400 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    },
+    {
+      status: "culled",
+      text: locale === "ar" ? "استبعاد" : "Excluded",
+      activeCls:
+        "border-red-400 bg-red-100 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-300",
+    },
+    {
+      status: "resting",
+      text: locale === "ar" ? "راحة" : "Resting",
+      activeCls:
+        "border-orange-400 bg-orange-100 text-orange-800 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300",
+    },
+  ];
+
+  return (
+    <div className="inline-flex flex-wrap items-center gap-1">
+      {options.map((opt) => {
+        const isActive = current === opt.status;
+        return (
+          <Button
+            key={opt.status}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending !== null}
+            className={cn("h-7 px-2 text-[11px]", isActive && opt.activeCls)}
+            onClick={async () => {
+              if (isActive) return;
+              setPending(opt.status);
+              await enqueue("setRabbitStatus", { id, status: opt.status });
+              toast.success(t.stateSetToast(label(opt.status, locale)));
+              setPending(null);
+              onDone();
+            }}
+          >
+            {opt.text}
+          </Button>
+        );
+      })}
+    </div>
   );
 }
 

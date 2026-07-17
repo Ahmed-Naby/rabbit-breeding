@@ -364,7 +364,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
                     <td className="px-4 py-3.5 text-center">
                       <LocalDate date={new Date(entry.updatedAt)} />
                     </td>
-                    <td className="px-4 py-3.5 font-bold">{entry.tagId ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-bold">{entry.retiredTagId ?? entry.tagId ?? "—"}</td>
                     <td className="px-4 py-3.5">{entry.breed ?? "—"}</td>
                     <td className="px-4 py-3.5">
                       {entry.sex === "doe" ? (locale === "ar" ? "أنثى" : "Doe") : (locale === "ar" ? "ذكر" : "Buck")}

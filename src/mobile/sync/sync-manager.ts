@@ -153,10 +153,10 @@ function applyPulledSettings(db: SQLiteDBConnection, s: Record<string, unknown>)
 function applyPulledRabbit(db: SQLiteDBConnection, r: Record<string, unknown>) {
   return run(
     db,
-    `INSERT OR REPLACE INTO rabbit (id, tagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO rabbit (id, tagId, retiredTagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      r.id, r.tagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
+      r.id, r.tagId, r.retiredTagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
       r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
       r.litterId, r.createdAt, r.updatedAt,
     ]
@@ -256,10 +256,10 @@ export async function pull(): Promise<boolean> {
 
   for (const r of data.rabbits) {
     set.push({
-      statement: `INSERT OR REPLACE INTO rabbit (id, tagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      statement: `INSERT OR REPLACE INTO rabbit (id, tagId, retiredTagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       values: [
-        r.id, r.tagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
+        r.id, r.tagId, r.retiredTagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
         r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
         r.litterId, r.createdAt, r.updatedAt,
       ],

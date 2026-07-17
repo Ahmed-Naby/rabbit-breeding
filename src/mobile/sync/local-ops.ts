@@ -482,12 +482,25 @@ export async function setDoeState(
   return applied;
 }
 
+/** Mirrors setRabbitStatusOp's tag-retiring logic (see rabbit-ops.ts) for optimistic local apply. */
 export async function setRabbitStatus(
   db: SQLiteDBConnection,
   payload: { id: string; status: string }
 ): Promise<LocalOpOutcome> {
   if (!RABBIT_STATUSES.includes(payload.status as RabbitStatus)) {
     return rejected(`Invalid status: ${payload.status}`);
+  }
+  if (payload.status === "deceased") {
+    const current = await getRabbit(db, payload.id);
+    if (current?.tagId) {
+      const today = todayIso().slice(0, 10);
+      await updateRabbit(db, payload.id, {
+        status: "deceased",
+        tagId: null,
+        retiredTagId: `${current.tagId} (نافق ${today})`,
+      });
+      return applied;
+    }
   }
   await updateRabbit(db, payload.id, { status: payload.status });
   return applied;

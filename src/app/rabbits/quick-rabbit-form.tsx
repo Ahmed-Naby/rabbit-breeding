@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,7 +181,9 @@ export function QuickRabbitForm({
               {rows.map((r) => (
                 <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell>
-                    <LocalDate date={r.date} locale={locale} />
+                    <Link href={`/rabbits/${r.id}`} className="hover:underline">
+                      <LocalDate date={r.date} locale={locale} />
+                    </Link>
                   </TableCell>
                   <TableCell>{label(r.sex, locale)}</TableCell>
                   <TableCell>{r.breed ?? "—"}</TableCell>

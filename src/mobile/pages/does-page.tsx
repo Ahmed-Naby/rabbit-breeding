@@ -14,6 +14,7 @@ import { LocalDate } from "@/components/local-date";
 import { getDb } from "../db/client";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
 import type { LocalSettings } from "../db/types";
+import { StatusBadge } from "@/components/status-badge";
 import {
   DoeStateBadge,
   DoeActionButton,
@@ -111,7 +112,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 weanActive,
                 testDate,
                 kindlingDate,
-              } = computeDoeBoardRow(doe.doeState as DoeState, doe.breedings, settings);
+              } = computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings);
 
               return (
                 <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
@@ -119,7 +120,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <td className="px-3 py-2.5 font-semibold">{doe.tagId ?? "—"}</td>
                   <td className="px-3 py-2.5">{doe.breed ?? "—"}</td>
                   <td className="px-3 py-2.5">
-                    <DoeStateBadge current={doe.doeState} locale={locale} />
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      <StatusBadge value={doe.status} locale={locale} />
+                      <DoeStateBadge current={doe.doeState} locale={locale} />
+                    </div>
                   </td>
                   <td className="px-3 py-2.5">
                     <MateCell
@@ -254,7 +258,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
             weanActive,
             testDate,
             kindlingDate,
-          } = computeDoeBoardRow(doe.doeState as DoeState, doe.breedings, settings);
+          } = computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings);
 
           return (
             <div key={doe.id} className="space-y-3 rounded-xl border bg-card p-3">
@@ -263,7 +267,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <span className="text-base font-semibold">{doe.tagId ?? "—"}</span>
                   <span className="text-xs text-muted-foreground">{doe.breed ?? "—"}</span>
                 </div>
-                <DoeStateBadge current={doe.doeState} locale={locale} />
+                <div className="flex items-center gap-1.5">
+                  <StatusBadge value={doe.status} locale={locale} />
+                  <DoeStateBadge current={doe.doeState} locale={locale} />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">

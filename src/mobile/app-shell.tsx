@@ -1,10 +1,9 @@
 /**
  * Root shell for the offline app: a minimal hash router (not next/navigation
- * — this bundle is a static Vite build with no Next.js runtime), a
- * persistent sync-status indicator, and an "Open full site" escape hatch for
- * every screen the plan keeps out of the offline scope (Settings, Finance,
- * /health, rabbit detail/pedigree). Only the does board exists as a route
- * today (Phase 3); Phase 4 adds siblings the same way.
+ * — this bundle is a static Vite build with no Next.js runtime) plus a
+ * persistent sync-status indicator. Every board is now a first-class local
+ * page backed by the SQLite mirror; `OnlineOnlyPage` remains as a fallback
+ * component but no active route currently uses it.
  */
 import { useEffect, useState } from "react";
 import { App } from "@capacitor/app";
@@ -32,11 +31,14 @@ import {
   Stethoscope,
   Wallet,
   Settings,
+  FileText,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { RabbitSearch } from "./components/rabbit-search";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, type SyncState } from "./sync/sync-manager";
 import { DoesPage } from "./pages/does-page";
@@ -54,12 +56,15 @@ import { StockPage } from "./pages/stock-page";
 import { FosteringPage } from "./pages/fostering-page";
 import { WeaningSalesPage } from "./pages/weaning-sales-page";
 import { MortalityPage } from "./pages/mortality-page";
+import { RoundsPage } from "./pages/rounds-page";
 import { HealthPage } from "./pages/health-page";
+import { ReportsPage } from "./pages/reports-page";
 import { FinancePage } from "./pages/finance-page";
 import { SettingsPage } from "./pages/settings-page";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
+  "#/rounds": { path: "#/rounds", labelKey: "rounds", icon: ListChecks },
   "#/stock": { path: "#/stock", labelKey: "stock", icon: Sprout },
   "#/mothers": { path: "#/mothers", labelKey: "mothers", icon: Venus },
   "#/bucks": { path: "#/bucks", labelKey: "bucks", icon: Mars },
@@ -72,6 +77,7 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   "#/mortality": { path: "#/mortality", labelKey: "mortality", icon: Skull },
   "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
+  "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },
   "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   "#/finance": { path: "#/finance", labelKey: "finance", icon: Wallet },
   "#/settings": { path: "#/settings", labelKey: "settings", icon: Settings },
@@ -234,6 +240,7 @@ export function AppShell() {
         {/* Desktop Sidebar (md+) */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-sidebar border-e border-sidebar-border px-3 py-4 text-sidebar-foreground md:flex">
           <div className="mb-6">{brandEl}</div>
+          <RabbitSearch locale={locale} className="mb-4" />
           <nav className="flex flex-col gap-0.5 flex-1">
             {navItems.map((item) => {
               const active = route === item.href;
@@ -294,6 +301,9 @@ export function AppShell() {
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 top-14 z-50 flex flex-col bg-sidebar text-sidebar-foreground md:hidden border-b shadow-xl">
+            <div className="px-4 pt-4">
+              <RabbitSearch locale={locale} onNavigate={() => setMobileMenuOpen(false)} />
+            </div>
             <nav className="flex flex-col gap-1 overflow-y-auto px-4 py-4 flex-1">
               {navItems.map((item) => {
                 const active = route === item.href;
@@ -335,6 +345,7 @@ export function AppShell() {
         {/* Page Content Panel */}
         <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
+          {route === "#/rounds" && <RoundsPage locale={locale} />}
           {route === "#/does" && <DoesPage locale={locale} />}
           {route === "#/mating" && <MatingPage locale={locale} />}
           {route === "#/pregnancy-test" && <PregnancyTestPage locale={locale} />}
@@ -357,6 +368,7 @@ export function AppShell() {
           {/* Offline modules */}
           {route === "#/mortality" && <MortalityPage locale={locale} />}
           {route === "#/health" && <HealthPage locale={locale} />}
+          {route === "#/reports" && <ReportsPage locale={locale} />}
           {route === "#/finance" && <FinancePage locale={locale} />}
           {route === "#/settings" && <SettingsPage locale={locale} />}
         </main>
