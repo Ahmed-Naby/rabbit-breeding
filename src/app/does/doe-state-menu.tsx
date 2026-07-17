@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DOE_STATES, label, type DoeState } from "@/lib/enums";
+import { DOE_STATES, label, type DoeState, type RabbitStatus } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
@@ -23,6 +23,7 @@ import {
   confirmPregnant,
   installNestBox,
 } from "../breedings/actions";
+import { setRabbitStatus } from "../rabbits/actions";
 
 const BADGE_CLS: Record<DoeState, string> = {
   empty: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
@@ -48,6 +49,74 @@ export function DoeStateBadge({ current, locale }: { current: string; locale: Lo
     >
       {label(state, locale)}
     </span>
+  );
+}
+
+/**
+ * Manual herd-status override (نشط / استبعاد / راحة) — independent of
+ * doeState/breeding progress. Sex-neutral despite living in this file
+ * (mirrors the mobile app's DoeAvailabilityToggle, which is reused as-is for
+ * bucks too): it only ever writes through the generic setRabbitStatus op.
+ */
+export function RabbitAvailabilityToggle({
+  id,
+  current,
+  locale,
+}: {
+  id: string;
+  current: string;
+  locale: Locale;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, startTransition] = useTransition();
+
+  const options: { status: RabbitStatus; text: string; activeCls: string }[] = [
+    {
+      status: "active",
+      text: locale === "ar" ? "نشط" : "Active",
+      activeCls:
+        "border-emerald-400 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    },
+    {
+      status: "culled",
+      text: locale === "ar" ? "استبعاد" : "Excluded",
+      activeCls:
+        "border-red-400 bg-red-100 text-red-800 dark:border-red-700 dark:bg-red-950 dark:text-red-300",
+    },
+    {
+      status: "resting",
+      text: locale === "ar" ? "راحة" : "Resting",
+      activeCls:
+        "border-orange-400 bg-orange-100 text-orange-800 dark:border-orange-700 dark:bg-orange-950 dark:text-orange-300",
+    },
+  ];
+
+  return (
+    <div className="inline-flex flex-wrap items-center gap-1">
+      {options.map((opt) => {
+        const isActive = current === opt.status;
+        return (
+          <Button
+            key={opt.status}
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            className={cn("h-7 px-2 text-[11px]", isActive && opt.activeCls)}
+            onClick={() => {
+              if (isActive) return;
+              if (opt.status === "culled" && !window.confirm(t.cullConfirm)) return;
+              startTransition(async () => {
+                await setRabbitStatus(id, opt.status);
+                toast.success(t.stateSetToast(label(opt.status, locale)));
+              });
+            }}
+          >
+            {opt.text}
+          </Button>
+        );
+      })}
+    </div>
   );
 }
 

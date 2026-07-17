@@ -40,7 +40,7 @@ export default async function PregnancyTestPage() {
       where: {
         sex: "doe",
         tagId: { not: null },
-        status: { not: "deceased" },
+        status: { notIn: ["deceased", "culled"] },
         doeState: { in: ["bred", "nursing_bred"] },
       },
       select: {

@@ -19,6 +19,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
     activeBucks: LocalRabbit[];
     activeStock: LocalRabbit[];
     deceasedRabbits: LocalDeceasedRabbit[];
+    culledRabbits: LocalDeceasedRabbit[];
     nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[];
     availableWeanedStock: number;
   } | null>(null);
@@ -102,7 +103,7 @@ export function MortalityPage({ locale }: { locale: Locale }) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
 
-  const { activeMothers, activeBucks, activeStock, deceasedRabbits, nursingDoes, availableWeanedStock } = data;
+  const { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock } = data;
 
   return (
     <div className="space-y-8">
@@ -360,6 +361,44 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               </thead>
               <tbody className="divide-y">
                 {deceasedRabbits.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                    <td className="px-4 py-3.5 text-center">
+                      <LocalDate date={new Date(entry.updatedAt)} />
+                    </td>
+                    <td className="px-4 py-3.5 font-bold">{entry.retiredTagId ?? entry.tagId ?? "—"}</td>
+                    <td className="px-4 py-3.5">{entry.breed ?? "—"}</td>
+                    <td className="px-4 py-3.5">
+                      {entry.sex === "doe" ? (locale === "ar" ? "أنثى" : "Doe") : (locale === "ar" ? "ذكر" : "Buck")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 7. سجل الاستبعادات (Culling Ledger) */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">{locale === "ar" ? "سجل الاستبعادات" : "Culling Record"}</h2>
+        {culledRabbits.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
+            <Layers className="h-8 w-8 text-muted-foreground" />
+            <p className="font-medium">{locale === "ar" ? "لا يوجد حيوانات مستبعدة" : "No culled rabbits"}</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right border-collapse">
+              <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                <tr className="[&>th]:border-x">
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "التاريخ" : "Date"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "السلالة" : "Breed"}</th>
+                  <th className="px-4 py-3 text-center">{locale === "ar" ? "الجنس" : "Sex"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {culledRabbits.map((entry) => (
                   <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center">
                       <LocalDate date={new Date(entry.updatedAt)} />

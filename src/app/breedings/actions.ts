@@ -30,6 +30,7 @@ import {
 
 function revalidateAllBreedingPaths() {
   revalidatePath("/does");
+  revalidatePath("/rounds");
   revalidatePath("/nest-box");
   revalidatePath("/mating");
   revalidatePath("/pregnancy-test");
@@ -214,6 +215,7 @@ export async function recordNursingKitDeath(
   }
 
   revalidatePath("/does");
+  revalidatePath("/rounds");
   revalidatePath("/mortality");
   revalidatePath("/mating");
   revalidatePath("/pregnancy-test");
@@ -319,6 +321,7 @@ export async function transferKits(
   }
 
   revalidatePath("/does");
+  revalidatePath("/rounds");
   revalidatePath("/fostering");
   revalidatePath("/mortality");
   revalidatePath("/weaning");

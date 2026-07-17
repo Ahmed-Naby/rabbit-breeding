@@ -160,6 +160,7 @@ export async function createMother(
 
   revalidatePath("/mothers");
   revalidatePath("/does");
+  revalidatePath("/rounds");
   return { ok: true, rabbit: { id: result.data.id, tagId: d.tagId, breed: d.breed ?? null } };
 }
 
@@ -190,6 +191,7 @@ export async function createBuck(
   }
 
   revalidatePath("/bucks");
+  revalidatePath("/bucks-rounds");
   return { ok: true, rabbit: { id: result.data.id, tagId: d.tagId, breed: d.breed ?? null } };
 }
 
@@ -283,6 +285,7 @@ export async function finalizeMother(
   // Operations" board query (sex: doe, tagId not null) — without this she'd
   // be missing there until something else happened to revalidate it.
   revalidatePath("/does");
+  revalidatePath("/rounds");
   revalidatePath(`/rabbits/${d.id}`);
   return { ok: true, rabbit: { id: d.id, tagId: d.tagId } };
 }
@@ -309,6 +312,7 @@ export async function finalizeBuck(
   }
 
   revalidatePath("/bucks");
+  revalidatePath("/bucks-rounds");
   revalidatePath(`/rabbits/${d.id}`);
   return { ok: true, rabbit: { id: d.id, tagId: d.tagId } };
 }
@@ -338,6 +342,8 @@ export async function updateRabbit(
   revalidatePath("/mothers");
   revalidatePath("/bucks");
   revalidatePath("/does");
+  revalidatePath("/rounds");
+  revalidatePath("/bucks-rounds");
   revalidatePath("/stock");
   revalidatePath(`/rabbits/${id}`);
   redirect(`/rabbits/${id}`);
@@ -355,6 +361,8 @@ export async function deleteRabbit(
   revalidatePath("/mothers");
   revalidatePath("/bucks");
   revalidatePath("/does");
+  revalidatePath("/rounds");
+  revalidatePath("/bucks-rounds");
   // If this rabbit had a "retained" KitStockMovement, the DB cascade-deleted
   // it along with the rabbit, so the weaned-kit pool needs a refresh too.
   revalidatePath("/weaning-sales");
@@ -371,6 +379,8 @@ export async function setRabbitStatus(id: string, status: string) {
   revalidatePath("/mothers");
   revalidatePath("/bucks");
   revalidatePath("/does");
+  revalidatePath("/rounds");
+  revalidatePath("/bucks-rounds");
   revalidatePath("/stock");
   revalidatePath("/mortality");
   revalidatePath("/mating");
@@ -383,6 +393,7 @@ export async function setRabbitStatus(id: string, status: string) {
 export async function setDoeState(id: string, state: string) {
   await setDoeStateOp(id, state);
   revalidatePath("/does");
+  revalidatePath("/rounds");
   // /mothers shows doeState too (reproductive state column).
   revalidatePath("/mothers");
   revalidatePath("/mating");

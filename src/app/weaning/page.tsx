@@ -32,7 +32,7 @@ export default async function WeaningPage() {
       where: {
         sex: "doe",
         tagId: { not: null },
-        status: { not: "deceased" },
+        status: { notIn: ["deceased", "culled"] },
         doeState: { in: ["nursing", "nursing_bred", "nursing_pregnant"] },
       },
       select: {

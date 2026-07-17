@@ -32,7 +32,7 @@ export default async function NestBoxPage() {
       where: {
         sex: "doe",
         tagId: { not: null },
-        status: { not: "deceased" },
+        status: { notIn: ["deceased", "culled"] },
         doeState: { in: ["bred", "pregnant", "nursing_bred", "nursing_pregnant"] },
       },
       select: {

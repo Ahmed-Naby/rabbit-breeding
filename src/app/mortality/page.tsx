@@ -36,6 +36,7 @@ export default async function MortalityPage() {
     deceasedMothers,
     deceasedBucks,
     deceasedStock,
+    culledRabbits,
     { availableStock },
     { locale, t },
   ] = await Promise.all([
@@ -43,7 +44,7 @@ export default async function MortalityPage() {
     // rather than re-derived, then narrowed below to does actually nursing
     // live (bornAlive > 0), unweaned kits right now.
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       select: {
         id: true,
         tagId: true,
@@ -61,17 +62,17 @@ export default async function MortalityPage() {
       orderBy: { tagId: "asc" },
     }),
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       select: { id: true, tagId: true, breed: true },
       orderBy: { tagId: "asc" },
     }),
     prisma.rabbit.findMany({
-      where: { sex: "buck", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       select: { id: true, tagId: true, breed: true },
       orderBy: { tagId: "asc" },
     }),
     prisma.rabbit.findMany({
-      where: { tagId: null, status: { not: "deceased" } },
+      where: { tagId: null, status: { notIn: ["deceased", "culled"] } },
       select: { id: true, sex: true, breed: true, cage: true },
       orderBy: { createdAt: "desc" },
     }),
@@ -101,6 +102,17 @@ export default async function MortalityPage() {
     prisma.rabbit.findMany({
       where: { tagId: null, retiredTagId: null, status: "deceased" },
       select: { id: true, sex: true, breed: true, cage: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+    // Culled does/bucks only reach "culled" via the availability toggle on
+    // /rounds and /bucks-rounds, which only ever targets tagged rabbits — so
+    // unlike the deceased log there's no untagged-strains bucket to cover.
+    prisma.rabbit.findMany({
+      where: {
+        status: "culled",
+        OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      },
+      select: { id: true, tagId: true, retiredTagId: true, breed: true, sex: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
     getKitStockSummary(),
@@ -412,6 +424,49 @@ export default async function MortalityPage() {
                     <TableCell className="font-medium">
                       <Link href={`/rabbits/${r.id}`} className="hover:underline">
                         <StatusBadge value={r.sex} locale={locale} />
+                      </Link>
+                    </TableCell>
+                    <TableCell>{r.breed ?? "—"}</TableCell>
+                    <TableCell>
+                      <LocalDate date={r.updatedAt} locale={locale} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* سجل الاستبعادات */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t.mortality.culledHeading(culledRabbits.length)}
+        </h2>
+        {culledRabbits.length === 0 ? (
+          <EmptyState icon={Skull} title={t.mortality.culledEmptyTitle} />
+        ) : (
+          <div className="rounded-xl border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="[&>th]:border-x">
+                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colTag}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
+                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {culledRabbits.map((r, i) => (
+                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell>
+                      <StatusBadge value={r.sex} locale={locale} />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
+                        {r.retiredTagId ?? r.tagId ?? "—"}
                       </Link>
                     </TableCell>
                     <TableCell>{r.breed ?? "—"}</TableCell>

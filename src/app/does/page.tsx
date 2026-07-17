@@ -44,7 +44,7 @@ export default async function DoesPage() {
   // via /stock) is what makes her eligible.
   const [doesRaw, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       select: {
         id: true,
         tagId: true,

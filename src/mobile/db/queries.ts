@@ -56,7 +56,7 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
     getLocalSettings(db),
     queryAll<{ id: string; tagId: string | null; breed: string | null; doeState: string; status: string }>(
       db,
-      "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+      "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
     ),
   ]);
 
@@ -122,9 +122,9 @@ export type DashboardStats = {
 
 export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<DashboardStats> {
   const [totalRabbits, activeDoes, activeBucks, totalLitters, activeBreedings] = await Promise.all([
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE status != 'deceased'"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased'"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status != 'deceased'"),
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE status NOT IN ('deceased', 'culled')"),
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM litter"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM breeding WHERE matingDate IS NOT NULL AND actualKindlingDate IS NULL"),
   ]);
@@ -270,7 +270,7 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
     `SELECT r.id, r.tagId, r.breed, r.doeState, b.id as breedingId, b.matingDate, b.buckId 
      FROM rabbit r
      JOIN breeding b ON r.id = b.doeId
-     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status != 'deceased' 
+     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status NOT IN ('deceased', 'culled') 
        AND r.doeState IN ('bred', 'nursing_bred')
      ORDER BY r.tagId ASC`
   );
@@ -370,7 +370,7 @@ export async function fetchNestBoxPageData(db: SQLiteDBConnection): Promise<{
     db,
     `SELECT id, tagId, breed, doeState 
      FROM rabbit 
-     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') 
        AND doeState IN ('bred', 'pregnant', 'nursing_bred', 'nursing_pregnant') 
      ORDER BY tagId ASC`
   );
@@ -485,7 +485,7 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
     db,
     `SELECT id, tagId, breed, doeState 
      FROM rabbit 
-     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') 
        AND doeState IN ('pregnant', 'nursing_pregnant') 
      ORDER BY tagId ASC`
   );
@@ -632,7 +632,7 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     db,
     `SELECT id, tagId, breed, doeState 
      FROM rabbit 
-     WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' 
+     WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') 
        AND doeState IN ('nursing', 'nursing_bred', 'nursing_pregnant') 
      ORDER BY tagId ASC`
   );
@@ -749,7 +749,7 @@ export async function fetchRabbitsRoster(
   db: SQLiteDBConnection,
   sexFilter?: "doe" | "buck" | "all"
 ): Promise<LocalRabbit[]> {
-  let query = "SELECT * FROM rabbit WHERE status != 'deceased'";
+  let query = "SELECT * FROM rabbit WHERE status NOT IN ('deceased', 'culled')";
   const params: unknown[] = [];
   if (sexFilter === "doe") {
     query += " AND sex = 'doe' AND tagId IS NOT NULL";
@@ -773,12 +773,13 @@ export async function searchRabbits(db: SQLiteDBConnection, query: string): Prom
   const q = query.trim();
   if (!q) return [];
   const like = `%${q}%`;
-  // Deceased rabbits are already excluded here (status != 'deceased'), so
-  // there's no retiredTagId to search — unlike the web header search.
+  // Deceased/culled rabbits are already excluded here (status NOT IN
+  // ('deceased', 'culled')), so there's no retiredTagId to search —
+  // unlike the web header search.
   return queryAll<LocalRabbitSearchResult>(
     db,
     `SELECT id, tagId, breed, cage, sex FROM rabbit
-     WHERE status != 'deceased' AND (tagId LIKE ? OR cage LIKE ? OR breed LIKE ?)
+     WHERE status NOT IN ('deceased', 'culled') AND (tagId LIKE ? OR cage LIKE ? OR breed LIKE ?)
      ORDER BY tagId ASC
      LIMIT 8`,
     [like, like, like]
@@ -935,25 +936,26 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   activeBucks: LocalRabbit[];
   activeStock: LocalRabbit[];
   deceasedRabbits: LocalDeceasedRabbit[];
+  culledRabbits: LocalDeceasedRabbit[];
   nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[];
   availableWeanedStock: number;
 }> {
   // 1. Active mothers (does with tagId)
   const activeMothers = await queryAll<LocalRabbit>(
     db,
-    "SELECT * FROM rabbit WHERE status != 'deceased' AND sex = 'doe' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status NOT IN ('deceased', 'culled') AND sex = 'doe' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
   );
 
   // 2. Active bucks (bucks with tagId)
   const activeBucks = await queryAll<LocalRabbit>(
     db,
-    "SELECT * FROM rabbit WHERE status != 'deceased' AND sex = 'buck' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status NOT IN ('deceased', 'culled') AND sex = 'buck' AND tagId IS NOT NULL ORDER BY tagId ASC, id ASC"
   );
 
   // 3. Active stock (rabbits without tagId)
   const activeStock = await queryAll<LocalRabbit>(
     db,
-    "SELECT * FROM rabbit WHERE status != 'deceased' AND tagId IS NULL ORDER BY id ASC"
+    "SELECT * FROM rabbit WHERE status NOT IN ('deceased', 'culled') AND tagId IS NULL ORDER BY id ASC"
   );
 
   // 4. Deceased rabbits log
@@ -962,10 +964,16 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
     "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'deceased' ORDER BY updatedAt DESC LIMIT 100"
   );
 
+  // 4b. Culled rabbits log (استبعاد)
+  const culledRabbits = await queryAll<LocalDeceasedRabbit>(
+    db,
+    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'culled' ORDER BY updatedAt DESC LIMIT 100"
+  );
+
   // 5. Nursing does
   const does = await queryAll<{ id: string; tagId: string; breed: string }>(
     db,
-    "SELECT id, tagId, breed FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+    "SELECT id, tagId, breed FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
   );
   const nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[] = [];
   for (const doe of does) {
@@ -1019,7 +1027,7 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   }
   const availableWeanedStock = totalWeaned - sold - died - retained;
 
-  return { activeMothers, activeBucks, activeStock, deceasedRabbits, nursingDoes, availableWeanedStock };
+  return { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock };
 }
 
 export type LocalHealthRecord = {
@@ -1038,7 +1046,7 @@ export async function fetchHealthPageData(db: SQLiteDBConnection): Promise<{
 }> {
   const activeRabbits = await queryAll<LocalRabbit>(
     db,
-    "SELECT * FROM rabbit WHERE status != 'deceased' ORDER BY tagId ASC, id ASC"
+    "SELECT * FROM rabbit WHERE status NOT IN ('deceased', 'culled') ORDER BY tagId ASC, id ASC"
   );
 
   const rows = await queryAll<{
@@ -1125,7 +1133,7 @@ export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
     doeState: string;
   }>(
     db,
-    "SELECT id, tagId, breed, acquiredDate, createdAt, status, doeState FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+    "SELECT id, tagId, breed, acquiredDate, createdAt, status, doeState FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
   );
 
   const does = [];
@@ -1152,7 +1160,7 @@ export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
     cage: string | null;
   }>(
     db,
-    "SELECT id, breed, cage FROM rabbit WHERE sex = 'doe' AND tagId IS NULL AND movedToHerdPen = 1 AND status != 'deceased' ORDER BY createdAt DESC"
+    "SELECT id, breed, cage FROM rabbit WHERE sex = 'doe' AND tagId IS NULL AND movedToHerdPen = 1 AND status NOT IN ('deceased', 'culled') ORDER BY createdAt DESC"
   );
 
   const pendingMothers = [];
@@ -1191,7 +1199,7 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
     status: string;
   }>(
     db,
-    "SELECT id, tagId, breed, acquiredDate, createdAt, status FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status != 'deceased' ORDER BY tagId ASC"
+    "SELECT id, tagId, breed, acquiredDate, createdAt, status FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
   );
 
   const bucks = [];
@@ -1217,7 +1225,7 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
     cage: string | null;
   }>(
     db,
-    "SELECT id, breed, cage FROM rabbit WHERE sex = 'buck' AND tagId IS NULL AND movedToHerdPen = 1 AND status != 'deceased' ORDER BY createdAt DESC"
+    "SELECT id, breed, cage FROM rabbit WHERE sex = 'buck' AND tagId IS NULL AND movedToHerdPen = 1 AND status NOT IN ('deceased', 'culled') ORDER BY createdAt DESC"
   );
 
   const pendingBucks = [];
@@ -1255,7 +1263,7 @@ export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
     createdAt: string;
   }>(
     db,
-    "SELECT id, sex, breed, cage, acquiredDate, createdAt FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status != 'deceased' ORDER BY createdAt DESC"
+    "SELECT id, sex, breed, cage, acquiredDate, createdAt FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status NOT IN ('deceased', 'culled') ORDER BY createdAt DESC"
   );
 
   const rabbits = [];

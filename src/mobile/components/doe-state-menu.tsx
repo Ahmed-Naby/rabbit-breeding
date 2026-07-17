@@ -93,6 +93,7 @@ export function DoeAvailabilityToggle({
             className={cn("h-7 px-2 text-[11px]", isActive && opt.activeCls)}
             onClick={async () => {
               if (isActive) return;
+              if (opt.status === "culled" && !window.confirm(t.cullConfirm)) return;
               setPending(opt.status);
               await enqueue("setRabbitStatus", { id, status: opt.status });
               toast.success(t.stateSetToast(label(opt.status, locale)));

@@ -29,7 +29,7 @@ export default async function BucksPage() {
   // mirrors /mothers for the buck side of the herd.
   const [bucks, pendingBucksRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
-      where: { sex: "buck", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       orderBy: { tagId: "asc" },
       include: {
         weightRecords: {
@@ -42,7 +42,7 @@ export default async function BucksPage() {
     // Bucks explicitly moved from /stock's nursery pen (see promoteToHerdPen),
     // waiting for their رقم الذكر here (see PendingBucksTable / finalizeBuck).
     prisma.rabbit.findMany({
-      where: { sex: "buck", tagId: null, movedToHerdPen: true, status: { not: "deceased" } },
+      where: { sex: "buck", tagId: null, movedToHerdPen: true, status: { notIn: ["deceased", "culled"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

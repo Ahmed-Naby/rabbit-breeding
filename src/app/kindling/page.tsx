@@ -36,7 +36,7 @@ export default async function KindlingPage() {
       where: {
         sex: "doe",
         tagId: { not: null },
-        status: { not: "deceased" },
+        status: { notIn: ["deceased", "culled"] },
         doeState: { in: ["pregnant", "nursing_pregnant"] },
       },
       select: {

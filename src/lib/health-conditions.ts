@@ -15,6 +15,18 @@ export const DISEASE_TYPES = [
 
 export type DiseaseType = (typeof DISEASE_TYPES)[number];
 
+// Buck-relevant subset used by the bucks rounds screen — excludes the
+// doe-specific conditions (uterineInfection, mastitis) and the catch-alls
+// (wasting, other) that the full DISEASE_TYPES list carries for does.
+export const BUCK_DISEASE_TYPES = [
+  "mange",
+  "soreHocks",
+  "eyeDischarge",
+  "worms",
+  "cold",
+  "diarrhea",
+] as const satisfies readonly DiseaseType[];
+
 const DISEASE_LABELS: Record<DiseaseType, { ar: string; en: string }> = {
   mange: { ar: "جرب", en: "Mange" },
   soreHocks: { ar: "عرقوب", en: "Sore hocks" },

@@ -15,6 +15,7 @@ export const en: Dictionary = {
     weaningSales: "Sales",
     does: "Farm Operations",
     rounds: "Farm Rounds",
+    bucksRounds: "Buck Rounds",
     mortality: "Mortality",
     health: "Health",
     reports: "Follow-up Report",
@@ -148,6 +149,8 @@ export const en: Dictionary = {
       'This will permanently clear all of this row\'s data (mating, kindling, weaning) and reset the doe to "Empty". Are you sure?',
     clearedToast: "Doe data cleared and reset to empty",
     matingFailedToast: "Mating canceled and its date cleared",
+    cullConfirm:
+      "Culling permanently removes this rabbit from the herd, and this step cannot be undone. Are you sure?",
   },
   dashboard: {
     heroTitle: "Dashboard",
@@ -309,6 +312,20 @@ export const en: Dictionary = {
     healthSavedToast: "Health record logged",
     healthDescriptionPlaceholder: "e.g. mange symptoms, not eating...",
     healthDescriptionRequired: "Please enter a description",
+  },
+  bucksRounds: {
+    title: "Buck Rounds",
+    description: "Walk through every buck and record a death or illness from the same screen — data flows automatically to the other pages.",
+    emptyTitle: "No bucks in the herd yet",
+    emptyDescription: "Add any buck's number from the add-rabbit page so it shows up here.",
+    healthLabel: "Health",
+    healthAddButton: "Log illness/treatment",
+    healthCancelButton: "Cancel",
+    healthSaveButton: "Save",
+    healthSavedToast: "Health record logged",
+    healthDescriptionPlaceholder: "e.g. mange symptoms, not eating...",
+    healthDescriptionRequired: "Please enter a description",
+    deathButton: "Record buck death",
   },
   mating: {
     title: "Mating",
@@ -498,6 +515,9 @@ export const en: Dictionary = {
     recordNursingDeathButton: "Record death",
     deceasedToast: "Death recorded",
     recordDeceasedButton: "Record deceased",
+    culledHeading: (count: number) => `Culling record (${count})`,
+    culledEmptyTitle: "No culled rabbits",
+    colTag: "#",
   },
   health: {
     title: "Health",

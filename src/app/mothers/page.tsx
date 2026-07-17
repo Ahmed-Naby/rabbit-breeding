@@ -30,7 +30,7 @@ export default async function MothersPage() {
   // not the breeding-workflow board (that's "عمليات المزرعة" at /does).
   const [does, pendingMothersRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: { not: null }, status: { not: "deceased" } },
+      where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       orderBy: { tagId: "asc" },
       include: {
         weightRecords: {
@@ -43,7 +43,7 @@ export default async function MothersPage() {
     // Does explicitly moved from /stock's nursery pen (see promoteToHerdPen),
     // waiting for their رقم الأم here (see PendingMothersTable / finalizeMother).
     prisma.rabbit.findMany({
-      where: { sex: "doe", tagId: null, movedToHerdPen: true, status: { not: "deceased" } },
+      where: { sex: "doe", tagId: null, movedToHerdPen: true, status: { notIn: ["deceased", "culled"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,

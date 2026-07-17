@@ -16,6 +16,7 @@ import {
   ArrowLeftRight,
   ShoppingCart,
   FileText,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "./i18n/dictionaries/ar";
@@ -28,6 +29,8 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/rounds", labelKey: "rounds", icon: ListChecks },
+  { href: "/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
   { href: "/stock", labelKey: "stock", icon: Sprout },
   { href: "/mothers", labelKey: "mothers", icon: Venus },
   { href: "/bucks", labelKey: "bucks", icon: Mars },

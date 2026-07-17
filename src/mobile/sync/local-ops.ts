@@ -482,6 +482,11 @@ export async function setDoeState(
   return applied;
 }
 
+const TAG_RETIRING_STATUSES: Partial<Record<RabbitStatus, string>> = {
+  deceased: "نافق",
+  culled: "استبعاد",
+};
+
 /** Mirrors setRabbitStatusOp's tag-retiring logic (see rabbit-ops.ts) for optimistic local apply. */
 export async function setRabbitStatus(
   db: SQLiteDBConnection,
@@ -490,14 +495,15 @@ export async function setRabbitStatus(
   if (!RABBIT_STATUSES.includes(payload.status as RabbitStatus)) {
     return rejected(`Invalid status: ${payload.status}`);
   }
-  if (payload.status === "deceased") {
+  const retireWord = TAG_RETIRING_STATUSES[payload.status as RabbitStatus];
+  if (retireWord) {
     const current = await getRabbit(db, payload.id);
     if (current?.tagId) {
       const today = todayIso().slice(0, 10);
       await updateRabbit(db, payload.id, {
-        status: "deceased",
+        status: payload.status,
         tagId: null,
-        retiredTagId: `${current.tagId} (نافق ${today})`,
+        retiredTagId: `${current.tagId} (${retireWord} ${today})`,
       });
       return applied;
     }

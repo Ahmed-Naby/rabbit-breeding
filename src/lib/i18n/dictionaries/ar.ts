@@ -13,6 +13,7 @@ export const ar = {
     weaningSales: "البيع",
     does: "عمليات المزرعة",
     rounds: "اللف على الأمهات",
+    bucksRounds: "اللف على الذكور",
     mortality: "حصر النافق",
     health: "الصحة",
     reports: "تقرير المتابعة",
@@ -145,6 +146,8 @@ export const ar = {
       'سيتم مسح جميع بيانات هذا السطر (التلقيح، الولادة، الفطام) نهائيًا وإعادة الأم إلى حالة "فاضية". هل أنت متأكد؟',
     clearedToast: "تم مسح بيانات الأم وإعادتها لحالة فاضية",
     matingFailedToast: "تم إلغاء التلقيح ومسح تاريخه",
+    cullConfirm:
+      "الاستبعاد يعني إخراج هذا الحيوان نهائيًا من القطيع، ولا يمكن التراجع عن هذه الخطوة. هل أنت متأكد؟",
   },
   dashboard: {
     heroTitle: "لوحة التحكم",
@@ -305,6 +308,20 @@ export const ar = {
     healthSavedToast: "تم تسجيل الحالة الصحية",
     healthDescriptionPlaceholder: "مثال: أعراض جرب، لا تأكل...",
     healthDescriptionRequired: "يرجى إدخال وصف الحالة",
+  },
+  bucksRounds: {
+    title: "اللف على الذكور",
+    description: "امشِ على كل ذكر وسجّل النافق أو المرض من نفس الشاشة — البيانات تروح تلقائيًا لباقي الصفحات.",
+    emptyTitle: "لا يوجد ذكور في القطيع بعد",
+    emptyDescription: "أضف رقم أي ذكر من صفحة إضافة أرنب عشان يظهر هنا.",
+    healthLabel: "الحالة الصحية",
+    healthAddButton: "تسجيل مرض/علاج",
+    healthCancelButton: "إلغاء",
+    healthSaveButton: "حفظ",
+    healthSavedToast: "تم تسجيل الحالة الصحية",
+    healthDescriptionPlaceholder: "مثال: أعراض جرب، لا يأكل...",
+    healthDescriptionRequired: "يرجى إدخال وصف الحالة",
+    deathButton: "تسجيل نفوق الذكر",
   },
   mating: {
     title: "عمليات التلقيح",
@@ -492,6 +509,9 @@ export const ar = {
     recordNursingDeathButton: "تسجيل نافق",
     deceasedToast: "تم تسجيل النافق",
     recordDeceasedButton: "تسجيل نافق",
+    culledHeading: (count: number) => `سجل الاستبعادات (${count})`,
+    culledEmptyTitle: "لا يوجد حيوانات مستبعدة",
+    colTag: "الرقم",
   },
   health: {
     title: "الصحة",

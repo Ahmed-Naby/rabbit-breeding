@@ -20,7 +20,7 @@ export default async function StockPage() {
   // table on /mothers or /bucks to get her/his real number.
   const [rabbits, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
-      where: { tagId: null, movedToHerdPen: false, status: { not: "deceased" } },
+      where: { tagId: null, movedToHerdPen: false, status: { notIn: ["deceased", "culled"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
