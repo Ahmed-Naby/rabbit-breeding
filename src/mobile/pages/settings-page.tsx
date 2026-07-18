@@ -218,6 +218,13 @@ export function SettingsPage({ locale }: { locale: Locale }) {
 
     setResetting(true);
     try {
+      // A reset is unrecoverable except from a backup file, and a restore
+      // can only rewind to the moment its file was taken — so always save a
+      // fresh backup right before wiping. If saving fails (or the user
+      // cancels the Android share sheet), the reset aborts untouched.
+      const json = await exportBackup();
+      await saveBackupFile(json, backupFilename());
+
       await resetEverything();
       toast.success(t.mobileSettings.resetSuccessToast);
       window.location.reload();

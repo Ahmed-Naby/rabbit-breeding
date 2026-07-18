@@ -105,8 +105,8 @@ export const en: Dictionary = {
     resettingLabel: "Resetting…",
     resetConfirm: (pendingCount: number) =>
       pendingCount > 0
-        ? `This will permanently delete ALL farm data — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. This can only be undone by restoring a backup. Are you sure?`
-        : "This will permanently delete ALL farm data — from this device, the server, and every other device. This can only be undone by restoring a backup. Are you sure?",
+        ? `A backup will be saved automatically first, then ALL farm data will be permanently deleted — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. This can only be undone by restoring that backup. Are you sure?`
+        : "A backup will be saved automatically first, then ALL farm data will be permanently deleted — from this device, the server, and every other device. This can only be undone by restoring that backup. Are you sure?",
     resetSuccessToast: "Database reset",
     resetOffline: "Reset needs an internet connection to wipe the central database too — nothing was deleted. Check your connection and try again.",
   },
