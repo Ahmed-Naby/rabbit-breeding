@@ -694,6 +694,8 @@ export const localOpRegistry: Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recordWeanedKitDeath: recordWeanedKitDeath as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recordKitStockAdjustment: recordKitStockAdjustment as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   deleteKitStockMovement: deleteKitStockMovement as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createHealthRecord: createHealthRecord as any,
@@ -792,6 +794,20 @@ export async function recordWeanedKitDeath(
     `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
      VALUES (?, ?, 'death', ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`,
     [`local-${createId()}`, date, payload.count, payload.notes ?? null, now, now]
+  );
+  return applied;
+}
+
+export async function recordKitStockAdjustment(
+  db: SQLiteDBConnection,
+  payload: { count: number; date: string; notes?: string | null }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'adjustment', ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`,
+    [`local-${createId()}`, payload.date, payload.count, payload.notes ?? null, now, now]
   );
   return applied;
 }

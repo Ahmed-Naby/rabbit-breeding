@@ -389,6 +389,23 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     return applied;
   },
 
+  // Manual reconciliation of the available-weaning-stock balance. `count` is
+  // signed and added to the balance directly (positive raises it, negative
+  // lowers it) — the opening-balance / correction hook, since every other
+  // movement is derived from a real weaning, sale, death, or retention.
+  recordKitStockAdjustment: async (p, clientAt) => {
+    await prisma.kitStockMovement.create({
+      data: {
+        id: p.id as string | undefined,
+        date: new Date(p.date as string),
+        type: "adjustment",
+        count: p.count as number,
+        notes: (p.notes as string | null) ?? null,
+      },
+    });
+    return applied;
+  },
+
   deleteKitStockMovement: async (p, clientAt) => {
     await prisma.$transaction(async (tx) => {
       const movement = await tx.kitStockMovement.delete({ where: { id: p.id as string } });

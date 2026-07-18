@@ -32,7 +32,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   } | null>(null);
 
   const [date, setDate] = useState(() => toDateInputValue(new Date()));
-  const [type, setType] = useState<"sale" | "death">("sale");
+  const [type, setType] = useState<"sale" | "death" | "adjustment">("sale");
   const [count, setCount] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [pricePerKg, setPricePerKg] = useState("");
@@ -65,7 +65,10 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     const w = weightKg.trim() !== "" ? parseFloat(weightKg.trim()) : null;
     const p = pricePerKg.trim() !== "" ? parseFloat(pricePerKg.trim()) : null;
 
-    if (isNaN(qty) || qty <= 0) {
+    // An adjustment is signed (positive raises the balance, negative lowers
+    // it); every other movement is a positive quantity.
+    const invalidQty = type === "adjustment" ? isNaN(qty) || qty === 0 : isNaN(qty) || qty <= 0;
+    if (invalidQty) {
       toast.error(locale === "ar" ? "يرجى إدخال عدد صحيح" : "Please enter a valid count");
       return;
     }
@@ -89,8 +92,14 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
           pricePerKg: p,
           notes: notes.trim() || null,
         });
-      } else {
+      } else if (type === "death") {
         await enqueue("recordWeanedKitDeath", {
+          count: qty,
+          date,
+          notes: notes.trim() || null,
+        });
+      } else {
+        await enqueue("recordKitStockAdjustment", {
           count: qty,
           date,
           notes: notes.trim() || null,
@@ -160,6 +169,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     sale: locale === "ar" ? "بيع" : "Sale",
     death: locale === "ar" ? "نافق" : "Death",
     retained: locale === "ar" ? "سلالة" : "Retained",
+    adjustment: locale === "ar" ? "تسوية" : "Adjustment",
   };
 
   return (
@@ -236,6 +246,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                   items={[
                     { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
                     { value: "death", label: locale === "ar" ? "نافق فطام" : "Weaned Death" },
+                    { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
                   ]}
                   value={type}
                   onValueChange={(v: any) => setType(v)}
@@ -247,6 +258,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                   <SelectContent>
                     <SelectItem value="sale">{locale === "ar" ? "بيع خلفات" : "Kit Sale"}</SelectItem>
                     <SelectItem value="death">{locale === "ar" ? "نافق فطام" : "Weaned Death"}</SelectItem>
+                    <SelectItem value="adjustment">{locale === "ar" ? "تسوية المخزون" : "Stock Adjustment"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -255,12 +267,19 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 <Input
                   id="count"
                   type="number"
-                  min={1}
-                  placeholder="5"
+                  min={type === "adjustment" ? undefined : 1}
+                  placeholder={type === "adjustment" ? "+267" : "5"}
                   value={count}
                   onChange={(e) => setCount(e.target.value)}
                   disabled={submitting}
                 />
+                {type === "adjustment" && (
+                  <p className="text-xs text-muted-foreground">
+                    {locale === "ar"
+                      ? "رقم يُضاف للرصيد: موجب يزيد المخزون المتاح، وسالب ينقصه."
+                      : "A signed number added to the balance: positive raises available stock, negative lowers it."}
+                  </p>
+                )}
               </div>
             </div>
 
