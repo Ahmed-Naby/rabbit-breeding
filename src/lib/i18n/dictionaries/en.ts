@@ -88,11 +88,12 @@ export const en: Dictionary = {
   // serialize functions across that boundary.
   mobileSettings: {
     backupHeading: "Backup & Restore",
-    backupDescription: "Save this device's data to a file, or restore data from a previously saved backup.",
-    backupButton: "Back up now",
+    backupDescription:
+      "Backup: saves a copy of the database to a file. Restore: replaces all data — here and on the server for every device — with a saved file. Reset: permanently deletes all data from every device.",
+    backupButton: "Backup",
     backingUpLabel: "Backing up…",
     backupSuccessToast: "Backup saved",
-    restoreButton: "Restore from file",
+    restoreButton: "Restore",
     restoringLabel: "Restoring…",
     restoreConfirm:
       "This will replace all of this device's data AND the central online database (for every device) with the contents of the selected file. Continue?",
@@ -100,42 +101,14 @@ export const en: Dictionary = {
     restoreInvalidFile: "The selected file is not a valid backup",
     restoreUploadFailed:
       "Restored on this device, but the central online database could not be updated — check your connection and restore from the same file again.",
-    dangerZoneHeading: "Danger Zone",
-    resetDescription: "This permanently deletes all data on this device. Taking a backup first is recommended.",
-    resetButton: "Reset local database",
+    resetButton: "Reset",
     resettingLabel: "Resetting…",
-    resetNeedsBackupHint: "Back up now first to enable this button.",
     resetConfirm: (pendingCount: number) =>
       pendingCount > 0
-        ? `This will permanently delete all data on this device, including ${pendingCount} change${pendingCount === 1 ? "" : "s"} that ${pendingCount === 1 ? "hasn't" : "haven't"} synced to the server yet and cannot be recovered. The app will re-download data from the server once connectivity is available. Continue?`
-        : "This will permanently delete all data on this device. The app will re-download data from the server once connectivity is available. Continue?",
+        ? `This will permanently delete ALL farm data — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. This can only be undone by restoring a backup. Are you sure?`
+        : "This will permanently delete ALL farm data — from this device, the server, and every other device. This can only be undone by restoring a backup. Are you sure?",
     resetSuccessToast: "Database reset",
-    wipeOnlineHeading: "Wipe online database",
-    wipeOnlineDescription:
-      "Permanently deletes all farm data from the central database used by every device — not just this one. This cannot be undone unless you restore from a backup.",
-    downloadOnlineBackupButton: "Download full backup",
-    downloadingOnlineBackupLabel: "Downloading…",
-    onlineBackupSuccessToast: "Backup downloaded",
-    wipeOnlineButton: "Wipe online database",
-    wipingOnlineLabel: "Wiping…",
-    wipeOnlineNeedsBackupHint: "Download a full backup first to enable this button.",
-    wipeOnlineConfirmWarning:
-      "This will permanently delete ALL farm data — rabbits, breedings, litters, weights, and more — from the server, for every device that syncs with it. This cannot be undone. Are you absolutely sure?",
-    wipeOnlinePrompt: 'Type "WIPE ALL DATA" to confirm.',
-    wipeOnlineMismatch: "Text didn't match — nothing was deleted.",
-    wipeOnlineSuccessToast: "Online database wiped. Every device will re-download a fresh, empty database next time it syncs.",
-    restoreOnlineHeading: "Restore from online backup",
-    restoreOnlineDescription:
-      "Overwrites all farm data on the central database — used by every device, not just this one — with the contents of a previously downloaded full backup file. This cannot be undone.",
-    restoreOnlineButton: "Restore from online backup",
-    restoringOnlineLabel: "Restoring…",
-    restoreOnlineNeedsBackupHint: "Download a full backup first to enable this button.",
-    restoreOnlineConfirmWarning:
-      "This will permanently REPLACE ALL farm data on the server — rabbits, breedings, litters, weights, and more — with the contents of the selected file, for every device that syncs with it. Whatever is currently on the server will be lost. This cannot be undone. Are you absolutely sure?",
-    restoreOnlinePrompt: 'Type "RESTORE ALL DATA" to confirm.',
-    restoreOnlineMismatch: "Text didn't match — nothing was restored.",
-    restoreOnlineSuccessToast: "Online database restored. Every device will re-download the restored data next time it syncs.",
-    restoreOnlineInvalidFile: "The selected file is not a valid online backup",
+    resetOffline: "Reset needs an internet connection to wipe the central database too — nothing was deleted. Check your connection and try again.",
   },
   kindling: {
     title: "Kindling",

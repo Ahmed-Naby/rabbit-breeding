@@ -2,6 +2,10 @@ import { createId } from "@paralleldrive/cuid2";
 import { sqlite, getDb, closeDb, withTransaction } from "./client";
 import { queryAll, queryOne, run } from "./helpers";
 import { syncFetch } from "../sync/sync-manager";
+// Body-level confirm phrases the destructive server endpoints require as
+// defense-in-depth against accidental/scripted calls. The typed-confirmation
+// UI is gone (the settings page uses plain confirm dialogs now), so these
+// are sent programmatically.
 import { WIPE_CONFIRM_PHRASE } from "@/lib/sync/wipe-confirm-phrase";
 import { RESTORE_CONFIRM_PHRASE } from "@/lib/sync/restore-confirm-phrase";
 
@@ -229,85 +233,28 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
 }
 
 /**
- * Empties every local table (including the outbox and the sync cursor), so
- * the device starts from a clean slate. Any not-yet-synced local changes are
- * gone for good; a subsequent sync re-bootstraps everything else from the
- * server since the cursor reset makes the next pull a full pull.
+ * The "start over" action: permanently deletes every farm-data row from the
+ * central database AND this device's local mirror. Every other device
+ * discovers the reset via the fresh Settings.dataResetAt the server wipe
+ * stamps, and wipes+re-bootstraps itself on its next sync (see pull() in
+ * sync-manager.ts) — so one button here resets the whole farm everywhere.
+ *
+ * The server is wiped FIRST, deliberately: if the device is offline the
+ * request fails before anything local has been touched, and the reset
+ * cleanly aborts (the caller surfaces RESET_OFFLINE) instead of leaving a
+ * wiped device pointed at a server that still has data — which the next
+ * sync would just re-download, making the reset look like it didn't work.
  */
-/**
- * Fetches a complete, uncapped snapshot of the central (Postgres) database —
- * the mandatory recovery copy the Danger Zone's "wipe online database" flow
- * requires the user to download before wipeOnlineDatabase() is unlocked.
- * Distinct from exportBackup() above, which only ever covers this device's
- * local SQLite mirror.
- */
-export async function exportOnlineBackup(): Promise<string> {
-  const data = await syncFetch(`/api/sync/full-export?_cb=${Date.now()}`);
-  return JSON.stringify(data);
-}
-
-/**
- * Permanently deletes every farm-data row from the central database, for
- * every device that syncs against it — not just this one. `confirmPhrase`
- * must match WIPE_CONFIRM_PHRASE exactly; the caller (the settings page) is
- * responsible for the actual typed-confirmation UI, this is just the
- * network call. Does not touch this device's local mirror — the next
- * pull()/syncNow() call discovers the server's new Settings.dataResetAt and
- * wipes+re-bootstraps this device the same way it will for every other
- * device that syncs after this call.
- */
-export async function wipeOnlineDatabase(confirmPhrase: string): Promise<void> {
-  if (confirmPhrase !== WIPE_CONFIRM_PHRASE) throw new Error("CONFIRM_PHRASE_MISMATCH");
-  await syncFetch("/api/sync/wipe", {
-    method: "POST",
-    body: JSON.stringify({ confirm: confirmPhrase }),
-  });
-}
-
-// Mirrors the server's REQUIRED_KEYS check in src/lib/sync/import.ts —
-// duplicated here (rather than imported) because that module pulls in
-// Prisma's Node-only driver adapter, which can't be bundled into the
-// mobile app.
-const FULL_EXPORT_KEYS = [
-  "rabbits", "breedings", "litters", "weightRecords", "healthRecords",
-  "feedLogs", "transactions", "kitStockMovements", "breeds",
-  "pregnancyTestLogs", "kindlingLogs", "fosterLogs",
-];
-
-/**
- * Overwrites every farm-data row in the central database with the contents
- * of a previously downloaded online backup file (see exportOnlineBackup()
- * above) — for every device, not just this one. `confirmPhrase` must match
- * RESTORE_CONFIRM_PHRASE exactly; the caller (the settings page) owns the
- * typed-confirmation UI, this is just validation + the network call. Does
- * not touch this device's local mirror directly — the next pull()/syncNow()
- * call discovers the server's new Settings.dataResetAt and wipes +
- * re-bootstraps this device the same way it will for every other device.
- */
-export async function restoreOnlineDatabase(confirmPhrase: string, json: string): Promise<void> {
-  if (confirmPhrase !== RESTORE_CONFIRM_PHRASE) throw new Error("CONFIRM_PHRASE_MISMATCH");
-
-  let parsed: unknown;
+export async function resetEverything(): Promise<void> {
   try {
-    parsed = JSON.parse(json);
+    await syncFetch("/api/sync/wipe", {
+      method: "POST",
+      body: JSON.stringify({ confirm: WIPE_CONFIRM_PHRASE }),
+    });
   } catch {
-    throw new Error("INVALID_BACKUP_FILE");
-  }
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    !FULL_EXPORT_KEYS.every((key) => Array.isArray((parsed as Record<string, unknown>)[key]))
-  ) {
-    throw new Error("INVALID_BACKUP_FILE");
+    throw new Error("RESET_OFFLINE");
   }
 
-  await syncFetch("/api/sync/full-import", {
-    method: "POST",
-    body: JSON.stringify({ confirm: confirmPhrase, data: parsed }),
-  });
-}
-
-export async function resetDatabase(): Promise<void> {
   await withTransaction(async (db) => {
     const tables = await queryAll<{ name: string }>(
       db,
