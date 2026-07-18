@@ -56,11 +56,28 @@ export async function POST(request: Request) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return Response.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
-  await prisma.farmMember.upsert({
-    where: { farmId_userId: { farmId: auth.farmId, userId: user.id } },
-    create: { farmId: auth.farmId, userId: user.id, role, allowedPages: allowedPages ?? undefined },
-    update: { role, allowedPages: allowedPages === null ? Prisma.DbNull : allowedPages },
-  });
+  try {
+    await prisma.farmMember.upsert({
+      where: { farmId_userId: { farmId: auth.farmId, userId: user.id } },
+      create: {
+        farmId: auth.farmId,
+        userId: user.id,
+        role,
+        allowedPages: allowedPages === null ? Prisma.DbNull : (allowedPages as Prisma.InputJsonValue),
+      },
+      update: {
+        role,
+        allowedPages: allowedPages === null ? Prisma.DbNull : (allowedPages as Prisma.InputJsonValue),
+      },
+    });
+  } catch (err) {
+    // Surface the real cause to the owner-only client instead of a bare 500 —
+    // this endpoint is not public, so echoing the DB message is acceptable and
+    // makes field-level failures diagnosable without server-log access.
+    console.error("[farm/members] upsert failed:", err);
+    const detail = err instanceof Error ? err.message : String(err);
+    return Response.json({ error: "MEMBER_UPSERT_FAILED", detail }, { status: 500 });
+  }
   return Response.json({ ok: true });
 }
 

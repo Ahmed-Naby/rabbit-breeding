@@ -150,8 +150,10 @@ export function AccountCard({ locale }: { locale: Locale }) {
       toast.success(t.permissionsSavedToast);
       setEditingUserId(null);
       void loadMembers();
-    } catch {
-      toast.error(t.genericError);
+    } catch (err) {
+      console.error("[permissions] save failed:", err);
+      const message = err instanceof Error ? err.message : "";
+      toast.error(message ? `${t.genericError} (${message})` : t.genericError);
     } finally {
       setBusy(false);
     }
