@@ -7,6 +7,8 @@ import { fetchRabbitsRoster } from "../db/queries";
 import type { LocalRabbit } from "../db/types";
 import { cn } from "@/lib/utils";
 import { LABELS } from "@/lib/enums";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; initialSex?: "doe" | "buck" | "all" }) {
   const t = getClientDictionary(locale);
@@ -22,6 +24,16 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
     }
     void load();
   }, [sex]);
+
+  const rabbitsSort = useSortableRows(rabbits ?? [], {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    color: { type: "string", value: (r) => r.color },
+    sex: { type: "string", value: (r) => r.sex },
+    doeState: { type: "string", value: (r) => (r.sex === "doe" ? r.doeState : null) },
+    cage: { type: "tag", value: (r) => r.cage },
+    status: { type: "string", value: (r) => r.status },
+  });
 
   if (!rabbits) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -95,17 +107,66 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 w-14"><span className="sr-only">{locale === "ar" ? "صورة" : "Photo"}</span></th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الأرنب" : "Tag ID"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "اللون" : "Color"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "الجنس" : "Sex"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "الحالة التناسلية" : "Reproductive State"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "العين/القفص" : "Cage"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "الحالة" : "Status"}</th>
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "رقم الأرنب" : "Tag ID"}
+                  sortKey="tag"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "النوع" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "اللون" : "Color"}
+                  sortKey="color"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "الجنس" : "Sex"}
+                  sortKey="sex"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "الحالة التناسلية" : "Reproductive State"}
+                  sortKey="doeState"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "العين/القفص" : "Cage"}
+                  sortKey="cage"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3"
+                  label={locale === "ar" ? "الحالة" : "Status"}
+                  sortKey="status"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rabbits.map((r) => {
+              {rabbitsSort.sorted.map((r) => {
                 const sexLabel = LABELS[locale][r.sex] ?? r.sex;
                 const statusLabel = LABELS[locale][r.status] ?? r.status;
                 const doeStateLabel = LABELS[locale][r.doeState] ?? r.doeState;

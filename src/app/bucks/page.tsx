@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Rabbit as RabbitIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
@@ -87,19 +81,26 @@ export default async function BucksPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.bucks.colIndex}</TableHead>
-                <TableHead className="text-center">{t.bucks.colTag}</TableHead>
-                <TableHead className="text-center">{t.bucks.colBreed}</TableHead>
-                <TableHead className="text-center">{t.bucks.colAddedDate}</TableHead>
-                <TableHead className="text-center">{t.bucks.colWeight}</TableHead>
-                <TableHead className="text-center">{t.bucks.colStatus}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bucks.map((buck, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.bucks.colIndex, className: "text-center", sortable: false },
+              { key: "tag", label: t.bucks.colTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.bucks.colBreed, type: "string", className: "text-center" },
+              { key: "addedDate", label: t.bucks.colAddedDate, type: "date", className: "text-center" },
+              { key: "weight", label: t.bucks.colWeight, type: "number", className: "text-center" },
+              { key: "status", label: t.bucks.colStatus, type: "string", className: "text-center" },
+            ]}
+            rows={bucks.map((buck, i) => ({
+              key: buck.id,
+              sortValues: {
+                tag: buck.tagId,
+                breed: buck.breed,
+                addedDate: buck.acquiredDate,
+                weight: buck.weightRecords[0]?.weightGrams,
+                status: buck.status,
+              },
+              node: (
                 <TableRow key={buck.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -124,9 +125,9 @@ export default async function BucksPage() {
                     <StatusBadge value={buck.status} locale={locale} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
     </div>

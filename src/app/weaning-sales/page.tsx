@@ -1,13 +1,7 @@
 import { Rabbit, ShoppingCart, Skull, Layers, PawPrint } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { LocalDate } from "@/components/local-date";
 import { formatMoney, formatWeight } from "@/lib/units";
@@ -80,21 +74,35 @@ export default async function WeaningSalesPage() {
               />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.weaningSales.colDate}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colType}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colCount}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colWeight}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colPricePerKg}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colAmount}</TableHead>
-                  <TableHead className="text-center">{t.weaningSales.colNotes}</TableHead>
-                  <TableHead className="text-center" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ledger.map((entry) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "date", label: t.weaningSales.colDate, type: "date", className: "text-center" },
+                { key: "type", label: t.weaningSales.colType, type: "string", className: "text-center" },
+                { key: "count", label: t.weaningSales.colCount, type: "number", className: "text-center" },
+                { key: "weight", label: t.weaningSales.colWeight, type: "number", className: "text-center" },
+                {
+                  key: "pricePerKg",
+                  label: t.weaningSales.colPricePerKg,
+                  type: "number",
+                  className: "text-center",
+                },
+                { key: "amount", label: t.weaningSales.colAmount, type: "number", className: "text-center" },
+                { key: "notes", label: t.weaningSales.colNotes, type: "string", className: "text-center" },
+                { key: "action", label: "", className: "text-center", sortable: false },
+              ]}
+              rows={ledger.map((entry) => ({
+                key: entry.key,
+                sortValues: {
+                  date: entry.date,
+                  type: entry.kind,
+                  count: entry.count,
+                  weight: entry.weightGrams,
+                  pricePerKg: entry.pricePerKgCents,
+                  amount: entry.amountCents,
+                  notes: entry.notes,
+                },
+                node: (
                   <TableRow key={entry.key} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell>
                       <LocalDate date={entry.date} locale={locale} />
@@ -154,9 +162,9 @@ export default async function WeaningSalesPage() {
                       {entry.id ? <DeleteMovementButton id={entry.id} locale={locale} /> : null}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           )}
         </CardContent>
       </Card>

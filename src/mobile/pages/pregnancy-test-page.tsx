@@ -8,6 +8,8 @@ import { LocalDate } from "@/components/local-date";
 import { cn } from "@/lib/utils";
 import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../components/doe-state-menu";
 import { pregnancyTestDate } from "@/lib/dates";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 const RESULT_CLS: Record<string, string> = {
   positive:
@@ -38,11 +40,34 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
     void load();
   }, [load]);
 
+  const candidates = data?.candidates ?? [];
+  const testLog = data?.testLog ?? [];
+  const pregnancyTestDays = data?.pregnancyTestDays ?? 0;
+
+  const candidatesSort = useSortableRows(candidates, {
+    doeTag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    expectedTest: {
+      type: "date",
+      value: (r) => (r.matingDate ? pregnancyTestDate(new Date(r.matingDate), pregnancyTestDays) : null),
+    },
+    doeState: { type: "string", value: (r) => r.doeState },
+  });
+
+  const testLogSort = useSortableRows(testLog, {
+    doeTag: { type: "tag", value: (r) => r.doeTagId },
+    breed: { type: "string", value: (r) => r.doeBreed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    testDate: { type: "date", value: (r) => r.testDate },
+    result: { type: "string", value: (r) => r.result },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { candidates, testLog, pregnancyTestDays } = data;
 
   return (
     <div className="space-y-6">
@@ -67,17 +92,59 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الجس المتوقع" : "Expected Test Date"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                  sortKey="doeTag"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "النوع" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                  sortKey="buckTag"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}
+                  sortKey="matingDate"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "تاريخ الجس المتوقع" : "Expected Test Date"}
+                  sortKey="expectedTest"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                  sortKey="doeState"
+                  activeSortKey={candidatesSort.sortKey}
+                  direction={candidatesSort.direction}
+                  onSort={candidatesSort.toggleSort}
+                />
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "نتيجة الجس" : "Test Result"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {candidates.map((row, index) => {
+              {candidatesSort.sorted.map((row, index) => {
                 const expectedTest = row.matingDate
                   ? pregnancyTestDate(new Date(row.matingDate), data.pregnancyTestDays)
                   : null;
@@ -136,16 +203,58 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الجس" : "Test Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "النتيجة" : "Result"}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                    sortKey="doeTag"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "النوع" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                    sortKey="buckTag"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}
+                    sortKey="matingDate"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "تاريخ الجس" : "Test Date"}
+                    sortKey="testDate"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "النتيجة" : "Result"}
+                    sortKey="result"
+                    activeSortKey={testLogSort.sortKey}
+                    direction={testLogSort.direction}
+                    onSort={testLogSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {testLog.map((log, index) => (
+                {testLogSort.sorted.map((log, index) => (
                   <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>

@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   FileText,
   ListChecks,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "./i18n/dictionaries/ar";
@@ -29,6 +30,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "dashboard", icon: LayoutDashboard },
+  { href: "/daily", labelKey: "daily", icon: CalendarDays },
   { href: "/rounds", labelKey: "rounds", icon: ListChecks },
   { href: "/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
   { href: "/stock", labelKey: "stock", icon: Sprout },

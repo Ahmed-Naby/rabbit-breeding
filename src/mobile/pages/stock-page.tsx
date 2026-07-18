@@ -9,6 +9,8 @@ import { enqueue } from "../sync/outbox";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
 import { toast } from "sonner";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function StockPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale).stock;
@@ -113,16 +115,25 @@ export function StockPage({ locale }: { locale: Locale }) {
     }
   };
 
-  if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
-  }
-
-  const { rabbits, breedOptions } = data;
+  const rabbits = data?.rabbits ?? [];
+  const breedOptions = data?.breedOptions ?? [];
 
   const sexOptions = [
     { value: "doe", label: t.sexDoe },
     { value: "buck", label: t.sexBuck },
   ];
+
+  const rabbitsSort = useSortableRows(rabbits, {
+    date: { type: "date", value: (r) => r.date },
+    sex: { type: "string", value: (r) => r.sex },
+    breed: { type: "string", value: (r) => r.breed },
+    cage: { type: "tag", value: (r) => r.cage },
+    weight: { type: "number", value: (r) => r.weightKg },
+  });
+
+  if (!data) {
+    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+  }
 
   return (
     <div className="space-y-6">
@@ -218,17 +229,52 @@ export function StockPage({ locale }: { locale: Locale }) {
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
-                <th className="px-4 py-3 text-center">{t.colDate}</th>
-                <th className="px-4 py-3 text-center">{t.colSex}</th>
-                <th className="px-4 py-3 text-center">{t.colBreed}</th>
-                <th className="px-4 py-3 text-center">{t.colCage}</th>
-                <th className="px-4 py-3 text-center">{t.colWeight}</th>
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={t.colDate}
+                  sortKey="date"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={t.colSex}
+                  sortKey="sex"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={t.colBreed}
+                  sortKey="breed"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={t.colCage}
+                  sortKey="cage"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={t.colWeight}
+                  sortKey="weight"
+                  activeSortKey={rabbitsSort.sortKey}
+                  direction={rabbitsSort.direction}
+                  onSort={rabbitsSort.toggleSort}
+                />
                 <th className="px-4 py-3 text-center"></th>
                 <th className="px-4 py-3 text-center"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {rabbits.map((r) => {
+              {rabbitsSort.sorted.map((r) => {
                 const promoteLabel = r.sex === "buck" ? t.promoteToBuckLine : t.promoteToDoeLine;
                 return (
                   <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">

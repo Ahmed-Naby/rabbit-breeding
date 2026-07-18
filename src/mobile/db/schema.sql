@@ -97,23 +97,39 @@ CREATE TABLE IF NOT EXISTS settings_cache (
 -- Single-row sync bookkeeping: this device's identity and its pull cursor.
 -- `since` is always the server's own `serverTime` from the last successful
 -- pull/bootstrap response — never the device's clock (see /api/sync/pull).
+-- `lastResetAt` is Settings.dataResetAt as last observed from the server;
+-- compared on every pull to detect a server-side "wipe/restore online
+-- database" and trigger a local wipe + re-bootstrap instead of a normal
+-- incremental pull (see pull()).
+--
+-- NOTE: never put an inline `--` comment inside a table's column-list
+-- parentheses in this file. The web-platform backup/restore path
+-- (jeep-sqlite) parses each table's column list with a naive comma split
+-- and no comment awareness — an embedded comment gets glued onto a
+-- neighboring column definition, either dropping that column silently or
+-- (if it lands on the last column) leaving a dangling comma before the
+-- closing paren, which SQLite rejects with "near ')': syntax error" on
+-- restore. Put type/enum notes on their own line above the table instead.
 CREATE TABLE IF NOT EXISTS sync_cursor (
-  id         INTEGER PRIMARY KEY CHECK (id = 1),
-  deviceId   TEXT NOT NULL,
-  since      TEXT,
-  lastSyncAt TEXT
+  id          INTEGER PRIMARY KEY CHECK (id = 1),
+  deviceId    TEXT NOT NULL,
+  since       TEXT,
+  lastSyncAt  TEXT,
+  lastResetAt TEXT
 );
 
 -- Outbox of queued business operations, one row per clientOpId. `status`
 -- moves pending -> syncing -> (applied | already_applied | rejected). A
 -- rejected op is never auto-retried — it stays visible until a human
 -- resolves or discards it (see sync-manager.ts / the Phase 5 review screen).
+-- `payload` is JSON. `status` is one of: pending | syncing | applied |
+-- already_applied | rejected.
 CREATE TABLE IF NOT EXISTS outbox (
   clientOpId    TEXT PRIMARY KEY,
   opType        TEXT NOT NULL,
-  payload       TEXT NOT NULL, -- JSON
+  payload       TEXT NOT NULL,
   clientAt      TEXT NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'pending', -- pending | syncing | applied | already_applied | rejected
+  status        TEXT NOT NULL DEFAULT 'pending',
   resultMessage TEXT,
   createdAt     TEXT NOT NULL
 );
@@ -131,10 +147,11 @@ CREATE TABLE IF NOT EXISTS foster_log (
 CREATE INDEX IF NOT EXISTS idx_foster_log_fromDoeId ON foster_log(fromDoeId);
 CREATE INDEX IF NOT EXISTS idx_foster_log_toDoeId ON foster_log(toDoeId);
 
+-- `type` is one of: 'sale' | 'death' | 'retained'
 CREATE TABLE IF NOT EXISTS kit_stock_movement (
   id              TEXT PRIMARY KEY,
   date            TEXT NOT NULL,
-  type            TEXT NOT NULL, -- 'sale' | 'death' | 'retained'
+  type            TEXT NOT NULL,
   count           INTEGER NOT NULL,
   weightGrams     INTEGER,
   pricePerKgCents INTEGER,
@@ -147,11 +164,12 @@ CREATE TABLE IF NOT EXISTS kit_stock_movement (
 );
 CREATE INDEX IF NOT EXISTS idx_kit_stock_movement_date ON kit_stock_movement(date);
 
+-- `type` is one of: 'vaccination' | 'treatment' | 'illness' | 'checkup'
 CREATE TABLE IF NOT EXISTS health_record (
   id          TEXT PRIMARY KEY,
   rabbitId    TEXT NOT NULL,
   date        TEXT NOT NULL,
-  type        TEXT NOT NULL, -- 'vaccination' | 'treatment' | 'illness' | 'checkup'
+  type        TEXT NOT NULL,
   description TEXT NOT NULL,
   nextDueDate TEXT,
   createdAt   TEXT NOT NULL,
@@ -159,11 +177,13 @@ CREATE TABLE IF NOT EXISTS health_record (
 );
 CREATE INDEX IF NOT EXISTS idx_health_record_rabbitId ON health_record(rabbitId);
 
+-- `type` is one of: 'income' | 'expense'
+-- `category` is one of: 'sale' | 'purchase' | 'feed' | 'vet' | 'equipment' | 'other'
 CREATE TABLE IF NOT EXISTS transaction_ledger (
   id            TEXT PRIMARY KEY,
   date          TEXT NOT NULL,
-  type          TEXT NOT NULL, -- 'income' | 'expense'
-  category      TEXT NOT NULL, -- 'sale' | 'purchase' | 'feed' | 'vet' | 'equipment' | 'other'
+  type          TEXT NOT NULL,
+  category      TEXT NOT NULL,
   amountCents   INTEGER NOT NULL,
   notes         TEXT,
   rabbitId      TEXT,

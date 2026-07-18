@@ -9,6 +9,8 @@ import { DoeStateBadge, MateCell } from "../components/doe-state-menu";
 import { computeDoeBoardRow } from "@/lib/does-board";
 import type { DoeState } from "@/lib/enums";
 import type { LocalSettings } from "../db/types";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function MatingPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -32,11 +34,26 @@ export function MatingPage({ locale }: { locale: Locale }) {
     void load();
   }, [load]);
 
+  const does = data?.does ?? [];
+  const matingLog = data?.matingLog ?? [];
+  const settings = data?.settings;
+
+  const doesSort = useSortableRows(does, {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    doeState: { type: "string", value: (r) => r.doeState },
+  });
+  const matingLogSort = useSortableRows(matingLog, {
+    tag: { type: "tag", value: (r) => r.doeTagId },
+    breed: { type: "string", value: (r) => r.doeBreed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    doeState: { type: "string", value: (r) => r.doeState },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { does, matingLog, settings } = data;
 
   return (
     <div className="space-y-6">
@@ -61,15 +78,36 @@ export function MatingPage({ locale }: { locale: Locale }) {
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3 hidden md:table-cell">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <SortableTh
+                  label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                  sortKey="tag"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                  className="px-4 py-3"
+                />
+                <SortableTh
+                  label={locale === "ar" ? "النوع" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                  className="px-4 py-3 hidden md:table-cell"
+                />
+                <SortableTh
+                  label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                  sortKey="doeState"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                  className="px-4 py-3"
+                />
                 <th className="px-4 py-3">{locale === "ar" ? "التلقيح" : "Mating"}</th>
               </tr>
             </thead>
             <tbody>
-              {does.map((doe, index) => {
-                const { current, canMate } = computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings);
+              {doesSort.sorted.map((doe, index) => {
+                const { current, canMate } = computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings!);
                 const b = doe.breedings[0];
 
                 return (
@@ -108,15 +146,50 @@ export function MatingPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr>
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                  <SortableTh
+                    label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                    sortKey="tag"
+                    activeSortKey={matingLogSort.sortKey}
+                    direction={matingLogSort.direction}
+                    onSort={matingLogSort.toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <SortableTh
+                    label={locale === "ar" ? "النوع" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={matingLogSort.sortKey}
+                    direction={matingLogSort.direction}
+                    onSort={matingLogSort.toggleSort}
+                    className="px-4 py-3 hidden md:table-cell"
+                  />
+                  <SortableTh
+                    label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                    sortKey="buckTag"
+                    activeSortKey={matingLogSort.sortKey}
+                    direction={matingLogSort.direction}
+                    onSort={matingLogSort.toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <SortableTh
+                    label={locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}
+                    sortKey="matingDate"
+                    activeSortKey={matingLogSort.sortKey}
+                    direction={matingLogSort.direction}
+                    onSort={matingLogSort.toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <SortableTh
+                    label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                    sortKey="doeState"
+                    activeSortKey={matingLogSort.sortKey}
+                    direction={matingLogSort.direction}
+                    onSort={matingLogSort.toggleSort}
+                    className="px-4 py-3"
+                  />
                 </tr>
               </thead>
               <tbody>
-                {matingLog.map((log, index) => (
+                {matingLogSort.sorted.map((log, index) => (
                   <tr key={log.id} className="hover:bg-muted/40">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>

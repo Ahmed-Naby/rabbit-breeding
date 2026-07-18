@@ -10,6 +10,8 @@ import { enqueue } from "../sync/outbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 import type { LocalRabbit } from "../db/types";
 
 export function MortalityPage({ locale }: { locale: Locale }) {
@@ -99,11 +101,48 @@ export function MortalityPage({ locale }: { locale: Locale }) {
     }
   };
 
+  const activeMothers = data?.activeMothers ?? [];
+  const activeBucks = data?.activeBucks ?? [];
+  const activeStock = data?.activeStock ?? [];
+  const deceasedRabbits = data?.deceasedRabbits ?? [];
+  const culledRabbits = data?.culledRabbits ?? [];
+  const nursingDoes = data?.nursingDoes ?? [];
+  const availableWeanedStock = data?.availableWeanedStock ?? 0;
+
+  const nursingSort = useSortableRows(nursingDoes, {
+    tag: { type: "tag", value: (r) => r.doe.tagId },
+    alive: { type: "number", value: (r) => r.litter.bornAlive },
+    dead: { type: "number", value: (r) => r.litter.bornDead },
+  });
+  const mothersSort = useSortableRows(activeMothers, {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+  });
+  const bucksSort = useSortableRows(activeBucks, {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+  });
+  const stockSort = useSortableRows(activeStock, {
+    sex: { type: "string", value: (r) => r.sex },
+    breed: { type: "string", value: (r) => r.breed },
+    cage: { type: "tag", value: (r) => r.cage },
+  });
+  const deceasedSort = useSortableRows(deceasedRabbits, {
+    date: { type: "date", value: (r) => r.updatedAt },
+    tag: { type: "tag", value: (r) => r.retiredTagId ?? r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    sex: { type: "string", value: (r) => r.sex },
+  });
+  const culledSort = useSortableRows(culledRabbits, {
+    date: { type: "date", value: (r) => r.updatedAt },
+    tag: { type: "tag", value: (r) => r.retiredTagId ?? r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    sex: { type: "string", value: (r) => r.sex },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock } = data;
 
   return (
     <div className="space-y-8">
@@ -127,14 +166,35 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.mortality.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colAlive}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colDead}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colMotherTag}
+                    sortKey="tag"
+                    activeSortKey={nursingSort.sortKey}
+                    direction={nursingSort.direction}
+                    onSort={nursingSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colAlive}
+                    sortKey="alive"
+                    activeSortKey={nursingSort.sortKey}
+                    direction={nursingSort.direction}
+                    onSort={nursingSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colDead}
+                    sortKey="dead"
+                    activeSortKey={nursingSort.sortKey}
+                    direction={nursingSort.direction}
+                    onSort={nursingSort.toggleSort}
+                  />
                   <th className="px-4 py-3 text-center w-48">{t.mortality.colRecordDeath}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {nursingDoes.map(({ doe, breedingId, litter }, i) => {
+                {nursingSort.sorted.map(({ doe, breedingId, litter }, i) => {
                   const countInput = nursingCounts[breedingId] || 1;
                   return (
                     <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
@@ -221,13 +281,27 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colMotherTag}
+                    sortKey="tag"
+                    activeSortKey={mothersSort.sortKey}
+                    direction={mothersSort.direction}
+                    onSort={mothersSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colBreed}
+                    sortKey="breed"
+                    activeSortKey={mothersSort.sortKey}
+                    direction={mothersSort.direction}
+                    onSort={mothersSort.toggleSort}
+                  />
                   <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {activeMothers.map((r, i) => (
+                {mothersSort.sorted.map((r, i) => (
                   <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
@@ -264,13 +338,27 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colBuckTag}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colBreed}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colBuckTag}
+                    sortKey="tag"
+                    activeSortKey={bucksSort.sortKey}
+                    direction={bucksSort.direction}
+                    onSort={bucksSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colBreed}
+                    sortKey="breed"
+                    activeSortKey={bucksSort.sortKey}
+                    direction={bucksSort.direction}
+                    onSort={bucksSort.toggleSort}
+                  />
                   <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {activeBucks.map((r, i) => (
+                {bucksSort.sorted.map((r, i) => (
                   <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
@@ -307,14 +395,35 @@ export function MortalityPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colSex}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colStrainBreed}</th>
-                  <th className="px-4 py-3 text-center">{t.mortality.colCage}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colSex}
+                    sortKey="sex"
+                    activeSortKey={stockSort.sortKey}
+                    direction={stockSort.direction}
+                    onSort={stockSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colStrainBreed}
+                    sortKey="breed"
+                    activeSortKey={stockSort.sortKey}
+                    direction={stockSort.direction}
+                    onSort={stockSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.mortality.colCage}
+                    sortKey="cage"
+                    activeSortKey={stockSort.sortKey}
+                    direction={stockSort.direction}
+                    onSort={stockSort.toggleSort}
+                  />
                   <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {activeStock.map((r, i) => (
+                {stockSort.sorted.map((r, i) => (
                   <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 text-center">
@@ -353,14 +462,42 @@ export function MortalityPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "السلالة" : "Breed"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "الجنس" : "Sex"}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "التاريخ" : "Date"}
+                    sortKey="date"
+                    activeSortKey={deceasedSort.sortKey}
+                    direction={deceasedSort.direction}
+                    onSort={deceasedSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}
+                    sortKey="tag"
+                    activeSortKey={deceasedSort.sortKey}
+                    direction={deceasedSort.direction}
+                    onSort={deceasedSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "السلالة" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={deceasedSort.sortKey}
+                    direction={deceasedSort.direction}
+                    onSort={deceasedSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "الجنس" : "Sex"}
+                    sortKey="sex"
+                    activeSortKey={deceasedSort.sortKey}
+                    direction={deceasedSort.direction}
+                    onSort={deceasedSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {deceasedRabbits.map((entry) => (
+                {deceasedSort.sorted.map((entry) => (
                   <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center">
                       <LocalDate date={new Date(entry.updatedAt)} />
@@ -391,14 +528,42 @@ export function MortalityPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "السلالة" : "Breed"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "الجنس" : "Sex"}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "التاريخ" : "Date"}
+                    sortKey="date"
+                    activeSortKey={culledSort.sortKey}
+                    direction={culledSort.direction}
+                    onSort={culledSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}
+                    sortKey="tag"
+                    activeSortKey={culledSort.sortKey}
+                    direction={culledSort.direction}
+                    onSort={culledSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "السلالة" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={culledSort.sortKey}
+                    direction={culledSort.direction}
+                    onSort={culledSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "الجنس" : "Sex"}
+                    sortKey="sex"
+                    activeSortKey={culledSort.sortKey}
+                    direction={culledSort.direction}
+                    onSort={culledSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {culledRabbits.map((entry) => (
+                {culledSort.sorted.map((entry) => (
                   <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center">
                       <LocalDate date={new Date(entry.updatedAt)} />

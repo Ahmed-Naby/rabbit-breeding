@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toDateInputValue } from "@/lib/dates";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function FinancePage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -112,6 +114,14 @@ export function FinancePage({ locale }: { locale: Locale }) {
       ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-50"
       : "border-red-200 bg-red-50 text-red-950 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-50",
   };
+
+  const transactionsSort = useSortableRows(transactions, {
+    date: { type: "date", value: (tr) => tr.date },
+    type: { type: "string", value: (tr) => tr.type },
+    category: { type: "string", value: (tr) => tr.category },
+    amount: { type: "number", value: (tr) => tr.amountCents },
+    notes: { type: "string", value: (tr) => tr.notes },
+  });
 
   return (
     <div className="space-y-6">
@@ -248,16 +258,51 @@ export function FinancePage({ locale }: { locale: Locale }) {
                 <table className="w-full text-sm text-left rtl:text-right border-collapse">
                   <thead className="bg-muted text-muted-foreground text-xs uppercase">
                     <tr className="border-b">
-                      <th className="px-4 py-3">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                      <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Type"}</th>
-                      <th className="px-4 py-3">{locale === "ar" ? "الفئة" : "Category"}</th>
-                      <th className="px-4 py-3 text-center">{locale === "ar" ? "المبلغ" : "Amount"}</th>
-                      <th className="px-4 py-3">{locale === "ar" ? "البيان" : "Description / Notes"}</th>
+                      <SortableTh
+                        className="px-4 py-3"
+                        label={locale === "ar" ? "التاريخ" : "Date"}
+                        sortKey="date"
+                        activeSortKey={transactionsSort.sortKey}
+                        direction={transactionsSort.direction}
+                        onSort={transactionsSort.toggleSort}
+                      />
+                      <SortableTh
+                        className="px-4 py-3"
+                        label={locale === "ar" ? "النوع" : "Type"}
+                        sortKey="type"
+                        activeSortKey={transactionsSort.sortKey}
+                        direction={transactionsSort.direction}
+                        onSort={transactionsSort.toggleSort}
+                      />
+                      <SortableTh
+                        className="px-4 py-3"
+                        label={locale === "ar" ? "الفئة" : "Category"}
+                        sortKey="category"
+                        activeSortKey={transactionsSort.sortKey}
+                        direction={transactionsSort.direction}
+                        onSort={transactionsSort.toggleSort}
+                      />
+                      <SortableTh
+                        className="px-4 py-3 text-center"
+                        label={locale === "ar" ? "المبلغ" : "Amount"}
+                        sortKey="amount"
+                        activeSortKey={transactionsSort.sortKey}
+                        direction={transactionsSort.direction}
+                        onSort={transactionsSort.toggleSort}
+                      />
+                      <SortableTh
+                        className="px-4 py-3"
+                        label={locale === "ar" ? "البيان" : "Description / Notes"}
+                        sortKey="notes"
+                        activeSortKey={transactionsSort.sortKey}
+                        direction={transactionsSort.direction}
+                        onSort={transactionsSort.toggleSort}
+                      />
                       <th className="px-4 py-3 w-12 text-center" />
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {transactions.map((tr) => (
+                    {transactionsSort.sorted.map((tr) => (
                       <tr key={tr.id} className="hover:bg-muted/40">
                         <td className="px-4 py-3.5">
                           <LocalDate date={new Date(tr.date)} />

@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Rabbit as RabbitIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
@@ -89,32 +83,27 @@ export default async function DoesPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center" rowSpan={2}>{t.does.colIndex}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colMotherTag}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colBreed}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colDoeState}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colMate}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colMatingDate}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colTestDate}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colTestResult}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colKindlingDate}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colKindle}</TableHead>
-                <TableHead className="text-center" colSpan={2}>{t.does.colBornCount}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colWean}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colWeanedCount}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colWeaningDate}</TableHead>
-                <TableHead className="text-center" rowSpan={2}>{t.does.colClear}</TableHead>
-              </TableRow>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.does.colBornAlive}</TableHead>
-                <TableHead className="text-center">{t.does.colBornDead}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map((doe, i) => {
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.does.colIndex, className: "text-center", sortable: false },
+              { key: "doeTag", label: t.does.colMotherTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.does.colBreed, type: "string", className: "text-center" },
+              { key: "doeState", label: t.does.colDoeState, type: "string", className: "text-center" },
+              { key: "mate", label: t.does.colMate, type: "tag", className: "text-center" },
+              { key: "matingDate", label: t.does.colMatingDate, type: "date", className: "text-center" },
+              { key: "testDate", label: t.does.colTestDate, type: "date", className: "text-center" },
+              { key: "testResult", label: t.does.colTestResult, className: "text-center", sortable: false },
+              { key: "kindlingDate", label: t.does.colKindlingDate, type: "date", className: "text-center" },
+              { key: "kindle", label: t.does.colKindle, className: "text-center", sortable: false },
+              { key: "bornAlive", label: t.does.colBornAlive, type: "number", className: "text-center" },
+              { key: "bornDead", label: t.does.colBornDead, type: "number", className: "text-center" },
+              { key: "wean", label: t.does.colWean, className: "text-center", sortable: false },
+              { key: "weanedCount", label: t.does.colWeanedCount, type: "number", className: "text-center" },
+              { key: "weaningDate", label: t.does.colWeaningDate, type: "date", className: "text-center" },
+              { key: "clear", label: t.does.colClear, className: "text-center", sortable: false },
+            ]}
+            rows={does.map((doe, i) => {
                 // `b` is undefined for a doe with no breeding row yet (just
                 // reached mating weight, never bred before). She still
                 // renders through this same row — every cell but "تلقيح"
@@ -144,7 +133,22 @@ export default async function DoesPage() {
                   })),
                   settings
                 );
-                return (
+                return {
+                  key: doe.id,
+                  sortValues: {
+                    doeTag: doe.tagId,
+                    breed: doe.breed,
+                    doeState: doe.doeState,
+                    mate: b?.buckTagId ?? null,
+                    matingDate: b?.matingDate,
+                    testDate,
+                    kindlingDate,
+                    bornAlive: countsRow?.litter?.bornAlive,
+                    bornDead: countsRow?.litter?.bornDead,
+                    weanedCount: countsRow?.litter?.weaned,
+                    weaningDate: countsRow?.litter?.weaningDate,
+                  },
+                  node: (
                   <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -268,10 +272,10 @@ export default async function DoesPage() {
                       ) : null}
                     </TableCell>
                   </TableRow>
-                );
+                  ),
+                };
               })}
-            </TableBody>
-          </Table>
+          />
         </div>
       )}
     </div>

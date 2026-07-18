@@ -69,7 +69,7 @@ async function refreshPendingCount(db: SQLiteDBConnection) {
 
 // --- fetch helper ---------------------------------------------------------
 
-async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
+export async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(`${SYNC_API_BASE_URL}${path}`, {
     cache: "no-store",
     ...init,
@@ -94,7 +94,13 @@ async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
 
 // --- device/cursor bookkeeping ---------------------------------------------
 
-type CursorRow = { id: 1; deviceId: string; since: string | null; lastSyncAt: string | null };
+type CursorRow = {
+  id: 1;
+  deviceId: string;
+  since: string | null;
+  lastSyncAt: string | null;
+  lastResetAt: string | null;
+};
 
 async function getOrInitCursor(db: SQLiteDBConnection): Promise<CursorRow> {
   const existing = await queryOne<CursorRow>(db, "SELECT * FROM sync_cursor WHERE id = 1");
@@ -104,7 +110,28 @@ async function getOrInitCursor(db: SQLiteDBConnection): Promise<CursorRow> {
   await run(db, "INSERT INTO sync_cursor (id, deviceId, since, lastSyncAt) VALUES (1, ?, NULL, NULL)", [
     deviceId,
   ]);
-  return { id: 1, deviceId, since: null, lastSyncAt: null };
+  return { id: 1, deviceId, since: null, lastSyncAt: null, lastResetAt: null };
+}
+
+/**
+ * Wipes every local table except sync_cursor (the deviceId and the
+ * resetAt/since bookkeeping this same call is about to overwrite live
+ * there) — used when pull() detects the server's Settings.dataResetAt has
+ * moved past what this device last saw, meaning the online database was
+ * wiped and this device's mirror (and any queued-but-unsynced outbox ops,
+ * which would now reference rows that no longer exist server-side) needs
+ * to be discarded rather than incrementally merged.
+ */
+async function wipeLocalMirror(): Promise<void> {
+  await withTransaction(async (db) => {
+    const tables = await queryAll<{ name: string }>(
+      db,
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata', 'sync_cursor')"
+    );
+    for (const { name } of tables) {
+      await run(db, `DELETE FROM "${name}"`);
+    }
+  });
 }
 
 // --- pull --------------------------------------------------------------
@@ -225,7 +252,19 @@ export async function pull(): Promise<boolean> {
   const path = cursor.since
     ? `/api/sync/pull?since=${encodeURIComponent(cursor.since)}&_cb=${cb}`
     : `/api/sync/bootstrap?_cb=${cb}`;
-  const data = (await syncFetch(path)) as PullResponse;
+  let data = (await syncFetch(path)) as PullResponse;
+
+  let serverResetAt = (data.settings?.dataResetAt as string | null | undefined) ?? null;
+  if (serverResetAt && serverResetAt !== cursor.lastResetAt) {
+    // The online database was wiped since our last sync (Danger Zone's
+    // "wipe online database" action) — this device's mirror, and any
+    // outbox ops queued against rows that no longer exist server-side, are
+    // stale. Discard everything locally and re-fetch fresh via a full
+    // bootstrap rather than trying to merge whatever partial delta we just got.
+    await wipeLocalMirror();
+    data = (await syncFetch(`/api/sync/bootstrap?_cb=${Date.now()}`)) as PullResponse;
+    serverResetAt = (data.settings?.dataResetAt as string | null | undefined) ?? null;
+  }
 
   const set: { statement: string; values?: any[] }[] = [];
 
@@ -366,8 +405,27 @@ export async function pull(): Promise<boolean> {
   }
 
   if (data.breeds) {
-    set.push({ statement: "DELETE FROM breed", values: [] });
+    // Server always returns the *full* breed list (see runPull's unfiltered
+    // findMany), so this used to be a blanket "DELETE FROM breed" + reinsert
+    // to also propagate deletions/renames from other devices. But pull()
+    // runs before push() in syncNow(), so a breed just added on this device
+    // (local-ops.ts's addBreed, optimistically inserted under a
+    // "local-<cuid>" placeholder id) hadn't reached the server yet, and the
+    // blanket delete wiped it out of the local list — a visible
+    // appears-then-disappears flicker — before the very next push() could
+    // land it. Scope the delete to already-synced rows only, and reconcile
+    // each placeholder by name once its authoritative counterpart shows up,
+    // mirroring applyPulledWeightRecord's local-% cleanup above.
+    set.push({ statement: "DELETE FROM breed WHERE id NOT LIKE 'local-%'", values: [] });
     for (const b of data.breeds) {
+      // Placeholder cleanup runs BEFORE the insert (same order as
+      // applyPulledWeightRecord above) so that even a server id that
+      // itself matches the placeholder pattern can never delete the row
+      // it just arrived as.
+      set.push({
+        statement: "DELETE FROM breed WHERE id LIKE 'local-%' AND name = ?",
+        values: [b.name],
+      });
       set.push({
         statement: "INSERT OR REPLACE INTO breed (id, name, createdAt) VALUES (?, ?, ?)",
         values: [b.id, b.name, b.createdAt],
@@ -401,8 +459,8 @@ export async function pull(): Promise<boolean> {
   const hasChanges = set.length > 0;
 
   set.push({
-    statement: "UPDATE sync_cursor SET since = ?, lastSyncAt = ? WHERE id = 1",
-    values: [data.serverTime, nowIso()],
+    statement: "UPDATE sync_cursor SET since = ?, lastSyncAt = ?, lastResetAt = ? WHERE id = 1",
+    values: [data.serverTime, nowIso(), serverResetAt],
   });
 
   if (set.length > 0) {

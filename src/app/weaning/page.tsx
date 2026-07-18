@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Milk } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { weaningDueDate, survivalRate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
@@ -103,23 +97,33 @@ export default async function WeaningPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
-                <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBreed}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBuckTag}</TableHead>
-                <TableHead className="text-center">{t.weaning.colKindlingDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colExpectedWeaningDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.weaning.colDoeState}</TableHead>
-                <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
-                <TableHead className="text-center">{t.weaning.colDead}</TableHead>
-                <TableHead className="text-center">{t.weaning.colWean}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map(({ doe, litterRow, dueDate }, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.weaning.colIndex, className: "text-center", sortable: false },
+              { key: "doeTag", label: t.weaning.colMotherTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.weaning.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "buckTag", label: t.weaning.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+              { key: "kindlingDate", label: t.weaning.colKindlingDate, type: "date", className: "text-center" },
+              { key: "dueDate", label: t.weaning.colExpectedWeaningDate, type: "date", className: "hidden text-center sm:table-cell" },
+              { key: "doeState", label: t.weaning.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "alive", label: t.weaning.colAlive, type: "number", className: "text-center" },
+              { key: "dead", label: t.weaning.colDead, type: "number", className: "text-center" },
+              { key: "wean", label: t.weaning.colWean, className: "text-center", sortable: false },
+            ]}
+            rows={does.map(({ doe, litterRow, dueDate }, i) => ({
+              key: doe.id,
+              sortValues: {
+                doeTag: doe.tagId,
+                breed: doe.breed,
+                buckTag: litterRow.buck?.tagId,
+                kindlingDate: litterRow.actualKindlingDate,
+                dueDate,
+                doeState: doe.doeState,
+                alive: litterRow.litter?.bornAlive,
+                dead: litterRow.litter?.bornDead,
+              },
+              node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -151,9 +155,9 @@ export default async function WeaningPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
 
@@ -167,26 +171,38 @@ export default async function WeaningPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.weaning.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colMotherTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBreed}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colBuckTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colKindlingDate}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colWeaningDate}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colAlive}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colDead}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colWeanedCount}</TableHead>
-                  <TableHead className="text-center">{t.weaning.colWeaningWeight}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.weaning.colSurvivalRate}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {weanedLitters.map((l, i) => {
-                  const r = survivalRate(l.bornAlive, l.weaned);
-                  return (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.weaning.colIndex, className: "text-center", sortable: false },
+                { key: "doeTag", label: t.weaning.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.weaning.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                { key: "buckTag", label: t.weaning.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+                { key: "kindlingDate", label: t.weaning.colKindlingDate, type: "date", className: "hidden text-center sm:table-cell" },
+                { key: "weaningDate", label: t.weaning.colWeaningDate, type: "date", className: "text-center" },
+                { key: "alive", label: t.weaning.colAlive, type: "number", className: "text-center" },
+                { key: "dead", label: t.weaning.colDead, type: "number", className: "text-center" },
+                { key: "weanedCount", label: t.weaning.colWeanedCount, type: "number", className: "text-center" },
+                { key: "weaningWeight", label: t.weaning.colWeaningWeight, type: "number", className: "text-center" },
+                { key: "survivalRate", label: t.weaning.colSurvivalRate, type: "number", className: "hidden text-center sm:table-cell" },
+              ]}
+              rows={weanedLitters.map((l, i) => {
+                const r = survivalRate(l.bornAlive, l.weaned);
+                return {
+                  key: l.breedingId,
+                  sortValues: {
+                    doeTag: l.breeding.doe.tagId,
+                    breed: l.breeding.doe.breed,
+                    buckTag: l.breeding.buck?.tagId,
+                    kindlingDate: l.kindlingDate,
+                    weaningDate: l.weaningDate,
+                    alive: l.bornAlive,
+                    dead: l.bornDead,
+                    weanedCount: l.weaned,
+                    weaningWeight: l.weaningWeightGrams,
+                    survivalRate: r,
+                  },
+                  node: (
                     <TableRow key={l.breedingId} className="[&>td]:border-x [&>td]:text-center">
                       <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                       <TableCell className="font-medium">
@@ -231,10 +247,10 @@ export default async function WeaningPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ),
+                };
+              })}
+            />
           </div>
         )}
       </div>

@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { LocalRabbit } from "../db/types";
 import { toDateInputValue } from "@/lib/dates";
 import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function HealthPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -97,6 +99,13 @@ export function HealthPage({ locale }: { locale: Locale }) {
   const upcomingReminders = records.filter(
     (r) => r.nextDueDate && new Date(r.nextDueDate).getTime() >= new Date().setUTCHours(0,0,0,0)
   );
+
+  const recordsSort = useSortableRows(records, {
+    date: { type: "date", value: (r) => r.date },
+    rabbit: { type: "tag", value: (r) => r.rabbitTag },
+    type: { type: "string", value: (r) => r.type },
+    description: { type: "string", value: (r) => r.description },
+  });
 
   return (
     <div className="space-y-6">
@@ -269,15 +278,43 @@ export function HealthPage({ locale }: { locale: Locale }) {
                   <table className="w-full text-sm text-left rtl:text-right border-collapse">
                     <thead className="bg-muted text-muted-foreground text-xs uppercase">
                       <tr className="border-b">
-                        <th className="px-4 py-3">{locale === "ar" ? "التاريخ" : "Date"}</th>
-                        <th className="px-4 py-3">{locale === "ar" ? "الأرنب" : "Rabbit"}</th>
-                        <th className="px-4 py-3">{locale === "ar" ? "النوع" : "Type"}</th>
-                        <th className="px-4 py-3">{locale === "ar" ? "التشخيص/العلاج" : "Treatment details"}</th>
+                        <SortableTh
+                          className="px-4 py-3"
+                          label={locale === "ar" ? "التاريخ" : "Date"}
+                          sortKey="date"
+                          activeSortKey={recordsSort.sortKey}
+                          direction={recordsSort.direction}
+                          onSort={recordsSort.toggleSort}
+                        />
+                        <SortableTh
+                          className="px-4 py-3"
+                          label={locale === "ar" ? "الأرنب" : "Rabbit"}
+                          sortKey="rabbit"
+                          activeSortKey={recordsSort.sortKey}
+                          direction={recordsSort.direction}
+                          onSort={recordsSort.toggleSort}
+                        />
+                        <SortableTh
+                          className="px-4 py-3"
+                          label={locale === "ar" ? "النوع" : "Type"}
+                          sortKey="type"
+                          activeSortKey={recordsSort.sortKey}
+                          direction={recordsSort.direction}
+                          onSort={recordsSort.toggleSort}
+                        />
+                        <SortableTh
+                          className="px-4 py-3"
+                          label={locale === "ar" ? "التشخيص/العلاج" : "Treatment details"}
+                          sortKey="description"
+                          activeSortKey={recordsSort.sortKey}
+                          direction={recordsSort.direction}
+                          onSort={recordsSort.toggleSort}
+                        />
                         <th className="px-4 py-3 w-12 text-center" />
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {records.map((r) => (
+                      {recordsSort.sorted.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/40">
                           <td className="px-4 py-3.5">
                             <LocalDate date={new Date(r.date)} />

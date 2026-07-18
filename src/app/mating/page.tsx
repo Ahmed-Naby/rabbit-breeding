@@ -2,14 +2,8 @@ import Link from "next/link";
 import { HeartHandshake } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { rebreedDueDate, daysUntil } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
@@ -100,20 +94,21 @@ export default async function MatingPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.mating.colIndex}</TableHead>
-                <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.mating.colBreed}</TableHead>
-                <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
-                <TableHead className="text-center">{t.mating.colMate}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map((doe, i) => {
-                const b = doe.breedingsAsDoe[0];
-                return (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.mating.colIndex, className: "text-center", sortable: false },
+              { key: "tag", label: t.mating.colMotherTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.mating.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "doeState", label: t.mating.colDoeState, type: "string", className: "text-center" },
+              { key: "mate", label: t.mating.colMate, className: "text-center", sortable: false },
+            ]}
+            rows={does.map((doe, i) => {
+              const b = doe.breedingsAsDoe[0];
+              return {
+                key: doe.id,
+                sortValues: { tag: doe.tagId, breed: doe.breed, doeState: doe.doeState },
+                node: (
                   <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -135,10 +130,10 @@ export default async function MatingPage() {
                       />
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                ),
+              };
+            })}
+          />
         </div>
       )}
 
@@ -152,19 +147,26 @@ export default async function MatingPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mating.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mating.colMotherTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.mating.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mating.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.mating.colMatingDate}</TableHead>
-                  <TableHead className="text-center">{t.mating.colDoeState}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matingLog.map((row, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mating.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mating.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mating.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                { key: "buckTag", label: t.mating.colBuckTag, type: "tag", className: "text-center" },
+                { key: "matingDate", label: t.mating.colMatingDate, type: "date", className: "text-center" },
+                { key: "doeState", label: t.mating.colDoeState, type: "string", className: "text-center" },
+              ]}
+              rows={matingLog.map((row, i) => ({
+                key: row.id,
+                sortValues: {
+                  tag: row.doe.tagId,
+                  breed: row.doe.breed,
+                  buckTag: row.buck?.tagId,
+                  matingDate: row.matingDate,
+                  doeState: row.doe.doeState,
+                },
+                node: (
                   <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -181,9 +183,9 @@ export default async function MatingPage() {
                       <DoeStateBadge current={row.doe.doeState} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>

@@ -10,6 +10,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { DoeStateBadge } from "../components/doe-state-menu";
 import { formatWeight } from "@/lib/units";
 import { toast } from "sonner";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function MothersPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale).mothers;
@@ -94,11 +96,28 @@ export function MothersPage({ locale }: { locale: Locale }) {
     }
   };
 
+  const does = data?.does ?? [];
+  const pendingMothers = data?.pendingMothers ?? [];
+  const breedOptions = data?.breedOptions ?? [];
+  const settings = data?.settings;
+
+  const pendingSort = useSortableRows(pendingMothers, {
+    breed: { type: "string", value: (r) => r.breed },
+    weight: { type: "number", value: (r) => r.weightKg },
+    cage: { type: "tag", value: (r) => r.cage },
+  });
+  const doesSort = useSortableRows(does, {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    addedDate: { type: "date", value: (r) => r.acquiredDate },
+    weight: { type: "number", value: (r) => r.weightGrams },
+    status: { type: "string", value: (r) => r.status },
+    doeState: { type: "string", value: (r) => r.doeState },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { does, pendingMothers, breedOptions, settings } = data;
 
   return (
     <div className="space-y-6">
@@ -182,14 +201,35 @@ export function MothersPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{t.colBreed}</th>
-                  <th className="px-4 py-3 text-center">{t.colWeight}</th>
-                  <th className="px-4 py-3 text-center">{t.colCage}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colBreed}
+                    sortKey="breed"
+                    activeSortKey={pendingSort.sortKey}
+                    direction={pendingSort.direction}
+                    onSort={pendingSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colWeight}
+                    sortKey="weight"
+                    activeSortKey={pendingSort.sortKey}
+                    direction={pendingSort.direction}
+                    onSort={pendingSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colCage}
+                    sortKey="cage"
+                    activeSortKey={pendingSort.sortKey}
+                    direction={pendingSort.direction}
+                    onSort={pendingSort.toggleSort}
+                  />
                   <th className="px-4 py-3 text-center">{t.colMotherTag}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {pendingMothers.map((r) => {
+                {pendingSort.sorted.map((r) => {
                   const formId = `finalize-mother-${r.id}`;
                   return (
                     <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
@@ -254,16 +294,58 @@ export function MothersPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colIndex}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colTag}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 w-20 md:w-auto text-center">{t.colBreed}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colAddedDate}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colWeight}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colStatus}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colDoeState}</th>
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={t.colTag}
+                    sortKey="tag"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 w-20 md:w-auto text-center"
+                    label={t.colBreed}
+                    sortKey="breed"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={t.colAddedDate}
+                    sortKey="addedDate"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={t.colWeight}
+                    sortKey="weight"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={t.colStatus}
+                    sortKey="status"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={t.colDoeState}
+                    sortKey="doeState"
+                    activeSortKey={doesSort.sortKey}
+                    direction={doesSort.direction}
+                    onSort={doesSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {does.map((doe, i) => (
+                {doesSort.sorted.map((doe, i) => (
                   <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">

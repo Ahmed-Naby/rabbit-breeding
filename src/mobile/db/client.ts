@@ -6,7 +6,7 @@ import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from "@cap
 // reading once, at first-open, via `applySchema` below.
 import schemaSql from "./schema.sql?raw";
 
-const DB_NAME = "rabbittrack";
+export const DB_NAME = "rabbittrack";
 
 export const sqlite = new SQLiteConnection(CapacitorSQLite);
 
@@ -50,7 +50,10 @@ async function openConnection(): Promise<SQLiteDBConnection> {
 // explicit, individually-guarded ALTER TABLE. Errors (column already
 // exists) are swallowed; this only ever needs to succeed once per device.
 async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
-  const migrations = [`ALTER TABLE rabbit ADD COLUMN retiredTagId TEXT`];
+  const migrations = [
+    `ALTER TABLE rabbit ADD COLUMN retiredTagId TEXT`,
+    `ALTER TABLE sync_cursor ADD COLUMN lastResetAt TEXT`,
+  ];
   for (const sql of migrations) {
     try {
       await db.execute(sql);
@@ -81,6 +84,24 @@ export function getDb(): Promise<SQLiteDBConnection> {
     });
   }
   return dbPromise;
+}
+
+/**
+ * Closes the singleton connection (if open) and, critically, resets the
+ * cached `dbPromise` so the next getDb() call transparently reopens a fresh
+ * one. Callers that need to close the connection out from under the plugin
+ * (e.g. restoreBackup's importFromJson, which requires no open connection)
+ * MUST go through this rather than calling sqlite.closeConnection directly —
+ * otherwise dbPromise keeps resolving to a JS handle for a connection that
+ * no longer exists underneath it, and every query after that fails with
+ * "No available connection" until a full page reload happens to occur.
+ */
+export async function closeDb(): Promise<void> {
+  dbPromise = null;
+  const isOpen = await sqlite.isConnection(DB_NAME, false);
+  if (isOpen.result) {
+    await sqlite.closeConnection(DB_NAME, false);
+  }
 }
 
 /**

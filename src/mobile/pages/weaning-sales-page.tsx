@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toDateInputValue } from "@/lib/dates";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -120,6 +122,16 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
       toast.error(err.message || "Error");
     }
   };
+
+  const ledgerSort = useSortableRows(data?.ledger ?? [], {
+    date: { type: "date", value: (r) => r.date },
+    kind: { type: "string", value: (r) => r.kind },
+    count: { type: "number", value: (r) => r.count },
+    weight: { type: "number", value: (r) => r.weightGrams },
+    pricePerKg: { type: "number", value: (r) => r.pricePerKgCents },
+    amount: { type: "number", value: (r) => r.amountCents },
+    notes: { type: "string", value: (r) => r.notes },
+  });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -313,18 +325,67 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
               <table className="w-full text-sm text-left rtl:text-right border-collapse">
                 <thead className="bg-muted text-muted-foreground text-xs uppercase">
                   <tr className="border-b">
-                    <th className="px-4 py-3">{t.weaningSales.colDate}</th>
-                    <th className="px-4 py-3">{t.weaningSales.colType}</th>
-                    <th className="px-4 py-3 text-center">{t.weaningSales.colCount}</th>
-                    <th className="px-4 py-3 text-center">{t.weaningSales.colWeight}</th>
-                    <th className="px-4 py-3 text-center">{t.weaningSales.colPricePerKg}</th>
-                    <th className="px-4 py-3 text-center">{t.weaningSales.colAmount}</th>
-                    <th className="px-4 py-3">{t.weaningSales.colNotes}</th>
+                    <SortableTh
+                      className="px-4 py-3"
+                      label={t.weaningSales.colDate}
+                      sortKey="date"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3"
+                      label={t.weaningSales.colType}
+                      sortKey="kind"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3 text-center"
+                      label={t.weaningSales.colCount}
+                      sortKey="count"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3 text-center"
+                      label={t.weaningSales.colWeight}
+                      sortKey="weight"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3 text-center"
+                      label={t.weaningSales.colPricePerKg}
+                      sortKey="pricePerKg"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3 text-center"
+                      label={t.weaningSales.colAmount}
+                      sortKey="amount"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="px-4 py-3"
+                      label={t.weaningSales.colNotes}
+                      sortKey="notes"
+                      activeSortKey={ledgerSort.sortKey}
+                      direction={ledgerSort.direction}
+                      onSort={ledgerSort.toggleSort}
+                    />
                     <th className="px-4 py-3 w-12 text-center" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {ledger.map((entry) => (
+                  {ledgerSort.sorted.map((entry) => (
                     <tr key={entry.key} className="hover:bg-muted/40">
                       <td className="px-4 py-3.5">
                         <LocalDate date={new Date(entry.date)} />

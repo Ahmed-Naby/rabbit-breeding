@@ -7,14 +7,8 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, TextField, SelectField, type Option } from "@/components/form-fields";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
@@ -165,20 +159,21 @@ export function QuickRabbitForm({
 
       {rows.length > 0 ? (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.colDate}</TableHead>
-                <TableHead className="text-center">{t.colSex}</TableHead>
-                <TableHead className="text-center">{t.colBreed}</TableHead>
-                <TableHead className="text-center">{t.colCage}</TableHead>
-                <TableHead className="text-center">{t.colWeight}</TableHead>
-                <TableHead className="text-center"></TableHead>
-                <TableHead className="text-center"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "date", label: t.colDate, type: "date", className: "text-center" },
+              { key: "sex", label: t.colSex, type: "string", className: "text-center" },
+              { key: "breed", label: t.colBreed, type: "string", className: "text-center" },
+              { key: "cage", label: t.colCage, type: "tag", className: "text-center" },
+              { key: "weight", label: t.colWeight, type: "number", className: "text-center" },
+              { key: "promote", label: "", className: "text-center", sortable: false },
+              { key: "delete", label: "", className: "text-center", sortable: false },
+            ]}
+            rows={rows.map((r) => ({
+              key: r.id,
+              sortValues: { date: r.date, sex: r.sex, breed: r.breed, cage: r.cage, weight: r.weightKg },
+              node: (
                 <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell>
                     <Link href={`/rabbits/${r.id}`} className="hover:underline">
@@ -192,9 +187,9 @@ export function QuickRabbitForm({
                     <DeleteRabbitButton id={r.id} t={t} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       ) : null}
     </div>

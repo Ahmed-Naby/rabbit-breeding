@@ -22,6 +22,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { MetricBadge } from "@/components/metric-badge";
 import { MetricCard } from "@/components/metric-card";
 import { Button } from "@/components/ui/button";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 import { toDateInputValue, fromDateInputValue } from "@/lib/dates";
 import { computeDoeFertilityStats } from "@/lib/doe-stats";
 import { getDb } from "../db/client";
@@ -60,6 +62,26 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
   useEffect(() => {
     void load();
   }, [load]);
+
+  const doeHistorySort = useSortableRows(doeHistory, {
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    testDate: { type: "date", value: (r) => r.testDate },
+    testResult: { type: "string", value: (r) => r.testResult },
+    kindlingDate: { type: "date", value: (r) => r.kindlingDate },
+    bornAlive: { type: "number", value: (r) => r.bornAlive },
+    bornDead: { type: "number", value: (r) => r.bornDead },
+    weaningDate: { type: "date", value: (r) => r.weaningDate },
+    weanedCount: { type: "number", value: (r) => r.weaned },
+  });
+
+  const buckHistorySort = useSortableRows(buckHistory, {
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    doeTag: { type: "tag", value: (r) => r.doeTagId },
+    doeBreed: { type: "string", value: (r) => r.doeBreed },
+    doeState: { type: "string", value: (r) => r.testResult },
+    bornCount: { type: "number", value: (r) => r.bornAlive },
+  });
 
   if (rabbit === undefined) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -148,19 +170,82 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.colMatingDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colBuckTag}</th>
-                  <th className="hidden md:table-cell px-4 py-3 text-center">{t.colTestDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colTestResult}</th>
-                  <th className="px-4 py-3 text-center">{t.colKindlingDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colBornAlive}</th>
-                  <th className="px-4 py-3 text-center">{t.colBornDead}</th>
-                  <th className="px-4 py-3 text-center">{t.colWeaningDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colWeanedCount}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colMatingDate}
+                    sortKey="matingDate"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colBuckTag}
+                    sortKey="buckTag"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="hidden md:table-cell px-4 py-3 text-center"
+                    label={t.colTestDate}
+                    sortKey="testDate"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colTestResult}
+                    sortKey="testResult"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colKindlingDate}
+                    sortKey="kindlingDate"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colBornAlive}
+                    sortKey="bornAlive"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colBornDead}
+                    sortKey="bornDead"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colWeaningDate}
+                    sortKey="weaningDate"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colWeanedCount}
+                    sortKey="weanedCount"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {doeHistory.map((c, i) => (
+                {doeHistorySort.sorted.map((c, i) => (
                   <tr key={c.matingDate} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3.5">
@@ -190,15 +275,50 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.colIndex}</th>
-                  <th className="px-4 py-3 text-center">{t.colMatingDate}</th>
-                  <th className="px-4 py-3 text-center">{t.colDoeTag}</th>
-                  <th className="px-4 py-3 text-center">{t.colDoeBreed}</th>
-                  <th className="px-4 py-3 text-center">{t.colDoeState}</th>
-                  <th className="px-4 py-3 text-center">{t.colBornCount}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colMatingDate}
+                    sortKey="matingDate"
+                    activeSortKey={buckHistorySort.sortKey}
+                    direction={buckHistorySort.direction}
+                    onSort={buckHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colDoeTag}
+                    sortKey="doeTag"
+                    activeSortKey={buckHistorySort.sortKey}
+                    direction={buckHistorySort.direction}
+                    onSort={buckHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colDoeBreed}
+                    sortKey="doeBreed"
+                    activeSortKey={buckHistorySort.sortKey}
+                    direction={buckHistorySort.direction}
+                    onSort={buckHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colDoeState}
+                    sortKey="doeState"
+                    activeSortKey={buckHistorySort.sortKey}
+                    direction={buckHistorySort.direction}
+                    onSort={buckHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={t.colBornCount}
+                    sortKey="bornCount"
+                    activeSortKey={buckHistorySort.sortKey}
+                    direction={buckHistorySort.direction}
+                    onSort={buckHistorySort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {buckHistory.map((c, i) => (
+                {buckHistorySort.sorted.map((c, i) => (
                   <tr key={`${c.doeId}_${c.matingDate}`} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3.5">

@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Microscope } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { pregnancyTestDate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
@@ -99,21 +93,29 @@ export default async function PregnancyTestPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colBreed}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colTestDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colDoeState}</TableHead>
-                <TableHead className="text-center">{t.pregnancyTest.colTestResult}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map(({ doe, b, testDate }, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.pregnancyTest.colIndex, className: "text-center", sortable: false },
+              { key: "doeTag", label: t.pregnancyTest.colMotherTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.pregnancyTest.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "buckTag", label: t.pregnancyTest.colBuckTag, type: "tag", className: "text-center" },
+              { key: "matingDate", label: t.pregnancyTest.colMatingDate, type: "date", className: "text-center" },
+              { key: "testDate", label: t.pregnancyTest.colTestDate, type: "date", className: "hidden text-center sm:table-cell" },
+              { key: "doeState", label: t.pregnancyTest.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "action", label: t.pregnancyTest.colTestResult, className: "text-center", sortable: false },
+            ]}
+            rows={does.map(({ doe, b, testDate }, i) => ({
+              key: doe.id,
+              sortValues: {
+                doeTag: doe.tagId,
+                breed: doe.breed,
+                buckTag: b.buck?.tagId,
+                matingDate: b.matingDate,
+                testDate,
+                doeState: doe.doeState,
+              },
+              node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -152,9 +154,9 @@ export default async function PregnancyTestPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
 
@@ -168,20 +170,28 @@ export default async function PregnancyTestPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.pregnancyTest.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colMotherTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.pregnancyTest.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colMatingDate}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colTestDate}</TableHead>
-                  <TableHead className="text-center">{t.pregnancyTest.colTestResult}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {testLog.map((row, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.pregnancyTest.colIndex, className: "text-center", sortable: false },
+                { key: "doeTag", label: t.pregnancyTest.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.pregnancyTest.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                { key: "buckTag", label: t.pregnancyTest.colBuckTag, type: "tag", className: "text-center" },
+                { key: "matingDate", label: t.pregnancyTest.colMatingDate, type: "date", className: "text-center" },
+                { key: "testDate", label: t.pregnancyTest.colTestDate, type: "date", className: "text-center" },
+                { key: "result", label: t.pregnancyTest.colTestResult, type: "string", className: "text-center" },
+              ]}
+              rows={testLog.map((row, i) => ({
+                key: row.id,
+                sortValues: {
+                  doeTag: row.doe.tagId,
+                  breed: row.doe.breed,
+                  buckTag: row.buck?.tagId,
+                  matingDate: row.matingDate,
+                  testDate: row.testDate,
+                  result: row.result,
+                },
+                node: (
                   <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -212,9 +222,9 @@ export default async function PregnancyTestPage() {
                       </span>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>

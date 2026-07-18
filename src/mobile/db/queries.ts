@@ -1030,6 +1030,240 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   return { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock };
 }
 
+export type DailyMatingRow = {
+  id: string;
+  doeId: string;
+  doeTag: string | null;
+  doeBreed: string | null;
+  buckId: string | null;
+  buckTag: string | null;
+};
+
+export type DailyPregnancyTestRow = {
+  id: string;
+  doeId: string;
+  doeTag: string | null;
+  doeBreed: string | null;
+  buckId: string | null;
+  buckTag: string | null;
+  result: string;
+};
+
+export type DailyNestBoxRow = {
+  id: string;
+  doeId: string;
+  doeTag: string | null;
+  doeBreed: string | null;
+};
+
+export type DailyKindlingRow = {
+  id: string;
+  doeId: string;
+  doeTag: string | null;
+  doeBreed: string | null;
+  buckId: string | null;
+  buckTag: string | null;
+  bornAlive: number;
+  bornDead: number;
+};
+
+export type DailyWeaningRow = {
+  id: string;
+  doeId: string;
+  doeTag: string | null;
+  doeBreed: string | null;
+  weaned: number | null;
+  weaningWeightGrams: number | null;
+};
+
+export type DailyMortalityRow = {
+  id: string;
+  sex: string;
+  tag: string | null;
+  breed: string | null;
+  status: string;
+};
+
+export type DailyLog = {
+  matings: DailyMatingRow[];
+  pregnancyTests: DailyPregnancyTestRow[];
+  nestBoxes: DailyNestBoxRow[];
+  kindlings: DailyKindlingRow[];
+  weanings: DailyWeaningRow[];
+  mortality: DailyMortalityRow[];
+};
+
+/** dayIso is a plain "YYYY-MM-DD" string — local dates are stored as ISO TEXT, so a substr(...,1,10) match is a calendar-day filter with no timezone math. */
+export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string): Promise<DailyLog> {
+  const matingRows = await queryAll<{ id: string; doeId: string; buckId: string | null }>(
+    db,
+    "SELECT id, doeId, buckId FROM breeding WHERE matingDate IS NOT NULL AND substr(matingDate, 1, 10) = ? ORDER BY matingDate DESC",
+    [dayIso]
+  );
+  const matings: DailyMatingRow[] = [];
+  for (const row of matingRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    const buck = row.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+      : null;
+    matings.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTag: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      buckId: row.buckId,
+      buckTag: buck?.tagId ?? null,
+    });
+  }
+
+  const pregnancyTestRows = await queryAll<{
+    id: string;
+    doeId: string;
+    buckId: string | null;
+    result: string;
+  }>(
+    db,
+    "SELECT id, doeId, buckId, result FROM pregnancy_test_log WHERE substr(testDate, 1, 10) = ? ORDER BY testDate DESC",
+    [dayIso]
+  );
+  const pregnancyTests: DailyPregnancyTestRow[] = [];
+  for (const row of pregnancyTestRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    const buck = row.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+      : null;
+    pregnancyTests.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTag: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      buckId: row.buckId,
+      buckTag: buck?.tagId ?? null,
+      result: row.result,
+    });
+  }
+
+  const nestBoxRows = await queryAll<{ id: string; doeId: string }>(
+    db,
+    "SELECT id, doeId FROM breeding WHERE nestBoxDate IS NOT NULL AND substr(nestBoxDate, 1, 10) = ? ORDER BY nestBoxDate DESC",
+    [dayIso]
+  );
+  const nestBoxes: DailyNestBoxRow[] = [];
+  for (const row of nestBoxRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    nestBoxes.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTag: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+    });
+  }
+
+  const kindlingRows = await queryAll<{
+    id: string;
+    doeId: string;
+    buckId: string | null;
+    bornAlive: number | null;
+    bornDead: number | null;
+  }>(
+    db,
+    `SELECT b.id, b.doeId, b.buckId, l.bornAlive, l.bornDead
+     FROM breeding b
+     LEFT JOIN litter l ON l.breedingId = b.id
+     WHERE b.actualKindlingDate IS NOT NULL AND substr(b.actualKindlingDate, 1, 10) = ?
+     ORDER BY b.actualKindlingDate DESC`,
+    [dayIso]
+  );
+  const kindlings: DailyKindlingRow[] = [];
+  for (const row of kindlingRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    const buck = row.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+      : null;
+    kindlings.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTag: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      buckId: row.buckId,
+      buckTag: buck?.tagId ?? null,
+      bornAlive: row.bornAlive ?? 0,
+      bornDead: row.bornDead ?? 0,
+    });
+  }
+
+  const weaningRows = await queryAll<{
+    id: string;
+    doeId: string;
+    weaned: number | null;
+    weaningWeightGrams: number | null;
+  }>(
+    db,
+    `SELECT l.id, b.doeId, l.weaned, l.weaningWeightGrams
+     FROM litter l
+     JOIN breeding b ON l.breedingId = b.id
+     WHERE l.weaningDate IS NOT NULL AND substr(l.weaningDate, 1, 10) = ?
+     ORDER BY l.weaningDate DESC`,
+    [dayIso]
+  );
+  const weanings: DailyWeaningRow[] = [];
+  for (const row of weaningRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    weanings.push({
+      id: row.id,
+      doeId: row.doeId,
+      doeTag: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      weaned: row.weaned,
+      weaningWeightGrams: row.weaningWeightGrams,
+    });
+  }
+
+  const mortality = await queryAll<DailyMortalityRow & { retiredTagId: string | null; tagId: string | null }>(
+    db,
+    `SELECT id, sex, tagId, retiredTagId, breed, status
+     FROM rabbit
+     WHERE status IN ('deceased', 'culled') AND substr(updatedAt, 1, 10) = ?
+     ORDER BY updatedAt DESC`,
+    [dayIso]
+  );
+
+  return {
+    matings,
+    pregnancyTests,
+    nestBoxes,
+    kindlings,
+    weanings,
+    mortality: mortality.map((r) => ({
+      id: r.id,
+      sex: r.sex,
+      tag: r.retiredTagId ?? r.tagId,
+      breed: r.breed,
+      status: r.status,
+    })),
+  };
+}
+
 export type LocalHealthRecord = {
   id: string;
   rabbitId: string;

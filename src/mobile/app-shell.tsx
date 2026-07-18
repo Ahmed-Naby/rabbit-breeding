@@ -33,6 +33,7 @@ import {
   Settings,
   FileText,
   ListChecks,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
@@ -56,6 +57,7 @@ import { StockPage } from "./pages/stock-page";
 import { FosteringPage } from "./pages/fostering-page";
 import { WeaningSalesPage } from "./pages/weaning-sales-page";
 import { MortalityPage } from "./pages/mortality-page";
+import { DailyPage } from "./pages/daily-page";
 import { RoundsPage } from "./pages/rounds-page";
 import { BucksRoundsPage } from "./pages/bucks-rounds-page";
 import { HealthPage } from "./pages/health-page";
@@ -65,6 +67,7 @@ import { SettingsPage } from "./pages/settings-page";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
+  "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/rounds": { path: "#/rounds", labelKey: "rounds", icon: ListChecks },
   "#/bucks-rounds": { path: "#/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
   "#/stock": { path: "#/stock", labelKey: "stock", icon: Sprout },
@@ -347,6 +350,7 @@ export function AppShell() {
         {/* Page Content Panel */}
         <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
+          {route === "#/daily" && <DailyPage locale={locale} />}
           {route === "#/rounds" && <RoundsPage locale={locale} />}
           {route === "#/bucks-rounds" && <BucksRoundsPage locale={locale} />}
           {route === "#/does" && <DoesPage locale={locale} />}

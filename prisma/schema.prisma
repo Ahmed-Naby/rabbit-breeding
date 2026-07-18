@@ -29,6 +29,14 @@ model Settings {
   matingWeightGrams   Int      @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
   rebreedAfterKindlingDays Int @default(0) // kindling -> earliest rebreed offset (0=مكثف, 15=نصف مكثف, 30=طبيعي)
   currency            String   @default("USD")
+  // Set (to now()) whenever the "wipe online database" danger-zone action
+  // runs. Returned to every client on every pull/bootstrap (Settings is
+  // always sent in full); a device compares this against the resetAt it
+  // last saw locally to detect that the server was wiped out from under it
+  // and needs a full local wipe + re-bootstrap rather than a normal
+  // incremental pull (which only ever adds/updates rows, never notices
+  // deletions).
+  dataResetAt         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }

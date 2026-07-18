@@ -26,6 +26,10 @@ import {
   LitterCountInput,
   ClearDoeButton,
 } from "../components/doe-state-menu";
+import { SortableTh } from "@/components/sortable-th";
+import { SortIcon } from "@/components/sort-icon";
+import { useSortableRows } from "@/lib/use-sortable-rows";
+import { cn } from "@/lib/utils";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -33,6 +37,54 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       {children}
     </div>
+  );
+}
+
+/**
+ * Like SortableTh, but for the does board's two-row `<thead>` where header
+ * cells need `rowSpan`/`colSpan` — props the shared SortableTh doesn't
+ * accept. Kept local to this page rather than changing the shared primitive.
+ */
+function SortableThRowSpan({
+  label,
+  sortKey,
+  activeSortKey,
+  direction,
+  onSort,
+  className,
+  rowSpan,
+  colSpan,
+  sortable = true,
+}: {
+  label: ReactNode;
+  sortKey: string;
+  activeSortKey: string | null;
+  direction: "asc" | "desc";
+  onSort: (key: string) => void;
+  className?: string;
+  rowSpan?: number;
+  colSpan?: number;
+  sortable?: boolean;
+}) {
+  if (!sortable) {
+    return (
+      <th className={className} rowSpan={rowSpan} colSpan={colSpan}>
+        {label}
+      </th>
+    );
+  }
+  return (
+    <th
+      className={cn(className, "cursor-pointer select-none")}
+      rowSpan={rowSpan}
+      colSpan={colSpan}
+      onClick={() => onSort(sortKey)}
+    >
+      <span className="inline-flex items-center justify-center gap-1">
+        {label}
+        <SortIcon active={activeSortKey === sortKey} direction={direction} />
+      </span>
+    </th>
   );
 }
 
@@ -51,6 +103,44 @@ export function DoesPage({ locale }: { locale: Locale }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const doesSort = useSortableRows(does ?? [], {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    doeState: { type: "string", value: (r) => r.doeState },
+    mate: {
+      type: "tag",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).current?.buckTagId ?? null,
+    },
+    matingDate: {
+      type: "date",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).current?.matingDate ?? null,
+    },
+    testDate: {
+      type: "date",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).testDate,
+    },
+    kindlingDate: {
+      type: "date",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).kindlingDate,
+    },
+    bornAlive: {
+      type: "number",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.bornAlive ?? null,
+    },
+    bornDead: {
+      type: "number",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.bornDead ?? null,
+    },
+    weanedCount: {
+      type: "number",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.weaned ?? null,
+    },
+    weaningDate: {
+      type: "date",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.weaningDate ?? null,
+    },
+  });
 
   if (does === null || settings === null) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -79,28 +169,114 @@ export function DoesPage({ locale }: { locale: Locale }) {
           <thead className="bg-muted text-muted-foreground text-xs uppercase">
             <tr className="[&>th]:border-x border-b">
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colIndex}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colMotherTag}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colBreed}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colDoeState}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colMate}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colMatingDate}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colTestDate}</th>
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colMotherTag}
+                sortKey="tag"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colBreed}
+                sortKey="breed"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colDoeState}
+                sortKey="doeState"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colMate}
+                sortKey="mate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colMatingDate}
+                sortKey="matingDate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colTestDate}
+                sortKey="testDate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colTestResult}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colKindlingDate}</th>
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colKindlingDate}
+                sortKey="kindlingDate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colKindle}</th>
               <th className="px-3 py-2 text-center border-b" colSpan={2}>{t.does.colBornCount}</th>
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colWean}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colWeanedCount}</th>
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colWeaningDate}</th>
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colWeanedCount}
+                sortKey="weanedCount"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colWeaningDate}
+                sortKey="weaningDate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colClear}</th>
             </tr>
             <tr className="[&>th]:border-x">
-              <th className="px-3 py-2 text-center border-t">{t.does.colBornAlive}</th>
-              <th className="px-3 py-2 text-center border-t">{t.does.colBornDead}</th>
+              <SortableTh
+                className="px-3 py-2 text-center border-t"
+                label={t.does.colBornAlive}
+                sortKey="bornAlive"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableTh
+                className="px-3 py-2 text-center border-t"
+                label={t.does.colBornDead}
+                sortKey="bornDead"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
             </tr>
           </thead>
           <tbody className="divide-y">
-            {does.map((doe, i) => {
+            {doesSort.sorted.map((doe, i) => {
               const {
                 current: b,
                 countsRow,

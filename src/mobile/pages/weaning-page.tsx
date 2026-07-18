@@ -7,6 +7,8 @@ import { fetchWeaningPageData, type WeaningLitterRow, type WeanedLitterLogEntry 
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, WeanButton, LitterCountInput, LitterWeightInput } from "../components/doe-state-menu";
 import { weaningDueDate } from "@/lib/dates";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 function survivalRate(bornAlive: number, weaned: number | null): number | null {
   if (bornAlive <= 0 || weaned === null) return null;
@@ -35,11 +37,37 @@ export function WeaningPage({ locale }: { locale: Locale }) {
     void load();
   }, [load]);
 
+  const litters = data?.litters ?? [];
+  const weanedLog = data?.weanedLog ?? [];
+  const weaningDays = data?.weaningDays ?? 0;
+
+  const littersSort = useSortableRows(litters, {
+    doeTag: { type: "tag", value: (r) => r.doeTagId },
+    breed: { type: "string", value: (r) => r.doeBreed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    kindlingDate: { type: "date", value: (r) => r.kindlingDate },
+    dueDate: { type: "date", value: (r) => weaningDueDate(new Date(r.kindlingDate), weaningDays) },
+    doeState: { type: "string", value: (r) => r.doeState },
+    alive: { type: "number", value: (r) => r.bornAlive },
+    dead: { type: "number", value: (r) => r.bornDead },
+  });
+
+  const weanedLogSort = useSortableRows(weanedLog, {
+    doeTag: { type: "tag", value: (r) => r.doeTagId },
+    breed: { type: "string", value: (r) => r.doeBreed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    kindlingDate: { type: "date", value: (r) => r.kindlingDate },
+    weaningDate: { type: "date", value: (r) => r.weaningDate },
+    alive: { type: "number", value: (r) => r.bornAlive },
+    dead: { type: "number", value: (r) => r.bornDead },
+    weanedCount: { type: "number", value: (r) => r.weaned },
+    weaningWeight: { type: "number", value: (r) => r.weaningWeightGrams },
+    survivalRate: { type: "number", value: (r) => survivalRate(r.bornAlive, r.weaned) },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { litters, weanedLog, weaningDays } = data;
 
   return (
     <div className="space-y-6">
@@ -68,19 +96,75 @@ export function WeaningPage({ locale }: { locale: Locale }) {
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
                 <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الفطام المتوقع" : "Expected Weaning"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
-                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                  sortKey="doeTag"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "النوع" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                  sortKey="buckTag"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}
+                  sortKey="kindlingDate"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "تاريخ الفطام المتوقع" : "Expected Weaning"}
+                  sortKey="dueDate"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                  sortKey="doeState"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={locale === "ar" ? "أحياء" : "Alive"}
+                  sortKey="alive"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={locale === "ar" ? "نافق" : "Dead"}
+                  sortKey="dead"
+                  activeSortKey={littersSort.sortKey}
+                  direction={littersSort.direction}
+                  onSort={littersSort.toggleSort}
+                />
                 <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "الفطام" : "Wean"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {litters.map((row, index) => {
+              {littersSort.sorted.map((row, index) => {
                 const dueDate = weaningDueDate(new Date(row.kindlingDate), weaningDays);
 
                 return (
@@ -129,20 +213,90 @@ export function WeaningPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "تاريخ الفطام" : "Weaning Date"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "أحياء" : "Alive"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "نافق" : "Dead"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "عدد المفطومين" : "Weaned Count"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "وزن الفطام (جم)" : "Weaning Weight (g)"}</th>
-                  <th className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center">{locale === "ar" ? "نسبة النجاح" : "Survival Rate"}</th>
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                    sortKey="doeTag"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "النوع" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                    sortKey="buckTag"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}
+                    sortKey="kindlingDate"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "تاريخ الفطام" : "Weaning Date"}
+                    sortKey="weaningDate"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "أحياء" : "Alive"}
+                    sortKey="alive"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "نافق" : "Dead"}
+                    sortKey="dead"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "عدد المفطومين" : "Weaned Count"}
+                    sortKey="weanedCount"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 text-center"
+                    label={locale === "ar" ? "وزن الفطام (جم)" : "Weaning Weight (g)"}
+                    sortKey="weaningWeight"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-2 py-2 md:px-4 md:py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "نسبة النجاح" : "Survival Rate"}
+                    sortKey="survivalRate"
+                    activeSortKey={weanedLogSort.sortKey}
+                    direction={weanedLogSort.direction}
+                    onSort={weanedLogSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {weanedLog.map((log, index) => {
+                {weanedLogSort.sorted.map((log, index) => {
                   const rate = survivalRate(log.bornAlive, log.weaned);
 
                   return (

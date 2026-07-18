@@ -7,6 +7,8 @@ import { fetchKindlingPageData, type KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, KindleButton, LitterCountInput } from "../components/doe-state-menu";
 import type { DoeState } from "@/lib/enums";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function KindlingPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -30,11 +32,31 @@ export function KindlingPage({ locale }: { locale: Locale }) {
     void load();
   }, [load]);
 
+  const does = data?.does ?? [];
+  const kindlingLog = data?.kindlingLog ?? [];
+  const gestationDays = data?.gestationDays;
+
+  const doesSort = useSortableRows(does, {
+    tag: { type: "tag", value: (r) => r.tagId },
+    breed: { type: "string", value: (r) => r.breed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    expectedDate: { type: "date", value: (r) => r.expectedKindlingDate },
+    doeState: { type: "string", value: (r) => r.doeState },
+  });
+  const logSort = useSortableRows(kindlingLog, {
+    tag: { type: "tag", value: (r) => r.doeTagId },
+    breed: { type: "string", value: (r) => r.doeBreed },
+    buckTag: { type: "tag", value: (r) => r.buckTagId },
+    matingDate: { type: "date", value: (r) => r.matingDate },
+    kindlingDate: { type: "date", value: (r) => r.kindlingDate },
+    bornAlive: { type: "number", value: (r) => r.bornAlive },
+    bornDead: { type: "number", value: (r) => r.bornDead },
+  });
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
-
-  const { does, kindlingLog, gestationDays } = data;
 
   return (
     <div className="space-y-6">
@@ -63,17 +85,59 @@ export function KindlingPage({ locale }: { locale: Locale }) {
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
                 <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}</th>
-                <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "حالة الأم" : "Doe State"}</th>
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                  sortKey="tag"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "النوع" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                  sortKey="buckTag"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}
+                  sortKey="matingDate"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "تاريخ الولادة المتوقع" : "Expected Kindling"}
+                  sortKey="expectedDate"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 hidden md:table-cell text-center"
+                  label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                  sortKey="doeState"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "الولادة" : "Kindle"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {does.map((row, index) => (
+              {doesSort.sorted.map((row, index) => (
                 <tr key={row.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{row.tagId ?? "—"}</td>
@@ -115,17 +179,66 @@ export function KindlingPage({ locale }: { locale: Locale }) {
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الأم" : "Doe ID"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "النوع" : "Breed"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "رقم الذكر" : "Buck ID"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell text-center">{locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "أحياء" : "Born Alive"}</th>
-                  <th className="px-4 py-3 text-center">{locale === "ar" ? "نافق" : "Born Dead"}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الأم" : "Doe ID"}
+                    sortKey="tag"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "النوع" : "Breed"}
+                    sortKey="breed"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "رقم الذكر" : "Buck ID"}
+                    sortKey="buckTag"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 hidden md:table-cell text-center"
+                    label={locale === "ar" ? "تاريخ التلقيح" : "Mating Date"}
+                    sortKey="matingDate"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "تاريخ الولادة" : "Kindling Date"}
+                    sortKey="kindlingDate"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "أحياء" : "Born Alive"}
+                    sortKey="bornAlive"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={locale === "ar" ? "نافق" : "Born Dead"}
+                    sortKey="bornDead"
+                    activeSortKey={logSort.sortKey}
+                    direction={logSort.direction}
+                    onSort={logSort.toggleSort}
+                  />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {kindlingLog.map((log, index) => (
+                {logSort.sorted.map((log, index) => (
                   <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>

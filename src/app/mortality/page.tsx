@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Skull } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
@@ -142,19 +136,20 @@ export default async function MortalityPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colAlive}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colDead}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRecordDeath}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {nursingDoes.map(({ doe, breedingId, litter }, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "alive", label: t.mortality.colAlive, type: "number", className: "text-center" },
+                { key: "dead", label: t.mortality.colDead, type: "number", className: "text-center" },
+                { key: "action", label: t.mortality.colRecordDeath, className: "text-center", sortable: false },
+              ]}
+              rows={nursingDoes.map(({ doe, breedingId, litter }, i) => ({
+                key: doe.id,
+                sortValues: { tag: doe.tagId, breed: doe.breed, alive: litter.bornAlive, dead: litter.bornDead },
+                node: (
                   <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -173,9 +168,9 @@ export default async function MortalityPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -205,17 +200,18 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.mothersEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeMothers.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
+              ]}
+              rows={activeMothers.map((r, i) => ({
+                key: r.id,
+                sortValues: { tag: r.tagId, breed: r.breed },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -232,9 +228,9 @@ export default async function MortalityPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -246,17 +242,18 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.bucksEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeBucks.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mortality.colBuckTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
+              ]}
+              rows={activeBucks.map((r, i) => ({
+                key: r.id,
+                sortValues: { tag: r.tagId, breed: r.breed },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -273,9 +270,9 @@ export default async function MortalityPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -287,18 +284,19 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.strainsEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colStrainBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colCage}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRecordDeceased}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeStock.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
+                { key: "breed", label: t.mortality.colStrainBreed, type: "string", className: "text-center" },
+                { key: "cage", label: t.mortality.colCage, type: "tag", className: "text-center" },
+                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
+              ]}
+              rows={activeStock.map((r, i) => ({
+                key: r.id,
+                sortValues: { sex: r.sex, breed: r.breed, cage: r.cage },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -316,9 +314,9 @@ export default async function MortalityPage() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -332,17 +330,18 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.deceasedMothersEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colMotherTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deceasedMothers.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
+              ]}
+              rows={deceasedMothers.map((r, i) => ({
+                key: r.id,
+                sortValues: { tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -355,9 +354,9 @@ export default async function MortalityPage() {
                       <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -370,17 +369,18 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.deceasedBucksEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deceasedBucks.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: t.mortality.colBuckTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
+              ]}
+              rows={deceasedBucks.map((r, i) => ({
+                key: r.id,
+                sortValues: { tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -393,9 +393,9 @@ export default async function MortalityPage() {
                       <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -408,17 +408,18 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.deceasedStrainsEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colStrainBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deceasedStock.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
+                { key: "breed", label: t.mortality.colStrainBreed, type: "string", className: "text-center" },
+                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
+              ]}
+              rows={deceasedStock.map((r, i) => ({
+                key: r.id,
+                sortValues: { sex: r.sex, breed: r.breed, date: r.updatedAt },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -431,9 +432,9 @@ export default async function MortalityPage() {
                       <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>
@@ -447,18 +448,19 @@ export default async function MortalityPage() {
           <EmptyState icon={Skull} title={t.mortality.culledEmptyTitle} />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.mortality.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colSex}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colTag}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colBreed}</TableHead>
-                  <TableHead className="text-center">{t.mortality.colRegisteredDate}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {culledRabbits.map((r, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
+                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
+                { key: "tag", label: t.mortality.colTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
+                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
+              ]}
+              rows={culledRabbits.map((r, i) => ({
+                key: r.id,
+                sortValues: { sex: r.sex, tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
+                node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell>
@@ -474,9 +476,9 @@ export default async function MortalityPage() {
                       <LocalDate date={r.updatedAt} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>

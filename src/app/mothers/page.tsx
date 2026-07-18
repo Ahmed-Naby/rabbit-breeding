@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Rabbit as RabbitIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
@@ -88,20 +82,28 @@ export default async function MothersPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.mothers.colIndex}</TableHead>
-                <TableHead className="text-center">{t.mothers.colTag}</TableHead>
-                <TableHead className="text-center">{t.mothers.colBreed}</TableHead>
-                <TableHead className="text-center">{t.mothers.colAddedDate}</TableHead>
-                <TableHead className="text-center">{t.mothers.colWeight}</TableHead>
-                <TableHead className="text-center">{t.mothers.colStatus}</TableHead>
-                <TableHead className="text-center">{t.mothers.colDoeState}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map((doe, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.mothers.colIndex, className: "text-center", sortable: false },
+              { key: "tag", label: t.mothers.colTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.mothers.colBreed, type: "string", className: "text-center" },
+              { key: "addedDate", label: t.mothers.colAddedDate, type: "date", className: "text-center" },
+              { key: "weight", label: t.mothers.colWeight, type: "number", className: "text-center" },
+              { key: "status", label: t.mothers.colStatus, type: "string", className: "text-center" },
+              { key: "doeState", label: t.mothers.colDoeState, type: "string", className: "text-center" },
+            ]}
+            rows={does.map((doe, i) => ({
+              key: doe.id,
+              sortValues: {
+                tag: doe.tagId,
+                breed: doe.breed,
+                addedDate: doe.acquiredDate,
+                weight: doe.weightRecords[0]?.weightGrams,
+                status: doe.status,
+                doeState: doe.doeState,
+              },
+              node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -129,9 +131,9 @@ export default async function MothersPage() {
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
     </div>

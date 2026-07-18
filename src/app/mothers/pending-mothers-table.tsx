@@ -5,14 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Clock } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { finalizeMother, type FinalizeMotherFormState } from "../rabbits/actions";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -51,24 +45,25 @@ export function PendingMothersTable({
 
   return (
     <div className="rounded-xl border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">{t.colBreed}</TableHead>
-            <TableHead className="text-center">{t.colWeight}</TableHead>
-            <TableHead className="text-center">{t.colCage}</TableHead>
-            <TableHead className="text-center">{t.colMotherTag}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => (
+      <SortableTable
+        headerRowClassName="[&>th]:border-x"
+        columns={[
+          { key: "breed", label: t.colBreed, type: "string", className: "text-center" },
+          { key: "weight", label: t.colWeight, type: "number", className: "text-center" },
+          { key: "cage", label: t.colCage, type: "tag", className: "text-center" },
+          { key: "tag", label: t.colMotherTag, className: "text-center", sortable: false },
+        ]}
+        rows={rows.map((r) => ({
+          key: r.id,
+          sortValues: { breed: r.breed, weight: r.weightKg, cage: r.cage },
+          node: (
             <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
               <TableCell>{r.breed ?? "—"}</TableCell>
               <FinalizeMotherRowCells id={r.id} weightKg={r.weightKg} cage={r.cage} locale={locale} />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          ),
+        }))}
+      />
     </div>
   );
 }

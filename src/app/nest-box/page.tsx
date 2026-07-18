@@ -2,14 +2,8 @@ import Link from "next/link";
 import { Box } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { nestBoxDueDate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
@@ -97,21 +91,29 @@ export default async function NestBoxPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBreed}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBuckTag}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colExpectedInstallDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colDoeState}</TableHead>
-                <TableHead className="text-center">{t.nestBox.colInstall}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map(({ doe, b, dueDate }, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.nestBox.colIndex, className: "text-center", sortable: false },
+              { key: "doeTag", label: t.nestBox.colMotherTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.nestBox.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "buckTag", label: t.nestBox.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+              { key: "matingDate", label: t.nestBox.colMatingDate, type: "date", className: "text-center" },
+              { key: "dueDate", label: t.nestBox.colExpectedInstallDate, type: "date", className: "hidden text-center sm:table-cell" },
+              { key: "doeState", label: t.nestBox.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "install", label: t.nestBox.colInstall, className: "text-center", sortable: false },
+            ]}
+            rows={does.map(({ doe, b, dueDate }, i) => ({
+              key: doe.id,
+              sortValues: {
+                doeTag: doe.tagId,
+                breed: doe.breed,
+                buckTag: b.buck?.tagId,
+                matingDate: b.matingDate,
+                dueDate,
+                doeState: doe.doeState,
+              },
+              node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -134,9 +136,9 @@ export default async function NestBoxPage() {
                     <InstallNestBoxButton breedingId={b.id} doeId={doe.id} locale={locale} />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
 
@@ -150,20 +152,28 @@ export default async function NestBoxPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.nestBox.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colMotherTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBreed}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colBuckTag}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colMatingDate}</TableHead>
-                  <TableHead className="text-center">{t.nestBox.colInstallDate}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.nestBox.colDoeState}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {installedLog.map((row, i) => (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.nestBox.colIndex, className: "text-center", sortable: false },
+                { key: "doeTag", label: t.nestBox.colMotherTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.nestBox.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                { key: "buckTag", label: t.nestBox.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+                { key: "matingDate", label: t.nestBox.colMatingDate, type: "date", className: "text-center" },
+                { key: "installDate", label: t.nestBox.colInstallDate, type: "date", className: "text-center" },
+                { key: "doeState", label: t.nestBox.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
+              ]}
+              rows={installedLog.map((row, i) => ({
+                key: row.id,
+                sortValues: {
+                  doeTag: row.doe.tagId,
+                  breed: row.doe.breed,
+                  buckTag: row.buck?.tagId,
+                  matingDate: row.matingDate,
+                  installDate: row.nestBoxDate,
+                  doeState: row.doe.doeState,
+                },
+                node: (
                   <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
                     <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                     <TableCell className="font-medium">
@@ -183,9 +193,9 @@ export default async function NestBoxPage() {
                       <DoeStateBadge current={row.doe.doeState} locale={locale} />
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ),
+              }))}
+            />
           </div>
         )}
       </div>

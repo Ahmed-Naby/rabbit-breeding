@@ -2,14 +2,8 @@ import Link from "next/link";
 import { HeartPulse } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { expectedKindling } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
@@ -132,21 +126,29 @@ export default async function KindlingPage() {
         />
       ) : (
         <div className="rounded-xl border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="[&>th]:border-x">
-                <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
-                <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBreed}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBuckTag}</TableHead>
-                <TableHead className="text-center">{t.kindling.colMatingDate}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colExpectedKindling}</TableHead>
-                <TableHead className="hidden text-center sm:table-cell">{t.kindling.colDoeState}</TableHead>
-                <TableHead className="text-center">{t.kindling.colKindle}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {does.map(({ doe, b, dueDate }, i) => (
+          <SortableTable
+            headerRowClassName="[&>th]:border-x"
+            columns={[
+              { key: "index", label: t.kindling.colIndex, className: "text-center", sortable: false },
+              { key: "doeTag", label: t.kindling.colDoeTag, type: "tag", className: "text-center" },
+              { key: "breed", label: t.kindling.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "buckTag", label: t.kindling.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+              { key: "matingDate", label: t.kindling.colMatingDate, type: "date", className: "text-center" },
+              { key: "dueDate", label: t.kindling.colExpectedKindling, type: "date", className: "hidden text-center sm:table-cell" },
+              { key: "doeState", label: t.kindling.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
+              { key: "kindle", label: t.kindling.colKindle, className: "text-center", sortable: false },
+            ]}
+            rows={does.map(({ doe, b, dueDate }, i) => ({
+              key: doe.id,
+              sortValues: {
+                doeTag: doe.tagId,
+                breed: doe.breed,
+                buckTag: b.buck?.tagId,
+                matingDate: b.matingDate,
+                dueDate,
+                doeState: doe.doeState,
+              },
+              node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
@@ -175,9 +177,9 @@ export default async function KindlingPage() {
                     />
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              ),
+            }))}
+          />
         </div>
       )}
 
@@ -191,25 +193,34 @@ export default async function KindlingPage() {
           />
         ) : (
           <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="[&>th]:border-x">
-                  <TableHead className="text-center">{t.kindling.colIndex}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colDoeTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBreed}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colBuckTag}</TableHead>
-                  <TableHead className="hidden text-center sm:table-cell">{t.kindling.colMatingDate}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colKindlingDate}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colBornAlive}</TableHead>
-                  <TableHead className="text-center">{t.kindling.colBornDead}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {kindlingLog.map((row, i) => {
-                  const day = dayKey(row.kindlingDate);
-                  const m = litterByDoeDay.get(`${row.doe.id}_${day}`);
-                  const breedingId = breedingByDoeDay.get(`${row.doe.id}_${day}`);
-                  return (
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: t.kindling.colIndex, className: "text-center", sortable: false },
+                { key: "doeTag", label: t.kindling.colDoeTag, type: "tag", className: "text-center" },
+                { key: "breed", label: t.kindling.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                { key: "buckTag", label: t.kindling.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
+                { key: "matingDate", label: t.kindling.colMatingDate, type: "date", className: "hidden text-center sm:table-cell" },
+                { key: "kindlingDate", label: t.kindling.colKindlingDate, type: "date", className: "text-center" },
+                { key: "bornAlive", label: t.kindling.colBornAlive, type: "number", className: "text-center" },
+                { key: "bornDead", label: t.kindling.colBornDead, type: "number", className: "text-center" },
+              ]}
+              rows={kindlingLog.map((row, i) => {
+                const day = dayKey(row.kindlingDate);
+                const m = litterByDoeDay.get(`${row.doe.id}_${day}`);
+                const breedingId = breedingByDoeDay.get(`${row.doe.id}_${day}`);
+                return {
+                  key: row.id,
+                  sortValues: {
+                    doeTag: row.doe.tagId,
+                    breed: row.doe.breed,
+                    buckTag: row.buck?.tagId,
+                    matingDate: row.matingDate,
+                    kindlingDate: row.kindlingDate,
+                    bornAlive: m?.bornAlive,
+                    bornDead: m?.bornDead,
+                  },
+                  node: (
                     <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
                       <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                       <TableCell className="font-medium">
@@ -250,10 +261,10 @@ export default async function KindlingPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ),
+                };
+              })}
+            />
           </div>
         )}
       </div>

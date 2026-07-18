@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { History } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
@@ -146,19 +140,26 @@ export function BuckBreedingHistoryPanel({
 
   return (
     <div className="rounded-xl border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">{t.colIndex}</TableHead>
-            <TableHead className="text-center">{t.colMatingDate}</TableHead>
-            <TableHead className="text-center">{t.colDoeTag}</TableHead>
-            <TableHead className="text-center">{t.colDoeBreed}</TableHead>
-            <TableHead className="text-center">{t.colDoeState}</TableHead>
-            <TableHead className="text-center">{t.colBornCount}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((c, i) => (
+      <SortableTable
+        headerRowClassName="[&>th]:border-x"
+        columns={[
+          { key: "index", label: t.colIndex, className: "text-center", sortable: false },
+          { key: "matingDate", label: t.colMatingDate, type: "date", className: "text-center" },
+          { key: "doeTag", label: t.colDoeTag, type: "tag", className: "text-center" },
+          { key: "doeBreed", label: t.colDoeBreed, type: "string", className: "text-center" },
+          { key: "doeState", label: t.colDoeState, type: "string", className: "text-center" },
+          { key: "bornAlive", label: t.colBornCount, type: "number", className: "text-center" },
+        ]}
+        rows={rows.map((c, i) => ({
+          key: `${c.doeId}_${c.matingDate.toISOString()}`,
+          sortValues: {
+            matingDate: c.matingDate,
+            doeTag: c.doeTagId,
+            doeBreed: c.doeBreed,
+            doeState: c.testResult,
+            bornAlive: c.bornAlive,
+          },
+          node: (
             <TableRow
               key={`${c.doeId}_${c.matingDate.toISOString()}`}
               className="[&>td]:border-x [&>td]:text-center"
@@ -182,9 +183,9 @@ export function BuckBreedingHistoryPanel({
                   : "—"}
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          ),
+        }))}
+      />
     </div>
   );
 }

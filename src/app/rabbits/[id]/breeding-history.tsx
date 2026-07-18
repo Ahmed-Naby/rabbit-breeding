@@ -1,13 +1,7 @@
 import { History } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
@@ -164,23 +158,34 @@ export function BreedingHistoryPanel({
 
   return (
     <div className="rounded-xl border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="[&>th]:border-x">
-            <TableHead className="text-center">{t.colIndex}</TableHead>
-            <TableHead className="text-center">{t.colMatingDate}</TableHead>
-            <TableHead className="text-center">{t.colBuckTag}</TableHead>
-            <TableHead className="text-center">{t.colTestDate}</TableHead>
-            <TableHead className="text-center">{t.colTestResult}</TableHead>
-            <TableHead className="text-center">{t.colKindlingDate}</TableHead>
-            <TableHead className="text-center">{t.colBornAlive}</TableHead>
-            <TableHead className="text-center">{t.colBornDead}</TableHead>
-            <TableHead className="text-center">{t.colWeaningDate}</TableHead>
-            <TableHead className="text-center">{t.colWeanedCount}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((c, i) => (
+      <SortableTable
+        headerRowClassName="[&>th]:border-x"
+        columns={[
+          { key: "index", label: t.colIndex, className: "text-center", sortable: false },
+          { key: "matingDate", label: t.colMatingDate, type: "date", className: "text-center" },
+          { key: "buckTag", label: t.colBuckTag, type: "tag", className: "text-center" },
+          { key: "testDate", label: t.colTestDate, type: "date", className: "text-center" },
+          { key: "testResult", label: t.colTestResult, type: "string", className: "text-center" },
+          { key: "kindlingDate", label: t.colKindlingDate, type: "date", className: "text-center" },
+          { key: "bornAlive", label: t.colBornAlive, type: "number", className: "text-center" },
+          { key: "bornDead", label: t.colBornDead, type: "number", className: "text-center" },
+          { key: "weaningDate", label: t.colWeaningDate, type: "date", className: "text-center" },
+          { key: "weaned", label: t.colWeanedCount, type: "number", className: "text-center" },
+        ]}
+        rows={rows.map((c, i) => ({
+          key: c.matingDate.toISOString(),
+          sortValues: {
+            matingDate: c.matingDate,
+            buckTag: c.buckTagId,
+            testDate: c.testDate,
+            testResult: c.testResult,
+            kindlingDate: c.kindlingDate,
+            bornAlive: c.bornAlive,
+            bornDead: c.bornDead,
+            weaningDate: c.weaningDate,
+            weaned: c.weaned,
+          },
+          node: (
             <TableRow
               key={c.matingDate.toISOString()}
               className="[&>td]:border-x [&>td]:text-center"
@@ -202,9 +207,9 @@ export function BreedingHistoryPanel({
               </TableCell>
               <TableCell>{c.weaned ?? "—"}</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          ),
+        }))}
+      />
     </div>
   );
 }
