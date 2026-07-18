@@ -29,15 +29,39 @@ async function openConnection(): Promise<SQLiteDBConnection> {
   console.log("[DB] openConnection starting");
   await initWebStoreIfNeeded();
 
+  // On native (Android/iOS) the plugin's connection map lives in the Activity
+  // and survives a WebView reload — which login, register, and farm-switch all
+  // trigger (window.location.reload()). The JS-side SQLiteConnection, however,
+  // is recreated empty on reload, so isConnection() reports "none" while
+  // createConnection() then throws "Connection <name> already exists".
+  // checkConnectionsConsistency() reconciles the JS and native maps (closing
+  // the orphaned native connection) so the create/retrieve below is correct.
+  try {
+    await sqlite.checkConnectionsConsistency();
+  } catch {
+    // Nothing to reconcile on a first-ever open — safe to ignore.
+  }
+
   console.log("[DB] checking if connection exists");
   const alreadyOpen = await sqlite.isConnection(DB_NAME, false);
   console.log("[DB] connection check result:", alreadyOpen.result);
-  const db = alreadyOpen.result
-    ? await sqlite.retrieveConnection(DB_NAME, false)
-    : await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
+  let db: SQLiteDBConnection;
+  if (alreadyOpen.result) {
+    db = await sqlite.retrieveConnection(DB_NAME, false);
+  } else {
+    try {
+      db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
+    } catch {
+      // Belt-and-suspenders: if a stale native connection still exists despite
+      // the reconcile above, reuse it rather than failing the whole boot.
+      db = await sqlite.retrieveConnection(DB_NAME, false);
+    }
+  }
 
   console.log("[DB] opening database");
-  await db.open();
+  if (!(await db.isDBOpen()).result) {
+    await db.open();
+  }
   console.log("[DB] database opened, applying schema");
   await applySchema(db);
   console.log("[DB] schema applied, connection ready");
