@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getSession, logout, setActiveFarm } from "../auth";
+import { getSession, logout, setActiveFarm, refreshFarms, type AuthSession } from "../auth";
 import { syncFetch } from "../sync/sync-manager";
 
 type Member = { userId: string; email: string; name: string | null; role: string; isSelf: boolean };
@@ -20,11 +20,18 @@ type Member = { userId: string; email: string; name: string | null; role: string
  */
 export function AccountCard({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale).mobileAuth;
-  const session = getSession();
+  const [session, setSession] = useState<AuthSession | null>(() => getSession());
 
   const [members, setMembers] = useState<Member[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Live membership refresh: an owner may have added this account to their
+  // farm since login — opening settings is where that should become visible.
+  useEffect(() => {
+     
+    void refreshFarms().then((s) => { if (s) setSession(s); });
+  }, []);
 
   const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
   const isOwner = activeFarm?.role === "owner";

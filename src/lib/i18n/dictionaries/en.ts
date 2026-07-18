@@ -112,6 +112,8 @@ export const en: Dictionary = {
       "You will be signed out and this device's local data cleared (it stays safe on the server). Continue?",
     switchFarmConfirm:
       "Switching farms clears this device's local data and downloads the selected farm from the server. Continue?",
+    chooseFarmTitle: "Choose a farm",
+    chooseFarmSubtitle: "Your account belongs to more than one farm — pick which one this device shows.",
     membersHeading: "Farm members",
     membersDescription:
       "Add a worker by their registered account — they must create an account on the sign-in screen first, then add their email here.",

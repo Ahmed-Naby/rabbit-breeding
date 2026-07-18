@@ -4,7 +4,7 @@ import { Toaster } from "sonner";
 import { Capacitor } from "@capacitor/core";
 import { AppShell } from "./app-shell";
 import { attachNetworkListener, attachAppLifecycleSync, syncNow } from "./sync/sync-manager";
-import { loadSession } from "./auth";
+import { loadSession, refreshFarms } from "./auth";
 import "@/app/globals.css";
 
 /**
@@ -37,6 +37,9 @@ async function bootstrap() {
     attachNetworkListener();
     attachAppLifecycleSync();
     void syncNow();
+    // Best-effort background refresh of farm memberships — picks up being
+    // added to (or removed from) a farm since login without re-logging-in.
+    void refreshFarms();
   }
 
   createRoot(document.getElementById("root")!).render(

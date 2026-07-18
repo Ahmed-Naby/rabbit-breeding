@@ -109,6 +109,48 @@ export async function setActiveFarm(farmId: string): Promise<void> {
 }
 
 /**
+ * Re-fetches the account's LIVE farm memberships — the login response is a
+ * snapshot, and an owner may have added this account to their farm since.
+ * Returns the updated session (or the cached one when offline). If the
+ * active farm's membership was revoked, falls over to the first remaining
+ * farm, clears the mirror, and reloads.
+ */
+export async function refreshFarms(): Promise<AuthSession | null> {
+  const session = getSession();
+  if (!session) return null;
+  try {
+    const res = await fetch(`${SYNC_API_BASE_URL}/api/auth/me`, {
+      headers: { authorization: `Bearer ${session.token}` },
+      cache: "no-store",
+    });
+    if (res.status === 401) {
+      // Token revoked (e.g. from another device) — force re-login.
+      await persist(null);
+      await clearLocalMirror();
+      window.location.reload();
+      return null;
+    }
+    if (!res.ok) return session;
+    const data = (await res.json()) as { farms: FarmInfo[] };
+
+    const stillMember = data.farms.some((f) => f.farmId === session.activeFarmId);
+    const updated: AuthSession = {
+      ...session,
+      farms: data.farms,
+      activeFarmId: stillMember ? session.activeFarmId : (data.farms[0]?.farmId ?? ""),
+    };
+    await persist(updated);
+    if (!stillMember) {
+      await clearLocalMirror();
+      window.location.reload();
+    }
+    return updated;
+  } catch {
+    return session; // offline — keep the cached snapshot
+  }
+}
+
+/**
  * Empties every local table (mirror, outbox, cursor) so the next boot
  * bootstraps cleanly for whatever identity is now active. Callers reload
  * the app right after.

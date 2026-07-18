@@ -5,6 +5,7 @@ import { POST as registerRoute } from "@/app/api/auth/register/route";
 import { POST as loginRoute } from "@/app/api/auth/login/route";
 import { POST as logoutRoute } from "@/app/api/auth/logout/route";
 import { GET as membersGet, POST as membersPost, DELETE as membersDelete } from "@/app/api/farm/members/route";
+import { GET as meRoute } from "@/app/api/auth/me/route";
 import { authenticateSync } from "@/app/api/sync/auth";
 
 beforeEach(resetDb);
@@ -80,6 +81,33 @@ describe("login and sync auth", () => {
     );
     expect(denied).toBeInstanceOf(Response);
     expect((denied as Response).status).toBe(403);
+  });
+});
+
+describe("live membership refresh (/api/auth/me)", () => {
+  test("a worker added after login sees the new farm on refresh, without re-login", async () => {
+    const owner = await registerUser("boss2@farm.dev");
+    const worker = await registerUser("hand2@farm.dev");
+    const farmId = owner.farms[0].farmId;
+
+    // At login time the worker only knows their own farm.
+    expect(worker.farms).toHaveLength(1);
+
+    // Owner adds them afterwards — the worker's OLD token now sees both.
+    await membersPost(
+      jsonRequest("/api/farm/members", "POST", { email: "hand2@farm.dev", role: "worker" },
+        { authorization: `Bearer ${owner.token}`, "x-farm-id": farmId })
+    );
+    const me = await meRoute(jsonRequest("/api/auth/me", "GET", undefined, { authorization: `Bearer ${worker.token}` }));
+    expect(me.status).toBe(200);
+    const { farms } = (await me.json()) as { farms: { farmId: string; role: string }[] };
+    expect(farms).toHaveLength(2);
+    expect(farms).toContainEqual(expect.objectContaining({ farmId, role: "worker" }));
+  });
+
+  test("rejects a bad token", async () => {
+    const res = await meRoute(jsonRequest("/api/auth/me", "GET", undefined, { authorization: "Bearer nope" }));
+    expect(res.status).toBe(401);
   });
 });
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, register, clearLocalMirror } from "../auth";
+import { login, register, clearLocalMirror, setActiveFarm, type AuthSession } from "../auth";
 
 /**
  * Full-screen gate shown when no device token is stored (see app-shell).
@@ -21,6 +21,9 @@ export function LoginPage({ locale }: { locale: Locale }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the signed-in account belongs to several farms: the user must
+  // pick which one this device mirrors before the shell loads.
+  const [chooseFrom, setChooseFrom] = useState<AuthSession | null>(null);
 
   const errorText = (code: string): string => {
     switch (code) {
@@ -37,10 +40,11 @@ export function LoginPage({ locale }: { locale: Locale }) {
     setBusy(true);
     setError(null);
     try {
-      if (mode === "login") {
-        await login(email, password);
-      } else {
-        await register(email, password, name);
+      const session = mode === "login" ? await login(email, password) : await register(email, password, name);
+      if (session.farms.length > 1) {
+        setChooseFrom(session);
+        setBusy(false);
+        return;
       }
       // New identity — drop whatever farm the mirror held and re-bootstrap.
       await clearLocalMirror();
@@ -50,6 +54,46 @@ export function LoginPage({ locale }: { locale: Locale }) {
       setBusy(false);
     }
   };
+
+  const handleChooseFarm = async (farmId: string) => {
+    setBusy(true);
+    await setActiveFarm(farmId); // persists choice; no-op if already active
+    await clearLocalMirror();
+    window.location.reload();
+  };
+
+  if (chooseFrom) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4" dir={locale === "ar" ? "rtl" : "ltr"}>
+        <Card className="w-full max-w-sm">
+          <CardContent className="space-y-4 p-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <RabbitIcon className="size-10 text-primary" />
+              <h1 className="text-xl font-bold tracking-tight">{t.chooseFarmTitle}</h1>
+              <p className="text-sm text-muted-foreground">{t.chooseFarmSubtitle}</p>
+            </div>
+            <div className="space-y-2">
+              {chooseFrom.farms.map((f) => (
+                <Button
+                  key={f.farmId}
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => handleChooseFarm(f.farmId)}
+                  className="w-full justify-between py-5"
+                >
+                  <span className="font-semibold">{f.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {f.role === "owner" ? t.roleOwner : t.roleWorker}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4" dir={locale === "ar" ? "rtl" : "ltr"}>
