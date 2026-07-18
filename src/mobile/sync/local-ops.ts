@@ -562,6 +562,17 @@ export async function createQuickRabbit(
     const grams = toGrams({ kg: payload.weightKg }, "kg");
     await upsertLatestWeightRecord(db, id, grams, payload.date);
   }
+
+  // Mirror the server op's stock withdrawal (rabbit-ops.ts) so the available-
+  // weaning balance is correct locally too, not just after the next pull.
+  // Reconciled on pull by (type, date, count) — the intake date is a full ISO
+  // that round-trips through the server unchanged, so it matches exactly.
+  await run(
+    db,
+    `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'retained', 1, NULL, NULL, NULL, NULL, ?, NULL, ?, ?)`,
+    [`local-${createId()}`, payload.date, id, now, now]
+  );
   return applied;
 }
 

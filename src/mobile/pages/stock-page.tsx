@@ -19,6 +19,7 @@ export function StockPage({ locale }: { locale: Locale }) {
   const [data, setData] = useState<{
     rabbits: { id: string; sex: string; breed: string | null; cage: string | null; date: string; weightKg: number | null }[];
     breedOptions: string[];
+    availableStock: number;
     settings: any;
   } | null>(null);
 
@@ -39,6 +40,18 @@ export function StockPage({ locale }: { locale: Locale }) {
   const handleAddRabbit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (saving) return;
+
+    // Registering breeding stock withdraws one kit from the available-weaning
+    // balance; block it when there's nothing left so the balance never goes
+    // negative. Record a weaning or a positive adjustment (فطام والبيع) first.
+    if (data && data.availableStock < 1) {
+      toast.error(
+        locale === "ar"
+          ? "المخزون المتاح صفر — سجّل فطامًا أو اعمل تسوية في صفحة الفطام والبيع قبل تسجيل سلالة جديدة"
+          : "No available stock — record a weaning or an adjustment in Weaning & Sales before registering new breeding stock"
+      );
+      return;
+    }
     setSaving(true);
 
     const formData = new FormData(e.currentTarget);

@@ -839,6 +839,31 @@ export type LocalKitLedgerEntry = {
   id?: string;
 };
 
+/**
+ * The available weaned-kit balance: kits weaned in, minus those sold, died,
+ * or retained to breeding, plus signed manual adjustments. Shared by every
+ * page that gates on it (weaning-sales, mortality, stock intake) so the number
+ * and its "never negative" guard stay consistent everywhere.
+ */
+export async function computeAvailableWeanedStock(db: SQLiteDBConnection): Promise<number> {
+  const weanedSum = await queryOne<{ total: number }>(
+    db,
+    "SELECT SUM(weaned) as total FROM litter WHERE weaningDate IS NOT NULL AND weaned IS NOT NULL"
+  );
+  const movementsSum = await queryAll<{ type: string; total: number }>(
+    db,
+    "SELECT type, SUM(count) as total FROM kit_stock_movement GROUP BY type"
+  );
+  let sold = 0, died = 0, retained = 0, adjustment = 0;
+  for (const m of movementsSum) {
+    if (m.type === "sale") sold = m.total;
+    else if (m.type === "death") died = m.total;
+    else if (m.type === "retained") retained = m.total;
+    else if (m.type === "adjustment") adjustment = m.total;
+  }
+  return (weanedSum?.total ?? 0) - sold - died - retained + adjustment;
+}
+
 export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise<{
   ledger: LocalKitLedgerEntry[];
   totalWeaned: number;
@@ -1015,23 +1040,8 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  // 6. Available stock
-  const weanedLittersSum = await queryOne<{ total: number }>(
-    db,
-    "SELECT SUM(weaned) as total FROM litter WHERE weaningDate IS NOT NULL AND weaned IS NOT NULL"
-  );
-  const movementsSum = await queryAll<{ type: string; total: number }>(
-    db,
-    "SELECT type, SUM(count) as total FROM kit_stock_movement GROUP BY type"
-  );
-  const totalWeaned = weanedLittersSum?.total ?? 0;
-  let sold = 0, died = 0, retained = 0;
-  for (const m of movementsSum) {
-    if (m.type === "sale") sold = m.total;
-    else if (m.type === "death") died = m.total;
-    else if (m.type === "retained") retained = m.total;
-  }
-  const availableWeanedStock = totalWeaned - sold - died - retained;
+  // 6. Available stock (shared formula — includes manual adjustments).
+  const availableWeanedStock = await computeAvailableWeanedStock(db);
 
   return { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock };
 }
@@ -1489,10 +1499,12 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
 export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
   rabbits: { id: string; sex: string; breed: string | null; cage: string | null; date: string; weightKg: number | null }[];
   breedOptions: string[];
+  availableStock: number;
   settings: LocalSettings;
 }> {
   const settings = await getLocalSettings(db);
   const breeds = await fetchBreedOptions(db);
+  const availableStock = await computeAvailableWeanedStock(db);
 
   const rabbitsRaw = await queryAll<{
     id: string;
@@ -1523,7 +1535,7 @@ export async function fetchStockPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  return { rabbits, breedOptions: breeds, settings };
+  return { rabbits, breedOptions: breeds, availableStock, settings };
 }
 
 export type LocalRabbitBasic = {
