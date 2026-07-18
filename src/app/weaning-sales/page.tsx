@@ -118,7 +118,9 @@ export default async function WeaningSalesPage() {
                           entry.kind === "death" &&
                             "bg-red-500/10 text-red-600 dark:text-red-400",
                           entry.kind === "retained" &&
-                            "bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                            "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+                          entry.kind === "adjustment" &&
+                            "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         )}
                       >
                         {entry.kind === "wean"
@@ -127,7 +129,9 @@ export default async function WeaningSalesPage() {
                             ? t.weaningSales.typeSale
                             : entry.kind === "death"
                               ? t.weaningSales.typeDeath
-                              : t.weaningSales.typeRetained}
+                              : entry.kind === "adjustment"
+                                ? t.weaningSales.typeAdjustment
+                                : t.weaningSales.typeRetained}
                       </span>
                     </TableCell>
                     <TableCell

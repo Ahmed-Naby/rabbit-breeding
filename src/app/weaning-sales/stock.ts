@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type LedgerEntry = {
   key: string;
   date: Date;
-  kind: "wean" | "sale" | "death" | "retained";
+  kind: "wean" | "sale" | "death" | "retained" | "adjustment";
   count: number; // signed: positive for wean, negative for sale/death
   weightGrams?: number | null;
   pricePerKgCents?: number | null;
@@ -48,8 +48,10 @@ export async function getKitStockSummary() {
     ...movements.map((m) => ({
       key: `move-${m.id}`,
       date: m.date,
-      kind: m.type as "sale" | "death" | "retained",
-      count: -m.count,
+      kind: m.type as "sale" | "death" | "retained" | "adjustment",
+      // Sale/death/retained withdraw (shown negative); an adjustment carries
+      // its own sign and is shown as stored.
+      count: m.type === "adjustment" ? m.count : -m.count,
       weightGrams: m.weightGrams,
       pricePerKgCents: m.pricePerKgCents,
       amountCents: m.amountCents,
@@ -71,7 +73,11 @@ export async function getKitStockSummary() {
   const totalRevenueCents = movements
     .filter((m) => m.type === "sale")
     .reduce((s, m) => s + (m.amountCents ?? 0), 0);
-  const availableStock = totalWeaned - totalSold - totalDied - totalRetained;
+  // Signed manual corrections to the opening/available balance.
+  const totalAdjustment = movements
+    .filter((m) => m.type === "adjustment")
+    .reduce((s, m) => s + m.count, 0);
+  const availableStock = totalWeaned - totalSold - totalDied - totalRetained + totalAdjustment;
 
   return {
     ledger,

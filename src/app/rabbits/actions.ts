@@ -20,6 +20,7 @@ import {
   formDataToObject,
 } from "@/lib/form";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getKitStockSummary } from "@/app/weaning-sales/stock";
 import {
   type RabbitData,
   createRabbitOp,
@@ -101,6 +102,14 @@ export async function createQuickRabbit(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
   const date = fromDateInputValue(d.date);
+
+  // Registering breeding stock withdraws one kit from the available-weaning
+  // balance; block it at zero so the balance never goes negative (mirrors the
+  // offline app's guard). Record a weaning or a positive adjustment first.
+  const { availableStock } = await getKitStockSummary();
+  if (availableStock <= 0) {
+    return { ok: false, errors: { _form: t.stock.noAvailableStock } };
+  }
 
   const result = await createQuickRabbitOp({
     tagId: d.tagId ?? null,

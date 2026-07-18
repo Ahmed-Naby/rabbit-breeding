@@ -301,6 +301,8 @@ export const en: Dictionary = {
     title: "Juveniles",
     description:
       "Quick intake for young rabbits before they're promoted to the herd with a number and weight.",
+    noAvailableStock:
+      "No available stock — record a weaning or an adjustment in Weaning & Sales before registering new breeding stock.",
     sexDoe: "Doe",
     sexBuck: "Buck",
     registeredToast: "Juvenile registered",
@@ -569,6 +571,7 @@ export const en: Dictionary = {
     typeSale: "Sold",
     typeDeath: "Died",
     typeRetained: "Kept for breeding",
+    typeAdjustment: "Adjustment",
     emptyTitle: "No movements recorded yet",
     emptyDescription:
       "Weaned counts show up here automatically. Record a sale with the form above, record deaths from the mortality census page, and kits kept for breeding are deducted automatically when a juvenile is added to the herd.",
