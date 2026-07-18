@@ -22,7 +22,13 @@ export async function issueToken(userId: string, label?: string | null): Promise
 
 export type TokenUser = {
   userId: string;
-  memberships: { farmId: string; role: string; farmName: string; allowedPages: string[] | null }[];
+  memberships: {
+    farmId: string;
+    role: string;
+    farmName: string;
+    farmLocation: string | null;
+    allowedPages: string[] | null;
+  }[];
 };
 
 /** Resolves a bearer token to its user + farm memberships, or null. */
@@ -30,7 +36,14 @@ export async function resolveToken(token: string): Promise<TokenUser | null> {
   const row = await prisma.deviceToken.findUnique({
     where: { tokenHash: hashToken(token) },
     include: {
-      user: { include: { memberships: { include: { farm: { select: { name: true } } } } } },
+      user: {
+        include: {
+          memberships: {
+            include: { farm: { select: { name: true, location: true } } },
+            orderBy: { farm: { createdAt: "asc" } },
+          },
+        },
+      },
     },
   });
   if (!row) return null;
@@ -44,6 +57,7 @@ export async function resolveToken(token: string): Promise<TokenUser | null> {
       farmId: m.farmId,
       role: m.role,
       farmName: m.farm.name,
+      farmLocation: m.farm.location,
       allowedPages: Array.isArray(m.allowedPages) ? (m.allowedPages as string[]) : null,
     })),
   };

@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { hashPassword } from "@/lib/auth/password";
 import { authenticateSync, requireOwner } from "../../sync/auth";
 
 /**
- * Farm membership management, owner-only. There is no email-invitation
- * flow: the person registers their own account first (getting an empty
- * farm of their own), then the owner adds them here by email — one
- * account can belong to several farms.
+ * Farm membership management, owner-only. Supervisors don't self-register:
+ * the owner creates the account here (email + password) and it's added
+ * straight to the owner's farm as a member. If the email already belongs to
+ * an account, that account is added to the farm without touching its
+ * password. One account can belong to several farms.
  */
 export async function GET(request: Request) {
   const auth = await authenticateSync(request);
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
   const roleError = requireOwner(auth);
   if (roleError) return roleError;
 
-  let body: { email?: string; role?: string; allowedPages?: unknown };
+  let body: { email?: string; password?: string; name?: string; role?: string; allowedPages?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -45,7 +47,9 @@ export async function POST(request: Request) {
   }
   const email = body.email?.trim().toLowerCase();
   const role = body.role === "owner" ? "owner" : "worker";
-  if (!email) return Response.json({ error: "INVALID_EMAIL" }, { status: 400 });
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return Response.json({ error: "INVALID_EMAIL" }, { status: 400 });
+  }
 
   // null (or omitted) = all pages; otherwise a plain list of route hashes.
   let allowedPages: string[] | null = null;
@@ -53,8 +57,18 @@ export async function POST(request: Request) {
     allowedPages = body.allowedPages.filter((p): p is string => typeof p === "string").slice(0, 50);
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return Response.json({ error: "USER_NOT_FOUND" }, { status: 404 });
+  // Create the account on the fly when the email is new — the owner sets its
+  // password. An existing account keeps its own password.
+  let user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    const password = body.password ?? "";
+    if (password.length < 8) {
+      return Response.json({ error: "PASSWORD_TOO_SHORT" }, { status: 400 });
+    }
+    user = await prisma.user.create({
+      data: { email, passwordHash: hashPassword(password), name: body.name?.trim() || null },
+    });
+  }
 
   try {
     await prisma.farmMember.upsert({

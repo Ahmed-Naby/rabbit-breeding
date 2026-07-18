@@ -62,11 +62,18 @@ export async function POST(request: Request) {
   const token = await issueToken(user.id, body.name ?? email);
   const memberships = await prisma.farmMember.findMany({
     where: { userId: user.id },
-    include: { farm: { select: { name: true } } },
+    include: { farm: { select: { name: true, location: true } } },
+    orderBy: { farm: { createdAt: "asc" } },
   });
   return Response.json({
     token,
     user: { id: user.id, email: user.email, name: user.name },
-    farms: memberships.map((m) => ({ farmId: m.farmId, role: m.role, name: m.farm.name, allowedPages: (m.allowedPages as string[] | null) ?? null })),
+    farms: memberships.map((m) => ({
+      farmId: m.farmId,
+      role: m.role,
+      name: m.farm.name,
+      location: m.farm.location,
+      allowedPages: (m.allowedPages as string[] | null) ?? null,
+    })),
   });
 }

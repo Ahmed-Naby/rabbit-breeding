@@ -17,7 +17,13 @@ import { queryAll, run } from "./db/helpers";
 
 const STORAGE_KEY = "rabbittrack.auth";
 
-export type FarmInfo = { farmId: string; role: string; name: string; allowedPages: string[] | null };
+export type FarmInfo = {
+  farmId: string;
+  role: string;
+  name: string;
+  location: string | null;
+  allowedPages: string[] | null;
+};
 export type AuthSession = {
   token: string;
   email: string;

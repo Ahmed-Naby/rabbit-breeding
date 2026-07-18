@@ -118,9 +118,20 @@ describe("member management", () => {
     const farmId = owner.farms[0].farmId;
     const ownerHeaders = { authorization: `Bearer ${owner.token}`, "x-farm-id": farmId };
 
-    // Unknown email → 404, nothing added.
+    // Unknown email without a password → 400, nothing added.
     const missing = await membersPost(jsonRequest("/api/farm/members", "POST", { email: "ghost@farm.dev" }, ownerHeaders));
-    expect(missing.status).toBe(404);
+    expect(missing.status).toBe(400);
+
+    // Owner creates a brand-new supervisor account (email + password) — it can
+    // then sign in with those credentials, no self-registration needed.
+    const created = await membersPost(
+      jsonRequest("/api/farm/members", "POST", { email: "newhand@farm.dev", password: "password123", role: "worker" }, ownerHeaders)
+    );
+    expect(created.status).toBe(200);
+    const createdLogin = await loginRoute(
+      jsonRequest("/api/auth/login", "POST", { email: "newhand@farm.dev", password: "password123" })
+    );
+    expect(createdLogin.status).toBe(200);
 
     const added = await membersPost(jsonRequest("/api/farm/members", "POST", { email: "hand@farm.dev", role: "worker" }, ownerHeaders));
     expect(added.status).toBe(200);
@@ -142,7 +153,7 @@ describe("member management", () => {
     // Owner sees both members, then removes the worker.
     const list = await membersGet(jsonRequest("/api/farm/members", "GET", undefined, ownerHeaders));
     const { members } = (await list.json()) as { members: { email: string }[] };
-    expect(members.map((m) => m.email).sort()).toEqual(["boss@farm.dev", "hand@farm.dev"]);
+    expect(members.map((m) => m.email).sort()).toEqual(["boss@farm.dev", "hand@farm.dev", "newhand@farm.dev"]);
 
     const workerUser = await prisma.user.findUniqueOrThrow({ where: { email: "hand@farm.dev" } });
     const removed = await membersDelete(jsonRequest("/api/farm/members", "DELETE", { userId: workerUser.id }, ownerHeaders));

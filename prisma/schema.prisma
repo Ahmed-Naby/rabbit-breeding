@@ -471,6 +471,7 @@ model User {
 model Farm {
   id        String   @id @default(cuid())
   name      String
+  location  String? // free-text farm location/place, shown & editable in settings
   createdAt DateTime @default(now())
 
   members           FarmMember[]

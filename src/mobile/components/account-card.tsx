@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LogOut, ShieldCheck, UserPlus, X } from "lucide-react";
+import { LogOut, ShieldCheck, UserPlus, X, KeyRound, Home } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -34,7 +34,18 @@ export function AccountCard({ locale }: { locale: Locale }) {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [newEmail, setNewEmail] = useState("");
+  const [newMemberPassword, setNewMemberPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Farm profile editor (owner only).
+  const [farmName, setFarmName] = useState("");
+  const [farmLocation, setFarmLocation] = useState("");
+  const [savingFarm, setSavingFarm] = useState(false);
+
+  // Change-password editor (the signed-in account's own password).
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   // Inline "allowed pages" editor state — at most one member's panel open
   // at a time. draftAllPages=true means unrestricted (allowedPages: null).
@@ -51,6 +62,15 @@ export function AccountCard({ locale }: { locale: Locale }) {
 
   const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
   const isOwner = activeFarm?.role === "owner";
+
+  // Seed the farm profile fields whenever the active farm's stored values
+  // change (login snapshot, live refresh, or a farm switch).
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setFarmName(activeFarm?.name ?? "");
+    setFarmLocation(activeFarm?.location ?? "");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [activeFarm?.farmId, activeFarm?.name, activeFarm?.location]);
 
   const loadMembers = useCallback(async () => {
     if (!isOwner) return;
@@ -94,15 +114,71 @@ export function AccountCard({ locale }: { locale: Locale }) {
     if (!email) return;
     setBusy(true);
     try {
-      await syncFetch("/api/farm/members", { method: "POST", body: JSON.stringify({ email, role: "worker" }) });
+      await syncFetch("/api/farm/members", {
+        method: "POST",
+        body: JSON.stringify({ email, password: newMemberPassword, role: "worker" }),
+      });
       toast.success(t.memberAddedToast);
       setNewEmail("");
+      setNewMemberPassword("");
       void loadMembers();
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      toast.error(message.includes("USER_NOT_FOUND") ? t.userNotFound : t.genericError);
+      toast.error(message.includes("PASSWORD_TOO_SHORT") ? t.passwordTooShort : t.genericError);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleSaveFarm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = farmName.trim();
+    if (!name) {
+      toast.error(t.farmNameRequired);
+      return;
+    }
+    setSavingFarm(true);
+    try {
+      await syncFetch("/api/farm", {
+        method: "PATCH",
+        body: JSON.stringify({ name, location: farmLocation.trim() }),
+      });
+      toast.success(t.farmSavedToast);
+      const s = await refreshFarms();
+      if (s) setSession(s);
+    } catch {
+      toast.error(t.genericError);
+    } finally {
+      setSavingFarm(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (nextPassword.length < 8) {
+      toast.error(t.passwordTooShort);
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await syncFetch("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword: nextPassword }),
+      });
+      toast.success(t.passwordChangedToast);
+      setCurrentPassword("");
+      setNextPassword("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      toast.error(
+        message.includes("WRONG_CURRENT_PASSWORD")
+          ? t.wrongCurrentPassword
+          : message.includes("PASSWORD_TOO_SHORT")
+            ? t.passwordTooShort
+            : t.genericError
+      );
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -197,11 +273,84 @@ export function AccountCard({ locale }: { locale: Locale }) {
             </Select>
           ) : (
             <p className="text-sm">
-              {activeFarm?.name}{" "}
+              {activeFarm?.name}
+              {activeFarm?.location ? <span className="text-muted-foreground"> — {activeFarm.location}</span> : null}{" "}
               <span className="text-muted-foreground">({roleLabel(activeFarm?.role ?? "worker")})</span>
             </p>
           )}
         </div>
+
+        {/* Change own password — available to any signed-in account. */}
+        <form onSubmit={handleChangePassword} className="space-y-3 border-t pt-4">
+          <div>
+            <h3 className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
+              <KeyRound className="size-4" />
+              {t.changePasswordHeading}
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">{t.currentPasswordLabel}</Label>
+              <Input
+                type="password"
+                dir="ltr"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                disabled={changingPassword}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-semibold">{t.newPasswordLabel}</Label>
+              <Input
+                type="password"
+                dir="ltr"
+                autoComplete="new-password"
+                minLength={8}
+                value={nextPassword}
+                onChange={(e) => setNextPassword(e.target.value)}
+                disabled={changingPassword}
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            disabled={changingPassword || !currentPassword || !nextPassword}
+          >
+            {t.changePasswordButton}
+          </Button>
+        </form>
+
+        {isOwner && (
+          <form onSubmit={handleSaveFarm} className="space-y-3 border-t pt-4">
+            <div>
+              <h3 className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
+                <Home className="size-4" />
+                {t.farmDetailsHeading}
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">{t.farmNameLabel}</Label>
+                <Input value={farmName} onChange={(e) => setFarmName(e.target.value)} disabled={savingFarm} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">{t.farmLocationLabel}</Label>
+                <Input
+                  value={farmLocation}
+                  onChange={(e) => setFarmLocation(e.target.value)}
+                  placeholder={t.farmLocationPlaceholder}
+                  disabled={savingFarm}
+                />
+              </div>
+            </div>
+            <Button type="submit" variant="outline" size="sm" disabled={savingFarm || !farmName.trim()}>
+              {t.farmSaveButton}
+            </Button>
+          </form>
+        )}
 
         {isOwner && (
           <div className="space-y-3 border-t pt-4">
@@ -300,16 +449,32 @@ export function AccountCard({ locale }: { locale: Locale }) {
               </ul>
             )}
 
-            <form onSubmit={handleAddMember} className="flex items-center gap-2">
-              <Input
-                type="email"
-                dir="ltr"
-                placeholder={t.addMemberEmailPlaceholder}
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                disabled={busy}
-              />
-              <Button type="submit" disabled={busy || !newEmail.trim()} className="gap-1.5">
+            <form onSubmit={handleAddMember} className="space-y-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Input
+                  type="email"
+                  dir="ltr"
+                  placeholder={t.addMemberEmailPlaceholder}
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  disabled={busy}
+                />
+                <Input
+                  type="password"
+                  dir="ltr"
+                  autoComplete="new-password"
+                  minLength={8}
+                  placeholder={t.addMemberPasswordPlaceholder}
+                  value={newMemberPassword}
+                  onChange={(e) => setNewMemberPassword(e.target.value)}
+                  disabled={busy}
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={busy || !newEmail.trim() || newMemberPassword.length < 8}
+                className="w-full gap-1.5 sm:w-auto"
+              >
                 <UserPlus className="size-4" />
                 {t.addMemberButton}
               </Button>

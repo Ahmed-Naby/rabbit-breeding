@@ -90,7 +90,7 @@ describe("auth primitives", () => {
     const resolved = await resolveToken(token);
     expect(resolved?.userId).toBe(user.id);
     expect(resolved?.memberships).toEqual([
-      { farmId: TEST_FARM_ID, role: "owner", farmName: "Test Farm", allowedPages: null },
+      { farmId: TEST_FARM_ID, role: "owner", farmName: "Test Farm", farmLocation: null, allowedPages: null },
     ]);
 
     expect(await resolveToken("not-a-real-token")).toBeNull();
