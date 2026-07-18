@@ -10,7 +10,6 @@ export type FullExportData = {
   litters: Prisma.LitterCreateManyInput[];
   weightRecords: Prisma.WeightRecordCreateManyInput[];
   healthRecords: Prisma.HealthRecordCreateManyInput[];
-  feedLogs: Prisma.FeedLogCreateManyInput[];
   transactions: Prisma.TransactionCreateManyInput[];
   kitStockMovements: Prisma.KitStockMovementCreateManyInput[];
   breeds: Prisma.BreedCreateManyInput[];
@@ -21,7 +20,7 @@ export type FullExportData = {
 
 const REQUIRED_KEYS: (keyof FullExportData)[] = [
   "rabbits", "breedings", "litters", "weightRecords", "healthRecords",
-  "feedLogs", "transactions", "kitStockMovements", "breeds",
+  "transactions", "kitStockMovements", "breeds",
   "pregnancyTestLogs", "kindlingLogs", "fosterLogs",
 ];
 
@@ -124,7 +123,6 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
   const fosterLogs = dedupeById(data.fosterLogs).filter(
     (f) => rabbitIds.has(f.fromDoeId as string) && rabbitIds.has(f.toDoeId as string)
   );
-  const feedLogs = dedupeById(data.feedLogs);
 
   // -- insert ----------------------------------------------------------------
   await prisma.$transaction(
@@ -164,7 +162,6 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       if (pregnancyTestLogs.length) await tx.pregnancyTestLog.createMany({ data: pregnancyTestLogs });
       if (kindlingLogs.length) await tx.kindlingLog.createMany({ data: kindlingLogs });
       if (fosterLogs.length) await tx.fosterLog.createMany({ data: fosterLogs });
-      if (feedLogs.length) await tx.feedLog.createMany({ data: feedLogs });
 
       const s = data.settings;
       const settingsData = {

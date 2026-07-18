@@ -179,6 +179,8 @@ CREATE INDEX IF NOT EXISTS idx_health_record_rabbitId ON health_record(rabbitId)
 
 -- `type` is one of: 'income' | 'expense'
 -- `category` is one of: 'sale' | 'purchase' | 'feed' | 'vet' | 'equipment' | 'other'
+-- Devices provisioned before the FeedLog model was removed still carry a
+-- vestigial nullable feedLogId column here — harmless, never referenced.
 CREATE TABLE IF NOT EXISTS transaction_ledger (
   id            TEXT PRIMARY KEY,
   date          TEXT NOT NULL,
@@ -187,7 +189,6 @@ CREATE TABLE IF NOT EXISTS transaction_ledger (
   amountCents   INTEGER NOT NULL,
   notes         TEXT,
   rabbitId      TEXT,
-  feedLogId     TEXT,
   createdAt     TEXT NOT NULL,
   updatedAt     TEXT NOT NULL
 );

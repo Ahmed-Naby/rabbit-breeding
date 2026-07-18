@@ -115,9 +115,9 @@ export async function restoreBackup(json: string): Promise<void> {
  * Reads the just-restored local mirror back out in the FullExportData shape
  * /api/sync/full-import expects (see src/lib/sync/import.ts). Column lists
  * are explicit because a few mirror tables carry extra local-only columns
- * (updatedAt on foster_log/health_record/kit_stock_movement, feedLogId on
- * transaction_ledger) that the server models don't have — Prisma createMany
- * rejects unknown fields. feedLogs has no local mirror, so it's always [].
+ * (updatedAt on foster_log/health_record/kit_stock_movement, plus vestigial
+ * columns on devices provisioned under older schema versions) that the
+ * server models don't have — Prisma createMany rejects unknown fields.
  */
 async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   const db = await getDb();
@@ -219,7 +219,6 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     litters: remappedLitters,
     weightRecords: weightRecords.map(withPermanentId()),
     healthRecords: healthRecords.map(withPermanentId()),
-    feedLogs: [],
     transactions: remappedTransactions,
     kitStockMovements: kitStockMovements.map(withPermanentId()).map((m) => ({
       ...m,

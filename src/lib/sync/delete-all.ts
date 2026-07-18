@@ -13,7 +13,6 @@ type Tx = Prisma.TransactionClient;
 export async function deleteAllFarmData(tx: Tx): Promise<void> {
   await tx.kitStockMovement.deleteMany();
   await tx.transaction.deleteMany();
-  await tx.feedLog.deleteMany();
   await tx.healthRecord.deleteMany();
   await tx.weightRecord.deleteMany();
   await tx.fosterLog.deleteMany();

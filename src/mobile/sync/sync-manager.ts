@@ -152,98 +152,6 @@ type PullResponse = {
   kindlingLogs?: Record<string, unknown>[];
 };
 
-function applyPulledSettings(db: SQLiteDBConnection, s: Record<string, unknown>) {
-  return run(
-    db,
-    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
-       gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
-       weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
-       matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
-       currency = excluded.currency`,
-    [
-      s.weightUnit,
-      s.gestationDays,
-      s.gestationWindowDays,
-      s.pregnancyTestDays,
-      s.weaningDays,
-      s.nestBoxDays,
-      s.matingWeightGrams,
-      s.rebreedAfterKindlingDays,
-      s.currency,
-    ]
-  );
-}
-
-function applyPulledRabbit(db: SQLiteDBConnection, r: Record<string, unknown>) {
-  return run(
-    db,
-    `INSERT OR REPLACE INTO rabbit (id, tagId, retiredTagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      r.id, r.tagId, r.retiredTagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
-      r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
-      r.litterId, r.createdAt, r.updatedAt,
-    ]
-  );
-}
-
-function applyPulledBreeding(db: SQLiteDBConnection, b: Record<string, unknown>) {
-  return run(
-    db,
-    `INSERT OR REPLACE INTO breeding (id, buckId, doeId, matingDate, expectedKindlingDate, actualKindlingDate, nestBoxDate, outcome, pregnancyTestResult, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      b.id, b.buckId, b.doeId, b.matingDate, b.expectedKindlingDate, b.actualKindlingDate, b.nestBoxDate,
-      b.outcome, b.pregnancyTestResult, b.notes, b.createdAt, b.updatedAt,
-    ]
-  );
-}
-
-/**
- * Keyed by breedingId (UNIQUE locally), not id — this is what lets a
- * server-confirmed litter row transparently replace a locally-created
- * placeholder (see local-ops.ts's upsertLitterByBreedingId) without any
- * separate cleanup pass: the placeholder's id column just gets overwritten.
- */
-function applyPulledLitter(db: SQLiteDBConnection, l: Record<string, unknown>) {
-  return run(
-    db,
-    `INSERT INTO litter (id, breedingId, kindlingDate, bornAlive, bornDead, weaned, weaningDate, weaningWeightGrams, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(breedingId) DO UPDATE SET
-       id = excluded.id, kindlingDate = excluded.kindlingDate, bornAlive = excluded.bornAlive,
-       bornDead = excluded.bornDead, weaned = excluded.weaned, weaningDate = excluded.weaningDate,
-       weaningWeightGrams = excluded.weaningWeightGrams, notes = excluded.notes, updatedAt = excluded.updatedAt`,
-    [
-      l.id, l.breedingId, l.kindlingDate, l.bornAlive, l.bornDead, l.weaned, l.weaningDate,
-      l.weaningWeightGrams, l.notes, l.createdAt, l.updatedAt,
-    ]
-  );
-}
-
-/**
- * WeightRecord has no natural unique key the way litter has breedingId (a
- * rabbit can have many). Locally-created placeholders use a "local-"-prefixed
- * id (see local-ops.ts's upsertLatestWeightRecord); the (rabbitId, date) pair
- * they were created with is a safe-enough match for the server's real row —
- * delete the placeholder first, then insert the authoritative one.
- */
-async function applyPulledWeightRecord(db: SQLiteDBConnection, w: Record<string, unknown>) {
-  await run(db, "DELETE FROM weight_record WHERE id LIKE 'local-%' AND rabbitId = ? AND date = ?", [
-    w.rabbitId,
-    w.date,
-  ]);
-  await run(
-    db,
-    `INSERT OR REPLACE INTO weight_record (id, rabbitId, date, weightGrams, notes, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [w.id, w.rabbitId, w.date, w.weightGrams, w.notes, w.createdAt, w.updatedAt]
-  );
-}
-
 export async function pull(): Promise<boolean> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
@@ -394,11 +302,11 @@ export async function pull(): Promise<boolean> {
         values: [t.id, t.date, t.type, t.category, t.amountCents],
       });
       set.push({
-        statement: `INSERT OR REPLACE INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, feedLogId, createdAt, updatedAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        statement: `INSERT OR REPLACE INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         values: [
           t.id, t.date, t.type, t.category, t.amountCents, t.notes, t.rabbitId,
-          t.feedLogId, t.createdAt, t.updatedAt ?? t.createdAt,
+          t.createdAt, t.updatedAt ?? t.createdAt,
         ],
       });
     }

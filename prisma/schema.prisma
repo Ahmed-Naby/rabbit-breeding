@@ -302,19 +302,6 @@ model HealthRecord {
   @@index([nextDueDate])
 }
 
-/// Farm-wide feed usage log. Cost stored as integer cents.
-model FeedLog {
-  id        String   @id @default(cuid())
-  date      DateTime
-  feedType  String
-  quantityG Int? // quantity in grams (optional)
-  costCents Int? // cost in cents (optional)
-  notes     String?
-  createdAt DateTime @default(now())
-
-  @@index([date])
-}
-
 /// Income/expense entry. rabbitId null = farm-wide (feed, equipment, vet, etc).
 /// Amount is integer cents; type sign is implied by `type`, amount is always positive.
 model Transaction {

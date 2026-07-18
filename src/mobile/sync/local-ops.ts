@@ -833,8 +833,8 @@ export async function createTransaction(
   const now = nowIso();
   await run(
     db,
-    `INSERT INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, feedLogId, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+    `INSERT INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
     [`local-${createId()}`, payload.date, payload.type, payload.category, payload.amountCents, payload.notes ?? null, now, now]
   );
   return applied;

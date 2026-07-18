@@ -27,7 +27,6 @@ async function main() {
   await prisma.transaction.deleteMany();
   await prisma.weightRecord.deleteMany();
   await prisma.healthRecord.deleteMany();
-  await prisma.feedLog.deleteMany();
   await prisma.litter.deleteMany();
   await prisma.breeding.deleteMany();
   await prisma.rabbit.deleteMany();
@@ -372,18 +371,6 @@ async function main() {
       amountCents: 8000,
       notes: "Two nest boxes + water bottles.",
     },
-  });
-
-  await prisma.feedLog.create({
-    data: {
-      date: daysAgo(15),
-      feedType: "18% protein pellets",
-      quantityG: 22680,
-      costCents: 3200,
-    },
-  });
-  await prisma.feedLog.create({
-    data: { date: daysAgo(3), feedType: "Timothy hay", quantityG: 9000, costCents: 1800 },
   });
 
   console.log("✅ Seed complete.");
