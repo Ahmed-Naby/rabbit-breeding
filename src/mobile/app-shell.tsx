@@ -34,6 +34,7 @@ import {
   FileText,
   ListChecks,
   CalendarDays,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
@@ -42,8 +43,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, type SyncState } from "./sync/sync-manager";
-import { loadSession, getSession, type AuthSession } from "./auth";
-import { ALWAYS_ALLOWED_PAGE } from "./nav-pages";
+import { loadSession, getSession, logout, type AuthSession } from "./auth";
+import { SETTINGS_PAGE } from "./nav-pages";
 import { LoginPage } from "./pages/login-page";
 import { DoesPage } from "./pages/does-page";
 import { DashboardPage } from "./pages/dashboard-page";
@@ -239,16 +240,30 @@ export function AppShell() {
   }, []);
 
   // Page-level restriction: an owner may limit which pages a non-owner
-  // member can see (null allowedPages = unrestricted). Settings stays
-  // reachable regardless, since it holds sign-out/farm-switch.
+  // member can see (null allowedPages = unrestricted). Settings is now
+  // restrictable too — when it's hidden we surface a standalone sign-out
+  // button below so the member is never locked in.
   const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
   const pageFilter =
     activeFarm && activeFarm.role !== "owner" && Array.isArray(activeFarm.allowedPages)
-      ? new Set([...activeFarm.allowedPages, ALWAYS_ALLOWED_PAGE])
+      ? new Set(activeFarm.allowedPages)
       : null;
   const routeAllowed =
     !pageFilter || pageFilter.has(rawRoute) || rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
-  const route = routeAllowed ? rawRoute : ((pageFilter?.values().next().value as string | undefined) ?? ALWAYS_ALLOWED_PAGE);
+  // When the current route isn't permitted, fall back to the member's first
+  // allowed page (or nothing, if the owner granted an empty set).
+  const route = routeAllowed
+    ? rawRoute
+    : pageFilter
+      ? ((pageFilter.values().next().value as string | undefined) ?? "")
+      : DEFAULT_ROUTE;
+  const showSignOut = pageFilter !== null && !pageFilter.has(SETTINGS_PAGE);
+
+  const handleSignOut = async () => {
+    if (!window.confirm(t.mobileAuth.logoutConfirm)) return;
+    await logout();
+    window.location.reload();
+  };
 
   // Navigation Items
   const navItems = Object.entries(ROUTES)
@@ -325,6 +340,16 @@ export function AppShell() {
               <ExternalLink className="h-3.5 w-3.5" />
               {locale === "ar" ? "الموقع الكامل" : "Full site"}
             </button>
+            {showSignOut && (
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sidebar-border/60 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {t.mobileAuth.logoutButton}
+              </button>
+            )}
           </div>
         </aside>
 
@@ -368,7 +393,7 @@ export function AppShell() {
                 );
               })}
             </nav>
-            <div className="p-4 border-t border-sidebar-border">
+            <div className="space-y-2 p-4 border-t border-sidebar-border">
               <button
                 type="button"
                 onClick={() => {
@@ -380,6 +405,19 @@ export function AppShell() {
                 <ExternalLink className="h-4 w-4" />
                 {locale === "ar" ? "فتح الموقع الكامل" : "Open full site"}
               </button>
+              {showSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleSignOut();
+                  }}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t.mobileAuth.logoutButton}
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -2,10 +2,11 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
 /**
  * The routes an owner can grant/deny per supervisor (see the account card's
- * page picker and the app shell's nav filtering). Settings is deliberately
- * absent — it's always visible, since it holds the member's own account
- * (sign out, farm switcher). Kept separate from app-shell's ROUTES to avoid
- * an import cycle (app-shell → settings-page → account-card).
+ * page picker and the app shell's nav filtering). Settings is included too —
+ * an owner can hide it; the app shell then exposes a standalone sign-out
+ * button in the nav footer so a restricted member is never locked in. Kept
+ * separate from app-shell's ROUTES to avoid an import cycle
+ * (app-shell → settings-page → account-card).
  */
 export const SELECTABLE_PAGES: { hash: string; labelKey: keyof Dictionary["nav"] }[] = [
   { hash: "#/", labelKey: "dashboard" },
@@ -27,6 +28,7 @@ export const SELECTABLE_PAGES: { hash: string; labelKey: keyof Dictionary["nav"]
   { hash: "#/reports", labelKey: "reports" },
   { hash: "#/weaning-sales", labelKey: "weaningSales" },
   { hash: "#/finance", labelKey: "finance" },
+  { hash: "#/settings", labelKey: "settings" },
 ];
 
-export const ALWAYS_ALLOWED_PAGE = "#/settings";
+export const SETTINGS_PAGE = "#/settings";
