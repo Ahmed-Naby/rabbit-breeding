@@ -10,6 +10,7 @@ import { getDb } from "../db/client";
 import { fetchSettingsPageData, type LocalBreed } from "../db/queries";
 import { enqueue } from "../sync/outbox";
 import { exportBackup, restoreBackup, resetEverything } from "../db/backup";
+import { AccountCard } from "../components/account-card";
 import { getSyncStatus } from "../sync/sync-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -251,6 +252,8 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         <h1 className="text-2xl font-bold tracking-tight">{t.settings.title}</h1>
         <p className="text-sm text-muted-foreground">{t.settings.description}</p>
       </div>
+
+      <AccountCard locale={locale} />
 
       {/* Settings Form */}
       <form onSubmit={handleSaveSettings} className="space-y-6">

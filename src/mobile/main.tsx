@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { Capacitor } from "@capacitor/core";
 import { AppShell } from "./app-shell";
 import { attachNetworkListener, attachAppLifecycleSync, syncNow } from "./sync/sync-manager";
+import { loadSession } from "./auth";
 import "@/app/globals.css";
 
 /**
@@ -27,9 +28,16 @@ async function ensureWebSqliteStore(): Promise<void> {
 async function bootstrap() {
   await ensureWebSqliteStore();
 
-  attachNetworkListener();
-  attachAppLifecycleSync();
-  void syncNow();
+  // Load the stored device token BEFORE anything syncs, so syncFetch's very
+  // first request already carries the Bearer header. Sync only starts for a
+  // logged-in device — a fresh install sits on the login screen instead of
+  // legacy-syncing the default farm it has no business seeing.
+  const session = await loadSession();
+  if (session) {
+    attachNetworkListener();
+    attachAppLifecycleSync();
+    void syncNow();
+  }
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>

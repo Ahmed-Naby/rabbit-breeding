@@ -13,6 +13,7 @@ import { getDb, withTransaction, sqlite } from "../db/client";
 import { Capacitor } from "@capacitor/core";
 import { queryAll, queryOne, run, nowIso } from "../db/helpers";
 import { SYNC_API_BASE_URL, SYNC_SHARED_SECRET } from "../config";
+import { getSession } from "../auth";
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -70,12 +71,20 @@ async function refreshPendingCount(db: SQLiteDBConnection) {
 // --- fetch helper ---------------------------------------------------------
 
 export async function syncFetch(path: string, init?: RequestInit): Promise<unknown> {
+  // Logged-in devices authenticate with their Bearer token + explicit farm;
+  // a device that predates login (or logged out mid-transition) falls back
+  // to the legacy shared secret, which the server maps to the default farm.
+  const session = getSession();
+  const authHeaders: Record<string, string> = session
+    ? { authorization: `Bearer ${session.token}`, "x-farm-id": session.activeFarmId }
+    : { "x-sync-key": SYNC_SHARED_SECRET };
+
   const res = await fetch(`${SYNC_API_BASE_URL}${path}`, {
     cache: "no-store",
     ...init,
     headers: {
       "content-type": "application/json",
-      "x-sync-key": SYNC_SHARED_SECRET,
+      ...authHeaders,
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",
       "Expires": "0",

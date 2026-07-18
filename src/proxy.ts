@@ -10,11 +10,13 @@ import type { NextRequest } from "next/server";
 // shared-secret header only), so a wildcard origin carries no CSRF risk.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  // Must list every header sync-manager.ts's syncFetch() actually sends
-  // (see src/mobile/sync/sync-manager.ts) — the preflight is rejected
-  // client-side if any requested header isn't explicitly allowed here.
-  "Access-Control-Allow-Headers": "Content-Type, x-sync-key, Cache-Control, Pragma, Expires",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+  // Must list every header the offline app actually sends — syncFetch()'s
+  // legacy x-sync-key plus the auth scheme's Authorization/x-farm-id (see
+  // src/mobile/sync/sync-manager.ts and src/mobile/auth.ts) — the preflight
+  // is rejected client-side if any requested header isn't explicitly allowed.
+  "Access-Control-Allow-Headers":
+    "Content-Type, x-sync-key, Authorization, x-farm-id, Cache-Control, Pragma, Expires",
 };
 
 export function proxy(request: NextRequest) {
@@ -30,5 +32,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/sync/:path*",
+  matcher: ["/api/sync/:path*", "/api/auth/:path*", "/api/farm/:path*"],
 };

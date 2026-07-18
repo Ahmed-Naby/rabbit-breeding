@@ -42,6 +42,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, type SyncState } from "./sync/sync-manager";
+import { loadSession } from "./auth";
+import { LoginPage } from "./pages/login-page";
 import { DoesPage } from "./pages/does-page";
 import { DashboardPage } from "./pages/dashboard-page";
 import { MatingPage } from "./pages/mating-page";
@@ -205,6 +207,14 @@ export function AppShell() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dbVersion, setDbVersion] = useState(0);
 
+  // Auth gate: until the stored device token is loaded we render nothing;
+  // with no token the login screen replaces the whole shell (no sync runs —
+  // the periodic timer is only attached below the gate).
+  const [authState, setAuthState] = useState<"loading" | "anon" | "authed">("loading");
+  useEffect(() => {
+    void loadSession().then((s) => setAuthState(s ? "authed" : "anon"));
+  }, []);
+
   useEffect(() => {
     document.documentElement.dir = dir;
     document.documentElement.lang = locale;
@@ -236,6 +246,9 @@ export function AppShell() {
       </span>
     </div>
   );
+
+  if (authState === "loading") return null;
+  if (authState === "anon") return <LoginPage locale={locale} />;
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground" dir={dir}>

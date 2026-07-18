@@ -86,6 +86,44 @@ export const en: Dictionary = {
   // above because that section is passed wholesale from a Server Component
   // to web Client Components — resetConfirm is a function, and RSC cannot
   // serialize functions across that boundary.
+  mobileAuth: {
+    loginSubtitle: "Sign in to sync your farm's data",
+    registerSubtitle: "Create an account to manage your farm",
+    loginTab: "Sign in",
+    registerTab: "Create account",
+    emailLabel: "Email",
+    passwordLabel: "Password",
+    passwordHint: "At least 8 characters",
+    nameLabel: "Name",
+    loginButton: "Sign in",
+    registerButton: "Create account",
+    workingLabel: "One moment…",
+    invalidCredentials: "Wrong email or password",
+    emailInUse: "This email is already registered — try signing in",
+    passwordTooShort: "Password too short — at least 8 characters",
+    invalidEmail: "Invalid email address",
+    genericError: "Could not reach the server — check your connection and try again",
+    accountHeading: "Account",
+    farmLabel: "Farm",
+    roleOwner: "Owner",
+    roleWorker: "Worker",
+    logoutButton: "Sign out",
+    logoutConfirm:
+      "You will be signed out and this device's local data cleared (it stays safe on the server). Continue?",
+    switchFarmConfirm:
+      "Switching farms clears this device's local data and downloads the selected farm from the server. Continue?",
+    membersHeading: "Farm members",
+    membersDescription:
+      "Add a worker by their registered account — they must create an account on the sign-in screen first, then add their email here.",
+    addMemberEmailPlaceholder: "Member's email",
+    addMemberButton: "Add",
+    memberAddedToast: "Member added",
+    memberRemovedToast: "Member removed",
+    removeMemberConfirm: "Remove this member from the farm?",
+    userNotFound: "No account with this email — they must register first",
+    cannotRemoveLastOwner: "Cannot remove the farm's only owner",
+    youBadge: "You",
+  },
   mobileSettings: {
     backupHeading: "Backup & Restore",
     backupDescription:
