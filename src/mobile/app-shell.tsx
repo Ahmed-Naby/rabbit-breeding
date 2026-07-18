@@ -42,7 +42,8 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, type SyncState } from "./sync/sync-manager";
-import { loadSession } from "./auth";
+import { loadSession, getSession, type AuthSession } from "./auth";
+import { ALWAYS_ALLOWED_PAGE } from "./nav-pages";
 import { LoginPage } from "./pages/login-page";
 import { DoesPage } from "./pages/does-page";
 import { DashboardPage } from "./pages/dashboard-page";
@@ -201,7 +202,7 @@ function OnlineOnlyPage({ title, pathSuffix, locale }: { title: string; pathSuff
 export function AppShell() {
   const locale: Locale = DEFAULT_LOCALE;
   const t = getClientDictionary(locale);
-  const route = useHashRoute();
+  const rawRoute = useHashRoute();
   useAndroidBackButton();
   const dir = locale === "ar" ? "rtl" : "ltr";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -213,6 +214,15 @@ export function AppShell() {
   const [authState, setAuthState] = useState<"loading" | "anon" | "authed">("loading");
   useEffect(() => {
     void loadSession().then((s) => setAuthState(s ? "authed" : "anon"));
+  }, []);
+
+  // Live membership snapshot (role, allowedPages) — kept in sync with auth.ts
+  // via a custom event, since login/refreshFarms/setActiveFarm all mutate it.
+  const [session, setSession] = useState<AuthSession | null>(() => getSession());
+  useEffect(() => {
+    const onUpdate = () => setSession(getSession());
+    window.addEventListener("auth-session-updated", onUpdate);
+    return () => window.removeEventListener("auth-session-updated", onUpdate);
   }, []);
 
   useEffect(() => {
@@ -228,13 +238,27 @@ export function AppShell() {
     return () => window.removeEventListener("local-db-updated", handleUpdate);
   }, []);
 
+  // Page-level restriction: an owner may limit which pages a non-owner
+  // member can see (null allowedPages = unrestricted). Settings stays
+  // reachable regardless, since it holds sign-out/farm-switch.
+  const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
+  const pageFilter =
+    activeFarm && activeFarm.role !== "owner" && Array.isArray(activeFarm.allowedPages)
+      ? new Set([...activeFarm.allowedPages, ALWAYS_ALLOWED_PAGE])
+      : null;
+  const routeAllowed =
+    !pageFilter || pageFilter.has(rawRoute) || rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
+  const route = routeAllowed ? rawRoute : ((pageFilter?.values().next().value as string | undefined) ?? ALWAYS_ALLOWED_PAGE);
+
   // Navigation Items
-  const navItems = Object.entries(ROUTES).map(([key, value]) => ({
-    href: key,
-    label: t.nav[value.labelKey],
-    icon: value.icon,
-    onlineOnly: [] as string[],
-  }));
+  const navItems = Object.entries(ROUTES)
+    .filter(([key]) => !pageFilter || pageFilter.has(key))
+    .map(([key, value]) => ({
+      href: key,
+      label: t.nav[value.labelKey],
+      icon: value.icon,
+      onlineOnly: [] as string[],
+    }));
 
   const brandEl = (
     <div className="flex items-center gap-2.5 px-1 py-1">

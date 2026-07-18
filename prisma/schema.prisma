@@ -497,7 +497,11 @@ model FarmMember {
   farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String // "owner" | "worker"
+  role      String // "owner" | "worker" (displayed as مشرف/Supervisor)
+  // Page-level UI permissions for workers: array of route hashes the member
+  // may see (null = all pages). Enforced by the app shell — the sync API
+  // itself stays role-based (owner vs worker), not per-page.
+  allowedPages Json?
   createdAt DateTime @default(now())
 
   @@unique([farmId, userId])

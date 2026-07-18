@@ -25,6 +25,6 @@ export async function POST(request: Request) {
   return Response.json({
     token,
     user: { id: user.id, email: user.email, name: user.name },
-    farms: memberships.map((m) => ({ farmId: m.farmId, role: m.role, name: m.farm.name })),
+    farms: memberships.map((m) => ({ farmId: m.farmId, role: m.role, name: m.farm.name, allowedPages: (m.allowedPages as string[] | null) ?? null })),
   });
 }

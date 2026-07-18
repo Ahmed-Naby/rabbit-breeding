@@ -20,6 +20,6 @@ export async function GET(request: Request) {
   });
   return Response.json({
     user,
-    farms: resolved.memberships.map((m) => ({ farmId: m.farmId, role: m.role, name: m.farmName })),
+    farms: resolved.memberships.map((m) => ({ farmId: m.farmId, role: m.role, name: m.farmName, allowedPages: m.allowedPages })),
   });
 }

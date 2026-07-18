@@ -100,7 +100,7 @@ export const ar = {
     accountHeading: "الحساب",
     farmLabel: "المزرعة",
     roleOwner: "مالك",
-    roleWorker: "عامل",
+    roleWorker: "مشرف",
     logoutButton: "تسجيل الخروج",
     logoutConfirm:
       "سيتم تسجيل الخروج ومسح البيانات المحفوظة على هذا الجهاز (تبقى محفوظة على الخادم). هل تريد المتابعة؟",
@@ -110,7 +110,7 @@ export const ar = {
     chooseFarmSubtitle: "حسابك عضو في أكثر من مزرعة — اختر أي واحدة يعرضها هذا الجهاز.",
     membersHeading: "أعضاء المزرعة",
     membersDescription:
-      "أضف عاملًا بحسابه المسجل مسبقًا — يجب أن ينشئ حسابه من شاشة الدخول أولًا، ثم أضف بريده هنا.",
+      "أضف مشرفًا بحسابه المسجل مسبقًا — يجب أن ينشئ حسابه من شاشة الدخول أولًا، ثم أضف بريده هنا.",
     addMemberEmailPlaceholder: "بريد العضو الإلكتروني",
     addMemberButton: "إضافة",
     memberAddedToast: "تمت إضافة العضو",
@@ -119,6 +119,13 @@ export const ar = {
     userNotFound: "لا يوجد حساب بهذا البريد — يجب أن يسجّل حسابه أولًا",
     cannotRemoveLastOwner: "لا يمكن إزالة المالك الوحيد للمزرعة",
     youBadge: "أنت",
+    editPermissionsButton: "الصفحات المسموحة",
+    permissionsHeading: "الصفحات المسموحة لـ",
+    permissionsDescription: "حدد الصفحات التي يمكن لهذا المشرف رؤيتها. صفحة الإعدادات متاحة دائمًا.",
+    permissionsAllPages: "كل الصفحات",
+    permissionsSaveButton: "حفظ",
+    permissionsSavedToast: "تم حفظ الصلاحيات",
+    permissionsCancelButton: "إلغاء",
   },
   mobileSettings: {
     backupHeading: "النسخ الاحتياطي والاستعادة",

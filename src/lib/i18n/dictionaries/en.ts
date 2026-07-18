@@ -106,7 +106,7 @@ export const en: Dictionary = {
     accountHeading: "Account",
     farmLabel: "Farm",
     roleOwner: "Owner",
-    roleWorker: "Worker",
+    roleWorker: "Supervisor",
     logoutButton: "Sign out",
     logoutConfirm:
       "You will be signed out and this device's local data cleared (it stays safe on the server). Continue?",
@@ -116,7 +116,7 @@ export const en: Dictionary = {
     chooseFarmSubtitle: "Your account belongs to more than one farm — pick which one this device shows.",
     membersHeading: "Farm members",
     membersDescription:
-      "Add a worker by their registered account — they must create an account on the sign-in screen first, then add their email here.",
+      "Add a supervisor by their registered account — they must create an account on the sign-in screen first, then add their email here.",
     addMemberEmailPlaceholder: "Member's email",
     addMemberButton: "Add",
     memberAddedToast: "Member added",
@@ -125,6 +125,13 @@ export const en: Dictionary = {
     userNotFound: "No account with this email — they must register first",
     cannotRemoveLastOwner: "Cannot remove the farm's only owner",
     youBadge: "You",
+    editPermissionsButton: "Allowed pages",
+    permissionsHeading: "Allowed pages for",
+    permissionsDescription: "Choose which pages this supervisor can see. Settings is always available.",
+    permissionsAllPages: "All pages",
+    permissionsSaveButton: "Save",
+    permissionsSavedToast: "Permissions saved",
+    permissionsCancelButton: "Cancel",
   },
   mobileSettings: {
     backupHeading: "Backup & Restore",

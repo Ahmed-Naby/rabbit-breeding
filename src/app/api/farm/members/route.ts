@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { authenticateSync, requireOwner } from "../../sync/auth";
 
 /**
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
       email: m.user.email,
       name: m.user.name,
       role: m.role,
+      allowedPages: (m.allowedPages as string[] | null) ?? null,
       isSelf: m.userId === auth.userId,
     })),
   });
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   const roleError = requireOwner(auth);
   if (roleError) return roleError;
 
-  let body: { email?: string; role?: string };
+  let body: { email?: string; role?: string; allowedPages?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -45,13 +47,19 @@ export async function POST(request: Request) {
   const role = body.role === "owner" ? "owner" : "worker";
   if (!email) return Response.json({ error: "INVALID_EMAIL" }, { status: 400 });
 
+  // null (or omitted) = all pages; otherwise a plain list of route hashes.
+  let allowedPages: string[] | null = null;
+  if (Array.isArray(body.allowedPages)) {
+    allowedPages = body.allowedPages.filter((p): p is string => typeof p === "string").slice(0, 50);
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return Response.json({ error: "USER_NOT_FOUND" }, { status: 404 });
 
   await prisma.farmMember.upsert({
     where: { farmId_userId: { farmId: auth.farmId, userId: user.id } },
-    create: { farmId: auth.farmId, userId: user.id, role },
-    update: { role },
+    create: { farmId: auth.farmId, userId: user.id, role, allowedPages: allowedPages ?? undefined },
+    update: { role, allowedPages: allowedPages === null ? Prisma.DbNull : allowedPages },
   });
   return Response.json({ ok: true });
 }

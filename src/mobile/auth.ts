@@ -17,7 +17,7 @@ import { queryAll, run } from "./db/helpers";
 
 const STORAGE_KEY = "rabbittrack.auth";
 
-export type FarmInfo = { farmId: string; role: string; name: string };
+export type FarmInfo = { farmId: string; role: string; name: string; allowedPages: string[] | null };
 export type AuthSession = {
   token: string;
   email: string;
@@ -46,6 +46,8 @@ export function getSession(): AuthSession | null {
 
 async function persist(session: AuthSession | null): Promise<void> {
   cached = session;
+  // Let live UI (app shell nav, account card) react to membership changes.
+  window.dispatchEvent(new CustomEvent("auth-session-updated"));
   if (session) {
     await Preferences.set({ key: STORAGE_KEY, value: JSON.stringify(session) });
   } else {
@@ -56,7 +58,7 @@ async function persist(session: AuthSession | null): Promise<void> {
 type AuthResponse = {
   token: string;
   user: { id: string; email: string; name: string | null };
-  farms: { farmId: string; role: string; name: string }[];
+  farms: FarmInfo[];
   error?: string;
 };
 

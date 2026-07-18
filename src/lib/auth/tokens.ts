@@ -22,7 +22,7 @@ export async function issueToken(userId: string, label?: string | null): Promise
 
 export type TokenUser = {
   userId: string;
-  memberships: { farmId: string; role: string; farmName: string }[];
+  memberships: { farmId: string; role: string; farmName: string; allowedPages: string[] | null }[];
 };
 
 /** Resolves a bearer token to its user + farm memberships, or null. */
@@ -44,6 +44,7 @@ export async function resolveToken(token: string): Promise<TokenUser | null> {
       farmId: m.farmId,
       role: m.role,
       farmName: m.farm.name,
+      allowedPages: Array.isArray(m.allowedPages) ? (m.allowedPages as string[]) : null,
     })),
   };
 }
