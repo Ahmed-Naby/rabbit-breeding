@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { currentFarmId } from "@/lib/tenant";
 import { settingsSchema, breedSchema } from "@/lib/validations";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
 import { Prisma } from "@/generated/prisma/client";
@@ -20,9 +21,9 @@ export async function updateSettings(
   // parsed data doubles as both the update and (with an id) the create
   // payload — no per-field list to keep in sync here.
   await prisma.settings.upsert({
-    where: { id: 1 },
+    where: { farmId: currentFarmId() },
     update: d,
-    create: { id: 1, ...d },
+    create: { farmId: currentFarmId(), ...d },
   });
 
   // Settings affect display across the whole app.

@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { currentFarmId } from "@/lib/tenant";
 import { deleteAllFarmData } from "./delete-all";
 
 /** The shape produced by runFullExport() — the only accepted input here. */
@@ -62,6 +63,7 @@ export function looksLikeFullExportData(value: unknown): value is FullExportData
  */
 export async function runFullImport(data: FullExportData): Promise<{ dataResetAt: string }> {
   const dataResetAt = new Date();
+  const farmId = currentFarmId();
 
   // -- sanitize --------------------------------------------------------------
   const dedupeById = <T extends { id?: unknown }>(rows: T[]): T[] => {
@@ -177,8 +179,8 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         dataResetAt,
       };
       await tx.settings.upsert({
-        where: { id: 1 },
-        create: { id: 1, ...settingsData },
+        where: { farmId },
+        create: { farmId, ...settingsData },
         update: settingsData,
       });
     },

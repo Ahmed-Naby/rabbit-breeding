@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { currentFarmId } from "@/lib/tenant";
 import { deleteAllFarmData } from "./delete-all";
 
 /**
@@ -13,12 +14,13 @@ import { deleteAllFarmData } from "./delete-all";
  */
 export async function runWipe(): Promise<{ dataResetAt: string }> {
   const dataResetAt = new Date();
+  const farmId = currentFarmId();
 
   await prisma.$transaction(async (tx) => {
     await deleteAllFarmData(tx);
     await tx.settings.upsert({
-      where: { id: 1 },
-      create: { id: 1, dataResetAt },
+      where: { farmId },
+      create: { farmId, dataResetAt },
       update: {
         weightUnit: "kg",
         gestationDays: 31,

@@ -16,19 +16,21 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Single-row app settings (id is always 1). Holds display/unit prefs and
-/// breeding config so they can be changed without code edits.
+/// One settings row per farm (was a single global row with id=1 before
+/// multi-farm). Holds display/unit prefs and breeding config so they can be
+/// changed without code edits.
 model Settings {
-  id                  Int      @id @default(1)
-  weightUnit          String   @default("kg") // "kg" | "lb_oz"
-  gestationDays       Int      @default(31) // mating -> expected kindling offset
-  gestationWindowDays Int      @default(3) // +/- days for the "due window" on the calendar
-  pregnancyTestDays   Int      @default(10) // mating -> earliest pregnancy test (palpation) offset
-  weaningDays         Int      @default(28) // kindling -> earliest weaning offset
-  nestBoxDays         Int      @default(27) // mating -> earliest nest-box installation offset
-  matingWeightGrams   Int      @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
-  rebreedAfterKindlingDays Int @default(0) // kindling -> earliest rebreed offset (0=مكثف, 15=نصف مكثف, 30=طبيعي)
-  currency            String   @default("USD")
+  farmId                   String    @id
+  farm                     Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  weightUnit               String    @default("kg") // "kg" | "lb_oz"
+  gestationDays            Int       @default(31) // mating -> expected kindling offset
+  gestationWindowDays      Int       @default(3) // +/- days for the "due window" on the calendar
+  pregnancyTestDays        Int       @default(10) // mating -> earliest pregnancy test (palpation) offset
+  weaningDays              Int       @default(28) // kindling -> earliest weaning offset
+  nestBoxDays              Int       @default(27) // mating -> earliest nest-box installation offset
+  matingWeightGrams        Int       @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
+  rebreedAfterKindlingDays Int       @default(0) // kindling -> earliest rebreed offset (0=مكثف, 15=نصف مكثف, 30=طبيعي)
+  currency                 String    @default("USD")
   // Set (to now()) whenever the "wipe online database" danger-zone action
   // runs. Returned to every client on every pull/bootstrap (Settings is
   // always sent in full); a device compares this against the resetAt it
@@ -36,9 +38,9 @@ model Settings {
   // and needs a full local wipe + re-bootstrap rather than a normal
   // incremental pull (which only ever adds/updates rows, never notices
   // deletions).
-  dataResetAt         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  dataResetAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 }
 
 /// A rabbit. Soft-deleted via `status` (never hard-deleted) to preserve pedigree.
@@ -46,44 +48,50 @@ model Settings {
 /// a kit is promoted, but the FK is authoritative (supports acquired rabbits whose
 /// parents are known but were never bred on this farm).
 model Rabbit {
-  id           String    @id @default(cuid())
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id             String    @id @default(cuid())
   // Buck and doe numbering are separate sequences (a buck and a doe may share
   // a number), but numbers don't repeat within the same sex. Null means this
   // rabbit is still a "سلالة" (juvenile, sex known but not yet promoted) —
   // assigning a tagId via the quick-add finalize action IS the promotion.
-  tagId        String? // rabbit/cage number, up to 10 chars, digits and letters (tattoo / ear ID)
+  tagId          String? // rabbit/cage number, up to 10 chars, digits and letters (tattoo / ear ID)
   // Set automatically (see setRabbitStatusOp) when a tagged rabbit's status
   // moves to "deceased": captures her old tagId + death date for display,
   // while tagId itself is cleared to null so the number is immediately free
   // for a new rabbit of the same sex — @@unique([tagId, sex]) allows any
   // number of NULLs. Free-text, not validated by tagIdSchema (it's
   // system-generated, never typed into a form).
-  retiredTagId String?
-  breed        String?
-  color        String?
-  sex          String    @default("unknown") // "buck" | "doe" | "unknown"
-  dateOfBirth  DateTime?
-  status       String    @default("active") // "active" | "sold" | "culled" | "deceased" | "reference"
+  retiredTagId   String?
+  breed          String?
+  color          String?
+  sex            String    @default("unknown") // "buck" | "doe" | "unknown"
+  dateOfBirth    DateTime?
+  status         String    @default("active") // "active" | "sold" | "culled" | "deceased" | "reference"
   // Manual reproductive state, meaningful for does only. Set exclusively via the six
   // action buttons on the does page (mate/pregnant/negative/kindle/wean/exclude) —
   // never auto-derived from Breeding/Litter data.
-  doeState     String    @default("empty") // "empty" | "bred" | "pregnant" | "nursing" | "excluded"
-  cage         String? // cage / hutch number
+  doeState       String    @default("empty") // "empty" | "bred" | "pregnant" | "nursing" | "excluded"
+  cage           String? // cage / hutch number
   // How this rabbit entered the herd — "external" (bought in, added straight
   // via the top add-mother/add-buck form) vs "farm" (registered as a سلالة on
   // /stock, or a promoted litter kit). Null for legacy rows predating this field.
-  origin       String?
+  origin         String?
   // A سلالة stays in the stock/nursery pen (raised there, cage + weight
   // tracked) for a while — often months — before someone explicitly decides
   // she/he's ready to move to the mothers/bucks waiting-for-tag pen. False
   // keeps a tagId-less rabbit on /stock regardless of cage/weight; flipped to
   // true only via the explicit "نقل إلى العنبر" button (see promoteToHerdPen),
   // never automatically just because a cage number was entered.
-  movedToHerdPen Boolean @default(false)
-  acquiredDate DateTime?
-  acquiredFrom String?
-  notes        String?
-  photoUrl     String?
+  movedToHerdPen Boolean   @default(false)
+  acquiredDate   DateTime?
+  acquiredFrom   String?
+  notes          String?
+  photoUrl       String?
 
   // Pedigree (self-relations). SetNull so a soft/rare hard delete never orphans FKs.
   sireId         String?
@@ -132,18 +140,25 @@ model Rabbit {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([tagId, sex])
+  @@unique([farmId, tagId, sex])
   @@index([status])
   @@index([sex])
   @@index([breed])
   @@index([sireId])
   @@index([damId])
   @@index([doeState])
+  @@index([farmId])
 }
 
 /// A mating record. expectedKindlingDate is computed at write time from
 /// Settings.gestationDays; the +/- window is applied at read time for the calendar.
 model Breeding {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id                   String    @id @default(cuid())
   // Nullable: the does board starts a mating without picking a buck (pairings
   // aren't tracked automatically anymore) — the farm types in the buck's tag
@@ -178,6 +193,7 @@ model Breeding {
   @@index([expectedKindlingDate])
   @@index([doeId])
   @@index([buckId])
+  @@index([farmId])
 }
 
 /// A permanent pregnancy-test result. Written once, at the moment "عشار"/"سالبة"
@@ -185,6 +201,12 @@ model Breeding {
 /// Breeding row at that instant, since that row gets reused (overwritten) the
 /// next time the same doe is mated, which would otherwise silently erase history.
 model PregnancyTestLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id         String   @id @default(cuid())
   doeId      String
   doe        Rabbit   @relation("PregnancyTestLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
@@ -197,6 +219,7 @@ model PregnancyTestLog {
 
   @@index([doeId])
   @@index([testDate])
+  @@index([farmId])
 }
 
 /// A permanent kindling (birth) record. Written once, at the moment "ولادة"
@@ -205,6 +228,12 @@ model PregnancyTestLog {
 /// actualKindlingDate) gets reused/overwritten the next time the same doe is
 /// mated, which would otherwise silently erase this birth from history.
 model KindlingLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id           String    @id @default(cuid())
   doeId        String
   doe          Rabbit    @relation("KindlingLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
@@ -216,6 +245,7 @@ model KindlingLog {
 
   @@index([doeId])
   @@index([kindlingDate])
+  @@index([farmId])
 }
 
 /// A permanent record of nursing kits transferred (fostered) from one doe's
@@ -224,6 +254,12 @@ model KindlingLog {
 /// and count directly rather than linking to a Breeding/Litter row, since
 /// those rows get reused/reset on the next mating cycle.
 model FosterLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id        String   @id @default(cuid())
   fromDoeId String
   fromDoe   Rabbit   @relation("FosterLogFrom", fields: [fromDoeId], references: [id], onDelete: Restrict)
@@ -236,6 +272,7 @@ model FosterLog {
   @@index([fromDoeId])
   @@index([toDoeId])
   @@index([date])
+  @@index([farmId])
 }
 
 /// Registered rabbit breed/type names, managed from Settings. Rabbit.breed
@@ -243,24 +280,39 @@ model FosterLog {
 /// with an unregistered breed string never break; this table is just a
 /// curated menu that powers the breed dropdown pickers app-wide.
 model Breed {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
   createdAt DateTime @default(now())
+
+  @@unique([farmId, name])
+  @@index([farmId])
 }
 
 /// The outcome of a successful mating. Counts-first: individual kits are optional
 /// and become Rabbit rows (linked back via Rabbit.litterId) when tagged.
 model Litter {
-  id           String    @id @default(cuid())
-  breedingId   String    @unique
-  breeding     Breeding  @relation(fields: [breedingId], references: [id], onDelete: Cascade)
-  kindlingDate DateTime
-  bornAlive    Int       @default(0)
-  bornDead     Int       @default(0)
-  weaned       Int? // number that survived to weaning
-  weaningDate  DateTime?
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id                 String    @id @default(cuid())
+  breedingId         String    @unique
+  breeding           Breeding  @relation(fields: [breedingId], references: [id], onDelete: Cascade)
+  kindlingDate       DateTime
+  bornAlive          Int       @default(0)
+  bornDead           Int       @default(0)
+  weaned             Int? // number that survived to weaning
+  weaningDate        DateTime?
   weaningWeightGrams Int? // total litter weight at weaning
-  notes        String?
+  notes              String?
 
   kits Rabbit[] // rabbits promoted from this litter
 
@@ -268,10 +320,17 @@ model Litter {
   updatedAt DateTime @updatedAt
 
   @@index([kindlingDate])
+  @@index([farmId])
 }
 
 /// A weight measurement. Stored canonically in grams; UI converts to kg or lb/oz.
 model WeightRecord {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id          String   @id @default(cuid())
   rabbitId    String
   rabbit      Rabbit   @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
@@ -285,10 +344,17 @@ model WeightRecord {
   updatedAt   DateTime @updatedAt
 
   @@index([rabbitId, date])
+  @@index([farmId])
 }
 
 /// A health event. nextDueDate drives the overdue/upcoming reminders on the dashboard.
 model HealthRecord {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id          String    @id @default(cuid())
   rabbitId    String
   rabbit      Rabbit    @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
@@ -300,11 +366,18 @@ model HealthRecord {
 
   @@index([rabbitId, date])
   @@index([nextDueDate])
+  @@index([farmId])
 }
 
 /// Income/expense entry. rabbitId null = farm-wide (feed, equipment, vet, etc).
 /// Amount is integer cents; type sign is implied by `type`, amount is always positive.
 model Transaction {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id          String   @id @default(cuid())
   rabbitId    String?
   rabbit      Rabbit?  @relation(fields: [rabbitId], references: [id], onDelete: SetNull)
@@ -321,6 +394,7 @@ model Transaction {
   @@index([type])
   @@index([category])
   @@index([rabbitId])
+  @@index([farmId])
 }
 
 /// Farm-wide ledger of weaned-kit stock movements (batch counts, not tied to
@@ -330,6 +404,12 @@ model Transaction {
 /// weight/price, mirrored into a Transaction), post-weaning deaths, and kits
 /// kept for breeding (mirrored into a Rabbit, one movement per rabbit).
 model KitStockMovement {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
   id              String   @id @default(cuid())
   date            DateTime
   type            String // "sale" | "death" | "retained"
@@ -351,17 +431,92 @@ model KitStockMovement {
 
   @@index([date])
   @@index([type])
+  @@index([farmId])
 }
 
-/// A device (phone/tablet) participating in offline sync. Not an auth/user
-/// system — just an identity to attribute queued operations to and track.
+/// A device (phone/tablet) participating in offline sync. Bound to the farm
+/// it mirrors; userId records who logged the device in (null for devices
+/// that synced under the legacy shared-secret scheme before auth existed).
 model SyncDevice {
   id         String    @id @default(cuid())
+  farmId     String
+  farm       Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   label      String?
   lastSyncAt DateTime?
   createdAt  DateTime  @default(now())
 
   operations SyncOperation[]
+
+  @@index([farmId])
+}
+
+/// An account. Farm membership (and role) lives in FarmMember, so one
+/// account can own one farm and work on another.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String // scrypt, "salt:hash" hex (see src/lib/auth/password.ts)
+  name         String?
+  createdAt    DateTime @default(now())
+
+  memberships  FarmMember[]
+  deviceTokens DeviceToken[]
+  syncDevices  SyncDevice[]
+}
+
+/// A tenant. Every farm-data row carries farmId; deleting a farm cascades
+/// through everything it owns.
+model Farm {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members           FarmMember[]
+  settings          Settings?
+  syncDevices       SyncDevice[]
+  rabbits           Rabbit[]
+  breedings         Breeding[]
+  litters           Litter[]
+  weightRecords     WeightRecord[]
+  healthRecords     HealthRecord[]
+  transactions      Transaction[]
+  kitStockMovements KitStockMovement[]
+  breeds            Breed[]
+  pregnancyTestLogs PregnancyTestLog[]
+  kindlingLogs      KindlingLog[]
+  fosterLogs        FosterLog[]
+}
+
+/// Membership + role. "owner" can manage members and use the danger zone
+/// (wipe/restore/reset); "worker" records day-to-day farm operations only.
+model FarmMember {
+  id        String   @id @default(cuid())
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String // "owner" | "worker"
+  createdAt DateTime @default(now())
+
+  @@unique([farmId, userId])
+  @@index([userId])
+}
+
+/// An opaque login token held by a device (web session cookie or the mobile
+/// app's stored credential). Only the sha256 of the token is stored — a DB
+/// leak can't be replayed as logins.
+model DeviceToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 /// Idempotency + audit ledger for offline-queued business operations

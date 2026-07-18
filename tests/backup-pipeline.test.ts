@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { resetDb, prisma } from "./db";
+import { resetDb, prisma, TEST_FARM_ID } from "./db";
 import { runFullImport, type FullExportData } from "@/lib/sync/import";
 import { runWipe } from "@/lib/sync/wipe";
 import { runPull } from "@/lib/sync/pull";
@@ -37,7 +37,7 @@ describe("runFullImport", () => {
     const rabbits = await prisma.rabbit.findMany();
     expect(rabbits.map((r) => r.id)).toEqual(["r1"]);
     expect(new Date(dataResetAt).getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
-    const settings = await prisma.settings.findUniqueOrThrow({ where: { id: 1 } });
+    const settings = await prisma.settings.findUniqueOrThrow({ where: { farmId: TEST_FARM_ID } });
     expect(settings.dataResetAt?.toISOString()).toBe(dataResetAt);
   });
 
@@ -105,7 +105,7 @@ describe("runWipe", () => {
 
     expect(await prisma.rabbit.count()).toBe(0);
     expect(await prisma.breed.count()).toBe(0);
-    const settings = await prisma.settings.findUniqueOrThrow({ where: { id: 1 } });
+    const settings = await prisma.settings.findUniqueOrThrow({ where: { farmId: TEST_FARM_ID } });
     expect(settings.dataResetAt?.toISOString()).toBe(dataResetAt);
   });
 });

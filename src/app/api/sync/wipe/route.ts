@@ -1,6 +1,7 @@
 import { runWipe } from "@/lib/sync/wipe";
 import { WIPE_CONFIRM_PHRASE } from "@/lib/sync/wipe-confirm-phrase";
-import { checkSyncAuth } from "../auth";
+import { authenticateSync, requireOwner } from "../auth";
+import { runWithFarm } from "@/lib/tenant";
 
 /**
  * Permanently deletes every farm-data row from the central database, for
@@ -12,8 +13,10 @@ import { checkSyncAuth } from "../auth";
  * request.
  */
 export async function POST(request: Request) {
-  const authError = checkSyncAuth(request);
-  if (authError) return authError;
+  const auth = await authenticateSync(request);
+  if (auth instanceof Response) return auth;
+  const roleError = requireOwner(auth);
+  if (roleError) return roleError;
 
   let body: { confirm?: string };
   try {
@@ -26,6 +29,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing or incorrect confirm phrase" }, { status: 400 });
   }
 
-  const { dataResetAt } = await runWipe();
+  const { dataResetAt } = await runWithFarm(auth.farmId, () => runWipe());
   return Response.json({ serverTime: new Date().toISOString(), dataResetAt });
 }

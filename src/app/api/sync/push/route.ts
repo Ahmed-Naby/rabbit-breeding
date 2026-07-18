@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { operationRegistry } from "@/lib/sync/operation-registry";
-import { checkSyncAuth } from "../auth";
+import { authenticateSync } from "../auth";
+import { runWithFarm } from "@/lib/tenant";
 
 type IncomingOperation = {
   clientOpId: string;
@@ -27,8 +28,8 @@ type OperationResult = {
  * never a silent partial failure.
  */
 export async function POST(request: Request) {
-  const authError = checkSyncAuth(request);
-  if (authError) return authError;
+  const auth = await authenticateSync(request);
+  if (auth instanceof Response) return auth;
 
   let body: { deviceId?: string; operations?: IncomingOperation[] };
   try {
@@ -44,8 +45,8 @@ export async function POST(request: Request) {
 
   await prisma.syncDevice.upsert({
     where: { id: deviceId },
-    create: { id: deviceId, lastSyncAt: new Date() },
-    update: { lastSyncAt: new Date() },
+    create: { id: deviceId, farmId: auth.farmId, userId: auth.userId, lastSyncAt: new Date() },
+    update: { farmId: auth.farmId, userId: auth.userId, lastSyncAt: new Date() },
   });
 
   const results: OperationResult[] = [];
@@ -72,7 +73,9 @@ export async function POST(request: Request) {
       outcome = { status: "rejected", resultMessage: `Unknown opType: ${op.opType}` };
     } else {
       try {
-        outcome = await handler(op.payload ?? {}, new Date(op.clientAt));
+        // Every op replays inside the authenticated farm's context — the
+        // Prisma extension scopes all its queries to auth.farmId.
+        outcome = await runWithFarm(auth.farmId, () => handler(op.payload ?? {}, new Date(op.clientAt)));
       } catch (e) {
         outcome = { status: "rejected", resultMessage: e instanceof Error ? e.message : String(e) };
       }

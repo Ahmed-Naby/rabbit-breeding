@@ -49,6 +49,7 @@ import {
   updateRabbitDetailsOp,
 } from "@/lib/rabbit-ops";
 import { prisma } from "@/lib/prisma";
+import { currentFarmId } from "@/lib/tenant";
 
 export type SyncOpOutcome =
   | { status: "applied"; resultMessage?: string }
@@ -443,9 +444,9 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     const d = { ...p };
     delete d.id;
     await prisma.settings.upsert({
-      where: { id: 1 },
+      where: { farmId: currentFarmId() },
       update: d,
-      create: { id: 1, ...d } as any,
+      create: { farmId: currentFarmId(), ...d } as any,
     });
     return applied;
   },

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { currentFarmId } from "@/lib/tenant";
 
 /**
  * Incremental read side of sync, shared by /api/sync/pull (since a cursor)
@@ -24,7 +25,7 @@ export async function runPull(since: Date) {
     pregnancyTestLogs,
     kindlingLogs,
   ] = await Promise.all([
-    prisma.settings.findUnique({ where: { id: 1 } }),
+    prisma.settings.findUnique({ where: { farmId: currentFarmId() } }),
     prisma.rabbit.findMany({ where: { updatedAt: { gt: since } } }),
     prisma.breeding.findMany({ where: { updatedAt: { gt: since } } }),
     prisma.litter.findMany({ where: { updatedAt: { gt: since } } }),

@@ -1,6 +1,7 @@
 import { runFullImport, looksLikeFullExportData } from "@/lib/sync/import";
 import { RESTORE_CONFIRM_PHRASE } from "@/lib/sync/restore-confirm-phrase";
-import { checkSyncAuth } from "../auth";
+import { authenticateSync, requireOwner } from "../auth";
+import { runWithFarm } from "@/lib/tenant";
 
 /**
  * Overwrites every farm-data row in the central database with a previously
@@ -11,8 +12,10 @@ import { checkSyncAuth } from "../auth";
  * the mobile UI's typed confirmation.
  */
 export async function POST(request: Request) {
-  const authError = checkSyncAuth(request);
-  if (authError) return authError;
+  const auth = await authenticateSync(request);
+  if (auth instanceof Response) return auth;
+  const roleError = requireOwner(auth);
+  if (roleError) return roleError;
 
   let body: { confirm?: string; data?: unknown };
   try {
@@ -29,6 +32,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Data does not look like a full export snapshot" }, { status: 400 });
   }
 
-  const { dataResetAt } = await runFullImport(body.data);
+  const { dataResetAt } = await runWithFarm(auth.farmId, () => runFullImport(body.data as never));
   return Response.json({ serverTime: new Date().toISOString(), dataResetAt });
 }

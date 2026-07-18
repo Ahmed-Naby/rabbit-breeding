@@ -1,7 +1,8 @@
 // Seed script: a small, realistic herd across three generations plus breeding,
 // litter, weight, health and finance data. Run with `npm run db:seed`.
-// Uses a relative import (not the @/ alias) so it runs cleanly under tsx.
+// Uses relative imports (not the @/ alias) so it runs cleanly under tsx.
 import "dotenv/config";
+import { DEFAULT_FARM_ID } from "../src/lib/tenant";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -30,11 +31,11 @@ async function main() {
   await prisma.litter.deleteMany();
   await prisma.breeding.deleteMany();
   await prisma.rabbit.deleteMany();
-  await prisma.settings.deleteMany();
+  await prisma.settings.deleteMany({ where: { farmId: DEFAULT_FARM_ID } });
 
   console.log("Seeding settings…");
   await prisma.settings.create({
-    data: { id: 1, weightUnit: "kg", gestationDays: GESTATION, currency: "USD" },
+    data: { farmId: DEFAULT_FARM_ID, weightUnit: "kg", gestationDays: GESTATION, currency: "USD" },
   });
 
   console.log("Seeding foundation stock…");
