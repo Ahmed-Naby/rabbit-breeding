@@ -73,10 +73,15 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
       return;
     }
 
-    if (type === "death" && data && qty > data.availableStock) {
+    // The available-stock balance may never go negative. A sale or death
+    // withdraws `qty`; a signed adjustment shifts by `qty`. Block anything
+    // that would push the balance below zero (a positive adjustment always
+    // raises it, so it's never blocked).
+    const balanceChange = type === "adjustment" ? qty : -qty;
+    if (data && data.availableStock + balanceChange < 0) {
       toast.error(
         locale === "ar"
-          ? `العدد المدخل يتجاوز الكمية المتاحة (${data.availableStock})`
+          ? `العدد يتجاوز المخزون المتاح (${data.availableStock})`
           : `Count exceeds available stock (${data.availableStock})`
       );
       return;
