@@ -26,36 +26,34 @@ async function initWebStoreIfNeeded(): Promise<void> {
 }
 
 async function openConnection(): Promise<SQLiteDBConnection> {
-  console.log("[DB] openConnection starting");
+  console.log("[DB] openConnection v3 starting");
   await initWebStoreIfNeeded();
 
-  // On native (Android/iOS) the plugin's connection map lives in the Activity
-  // and survives a WebView reload — which login, register, and farm-switch all
-  // trigger (window.location.reload()). The JS-side SQLiteConnection, however,
-  // is recreated empty on reload, so isConnection() reports "none" while
-  // createConnection() then throws "Connection <name> already exists".
-  // checkConnectionsConsistency() reconciles the JS and native maps (closing
-  // the orphaned native connection) so the create/retrieve below is correct.
-  try {
-    await sqlite.checkConnectionsConsistency();
-  } catch {
-    // Nothing to reconcile on a first-ever open — safe to ignore.
-  }
-
-  console.log("[DB] checking if connection exists");
   const alreadyOpen = await sqlite.isConnection(DB_NAME, false);
-  console.log("[DB] connection check result:", alreadyOpen.result);
   let db: SQLiteDBConnection;
   if (alreadyOpen.result) {
+    // Same JS context re-open (e.g. retry after a failed boot) — reuse.
     db = await sqlite.retrieveConnection(DB_NAME, false);
   } else {
-    try {
-      db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
-    } catch {
-      // Belt-and-suspenders: if a stale native connection still exists despite
-      // the reconcile above, reuse it rather than failing the whole boot.
-      db = await sqlite.retrieveConnection(DB_NAME, false);
+    // Fresh JS context. On native the plugin's connection map lives in the
+    // Activity and survives WebView reloads — which login, register, and
+    // farm-switch all trigger via window.location.reload(). A connection
+    // created before the reload is still registered natively while this
+    // context's JS map is empty, so createConnection() throws "Connection
+    // rabbittrack already exists". checkConnectionsConsistency() proved
+    // unreliable at reconciling this, so deterministically close any such
+    // orphan via the RAW plugin (bypassing the JS wrapper, whose map doesn't
+    // know the orphan and would refuse). The close rejects harmlessly on a
+    // first-ever open when nothing is registered natively.
+    if (Capacitor.getPlatform() === "android" || Capacitor.getPlatform() === "ios") {
+      try {
+        await CapacitorSQLite.closeConnection({ database: DB_NAME, readonly: false });
+        console.log("[DB] closed orphaned native connection from before reload");
+      } catch {
+        // No orphaned native connection — first open on this device.
+      }
     }
+    db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
   }
 
   console.log("[DB] opening database");
