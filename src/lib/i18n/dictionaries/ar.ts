@@ -912,7 +912,7 @@ export const ar = {
     colWeaningSurvivalRate: "نسبة بقاء الفطام",
     emptyTitle: "لا توجد أمهات مسجلة",
     emptyDescription: "سجل أمهات نشطة برقم وشم في المزرعة لتظهر هنا.",
-    statsHeading: "إحصائيات الخصوبة",
+    statsHeading: "متوسط خصوبة المزرعة",
     statFertilityRate: "معدل الخصوبة",
     statTotalKindlings: "عدد مرات الولادة",
     statTotalBreedings: "عدد مرات التلقيح",

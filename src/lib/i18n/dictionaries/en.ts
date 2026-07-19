@@ -923,7 +923,7 @@ export const en: Dictionary = {
     colWeaningSurvivalRate: "Weaning Survival",
     emptyTitle: "No does registered",
     emptyDescription: "Register active does with a tag number to see them here.",
-    statsHeading: "Fertility Statistics",
+    statsHeading: "Average Farm Fertility",
     statFertilityRate: "Fertility Rate",
     statTotalKindlings: "Total Births",
     statTotalBreedings: "Total Breedings",
