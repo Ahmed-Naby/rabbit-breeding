@@ -113,28 +113,112 @@ export async function buckExistsLocally(db: SQLiteDBConnection, tagId: string): 
 }
 
 export type DashboardStats = {
-  totalRabbits: number;
+  stockCount: number;
   activeDoes: number;
   activeBucks: number;
-  totalLitters: number;
-  activeBreedings: number;
+  readyForMating: number;
+  readyForPregnancyTest: number;
+  expectedKindlings: number;
+  nestBoxesDue: number;
 };
 
+/** Same eligibility rule as /mating's board (mobile mating-page.tsx: no rebreed-cooldown filter applied there, unlike the web board). */
+async function countReadyForMating(db: SQLiteDBConnection): Promise<number> {
+  const row = await queryOne<{ count: number }>(
+    db,
+    "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled', 'resting') AND doeState IN ('empty', 'nursing', 'excluded')"
+  );
+  return row?.count ?? 0;
+}
+
+/** Mirrors fetchPregnancyPageData's candidate filter, counted without the log/buck joins the full page needs. */
+async function countReadyForPregnancyTest(db: SQLiteDBConnection, settings: LocalSettings): Promise<number> {
+  const rows = await queryAll<{ breedingId: string; matingDate: string | null }>(
+    db,
+    `SELECT b.id as breedingId, b.matingDate FROM rabbit r
+     JOIN breeding b ON r.id = b.doeId
+     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status NOT IN ('deceased', 'culled')
+       AND r.doeState IN ('bred', 'nursing_bred')`
+  );
+  const today = new Date();
+  return rows.filter((r) =>
+    isPregnancyTestCandidate({ id: r.breedingId, matingDate: r.matingDate, actualKindlingDate: null }, settings.pregnancyTestDays, today)
+  ).length;
+}
+
+/** Mirrors fetchNestBoxPageData's candidate filter (one latest breeding per doe). */
+async function countNestBoxesDue(db: SQLiteDBConnection, settings: LocalSettings): Promise<number> {
+  const does = await queryAll<{ id: string }>(
+    db,
+    "SELECT id FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') AND doeState IN ('bred', 'pregnant', 'nursing_bred', 'nursing_pregnant')"
+  );
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  let count = 0;
+  for (const doe of does) {
+    const b = await queryOne<{ id: string; matingDate: string | null; nestBoxDate: string | null }>(
+      db,
+      "SELECT id, matingDate, nestBoxDate FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 1",
+      [doe.id]
+    );
+    if (b && isNestBoxCandidate({ id: b.id, matingDate: b.matingDate, nestBoxDate: b.nestBoxDate, actualKindlingDate: null }, settings.nestBoxDays, today)) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/** Mirrors fetchKindlingPageData's candidate filter (one latest breeding per doe). */
+async function countExpectedKindlings(db: SQLiteDBConnection, settings: LocalSettings): Promise<number> {
+  const does = await queryAll<{ id: string }>(
+    db,
+    "SELECT id FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') AND doeState IN ('pregnant', 'nursing_pregnant')"
+  );
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  let count = 0;
+  for (const doe of does) {
+    const b = await queryOne<{ id: string; matingDate: string | null }>(
+      db,
+      "SELECT id, matingDate FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 1",
+      [doe.id]
+    );
+    if (b && isKindlingCandidate({ id: b.id, matingDate: b.matingDate, actualKindlingDate: null }, settings.gestationDays, today)) {
+      count++;
+    }
+  }
+  return count;
+}
+
 export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<DashboardStats> {
-  const [totalRabbits, activeDoes, activeBucks, totalLitters, activeBreedings] = await Promise.all([
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE status NOT IN ('deceased', 'culled')"),
+  const settings = await getLocalSettings(db);
+  const [
+    stockCount,
+    activeDoes,
+    activeBucks,
+    readyForMating,
+    readyForPregnancyTest,
+    expectedKindlings,
+    nestBoxesDue,
+  ] = await Promise.all([
+    // Same filter as /stock: untagged juveniles not yet promoted to the breeding herd pen.
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status NOT IN ('deceased', 'culled')"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM litter"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM breeding WHERE matingDate IS NOT NULL AND actualKindlingDate IS NULL"),
+    countReadyForMating(db),
+    countReadyForPregnancyTest(db, settings),
+    countExpectedKindlings(db, settings),
+    countNestBoxesDue(db, settings),
   ]);
 
   return {
-    totalRabbits: totalRabbits?.count ?? 0,
+    stockCount: stockCount?.count ?? 0,
     activeDoes: activeDoes?.count ?? 0,
     activeBucks: activeBucks?.count ?? 0,
-    totalLitters: totalLitters?.count ?? 0,
-    activeBreedings: activeBreedings?.count ?? 0,
+    readyForMating,
+    readyForPregnancyTest,
+    expectedKindlings,
+    nestBoxesDue,
   };
 }
 

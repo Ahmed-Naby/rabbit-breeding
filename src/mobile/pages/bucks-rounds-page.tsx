@@ -4,13 +4,14 @@
  * outbox ops the bucks/mortality/health pages already use (setRabbitStatus,
  * createHealthRecord), so nothing new is written to the local mirror.
  */
-import { useCallback, useEffect, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClipboardCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { BUCK_DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { toDateInputValue } from "@/lib/dates";
+import { naturalCompare } from "@/lib/sortable";
 import { getDb } from "../db/client";
 import { fetchBucksPageData } from "../db/queries";
 import { enqueue } from "../sync/outbox";
@@ -28,6 +29,7 @@ export function BucksRoundsPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
   const rt = t.bucksRounds;
   const [bucks, setBucks] = useState<Buck[] | null>(null);
+  const [search, setSearch] = useState("");
   const [healthOpen, setHealthOpen] = useState<Record<string, boolean>>({});
   const [healthDraft, setHealthDraft] = useState<
     Record<string, { type: string; disease: DiseaseType; description: string }>
@@ -76,6 +78,16 @@ export function BucksRoundsPage({ locale }: { locale: Locale }) {
     setHealthDraft((s) => ({ ...s, [buckId]: { type: "illness", disease: "mange", description: "" } }));
   };
 
+  const sortedBucks = useMemo(
+    () => [...(bucks ?? [])].sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? "")),
+    [bucks]
+  );
+  const visibleBucks = useMemo(() => {
+    const q = search.trim();
+    if (!q) return sortedBucks;
+    return sortedBucks.filter((b) => (b.tagId ?? "").includes(q));
+  }, [sortedBucks, search]);
+
   if (bucks === null) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
@@ -97,8 +109,23 @@ export function BucksRoundsPage({ locale }: { locale: Locale }) {
         <p className="text-sm text-muted-foreground">{rt.description}</p>
       </div>
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={locale === "ar" ? "ابحث برقم الذكر…" : "Search by buck number…"}
+          className="ps-9"
+        />
+      </div>
+
+      {visibleBucks.length === 0 ? (
+        <p className="p-4 text-center text-sm text-muted-foreground">
+          {locale === "ar" ? "لا يوجد ذكر بهذا الرقم" : "No buck matches that number"}
+        </p>
+      ) : (
       <div className="space-y-3">
-        {bucks.map((buck) => {
+        {visibleBucks.map((buck) => {
           const healthDraftForBuck = healthDraft[buck.id] ?? { type: "illness", disease: "mange" as DiseaseType, description: "" };
 
           return (
@@ -213,6 +240,7 @@ export function BucksRoundsPage({ locale }: { locale: Locale }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

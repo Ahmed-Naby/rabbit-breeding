@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Shuffle } from "lucide-react";
 import { createId } from "@paralleldrive/cuid2";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -24,6 +24,7 @@ export function StockPage({ locale }: { locale: Locale }) {
   } | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [assigningCages, setAssigningCages] = useState(false);
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
   const addFormRef = useRef<HTMLFormElement>(null);
 
@@ -52,7 +53,6 @@ export function StockPage({ locale }: { locale: Locale }) {
       );
       return;
     }
-    setSaving(true);
 
     const formData = new FormData(e.currentTarget);
     const sex = formData.get("sex") as "doe" | "buck";
@@ -61,25 +61,34 @@ export function StockPage({ locale }: { locale: Locale }) {
     const weightRaw = (formData.get("weightKg") as string) || "";
     const cageRaw = ((formData.get("cage") as string) || "").trim();
 
+    // النوع/الوزن/رقم القفص إلزامية — لا نضيف سلالة ناقصة البيانات للجدول.
+    if (breed === "none" || !weightRaw || !cageRaw) {
+      toast.error(
+        locale === "ar"
+          ? "يجب إدخال النوع والوزن ورقم القفص لتسجيل السلالة"
+          : "Type, weight, and cage number are all required to register stock"
+      );
+      return;
+    }
+
+    setSaving(true);
     try {
       const id = createId();
       const res = await enqueue("createQuickRabbit", {
         id,
         tagId: null,
-        breed: breed === "none" ? null : breed,
+        breed,
         sex,
         date: new Date(date).toISOString(),
-        weightKg: weightRaw ? parseFloat(weightRaw) : null,
+        weightKg: parseFloat(weightRaw),
       });
 
       if (res.outcome.status === "rejected") {
         toast.error(res.outcome.resultMessage);
       } else {
-        if (cageRaw) {
-          const cageRes = await enqueue("saveQuickRabbitCage", { id, cage: cageRaw });
-          if (cageRes.outcome.status === "rejected") {
-            toast.error(cageRes.outcome.resultMessage);
-          }
+        const cageRes = await enqueue("saveQuickRabbitCage", { id, cage: cageRaw });
+        if (cageRes.outcome.status === "rejected") {
+          toast.error(cageRes.outcome.resultMessage);
         }
         toast.success(t.registeredToast);
         addFormRef.current?.reset();
@@ -128,6 +137,34 @@ export function StockPage({ locale }: { locale: Locale }) {
     }
   };
 
+  const handleAssignRandomCages = async () => {
+    const targets = (data?.rabbits ?? []).filter((r) => !r.cage);
+    if (targets.length === 0) return;
+    setAssigningCages(true);
+    try {
+      const used = new Set<string>();
+      for (const r of targets) {
+        let cage: string;
+        do {
+          cage = String(Math.floor(1000 + Math.random() * 9000));
+        } while (used.has(cage));
+        used.add(cage);
+        const res = await enqueue("saveQuickRabbitCage", { id: r.id, cage });
+        if (res.outcome.status === "rejected") {
+          toast.error(res.outcome.resultMessage);
+        }
+      }
+      toast.success(
+        locale === "ar" ? "تم توليد أرقام قفص عشوائية لجميع السلالات" : "Random cage numbers assigned to all stock"
+      );
+      await load();
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setAssigningCages(false);
+    }
+  };
+
   const rabbits = data?.rabbits ?? [];
   const breedOptions = data?.breedOptions ?? [];
 
@@ -152,7 +189,12 @@ export function StockPage({ locale }: { locale: Locale }) {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
+            {rabbits.length}
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground">{t.description}</p>
       </div>
 
@@ -209,6 +251,7 @@ export function StockPage({ locale }: { locale: Locale }) {
                   type="number"
                   step="0.001"
                   min={0}
+                  required
                   placeholder={t.weightPlaceholder}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
@@ -220,6 +263,7 @@ export function StockPage({ locale }: { locale: Locale }) {
                   name="cage"
                   type="text"
                   maxLength={10}
+                  required
                   placeholder={t.cagePlaceholder}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
@@ -238,7 +282,25 @@ export function StockPage({ locale }: { locale: Locale }) {
 
       {/* Stock Table Section */}
       {rabbits.length > 0 && (
-        <div className="rounded-xl border bg-card overflow-x-auto">
+        <div className="space-y-3">
+          {rabbits.some((r) => !r.cage) && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handleAssignRandomCages()}
+                disabled={assigningCages}
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-xs font-medium shadow-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+              >
+                <Shuffle className="h-3.5 w-3.5" />
+                {assigningCages
+                  ? tCommon.saving
+                  : locale === "ar"
+                    ? "توليد أرقام قفص عشوائية"
+                    : "Generate random cage numbers"}
+              </button>
+            </div>
+          )}
+          <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
@@ -329,6 +391,7 @@ export function StockPage({ locale }: { locale: Locale }) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

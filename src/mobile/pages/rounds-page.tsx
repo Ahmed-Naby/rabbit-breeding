@@ -7,8 +7,8 @@
  * createHealthRecord) — nothing new is written to the local mirror, so the
  * data shows up on those pages automatically with no separate entry step.
  */
-import { useCallback, useEffect, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ClipboardCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { computeDoeBoardRow } from "@/lib/does-board";
 import type { DoeState } from "@/lib/enums";
@@ -16,6 +16,7 @@ import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { toDateInputValue } from "@/lib/dates";
+import { naturalCompare } from "@/lib/sortable";
 import { getDb } from "../db/client";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
 import type { LocalSettings } from "../db/types";
@@ -33,6 +34,7 @@ export function RoundsPage({ locale }: { locale: Locale }) {
   const rt = t.rounds;
   const [does, setDoes] = useState<DoeRow[] | null>(null);
   const [settings, setSettings] = useState<LocalSettings | null>(null);
+  const [search, setSearch] = useState("");
   const [nursingCounts, setNursingCounts] = useState<Record<string, number>>({});
   const [healthOpen, setHealthOpen] = useState<Record<string, boolean>>({});
   const [healthDraft, setHealthDraft] = useState<
@@ -99,6 +101,16 @@ export function RoundsPage({ locale }: { locale: Locale }) {
     setHealthDraft((s) => ({ ...s, [doeId]: { type: "illness", disease: "other", description: "" } }));
   };
 
+  const sortedDoes = useMemo(
+    () => [...(does ?? [])].sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? "")),
+    [does]
+  );
+  const visibleDoes = useMemo(() => {
+    const q = search.trim();
+    if (!q) return sortedDoes;
+    return sortedDoes.filter((d) => (d.tagId ?? "").includes(q));
+  }, [sortedDoes, search]);
+
   if (does === null || settings === null) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
@@ -120,8 +132,23 @@ export function RoundsPage({ locale }: { locale: Locale }) {
         <p className="text-sm text-muted-foreground">{rt.description}</p>
       </div>
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={locale === "ar" ? "ابحث برقم الأم…" : "Search by doe number…"}
+          className="ps-9"
+        />
+      </div>
+
+      {visibleDoes.length === 0 ? (
+        <p className="p-4 text-center text-sm text-muted-foreground">
+          {locale === "ar" ? "لا توجد أم بهذا الرقم" : "No doe matches that number"}
+        </p>
+      ) : (
       <div className="space-y-3">
-        {does.map((doe) => {
+        {visibleDoes.map((doe) => {
           const { current: b, litterRow, countsRow, kindleActive } = computeDoeBoardRow(
             doe.doeState as DoeState,
             doe.status,
@@ -319,6 +346,7 @@ export function RoundsPage({ locale }: { locale: Locale }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

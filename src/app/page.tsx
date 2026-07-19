@@ -8,17 +8,26 @@ import {
   Stethoscope,
   Baby,
   TrendingUp,
+  HeartHandshake,
+  Microscope,
+  HeartPulse,
+  Box,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { Button } from "@/components/ui/button";
-import { daysUntil, survivalRate } from "@/lib/dates";
+import { daysUntil, survivalRate, rebreedDueDate } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { RABBIT_STATUSES } from "@/lib/enums";
 import { cn } from "@/lib/utils";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import {
+  isPregnancyTestCandidate,
+  isNestBoxCandidate,
+  isKindlingCandidate,
+} from "@/lib/breeding-filters";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -29,27 +38,98 @@ export default async function DashboardPage() {
   const settings = await getSettings();
   const win = settings.gestationWindowDays;
 
-  const [statusCounts, pending, dueHealth, recentLitters, activeCount, { locale, t }] =
-    await Promise.all([
-      prisma.rabbit.groupBy({ by: ["status"], _count: { _all: true } }),
-      prisma.breeding.findMany({
-        where: { outcome: "pending" },
-        include: { doe: { select: { id: true, tagId: true } } },
-        orderBy: { expectedKindlingDate: "asc" },
-      }),
-      prisma.healthRecord.findMany({
-        where: { nextDueDate: { not: null } },
-        include: { rabbit: { select: { id: true, tagId: true } } },
-        orderBy: { nextDueDate: "asc" },
-      }),
-      prisma.litter.findMany({
-        where: { weaned: { not: null } },
-        orderBy: { kindlingDate: "desc" },
-        take: 6,
-      }),
-      prisma.rabbit.count({ where: { status: "active" } }),
-      getDictionary(),
-    ]);
+  const [
+    statusCounts,
+    pending,
+    dueHealth,
+    recentLitters,
+    activeCount,
+    matingCandidates,
+    pregnancyTestCandidates,
+    nestBoxCandidates,
+    kindlingCandidates,
+    { locale, t },
+  ] = await Promise.all([
+    prisma.rabbit.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.breeding.findMany({
+      where: { outcome: "pending" },
+      include: { doe: { select: { id: true, tagId: true } } },
+      orderBy: { expectedKindlingDate: "asc" },
+    }),
+    prisma.healthRecord.findMany({
+      where: { nextDueDate: { not: null } },
+      include: { rabbit: { select: { id: true, tagId: true } } },
+      orderBy: { nextDueDate: "asc" },
+    }),
+    prisma.litter.findMany({
+      where: { weaned: { not: null } },
+      orderBy: { kindlingDate: "desc" },
+      take: 6,
+    }),
+    prisma.rabbit.count({ where: { status: "active" } }),
+    // Same eligibility rule as /mating (canMate): فاضية، مرضعة، أو مستبعدة.
+    prisma.rabbit.findMany({
+      where: {
+        sex: "doe",
+        tagId: { not: null },
+        status: { notIn: ["deceased", "culled", "resting"] },
+        doeState: { in: ["empty", "nursing", "excluded"] },
+      },
+      select: {
+        id: true,
+        doeState: true,
+        breedingsAsDoe: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { actualKindlingDate: true },
+        },
+      },
+    }),
+    // Same eligibility rule as /pregnancy-test: مُلقّحة ولسه منتظرة نتيجة الجس.
+    prisma.rabbit.findMany({
+      where: {
+        sex: "doe",
+        tagId: { not: null },
+        status: { notIn: ["deceased", "culled"] },
+        doeState: { in: ["bred", "nursing_bred"] },
+      },
+      select: {
+        id: true,
+        breedingsAsDoe: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, matingDate: true } },
+      },
+    }),
+    // Same eligibility rule as /nest-box.
+    prisma.rabbit.findMany({
+      where: {
+        sex: "doe",
+        tagId: { not: null },
+        status: { notIn: ["deceased", "culled"] },
+        doeState: { in: ["bred", "pregnant", "nursing_bred", "nursing_pregnant"] },
+      },
+      select: {
+        id: true,
+        breedingsAsDoe: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { id: true, matingDate: true, nestBoxDate: true },
+        },
+      },
+    }),
+    // Same eligibility rule as /kindling: "pregnant" / "nursing_pregnant".
+    prisma.rabbit.findMany({
+      where: {
+        sex: "doe",
+        tagId: { not: null },
+        status: { notIn: ["deceased", "culled"] },
+        doeState: { in: ["pregnant", "nursing_pregnant"] },
+      },
+      select: {
+        id: true,
+        breedingsAsDoe: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, matingDate: true } },
+      },
+    }),
+    getDictionary(),
+  ]);
 
   const overdueKindlings = pending.filter(
     (b) => daysUntil(b.expectedKindlingDate) < -win
@@ -68,6 +148,28 @@ export default async function DashboardPage() {
     statusCounts.map((s) => [s.status, s._count._all])
   );
   const totalRabbits = statusCounts.reduce((s, r) => s + r._count._all, 0);
+
+  // Breeding-cycle "ready now" counts — mirrors the eligibility logic each
+  // dedicated board (/mating, /pregnancy-test, /nest-box, /kindling) uses,
+  // so these cards' counts always match what a click-through would show.
+  const readyForMatingCount = matingCandidates.filter((doe) => {
+    if (doe.doeState !== "nursing") return true;
+    const kindlingDate = doe.breedingsAsDoe[0]?.actualKindlingDate;
+    if (!kindlingDate) return true;
+    return daysUntil(rebreedDueDate(kindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
+  }).length;
+  const readyForPregnancyTestCount = pregnancyTestCandidates.filter((doe) => {
+    const b = doe.breedingsAsDoe[0];
+    return !!b && isPregnancyTestCandidate({ ...b, actualKindlingDate: null }, settings.pregnancyTestDays);
+  }).length;
+  const readyForNestBoxCount = nestBoxCandidates.filter((doe) => {
+    const b = doe.breedingsAsDoe[0];
+    return !!b && isNestBoxCandidate({ ...b, actualKindlingDate: null }, settings.nestBoxDays);
+  }).length;
+  const readyForKindlingCount = kindlingCandidates.filter((doe) => {
+    const b = doe.breedingsAsDoe[0];
+    return !!b && isKindlingCandidate({ ...b, actualKindlingDate: null }, settings.gestationDays);
+  }).length;
 
   // Herd weaning survival across recent litters.
   const alive = recentLitters.reduce((s, l) => s + l.bornAlive, 0);
@@ -128,6 +230,34 @@ export default async function DashboardPage() {
           label={t.dashboard.weaningSurvivalRate}
           value={herdSurvival == null ? "—" : `${herdSurvival}%`}
           href="/kindling"
+        />
+      </div>
+
+      {/* Breeding-cycle "ready now" row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          icon={HeartHandshake}
+          label={t.dashboard.readyForMating}
+          value={readyForMatingCount.toString()}
+          href="/mating"
+        />
+        <StatCard
+          icon={Microscope}
+          label={t.dashboard.readyForPregnancyTest}
+          value={readyForPregnancyTestCount.toString()}
+          href="/pregnancy-test"
+        />
+        <StatCard
+          icon={HeartPulse}
+          label={t.dashboard.expectedKindlings}
+          value={readyForKindlingCount.toString()}
+          href="/kindling"
+        />
+        <StatCard
+          icon={Box}
+          label={t.dashboard.nestBoxesDue}
+          value={readyForNestBoxCount.toString()}
+          href="/nest-box"
         />
       </div>
 
