@@ -87,9 +87,33 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
   }
 }
 
+/**
+ * Splits schema.sql into individual statements, stripping `--` line comments
+ * first. The native Android/iOS SQLite plugin's whole-string execute() is
+ * less forgiving than the web (jeep-sqlite) path: a `--` comment sitting
+ * directly above a CREATE gets mis-parsed and silently drops that statement,
+ * leaving later tables (settings_cache, sync_cursor, …) uncreated — which
+ * stranded the app on the loading screen. Running each statement on its own,
+ * comment-free, makes every table create regardless of that quirk.
+ */
+function schemaStatements(sql: string): string[] {
+  return sql
+    .split("\n")
+    .map((line) => {
+      const commentAt = line.indexOf("--");
+      return commentAt >= 0 ? line.slice(0, commentAt) : line;
+    })
+    .join("\n")
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
 async function applySchema(db: SQLiteDBConnection): Promise<void> {
   console.log("[DB] applySchema starting");
-  await db.execute(schemaSql);
+  for (const statement of schemaStatements(schemaSql)) {
+    await db.execute(statement, false);
+  }
   await applyColumnMigrations(db);
   if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
     await sqlite.saveToStore(DB_NAME);
