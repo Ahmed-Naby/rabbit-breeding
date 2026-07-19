@@ -11,9 +11,8 @@ import {
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
-import { queryAll, queryOne } from "../db/helpers";
+import { queryAll } from "../db/helpers";
 import { StatusBadge } from "@/components/status-badge";
-import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
@@ -23,7 +22,6 @@ type FertilityRow = {
   tagId: string;
   breed: string | null;
   status: string;
-  doeState: string;
   totalBreedings: number;
   totalKindlings: number;
   fertilityRate: number | null;
@@ -32,8 +30,8 @@ type FertilityRow = {
   weaningSurvivalRate: number | null;
 };
 
-export function DoesFertilityPage({ locale }: { locale: Locale }) {
-  const t = getClientDictionary(locale).doesFertility;
+export function BucksFertilityPage({ locale }: { locale: Locale }) {
+  const t = getClientDictionary(locale).bucksFertility;
   const [data, setData] = useState<{
     rows: FertilityRow[];
     overallFertility: number;
@@ -47,16 +45,15 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
   const load = useCallback(async () => {
     const db = await getDb();
     
-    // Fetch all active does in the herd
-    const does = await queryAll<{
+    // Fetch all active bucks in the herd
+    const bucks = await queryAll<{
       id: string;
       tagId: string;
       breed: string | null;
-      doeState: string;
       status: string;
     }>(
       db,
-      "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
+      "SELECT id, tagId, breed, status FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
     );
 
     const rows: FertilityRow[] = [];
@@ -66,8 +63,8 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
     let overallWeaned = 0;
     let overallBornAliveForWeaned = 0;
 
-    for (const doe of does) {
-      // Query all breedings and litters for this doe
+    for (const buck of bucks) {
+      // Query all breedings and litters sired by this buck
       const breedings = await queryAll<{
         id: string;
         matingDate: string | null;
@@ -79,8 +76,8 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
         `SELECT b.id, b.matingDate, b.actualKindlingDate, l.bornAlive, l.weaned
          FROM breeding b
          LEFT JOIN litter l ON l.breedingId = b.id
-         WHERE b.doeId = ? AND b.matingDate IS NOT NULL`,
-        [doe.id]
+         WHERE b.buckId = ? AND b.matingDate IS NOT NULL`,
+        [buck.id]
       );
 
       const totalBreedings = breedings.length;
@@ -109,11 +106,10 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
       overallBornAliveForWeaned += totalBornAliveForWeaned;
 
       rows.push({
-        id: doe.id,
-        tagId: doe.tagId,
-        breed: doe.breed,
-        status: doe.status,
-        doeState: doe.doeState,
+        id: buck.id,
+        tagId: buck.tagId,
+        breed: buck.breed,
+        status: buck.status,
         totalBreedings,
         totalKindlings,
         fertilityRate,
@@ -144,11 +140,10 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
   }, [load]);
 
   const listRows = data?.rows ?? [];
-  const doesSort = useSortableRows(listRows, {
-    doeTag: { type: "tag", value: (r) => r.tagId },
+  const bucksSort = useSortableRows(listRows, {
+    buckTag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
     status: { type: "string", value: (r) => r.status },
-    doeState: { type: "string", value: (r) => r.doeState },
     breedings: { type: "number", value: (r) => r.totalBreedings },
     kindlings: { type: "number", value: (r) => r.totalKindlings },
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
@@ -231,88 +226,80 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
               <tr className="[&>th]:border-x">
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
-                  label={t.colDoeTag}
-                  sortKey="doeTag"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  label={t.colBuckTag}
+                  sortKey="buckTag"
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colBreed}
                   sortKey="breed"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colStatus}
                   sortKey="status"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
-                />
-                <SortableTh
-                  className="px-2 py-2 md:px-4 md:py-3 text-center"
-                  label={t.colDoeState}
-                  sortKey="doeState"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colBreedings}
                   sortKey="breedings"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colKindlings}
                   sortKey="kindlings"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colFertilityRate}
                   sortKey="fertilityRate"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colAvgBorn}
                   sortKey="avgBorn"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colAvgWeaned}
                   sortKey="avgWeaned"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colWeaningSurvivalRate}
                   sortKey="weaningSurvival"
-                  activeSortKey={doesSort.sortKey}
-                  direction={doesSort.direction}
-                  onSort={doesSort.toggleSort}
+                  activeSortKey={bucksSort.sortKey}
+                  direction={bucksSort.direction}
+                  onSort={bucksSort.toggleSort}
                 />
               </tr>
             </thead>
             <tbody className="divide-y">
-              {doesSort.sorted.map((r) => (
+              {bucksSort.sorted.map((r) => (
                 <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
                     <button
@@ -328,9 +315,6 @@ export function DoesFertilityPage({ locale }: { locale: Locale }) {
                   <td className="px-2 py-2 md:px-4 md:py-3.5">{r.breed ?? "—"}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5">
                     <StatusBadge value={r.status} locale={locale} />
-                  </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3.5">
-                    <DoeStateBadge current={r.doeState} locale={locale} />
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalBreedings}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalKindlings}</td>

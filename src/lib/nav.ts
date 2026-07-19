@@ -38,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/mothers", labelKey: "mothers", icon: Venus },
   { href: "/does-fertility", labelKey: "doesFertility", icon: TrendingUp },
   { href: "/bucks", labelKey: "bucks", icon: Mars },
+  { href: "/bucks-fertility", labelKey: "bucksFertility", icon: TrendingUp },
   { href: "/mating", labelKey: "mating", icon: HeartHandshake },
   { href: "/pregnancy-test", labelKey: "pregnancyTest", icon: Microscope },
   { href: "/nest-box", labelKey: "nestBox", icon: Box },
