@@ -29,3 +29,27 @@ export async function GET(request: Request) {
     })),
   });
 }
+
+/** Lets any signed-in account (owner or supervisor) set/edit its own display name — there's no registration UI to set it at, since supervisors never self-register. */
+export async function PATCH(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const resolved = await resolveToken(authHeader.slice(7).trim());
+  if (!resolved) return Response.json({ error: "INVALID_TOKEN" }, { status: 401 });
+
+  let body: { name?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "INVALID_BODY" }, { status: 400 });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: resolved.userId },
+    data: { name: body.name?.trim() || null },
+    select: { id: true, email: true, name: true },
+  });
+  return Response.json({ user });
+}

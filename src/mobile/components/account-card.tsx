@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LogOut, ShieldCheck, UserPlus, X, KeyRound, Home } from "lucide-react";
+import { LogOut, ShieldCheck, UserPlus, X, KeyRound, Home, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Network } from "@capacitor/network";
-import { getSession, logout, setActiveFarm, refreshFarms, type AuthSession } from "../auth";
+import { getSession, logout, setActiveFarm, refreshFarms, updateOwnName, type AuthSession } from "../auth";
 import { SELECTABLE_PAGES } from "../nav-pages";
 import { syncFetch, hasUnsyncedOps, flushOutbox } from "../sync/sync-manager";
 
@@ -34,9 +34,15 @@ export function AccountCard({ locale }: { locale: Locale }) {
   const [session, setSession] = useState<AuthSession | null>(() => getSession());
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [newMemberName, setNewMemberName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newMemberPassword, setNewMemberPassword] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Own display-name editor — every signed-in account (owner or supervisor)
+  // can set/edit it; there's no self-registration UI to set it at otherwise.
+  const [ownName, setOwnName] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   // Farm profile editor (owner only).
   const [farmName, setFarmName] = useState("");
@@ -72,6 +78,11 @@ export function AccountCard({ locale }: { locale: Locale }) {
     setFarmLocation(activeFarm?.location ?? "");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [activeFarm?.farmId, activeFarm?.name, activeFarm?.location]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOwnName(session?.userName ?? "");
+  }, [session?.userName]);
 
   const loadMembers = useCallback(async () => {
     if (!isOwner) return;
@@ -130,9 +141,15 @@ export function AccountCard({ locale }: { locale: Locale }) {
     try {
       await syncFetch("/api/farm/members", {
         method: "POST",
-        body: JSON.stringify({ email, password: newMemberPassword, role: "worker" }),
+        body: JSON.stringify({
+          email,
+          password: newMemberPassword,
+          name: newMemberName.trim() || undefined,
+          role: "worker",
+        }),
       });
       toast.success(t.memberAddedToast);
+      setNewMemberName("");
       setNewEmail("");
       setNewMemberPassword("");
       void loadMembers();
@@ -164,6 +181,20 @@ export function AccountCard({ locale }: { locale: Locale }) {
       toast.error(t.genericError);
     } finally {
       setSavingFarm(false);
+    }
+  };
+
+  const handleSaveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingName(true);
+    try {
+      await updateOwnName(ownName.trim());
+      setSession(getSession());
+      toast.success(t.nameSavedToast);
+    } catch {
+      toast.error(t.genericError);
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -255,6 +286,7 @@ export function AccountCard({ locale }: { locale: Locale }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">{t.accountHeading}</h2>
+            {session.userName && <p className="text-sm font-medium">{session.userName}</p>}
             <p className="text-sm text-muted-foreground" dir="ltr">
               {session.email}
             </p>
@@ -293,6 +325,28 @@ export function AccountCard({ locale }: { locale: Locale }) {
             </p>
           )}
         </div>
+
+        {/* Own display name — available to any signed-in account; there's no self-registration UI to set it at otherwise. */}
+        <form onSubmit={handleSaveName} className="space-y-3 border-t pt-4">
+          <div>
+            <h3 className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
+              <UserIcon className="size-4" />
+              {t.yourNameHeading}
+            </h3>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">{t.yourNameLabel}</Label>
+            <Input
+              value={ownName}
+              onChange={(e) => setOwnName(e.target.value)}
+              placeholder={t.yourNamePlaceholder}
+              disabled={savingName}
+            />
+          </div>
+          <Button type="submit" variant="outline" size="sm" disabled={savingName}>
+            {t.nameSaveButton}
+          </Button>
+        </form>
 
         {/* Change own password — available to any signed-in account. */}
         <form onSubmit={handleChangePassword} className="space-y-3 border-t pt-4">
@@ -379,7 +433,10 @@ export function AccountCard({ locale }: { locale: Locale }) {
                   <li key={m.userId} className="rounded-lg border px-3 py-2 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate" dir="ltr">{m.email}</span>
+                        {m.name && <span className="block truncate font-medium">{m.name}</span>}
+                        <span className={`block truncate ${m.name ? "text-xs text-muted-foreground" : ""}`} dir="ltr">
+                          {m.email}
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           {roleLabel(m.role)}
                           {m.isSelf ? ` — ${t.youBadge}` : ""}
@@ -464,7 +521,13 @@ export function AccountCard({ locale }: { locale: Locale }) {
             )}
 
             <form onSubmit={handleAddMember} className="space-y-2">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input
+                  placeholder={t.addMemberNamePlaceholder}
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  disabled={busy}
+                />
                 <Input
                   type="email"
                   dir="ltr"

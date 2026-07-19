@@ -109,6 +109,20 @@ export async function logout(): Promise<void> {
   await clearLocalMirror();
 }
 
+/** Sets/edits the signed-in account's own display name — there's no self-registration UI to set it at otherwise. */
+export async function updateOwnName(name: string): Promise<void> {
+  const session = getSession();
+  if (!session) throw new Error("NOT_LOGGED_IN");
+  const res = await fetch(`${SYNC_API_BASE_URL}/api/auth/me`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json", authorization: `Bearer ${session.token}` },
+    body: JSON.stringify({ name }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { user?: { name: string | null }; error?: string };
+  if (!res.ok) throw new Error(data.error ?? `UPDATE_NAME_FAILED_${res.status}`);
+  await persist({ ...session, userName: data.user?.name ?? null });
+}
+
 export async function setActiveFarm(farmId: string): Promise<void> {
   const session = getSession();
   if (!session || session.activeFarmId === farmId) return;
