@@ -26,7 +26,11 @@ export function LoginPage({ locale }: { locale: Locale }) {
     switch (code) {
       case "INVALID_CREDENTIALS": return t.invalidCredentials;
       case "INVALID_EMAIL": return t.invalidEmail;
-      default: return t.genericError;
+      // Surface the raw failure (HTTP code / fetch error) alongside the
+      // friendly text — a bare "check your internet" hid a server 500 once
+      // and a misconfigured base URL another time. Owner-facing app; the
+      // detail is diagnostic gold and harmless.
+      default: return code ? `${t.genericError} (${code})` : t.genericError;
     }
   };
 
