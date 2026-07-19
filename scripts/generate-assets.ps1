@@ -11,10 +11,13 @@ function Resize-Image {
         [string]$destPath,
         [int]$width,
         [int]$height,
-        [bool]$saveAsIco = $false
+        [bool]$saveAsIco = $false,
+        [bool]$makeSilhouette = $false
     )
 
     $srcImg = [System.Drawing.Image]::FromFile($srcPath)
+    
+    # Create the resized canvas
     $destBitmap = New-Object System.Drawing.Bitmap($width, $height)
     $g = [System.Drawing.Graphics]::FromImage($destBitmap)
     
@@ -23,8 +26,36 @@ function Resize-Image {
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
     
-    $g.DrawImage($srcImg, 0, 0, $width, $height)
+    # If we are making the adaptive foreground silhouette:
+    # Scale down the rabbit head to sit inside the safe zone (center 60% of the canvas)
+    if ($makeSilhouette) {
+        $safeWidth = [int]($width * 0.60)
+        $safeHeight = [int]($height * 0.60)
+        $offsetX = [int](($width - $safeWidth) / 2)
+        $offsetY = [int](($height - $safeHeight) / 2)
+        $g.DrawImage($srcImg, $offsetX, $offsetY, $safeWidth, $safeHeight)
+    } else {
+        $g.DrawImage($srcImg, 0, 0, $width, $height)
+    }
     $g.Dispose()
+
+    # If it is a silhouette, extract the white pixels and make everything else transparent
+    if ($makeSilhouette) {
+        $silhouetteBitmap = New-Object System.Drawing.Bitmap($width, $height)
+        for ($x = 0; $x -lt $width; $x++) {
+            for ($y = 0; $y -lt $height; $y++) {
+                $pixel = $destBitmap.GetPixel($x, $y)
+                # If pixel is light/white (the rabbit silhouette), keep it white. Otherwise make it transparent.
+                if ($pixel.R -gt 210 -and $pixel.G -gt 210 -and $pixel.B -gt 210) {
+                    $silhouetteBitmap.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($pixel.A, 255, 255, 255))
+                } else {
+                    $silhouetteBitmap.SetPixel($x, $y, [System.Drawing.Color]::Transparent)
+                }
+            }
+        }
+        $destBitmap.Dispose()
+        $destBitmap = $silhouetteBitmap
+    }
 
     # Ensure parent directory exists
     $parentDir = Split-Path -Parent $destPath
@@ -70,21 +101,35 @@ $androidRes = "C:\Users\Ahmed\Desktop\Rabbit Breeding\android\app\src\main\res"
 # mipmap-mdpi (48x48)
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-mdpi\ic_launcher.png" -width 48 -height 48
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-mdpi\ic_launcher_round.png" -width 48 -height 48
+Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-mdpi\ic_launcher_foreground.png" -width 48 -height 48 -makeSilhouette $true
 
 # mipmap-hdpi (72x72)
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-hdpi\ic_launcher.png" -width 72 -height 72
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-hdpi\ic_launcher_round.png" -width 72 -height 72
+Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-hdpi\ic_launcher_foreground.png" -width 72 -height 72 -makeSilhouette $true
 
 # mipmap-xhdpi (96x96)
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xhdpi\ic_launcher.png" -width 96 -height 96
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xhdpi\ic_launcher_round.png" -width 96 -height 96
+Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xhdpi\ic_launcher_foreground.png" -width 96 -height 96 -makeSilhouette $true
 
 # mipmap-xxhdpi (144x144)
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxhdpi\ic_launcher.png" -width 144 -height 144
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxhdpi\ic_launcher_round.png" -width 144 -height 144
+Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxhdpi\ic_launcher_foreground.png" -width 144 -height 144 -makeSilhouette $true
 
 # mipmap-xxxhdpi (192x192)
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxxhdpi\ic_launcher.png" -width 192 -height 192
 Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxxhdpi\ic_launcher_round.png" -width 192 -height 192
+Resize-Image -srcPath $sourcePath -destPath "$androidRes\mipmap-xxxhdpi\ic_launcher_foreground.png" -width 192 -height 192 -makeSilhouette $true
+
+# 5. Set matching background color for Adaptive launcher icon
+$backgroundXml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#1e1b4b</color>
+</resources>
+"@
+Set-Content -Path "$androidRes\values\ic_launcher_background.xml" -Value $backgroundXml -Force
 
 Write-Host "All assets generated successfully!"
