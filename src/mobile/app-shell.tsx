@@ -241,23 +241,24 @@ export function AppShell() {
   }, []);
 
   // Page-level restriction: an owner may limit which pages a non-owner
-  // member can see (null allowedPages = unrestricted). Settings is now
+  // member can see (null allowedPages = unrestricted). Settings is
   // restrictable too — when it's hidden we surface a standalone sign-out
-  // button below so the member is never locked in.
+  // button below so the member is never locked in. Dashboard (DEFAULT_ROUTE)
+  // is the one page that's never restrictable — it's the app's forced home
+  // page, so every member can always reach it regardless of allowedPages.
   const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
   const pageFilter =
     activeFarm && activeFarm.role !== "owner" && Array.isArray(activeFarm.allowedPages)
       ? new Set(activeFarm.allowedPages)
       : null;
   const routeAllowed =
-    !pageFilter || pageFilter.has(rawRoute) || rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
-  // When the current route isn't permitted, fall back to the member's first
-  // allowed page (or nothing, if the owner granted an empty set).
-  const route = routeAllowed
-    ? rawRoute
-    : pageFilter
-      ? ((pageFilter.values().next().value as string | undefined) ?? "")
-      : DEFAULT_ROUTE;
+    !pageFilter ||
+    rawRoute === DEFAULT_ROUTE ||
+    pageFilter.has(rawRoute) ||
+    rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
+  // Dashboard is always allowed, so a disallowed route can simply fall back
+  // to it rather than hunting for the member's "first" allowed page.
+  const route = routeAllowed ? rawRoute : DEFAULT_ROUTE;
   const showSignOut = pageFilter !== null && !pageFilter.has(SETTINGS_PAGE);
 
   const handleSignOut = async () => {
@@ -280,7 +281,7 @@ export function AppShell() {
 
   // Navigation Items
   const navItems = Object.entries(ROUTES)
-    .filter(([key]) => !pageFilter || pageFilter.has(key))
+    .filter(([key]) => !pageFilter || key === DEFAULT_ROUTE || pageFilter.has(key))
     .map(([key, value]) => ({
       href: key,
       label: t.nav[value.labelKey],
