@@ -110,6 +110,8 @@ export const en: Dictionary = {
     logoutButton: "Sign out",
     logoutConfirm:
       "You will be signed out and this device's local data cleared (it stays safe on the server). Continue?",
+    logoutBlockedUnsynced:
+      "This device has changes that haven't synced to the server yet. Connect to the internet and try again — signing out now would lose them.",
     switchFarmConfirm:
       "Switching farms clears this device's local data and downloads the selected farm from the server. Continue?",
     chooseFarmTitle: "Choose a farm",

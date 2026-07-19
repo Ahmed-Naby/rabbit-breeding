@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Network } from "@capacitor/network";
 import { getSession, logout, setActiveFarm, refreshFarms, type AuthSession } from "../auth";
 import { SELECTABLE_PAGES } from "../nav-pages";
-import { syncFetch } from "../sync/sync-manager";
+import { syncFetch, hasUnsyncedOps, flushOutbox } from "../sync/sync-manager";
 
 type Member = {
   userId: string;
@@ -96,6 +97,19 @@ export function AccountCard({ locale }: { locale: Locale }) {
   const handleLogout = async () => {
     if (!window.confirm(t.logoutConfirm)) return;
     setBusy(true);
+
+    // logout() -> clearLocalMirror() wipes the outbox unconditionally, so
+    // anything still queued there would be lost silently. Force a flush
+    // first (or refuse outright if offline with something queued) rather
+    // than let that happen.
+    const netStatus = await Network.getStatus();
+    const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
+    if (!synced) {
+      toast.error(t.logoutBlockedUnsynced);
+      setBusy(false);
+      return;
+    }
+
     await logout();
     window.location.reload();
   };

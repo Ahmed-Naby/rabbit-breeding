@@ -458,6 +458,35 @@ export async function push(): Promise<boolean> {
   return true;
 }
 
+/** True if any outbox op hasn't reached the server yet (excludes 'rejected' — those already got a definitive server answer and are a review-screen concern, not a data-loss risk). */
+export async function hasUnsyncedOps(): Promise<boolean> {
+  const db = await getDb();
+  const row = await queryOne<{ n: number }>(
+    db,
+    "SELECT COUNT(*) as n FROM outbox WHERE status IN ('pending', 'syncing')"
+  );
+  return (row?.n ?? 0) > 0;
+}
+
+/**
+ * Drains the outbox by repeatedly calling push() (each call only handles one
+ * PUSH_BATCH_SIZE-sized batch) until nothing pending remains or a call
+ * fails. Used to force a sync-to-completion before sign-out, where leaving
+ * queued ops behind would mean clearLocalMirror() silently deletes them.
+ * Returns whether the outbox actually ended up empty.
+ */
+export async function flushOutbox(): Promise<boolean> {
+  try {
+    while (await push()) {
+      // keep draining
+    }
+  } catch {
+    // push() already reset its batch back to 'pending' on failure — the
+    // hasUnsyncedOps() check below will reflect that.
+  }
+  return !(await hasUnsyncedOps());
+}
+
 // --- orchestrator + backoff ------------------------------------------------
 
 let retryDelayMs = BACKOFF_BASE_MS;

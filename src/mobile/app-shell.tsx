@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+import { Network } from "@capacitor/network";
 import {
   ExternalLink,
   RefreshCw,
@@ -42,7 +43,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { SYNC_API_BASE_URL } from "./config";
-import { getSyncStatus, subscribeSyncStatus, syncNow, type SyncState } from "./sync/sync-manager";
+import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
 import { loadSession, getSession, logout, type AuthSession } from "./auth";
 import { SETTINGS_PAGE } from "./nav-pages";
 import { LoginPage } from "./pages/login-page";
@@ -261,6 +262,18 @@ export function AppShell() {
 
   const handleSignOut = async () => {
     if (!window.confirm(t.mobileAuth.logoutConfirm)) return;
+
+    // logout() -> clearLocalMirror() wipes the outbox unconditionally, so
+    // anything still queued there would be lost silently. Force a flush
+    // first (or refuse outright if offline with something queued) rather
+    // than let that happen.
+    const netStatus = await Network.getStatus();
+    const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
+    if (!synced) {
+      window.alert(t.mobileAuth.logoutBlockedUnsynced);
+      return;
+    }
+
     await logout();
     window.location.reload();
   };
