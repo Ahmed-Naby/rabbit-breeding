@@ -12,6 +12,9 @@ import {
   Microscope,
   HeartPulse,
   Box,
+  Venus,
+  Mars,
+  Sprout,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +47,9 @@ export default async function DashboardPage() {
     dueHealth,
     recentLitters,
     activeCount,
+    activeDoes,
+    activeBucks,
+    stockCount,
     matingCandidates,
     pregnancyTestCandidates,
     nestBoxCandidates,
@@ -67,6 +73,15 @@ export default async function DashboardPage() {
       take: 6,
     }),
     prisma.rabbit.count({ where: { status: "active" } }),
+    prisma.rabbit.count({
+      where: { sex: "doe", tagId: { not: null }, status: "active" },
+    }),
+    prisma.rabbit.count({
+      where: { sex: "buck", tagId: { not: null }, status: "active" },
+    }),
+    prisma.rabbit.count({
+      where: { tagId: null, movedToHerdPen: false, status: { notIn: ["deceased", "culled"] } },
+    }),
     // Same eligibility rule as /mating (canMate): فاضية، مرضعة، أو مستبعدة.
     prisma.rabbit.findMany({
       where: {
@@ -177,9 +192,9 @@ export default async function DashboardPage() {
   const herdSurvival = alive > 0 ? Math.round((weaned / alive) * 100) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Hero */}
-      <div className="relative isolate overflow-hidden rounded-2xl">
+      <div className="relative isolate overflow-hidden rounded-2xl shadow-md border border-white/10">
         <div className="relative h-44 w-full sm:h-52">
           <Image
             src="/images/hero-dashboard.jpg"
@@ -187,49 +202,39 @@ export default async function DashboardPage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover"
+            className="object-cover transition-transform duration-10000 ease-out hover:scale-105"
           />
-          <div className="absolute inset-0 bg-linear-to-l from-black/65 via-black/35 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-l from-black/75 via-black/45 to-transparent" />
         </div>
-        <div className="absolute inset-0 flex flex-col justify-center gap-1 px-6 sm:px-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+        <div className="absolute inset-0 flex flex-col justify-center gap-2 px-6 sm:px-8">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl drop-shadow-md">
             {t.dashboard.heroTitle}
           </h1>
-          <p className="max-w-md text-sm text-white/85 sm:text-base">
+          <p className="max-w-md text-sm text-white/90 sm:text-base drop-shadow-sm font-medium">
             {t.dashboard.heroDescription}
           </p>
         </div>
       </div>
 
       {/* Stat row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-fade-in-up">
         <StatCard
-          icon={RabbitIcon}
-          label={t.dashboard.activeRabbits}
-          value={activeCount.toString()}
+          icon={Venus}
+          label={t.dashboard.activeDoes}
+          value={activeDoes.toString()}
+          href="/rounds"
+        />
+        <StatCard
+          icon={Mars}
+          label={t.dashboard.activeBucks}
+          value={activeBucks.toString()}
+          href="/bucks-rounds"
+        />
+        <StatCard
+          icon={Sprout}
+          label={t.dashboard.stockCount}
+          value={stockCount.toString()}
           href="/stock"
-        />
-        <StatCard
-          icon={CalendarClock}
-          label={t.dashboard.upcomingKindlings}
-          value={upcomingKindlings.length.toString()}
-          href="/kindling"
-        />
-        <StatCard
-          icon={AlertTriangle}
-          label={t.dashboard.overdueTasks}
-          value={(overdueKindlings.length + overdueHealth.length).toString()}
-          tone={
-            overdueKindlings.length + overdueHealth.length > 0
-              ? "warn"
-              : undefined
-          }
-        />
-        <StatCard
-          icon={TrendingUp}
-          label={t.dashboard.weaningSurvivalRate}
-          value={herdSurvival == null ? "—" : `${herdSurvival}%`}
-          href="/kindling"
         />
       </div>
 
@@ -460,27 +465,27 @@ function StatCard({
   const body = (
     <Card
       className={cn(
-        "transition-shadow",
-        href && "hover:shadow-md",
+        "transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] origin-center hover:border-primary/40 shadow-xs",
+        href && "hover:shadow-lg cursor-pointer",
         warnActive
-          ? "border-amber-300/60 bg-amber-50/50 dark:border-amber-900/60 dark:bg-amber-950/20"
-          : undefined
+          ? "border-amber-400 bg-amber-500/10 dark:border-amber-500/25 dark:bg-amber-500/10 animate-pulse"
+          : "glass-card"
       )}
     >
       <CardContent className="flex items-center justify-between py-4">
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+          <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">{label}</p>
+          <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{value}</p>
         </div>
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl",
+            "flex size-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 shadow-xs",
             warnActive
-              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-              : "bg-primary/10 text-primary"
+              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 scale-105"
+              : "bg-primary/10 text-primary dark:bg-primary/20"
           )}
         >
-          <Icon className="size-5" />
+          <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
         </span>
       </CardContent>
     </Card>
@@ -502,12 +507,13 @@ function Row({
   return (
     <Link
       href={href}
-      className={
-        "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors " +
-        (warn
-          ? "border-amber-300/60 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30"
-          : "bg-card hover:bg-accent/40")
-      }
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-sm transition-all duration-300",
+        "hover:scale-[1.01] active:scale-[0.99] hover:shadow-xs",
+        warn
+          ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10 dark:border-amber-500/20 dark:bg-amber-500/5 text-amber-800 dark:text-amber-200"
+          : "bg-card/85 hover:bg-accent/40 border-border/60"
+      )}
     >
       <span className="font-medium">{left}</span>
       {right}

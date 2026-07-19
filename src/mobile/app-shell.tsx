@@ -46,6 +46,8 @@ import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
 import { loadSession, getSession, logout, type AuthSession } from "./auth";
 import { SETTINGS_PAGE } from "./nav-pages";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { applyTheme, listenToSystemThemeChanges } from "@/lib/theme";
 import { LoginPage } from "./pages/login-page";
 import { DoesPage } from "./pages/does-page";
 import { DashboardPage } from "./pages/dashboard-page";
@@ -233,6 +235,12 @@ export function AppShell() {
   }, [dir, locale]);
 
   useEffect(() => {
+    applyTheme();
+    const cleanup = listenToSystemThemeChanges(() => {});
+    return cleanup;
+  }, []);
+
+  useEffect(() => {
     const handleUpdate = () => {
       setDbVersion((v) => v + 1);
     };
@@ -333,7 +341,8 @@ export function AppShell() {
               );
             })}
           </nav>
-          <div className="mt-auto space-y-2 pt-4 border-t border-sidebar-border/40 text-center">
+          <div className="mt-auto space-y-2.5 pt-4 border-t border-sidebar-border/40 text-center">
+            <ThemeToggle className="w-full mb-1" />
             <div className="overflow-hidden rounded-xl border border-sidebar-border/60 text-start">
               <div className="relative h-24 w-full">
                 <img
@@ -407,7 +416,8 @@ export function AppShell() {
                 );
               })}
             </nav>
-            <div className="space-y-2 p-4 border-t border-sidebar-border">
+            <div className="space-y-2.5 p-4 border-t border-sidebar-border">
+              <ThemeToggle className="w-full mb-2" />
               <button
                 type="button"
                 onClick={() => {

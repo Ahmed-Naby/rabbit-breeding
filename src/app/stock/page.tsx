@@ -47,9 +47,18 @@ export default async function StockPage() {
     weightKg: r.weightRecords[0] ? gramsToKg(r.weightRecords[0].weightGrams) : null,
   }));
 
+  const headerTitle = (
+    <div className="flex items-center gap-3 animate-fade-in-up">
+      <span>{t.stock.title}</span>
+      <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
+        {rabbits.length}
+      </span>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <PageHeader title={t.stock.title} description={t.stock.description} />
+      <PageHeader title={headerTitle} description={t.stock.description} />
       <QuickRabbitForm
         rows={rows}
         breedOptions={breedOptions}

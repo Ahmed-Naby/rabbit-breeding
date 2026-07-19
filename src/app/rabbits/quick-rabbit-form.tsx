@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Shuffle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, TextField, SelectField, type Option } from "@/components/form-fields";
@@ -70,6 +71,35 @@ export function QuickRabbitForm({
   // Computed once (not inline in JSX) so it stays stable across re-renders —
   // Base UI's uncontrolled Input warns if defaultValue changes after mount.
   const [today] = useState(() => toDateInputValue(new Date()));
+  const [assigningCages, setAssigningCages] = useState(false);
+
+  const handleAssignRandomCages = async () => {
+    const targets = rows.filter((r) => !r.cage);
+    if (targets.length === 0) return;
+    setAssigningCages(true);
+    try {
+      const used = new Set<string>();
+      for (const r of targets) {
+        let cage: string;
+        do {
+          cage = String(Math.floor(1000 + Math.random() * 9000));
+        } while (used.has(cage));
+        used.add(cage);
+        const res = await saveQuickRabbitCage(r.id, cage);
+        if (!res.ok) {
+          toast.error(res.message ?? t.invalidCageFallback);
+        }
+      }
+      toast.success(
+        locale === "ar" ? "تم توليد أرقام قفص عشوائية لجميع السلالات" : "Random cage numbers assigned to all stock"
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setAssigningCages(false);
+    }
+  };
 
   useEffect(() => {
     if (state.ok && state.rabbit) {
@@ -131,6 +161,7 @@ export function QuickRabbitForm({
               noneLabel={tCommon.none}
               placeholder={tCommon.selectPlaceholder}
               error={e.breed}
+              required
             />
             <TextField
               name="weightKg"
@@ -140,14 +171,16 @@ export function QuickRabbitForm({
               label={t.weightLabel}
               placeholder={t.weightPlaceholder}
               error={e.weightKg}
+              required
             />
-            <Field label={t.cageLabel} htmlFor="cage">
+            <Field label={t.cageLabel} htmlFor="cage" required>
               <input
                 ref={cageRef}
                 id="cage"
                 type="text"
                 maxLength={10}
                 placeholder={t.cagePlaceholder}
+                required
                 className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
               />
             </Field>
@@ -158,38 +191,57 @@ export function QuickRabbitForm({
       </form>
 
       {rows.length > 0 ? (
-        <div className="rounded-xl border bg-card">
-          <SortableTable
-            headerRowClassName="[&>th]:border-x"
-            columns={[
-              { key: "date", label: t.colDate, type: "date", className: "text-center" },
-              { key: "sex", label: t.colSex, type: "string", className: "text-center" },
-              { key: "breed", label: t.colBreed, type: "string", className: "text-center" },
-              { key: "cage", label: t.colCage, type: "tag", className: "text-center" },
-              { key: "weight", label: t.colWeight, type: "number", className: "text-center" },
-              { key: "promote", label: "", className: "text-center", sortable: false },
-              { key: "delete", label: "", className: "text-center", sortable: false },
-            ]}
-            rows={rows.map((r) => ({
-              key: r.id,
-              sortValues: { date: r.date, sex: r.sex, breed: r.breed, cage: r.cage, weight: r.weightKg },
-              node: (
-                <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                  <TableCell>
-                    <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                      <LocalDate date={r.date} locale={locale} />
-                    </Link>
-                  </TableCell>
-                  <TableCell>{label(r.sex, locale)}</TableCell>
-                  <TableCell>{r.breed ?? "—"}</TableCell>
-                  <FinalizeRowCells id={r.id} sex={r.sex} cage={r.cage} weightKg={r.weightKg} t={t} />
-                  <TableCell>
-                    <DeleteRabbitButton id={r.id} t={t} />
-                  </TableCell>
-                </TableRow>
-              ),
-            }))}
-          />
+        <div className="space-y-3">
+          {rows.some((r) => !r.cage) && (
+            <div className="flex justify-end animate-fade-in-up">
+              <button
+                type="button"
+                onClick={() => void handleAssignRandomCages()}
+                disabled={assigningCages}
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-transparent px-3 py-1.5 text-xs font-medium shadow-xs transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+              >
+                <Shuffle className="h-3.5 w-3.5 animate-pulse" />
+                {assigningCages
+                  ? tCommon.saving
+                  : locale === "ar"
+                    ? "توليد أرقام قفص عشوائية"
+                    : "Generate random cage numbers"}
+              </button>
+            </div>
+          )}
+          <div className="rounded-xl border bg-card">
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "date", label: t.colDate, type: "date", className: "text-center" },
+                { key: "sex", label: t.colSex, type: "string", className: "text-center" },
+                { key: "breed", label: t.colBreed, type: "string", className: "text-center" },
+                { key: "cage", label: t.colCage, type: "tag", className: "text-center" },
+                { key: "weight", label: t.colWeight, type: "number", className: "text-center" },
+                { key: "promote", label: "", className: "text-center", sortable: false },
+                { key: "delete", label: "", className: "text-center", sortable: false },
+              ]}
+              rows={rows.map((r) => ({
+                key: r.id,
+                sortValues: { date: r.date, sex: r.sex, breed: r.breed, cage: r.cage, weight: r.weightKg },
+                node: (
+                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center animate-fade-in-up">
+                    <TableCell>
+                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
+                        <LocalDate date={r.date} locale={locale} />
+                      </Link>
+                    </TableCell>
+                    <TableCell>{label(r.sex, locale)}</TableCell>
+                    <TableCell>{r.breed ?? "—"}</TableCell>
+                    <FinalizeRowCells id={r.id} sex={r.sex} cage={r.cage} weightKg={r.weightKg} t={t} />
+                    <TableCell>
+                      <DeleteRabbitButton id={r.id} t={t} />
+                    </TableCell>
+                  </TableRow>
+                ),
+              }))}
+            />
+          </div>
         </div>
       ) : null}
     </div>

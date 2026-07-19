@@ -3,11 +3,11 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TextField } from "@/components/form-fields";
+import { TextField, SelectField } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
-import { recordKitSale } from "./actions";
+import { recordKitMovementAction } from "./actions";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -21,25 +21,33 @@ export function SaleForm({
   locale: Locale;
 }) {
   const t = getClientDictionary(locale).weaningSales;
-  const [state, formAction] = useActionState(recordKitSale, EMPTY_FORM_STATE);
+  const [state, formAction] = useActionState(recordKitMovementAction, EMPTY_FORM_STATE);
   const formRef = useRef<HTMLFormElement>(null);
   const e = state.errors ?? {};
-  // Computed once (not inline in JSX) so it stays stable across re-renders —
-  // Base UI's uncontrolled Input warns if defaultValue changes after mount.
+  
   const [today] = useState(() => toDateInputValue(new Date()));
+  const [type, setType] = useState<"sale" | "death" | "adjustment">("sale");
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(t.saleAddedToast);
+      toast.success(locale === "ar" ? "تم التسجيل بنجاح" : "Logged successfully");
       formRef.current?.reset();
+      setType("sale");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
+  }, [state, locale]);
+
+  const typeOptions = [
+    { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
+    { value: "death", label: locale === "ar" ? "نافق فطام" : "Weaned Death" },
+    { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
+  ];
 
   return (
-    <Card>
+    <Card className="animate-fade-in-up">
       <CardHeader>
-        <CardTitle className="text-base">{t.saleFormHeading}</CardTitle>
+        <CardTitle className="text-base">
+          {locale === "ar" ? "تسجيل حركة" : "Record Movement"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form ref={formRef} action={formAction} className="space-y-4">
@@ -52,36 +60,63 @@ export function SaleForm({
               defaultValue={today}
               error={e.date}
             />
-            <TextField
-              name="count"
-              type="number"
-              min={1}
-              step="1"
-              label={t.countLabel}
-              required
-              error={e.count}
+
+            <SelectField
+              name="type"
+              label={locale === "ar" ? "نوع الحركة" : "Movement Type"}
+              options={typeOptions}
+              defaultValue="sale"
+              onValueChange={(v) => setType(v as any)}
+              error={e.type}
             />
-            <TextField
-              name="weightKg"
-              type="number"
-              min={0}
-              step="0.001"
-              label={t.totalWeightLabel}
-              required
-              error={e.weightKg}
-            />
-            <TextField
-              name="pricePerKg"
-              type="number"
-              min={0}
-              step="0.01"
-              label={t.pricePerKgLabel(currency)}
-              required
-              error={e.pricePerKg}
-            />
+
+            <div className="space-y-1">
+              <TextField
+                name="count"
+                type="number"
+                min={type === "adjustment" ? undefined : 1}
+                step="1"
+                label={t.countLabel}
+                required
+                error={e.count}
+              />
+              {type === "adjustment" && (
+                <p className="text-[10px] text-muted-foreground">
+                  {locale === "ar"
+                    ? "موجب يزيد المخزون، وسالب ينقصه."
+                    : "Positive increases stock, negative decreases it."}
+                </p>
+              )}
+            </div>
+
+            {type === "sale" && (
+              <>
+                <TextField
+                  name="weightKg"
+                  type="number"
+                  min={0}
+                  step="0.001"
+                  label={t.totalWeightLabel}
+                  required
+                  error={e.weightKg}
+                />
+                <TextField
+                  name="pricePerKg"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  label={t.pricePerKgLabel(currency)}
+                  required
+                  error={e.pricePerKg}
+                />
+              </>
+            )}
+
             <TextField name="notes" label={t.notesLabel} error={e.notes} />
           </div>
-          <SubmitButton pendingText={tCommon.saving}>{t.saleSubmitButton}</SubmitButton>
+          <SubmitButton pendingText={tCommon.saving}>
+            {locale === "ar" ? "حفظ الحركة" : "Save Movement"}
+          </SubmitButton>
         </form>
       </CardContent>
     </Card>

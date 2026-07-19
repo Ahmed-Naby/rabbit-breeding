@@ -96,31 +96,31 @@ export function DashboardPage({ locale }: { locale: Locale }) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Hero */}
-      <div className="relative isolate overflow-hidden rounded-2xl">
+      <div className="relative isolate overflow-hidden rounded-2xl shadow-md border border-white/10">
         <div className="relative h-44 w-full sm:h-52">
           <img
             src="/images/hero-dashboard.jpg"
             alt=""
-            className="absolute inset-0 size-full object-cover"
+            className="absolute inset-0 size-full object-cover transition-transform duration-10000 ease-out hover:scale-105"
           />
-          <div className="absolute inset-0 bg-linear-to-l from-black/65 via-black/35 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-l from-black/75 via-black/45 to-transparent" />
         </div>
-        <div className="absolute inset-0 flex flex-col justify-center gap-1.5 px-6 sm:px-8">
+        <div className="absolute inset-0 flex flex-col justify-center gap-2 px-6 sm:px-8">
           {greeting && (
-            <p className="text-sm font-medium text-white/80 sm:text-base">{greeting}</p>
+            <p className="text-xs font-semibold text-white/90 sm:text-sm uppercase tracking-wider drop-shadow-xs">{greeting}</p>
           )}
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl drop-shadow-md">
             {activeFarm?.name ?? t.dashboard.heroTitle}
           </h1>
           {activeFarm?.location && (
-            <div className="flex items-center gap-1.5 text-sm text-white/80">
-              <MapPin className="size-4 shrink-0" />
+            <div className="flex items-center gap-1.5 text-xs font-medium text-white/80 drop-shadow-xs">
+              <MapPin className="size-3.5 shrink-0" />
               <span>{activeFarm.location}</span>
             </div>
           )}
-          <p className="max-w-md text-sm text-white/70 sm:text-base">
+          <p className="max-w-md text-xs text-white/70 sm:text-sm drop-shadow-xs">
             {t.dashboard.heroDescription}
           </p>
         </div>
@@ -131,11 +131,11 @@ export function DashboardPage({ locale }: { locale: Locale }) {
           const Icon = item.icon;
           const body = (
             <>
-              <div className={`rounded-xl p-3 ${item.color}`}>
+              <div className={`rounded-xl p-3 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                 <Icon className="h-6 w-6" />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">{item.label}</p>
                 <p className="text-2xl font-bold tracking-tight">{item.value}</p>
               </div>
             </>
@@ -144,12 +144,12 @@ export function DashboardPage({ locale }: { locale: Locale }) {
             <a
               key={idx}
               href={item.href}
-              className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-accent/40"
+              className="group flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md hover:border-primary/30"
             >
               {body}
             </a>
           ) : (
-            <div key={idx} className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm">
+            <div key={idx} className="flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs">
               {body}
             </div>
           );
@@ -163,13 +163,13 @@ export function DashboardPage({ locale }: { locale: Locale }) {
             <a
               key={idx}
               href={item.href}
-              className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm transition-colors hover:bg-accent/40"
+              className="group flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md hover:border-primary/30"
             >
-              <div className={`rounded-xl p-3 ${item.color}`}>
+              <div className={`rounded-xl p-3 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                 <Icon className="h-6 w-6" />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{item.label}</p>
+                <p className="text-xs font-medium text-muted-foreground/80 uppercase tracking-wider">{item.label}</p>
                 <p className="text-2xl font-bold tracking-tight">{item.value}</p>
               </div>
             </a>

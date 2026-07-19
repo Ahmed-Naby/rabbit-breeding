@@ -15,6 +15,21 @@ function revalidateAll() {
   revalidatePath("/finance");
 }
 
+export async function recordKitMovementAction(
+  prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const type = formData.get("type") as string;
+  if (type === "sale") {
+    return recordKitSale(prev, formData);
+  } else if (type === "death") {
+    return recordWeanedKitDeathForm(prev, formData);
+  } else if (type === "adjustment") {
+    return recordKitStockAdjustmentForm(prev, formData);
+  }
+  return { ok: false, errors: { _form: "Invalid movement type" } };
+}
+
 export async function recordKitSale(
   _prev: FormState,
   formData: FormData
@@ -23,6 +38,16 @@ export async function recordKitSale(
   const parsed = kitSaleSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
+
+  const { availableStock } = await getKitStockSummary();
+  if (availableStock < d.count) {
+    return {
+      ok: false,
+      errors: {
+        count: t.mortality.weaningStockDeathCountExceedsAvailable || "Count exceeds available stock",
+      },
+    };
+  }
 
   const date = fromDateInputValue(d.date);
   const weightGrams = toGrams({ kg: d.weightKg }, "kg");
@@ -51,6 +76,90 @@ export async function recordKitSale(
         notes: d.notes ?? null,
       },
     });
+  });
+
+  revalidateAll();
+  return { ok: true };
+}
+
+export async function recordWeanedKitDeathForm(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { t } = await getDictionary();
+  const obj = formDataToObject(formData);
+  const dateStr = obj.date as string;
+  const countStr = obj.count as string;
+  const notes = (obj.notes as string)?.trim() || null;
+
+  if (!dateStr || !countStr) {
+    return { ok: false, errors: { _form: t.validation.required ?? "Required fields missing" } };
+  }
+  const date = fromDateInputValue(dateStr);
+  const count = parseInt(countStr, 10);
+  if (isNaN(count) || count <= 0) {
+    return { ok: false, errors: { count: t.validation.invalidValue ?? "Invalid count" } };
+  }
+
+  const { availableStock } = await getKitStockSummary();
+  if (availableStock < count) {
+    return {
+      ok: false,
+      errors: {
+        count: t.mortality.weaningStockDeathCountExceedsAvailable || "Count exceeds available stock",
+      },
+    };
+  }
+
+  await prisma.kitStockMovement.create({
+    data: {
+      date,
+      type: "death",
+      count,
+      notes,
+    },
+  });
+
+  revalidateAll();
+  return { ok: true };
+}
+
+export async function recordKitStockAdjustmentForm(
+  _prev: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const { t } = await getDictionary();
+  const obj = formDataToObject(formData);
+  const dateStr = obj.date as string;
+  const countStr = obj.count as string;
+  const notes = (obj.notes as string)?.trim() || null;
+
+  if (!dateStr || !countStr) {
+    return { ok: false, errors: { _form: t.validation.required ?? "Required fields missing" } };
+  }
+  const date = fromDateInputValue(dateStr);
+  const count = parseInt(countStr, 10);
+  if (isNaN(count) || count === 0) {
+    return { ok: false, errors: { count: t.validation.invalidValue ?? "Invalid count" } };
+  }
+
+  const { availableStock } = await getKitStockSummary();
+  if (availableStock + count < 0) {
+    return {
+      ok: false,
+      errors: {
+        count: t.mortality.weaningStockDeathCountExceedsAvailable || "Count exceeds available stock",
+      },
+    };
+  }
+
+  await prisma.kitStockMovement.create({
+    data: {
+      date,
+      type: "adjustment",
+      count,
+      notes,
+    },
   });
 
   revalidateAll();
