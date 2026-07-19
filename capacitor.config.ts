@@ -11,6 +11,17 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
   },
+  plugins: {
+    // The app's local DB is always opened "no-encryption", but by default the
+    // SQLite plugin still initializes an Android-Keystore-backed secret store
+    // in its load() — which failed on a Samsung A52 (keymaster
+    // VERIFICATION_FAILED), leaving the whole plugin null and the app stuck
+    // on the loading screen. Encryption is unused, so skip that machinery
+    // entirely and never touch the Keystore.
+    CapacitorSQLite: {
+      androidIsEncryption: false,
+    },
+  },
 };
 
 export default config;
