@@ -111,11 +111,14 @@ CREATE TABLE IF NOT EXISTS settings_cache (
 -- closing paren, which SQLite rejects with "near ')': syntax error" on
 -- restore. Put type/enum notes on their own line above the table instead.
 CREATE TABLE IF NOT EXISTS sync_cursor (
-  id          INTEGER PRIMARY KEY CHECK (id = 1),
-  deviceId    TEXT NOT NULL,
-  since       TEXT,
-  lastSyncAt  TEXT,
-  lastResetAt TEXT
+  id             INTEGER PRIMARY KEY CHECK (id = 1),
+  deviceId       TEXT NOT NULL,
+  since          TEXT,
+  lastSyncAt     TEXT,
+  lastResetAt    TEXT,
+  -- Last MIRROR_REFRESH_VERSION (sync-manager.ts) this mirror was rebuilt
+  -- at; NULL on mirrors provisioned before the mechanism existed.
+  mirrorRefreshV INTEGER
 );
 
 -- Outbox of queued business operations, one row per clientOpId. `status`

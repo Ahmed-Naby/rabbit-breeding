@@ -488,6 +488,7 @@ model Farm {
   pregnancyTestLogs PregnancyTestLog[]
   kindlingLogs      KindlingLog[]
   fosterLogs        FosterLog[]
+  syncTombstones    SyncTombstone[]
 }
 
 /// Membership + role. "owner" can manage members and use the danger zone
@@ -537,11 +538,41 @@ model SyncOperation {
   opType        String
   payload       Json
   clientAt      DateTime
-  status        String // "applied" | "rejected"
+  // "applied" | "rejected" — a deliberate, deterministic business-rule
+  // outcome, safe for a client to treat as final (e.g. roll back an
+  // optimistic local create). A transient failure (dropped connection, cold
+  // start, deadlock) is reported back to the client as "error" instead, but
+  // is never persisted here — see /api/sync/push/route.ts — so it carries no
+  // terminal status of its own and the same clientOpId can simply retry.
+  status        String
   resultMessage String?
   appliedAt     DateTime?
   createdAt     DateTime   @default(now())
 
   @@index([deviceId])
   @@index([opType])
+}
+
+/// One row per hard-deleted record on any of the incrementally-pulled
+/// models (Rabbit, Breeding, Litter, KitStockMovement, HealthRecord,
+/// Transaction). runPull's own queries are a plain `updatedAt > since`
+/// diff, which can only ever say "here's what changed" — a row that no
+/// longer exists can't show up in that result set, so without this table a
+/// delete on one device (or the web app) would never reach any other
+/// already-bootstrapped device's local mirror. `model` is the local SQLite
+/// table name the client should delete from (see sync-manager.ts's
+/// TOMBSTONE_CLEANUP), not the Prisma model name. Breed is deliberately
+/// excluded — runPull already returns its *entire* table every pull, so the
+/// client fully re-derives it (see sync-manager.ts's breed handling)
+/// without needing a tombstone.
+model SyncTombstone {
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id        String   @id @default(cuid())
+  model     String
+  recordId  String
+  deletedAt DateTime @default(now())
+
+  @@index([farmId, deletedAt])
 }

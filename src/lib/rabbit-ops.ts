@@ -378,7 +378,10 @@ export async function updateRabbitOp(
  */
 export async function deleteRabbitOp(id: string): Promise<OpResult<void, "DELETE_BLOCKED_BY_BREEDING">> {
   try {
-    await prisma.rabbit.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.rabbit.delete({ where: { id } }),
+      prisma.syncTombstone.create({ data: { model: "rabbit", recordId: id } }),
+    ]);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
       return { ok: false, code: "DELETE_BLOCKED_BY_BREEDING" };

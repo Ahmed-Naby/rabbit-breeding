@@ -543,6 +543,7 @@ export async function markMatingFailedOp(breedingId: string, doeId: string): Pro
     await prisma.$transaction([
       ...(logEntry ? [logEntry] : []),
       prisma.breeding.delete({ where: { id: breedingId } }),
+      prisma.syncTombstone.create({ data: { model: "breeding", recordId: breedingId } }),
       prisma.rabbit.update({
         where: { id: doeId },
         data: { doeState: "nursing" },
@@ -572,8 +573,17 @@ export async function markMatingFailedOp(breedingId: string, doeId: string): Pro
  * empty-state semantics.
  */
 export async function clearDoeRowOp(breedingId: string, doeId: string): Promise<void> {
+  // Litter is 1:1 with Breeding (breedingId is @unique), so at most one row
+  // is ever removed here — fetched first because deleteMany() doesn't hand
+  // back the id the tombstone needs to tell other devices which local row
+  // to drop (see SyncTombstone).
+  const existingLitter = await prisma.litter.findUnique({ where: { breedingId }, select: { id: true } });
+
   await prisma.$transaction([
     prisma.litter.deleteMany({ where: { breedingId } }),
+    ...(existingLitter
+      ? [prisma.syncTombstone.create({ data: { model: "litter", recordId: existingLitter.id } })]
+      : []),
     prisma.breeding.update({
       where: { id: breedingId },
       data: { matingDate: null, actualKindlingDate: null, nestBoxDate: null, buckId: null },

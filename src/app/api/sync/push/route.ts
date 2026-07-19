@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+
+// Prisma error codes that mean "this exact operation, replayed against this
+// exact state, will never succeed" — a genuinely deterministic outcome, not
+// a blip. Anything else caught below is treated as transient (see the catch
+// block's "error" branch), since an unrecognized throw might just as well be
+// a dropped connection as a real bug — this table only holds the codes worth
+// betting are the former.
+// P2025: "record not found" — e.g. setLitterCount racing a clearDoeRow that
+//   already deleted the litter out from under it (the sync plan's known
+//   "deletion must win" conflict). P2002: unique constraint — e.g. addBreed
+//   racing a duplicate name from another device.
+const DETERMINISTIC_PRISMA_CODES = new Set(["P2025", "P2002"]);
 import { operationRegistry } from "@/lib/sync/operation-registry";
 import { authenticateSync } from "../auth";
 import { runWithFarm } from "@/lib/tenant";
@@ -13,7 +25,7 @@ type IncomingOperation = {
 
 type OperationResult = {
   clientOpId: string;
-  status: "applied" | "rejected" | "already_applied";
+  status: "applied" | "rejected" | "already_applied" | "error";
   resultMessage?: string | null;
 };
 
@@ -77,6 +89,32 @@ export async function POST(request: Request) {
         // Prisma extension scopes all its queries to auth.farmId.
         outcome = await runWithFarm(auth.farmId, () => handler(op.payload ?? {}, new Date(op.clientAt)));
       } catch (e) {
+        // A thrown error here is NOT the same thing as a deliberate business-
+        // rule rejection (those come back as a normal {ok:false,code} return
+        // value via fromOpResult, never a throw). This branch only catches
+        // the unexpected: a dropped DB connection, a Neon cold-start
+        // timeout, a Prisma serialization/deadlock error, or an *Op function
+        // that hasn't been converted to the structured rejection pattern.
+        // Most of that means nothing about whether the operation is valid —
+        // persisting it as a permanent "rejected" SyncOperation would both
+        // block the same clientOpId from ever being retried (the idempotency
+        // check above) and, via the client's rejected-create reconciliation
+        // sweep, could delete real local data over what was really just a
+        // blip. Report it as transient "error" and skip persisting a
+        // SyncOperation row so the exact same clientOpId can retry fresh —
+        // UNLESS it's one of DETERMINISTIC_PRISMA_CODES, which means retrying
+        // is pointless (the exact same state will fail the exact same way
+        // forever) and the honest answer is a real, terminal "rejected".
+        const isDeterministic =
+          e instanceof Prisma.PrismaClientKnownRequestError && DETERMINISTIC_PRISMA_CODES.has(e.code);
+        if (!isDeterministic) {
+          results.push({
+            clientOpId: op.clientOpId,
+            status: "error",
+            resultMessage: e instanceof Error ? e.message : String(e),
+          });
+          continue;
+        }
         outcome = { status: "rejected", resultMessage: e instanceof Error ? e.message : String(e) };
       }
     }

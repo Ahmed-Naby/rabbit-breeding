@@ -75,6 +75,7 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
   const migrations = [
     `ALTER TABLE rabbit ADD COLUMN retiredTagId TEXT`,
     `ALTER TABLE sync_cursor ADD COLUMN lastResetAt TEXT`,
+    `ALTER TABLE sync_cursor ADD COLUMN mirrorRefreshV INTEGER`,
   ];
   for (const sql of migrations) {
     try {

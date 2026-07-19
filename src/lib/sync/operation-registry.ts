@@ -409,8 +409,10 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   deleteKitStockMovement: async (p, clientAt) => {
     await prisma.$transaction(async (tx) => {
       const movement = await tx.kitStockMovement.delete({ where: { id: p.id as string } });
+      await tx.syncTombstone.create({ data: { model: "kit_stock_movement", recordId: movement.id } });
       if (movement.transactionId) {
         await tx.transaction.delete({ where: { id: movement.transactionId } });
+        await tx.syncTombstone.create({ data: { model: "transaction_ledger", recordId: movement.transactionId } });
       }
     });
     return applied;
@@ -431,7 +433,10 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   deleteHealthRecord: async (p, clientAt) => {
-    await prisma.healthRecord.delete({ where: { id: p.id as string } });
+    await prisma.$transaction([
+      prisma.healthRecord.delete({ where: { id: p.id as string } }),
+      prisma.syncTombstone.create({ data: { model: "health_record", recordId: p.id as string } }),
+    ]);
     return applied;
   },
 
@@ -450,7 +455,10 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   deleteTransaction: async (p, clientAt) => {
-    await prisma.transaction.delete({ where: { id: p.id as string } });
+    await prisma.$transaction([
+      prisma.transaction.delete({ where: { id: p.id as string } }),
+      prisma.syncTombstone.create({ data: { model: "transaction_ledger", recordId: p.id as string } }),
+    ]);
     return applied;
   },
 

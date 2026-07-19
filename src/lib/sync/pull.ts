@@ -24,6 +24,7 @@ export async function runPull(since: Date) {
     breeds,
     pregnancyTestLogs,
     kindlingLogs,
+    tombstones,
   ] = await Promise.all([
     prisma.settings.findUnique({ where: { farmId: currentFarmId() } }),
     prisma.rabbit.findMany({ where: { updatedAt: { gt: since } } }),
@@ -37,6 +38,12 @@ export async function runPull(since: Date) {
     prisma.breed.findMany({}),
     prisma.pregnancyTestLog.findMany({ orderBy: { testDate: "desc" }, take: 100 }),
     prisma.kindlingLog.findMany({ orderBy: { kindlingDate: "desc" }, take: 100 }),
+    // Hard deletes never show up in the `updatedAt > since` diffs above (a
+    // gone row can't be "found"), so every incrementally-pulled model that's
+    // ever hard-deleted (see SyncTombstone) needs its removal reported here
+    // explicitly, or every other already-bootstrapped device keeps a
+    // permanent phantom copy of it forever.
+    prisma.syncTombstone.findMany({ where: { deletedAt: { gt: since } } }),
   ]);
 
   return {
@@ -52,5 +59,6 @@ export async function runPull(since: Date) {
     breeds,
     pregnancyTestLogs,
     kindlingLogs,
+    tombstones,
   };
 }

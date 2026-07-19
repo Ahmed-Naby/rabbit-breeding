@@ -109,17 +109,29 @@ type CursorRow = {
   since: string | null;
   lastSyncAt: string | null;
   lastResetAt: string | null;
+  mirrorRefreshV: number | null;
 };
+
+// Bump this when the mirror needs a one-time rebuild from the server (see
+// the pull() check below). v1: mirrors provisioned before tombstone-based
+// delete propagation existed accumulated phantom rows — copies of records
+// hard-deleted server-side that no incremental pull could ever remove.
+const MIRROR_REFRESH_VERSION = 1;
 
 async function getOrInitCursor(db: SQLiteDBConnection): Promise<CursorRow> {
   const existing = await queryOne<CursorRow>(db, "SELECT * FROM sync_cursor WHERE id = 1");
   if (existing) return existing;
 
   const deviceId = createId();
-  await run(db, "INSERT INTO sync_cursor (id, deviceId, since, lastSyncAt) VALUES (1, ?, NULL, NULL)", [
-    deviceId,
-  ]);
-  return { id: 1, deviceId, since: null, lastSyncAt: null, lastResetAt: null };
+  // A fresh device has nothing to purge — stamp it current so the
+  // MIRROR_REFRESH_VERSION check in pull() only ever fires on mirrors that
+  // predate the bump.
+  await run(
+    db,
+    "INSERT INTO sync_cursor (id, deviceId, since, lastSyncAt, mirrorRefreshV) VALUES (1, ?, NULL, NULL, ?)",
+    [deviceId, MIRROR_REFRESH_VERSION]
+  );
+  return { id: 1, deviceId, since: null, lastSyncAt: null, lastResetAt: null, mirrorRefreshV: MIRROR_REFRESH_VERSION };
 }
 
 /**
@@ -143,6 +155,33 @@ async function wipeLocalMirror(): Promise<void> {
   });
 }
 
+/**
+ * One-time self-heal (per MIRROR_REFRESH_VERSION bump): wipes the mirrored
+ * server tables and resets the pull cursor so the next fetch is a full
+ * bootstrap — the only way to evict phantom rows that accumulated before
+ * tombstone-based delete propagation existed, since no incremental pull can
+ * name a row the server no longer has. Unlike wipeLocalMirror, the outbox
+ * survives: queued-but-unsynced operations are real user data and must
+ * never be discarded over what is purely a mirror-hygiene rebuild. (Their
+ * optimistic local effects are lost with the mirror, but syncNow's
+ * pull→push→pull cycle replays them server-side and pulls the result right
+ * back.)
+ */
+async function refreshMirrorTables(): Promise<void> {
+  await withTransaction(async (db) => {
+    const tables = await queryAll<{ name: string }>(
+      db,
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('android_metadata', 'sync_cursor', 'outbox')"
+    );
+    for (const { name } of tables) {
+      await run(db, `DELETE FROM "${name}"`);
+    }
+    await run(db, "UPDATE sync_cursor SET since = NULL, mirrorRefreshV = ? WHERE id = 1", [
+      MIRROR_REFRESH_VERSION,
+    ]);
+  });
+}
+
 // --- pull --------------------------------------------------------------
 
 type PullResponse = {
@@ -159,11 +198,41 @@ type PullResponse = {
   breeds?: Record<string, unknown>[];
   pregnancyTestLogs?: Record<string, unknown>[];
   kindlingLogs?: Record<string, unknown>[];
+  tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
+};
+
+// Maps a SyncTombstone's `model` to the local statement(s) that remove it
+// (and, where the server's schema cascades on delete, its dependents too —
+// see prisma/schema.prisma's onDelete: Cascade on HealthRecord/WeightRecord/
+// Litter — so a device that never re-fetches those rows doesn't keep an
+// orphaned copy after the parent they reference is gone). "breed" is
+// deliberately absent: the breeds loop below already re-derives the whole
+// table every pull, so it never needs a tombstone.
+const TOMBSTONE_CLEANUP: Record<string, (recordId: string) => { statement: string; values?: unknown[] }[]> = {
+  rabbit: (id) => [
+    { statement: "DELETE FROM health_record WHERE rabbitId = ?", values: [id] },
+    { statement: "DELETE FROM weight_record WHERE rabbitId = ?", values: [id] },
+    { statement: "DELETE FROM kit_stock_movement WHERE rabbitId = ?", values: [id] },
+    { statement: "DELETE FROM rabbit WHERE id = ?", values: [id] },
+  ],
+  breeding: (id) => [
+    { statement: "DELETE FROM litter WHERE breedingId = ?", values: [id] },
+    { statement: "DELETE FROM breeding WHERE id = ?", values: [id] },
+  ],
+  litter: (id) => [{ statement: "DELETE FROM litter WHERE id = ?", values: [id] }],
+  kit_stock_movement: (id) => [{ statement: "DELETE FROM kit_stock_movement WHERE id = ?", values: [id] }],
+  transaction_ledger: (id) => [{ statement: "DELETE FROM transaction_ledger WHERE id = ?", values: [id] }],
+  health_record: (id) => [{ statement: "DELETE FROM health_record WHERE id = ?", values: [id] }],
 };
 
 export async function pull(): Promise<boolean> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
+
+  if ((cursor.mirrorRefreshV ?? 0) < MIRROR_REFRESH_VERSION) {
+    await refreshMirrorTables();
+    cursor.since = null;
+  }
 
   const cb = Date.now();
   const path = cursor.since
@@ -184,6 +253,15 @@ export async function pull(): Promise<boolean> {
   }
 
   const set: { statement: string; values?: any[] }[] = [];
+
+  // Deletes first: a row that was updated and then deleted within the same
+  // pull window must end up gone, not resurrected by the insert loops below.
+  if (data.tombstones) {
+    for (const t of data.tombstones) {
+      const cleanup = TOMBSTONE_CLEANUP[t.model];
+      if (cleanup) set.push(...cleanup(t.recordId));
+    }
+  }
 
   if (data.settings) {
     const s = data.settings;
@@ -392,10 +470,53 @@ export async function pull(): Promise<boolean> {
   return hasChanges;
 }
 
+// --- rejected-create reconciliation ---------------------------------------
+
+// createQuickRabbit's local op (local-ops.ts) inserts the rabbit row
+// unconditionally for instant UI feedback, before the server has confirmed
+// anything. If the server later rejects that op, nothing else ever deletes
+// the local row — and since hasUnsyncedOps() deliberately excludes
+// 'rejected' ops (they already got a definitive answer), no amount of
+// re-syncing would ever revisit it, leaving a phantom rabbit that inflates
+// this device's counts forever. Sweep for that specific case on every sync.
+// (startBreeding/markMated are deliberately not covered here — rolling those
+// back also means reverting the doeState mutation and distinguishing the
+// fork-vs-reuse branch, which is the sync plan's separate "forked-row
+// cleanup" concern, not a simple delete.)
+const REJECTABLE_CREATE_CLEANUP: Record<string, (db: SQLiteDBConnection, id: string) => Promise<void>> = {
+  createQuickRabbit: async (db, id) => {
+    await run(db, "DELETE FROM kit_stock_movement WHERE rabbitId = ?", [id]);
+    await run(db, "DELETE FROM weight_record WHERE rabbitId = ?", [id]);
+    await run(db, "DELETE FROM rabbit WHERE id = ?", [id]);
+  },
+};
+
+async function reconcileRejectedCreates(): Promise<boolean> {
+  const db = await getDb();
+  const opTypes = Object.keys(REJECTABLE_CREATE_CLEANUP);
+  const rejects = await queryAll<{ clientOpId: string; opType: string; payload: string }>(
+    db,
+    `SELECT clientOpId, opType, payload FROM outbox WHERE status = 'rejected' AND opType IN (${opTypes.map(() => "?").join(",")})`,
+    opTypes
+  );
+  if (rejects.length === 0) return false;
+
+  await withTransaction(async (txDb) => {
+    for (const r of rejects) {
+      const payload = JSON.parse(r.payload) as { id?: string };
+      if (payload.id) await REJECTABLE_CREATE_CLEANUP[r.opType](txDb, payload.id);
+    }
+  });
+  if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
+    await sqlite.saveToStore("rabbittrack");
+  }
+  return true;
+}
+
 // --- push ----------------------------------------------------------------
 
 type OutboxRow = { clientOpId: string; opType: string; payload: string; clientAt: string };
-type PushResult = { clientOpId: string; status: "applied" | "rejected" | "already_applied"; resultMessage?: string | null };
+type PushResult = { clientOpId: string; status: "applied" | "rejected" | "already_applied" | "error"; resultMessage?: string | null };
 
 export async function push(): Promise<boolean> {
   const db = await getDb();
@@ -448,8 +569,15 @@ export async function push(): Promise<boolean> {
 
   await withTransaction(async (txDb) => {
     for (const result of response.results) {
+      // "error" is a transient, server-side infra failure (dropped DB
+      // connection, cold-start timeout, etc.) — never a deliberate
+      // rejection. Put the op back to 'pending' so the next sync cycle
+      // retries it, exactly like the network-failure catch above. Writing
+      // "error" as a literal terminal status would silently strand the op
+      // forever, since push()'s own SELECT only ever looks for 'pending'.
+      const nextStatus = result.status === "error" ? "pending" : result.status;
       await run(txDb, "UPDATE outbox SET status = ?, resultMessage = ? WHERE clientOpId = ?", [
-        result.status,
+        nextStatus,
         result.resultMessage ?? null,
         result.clientOpId,
       ]);
@@ -509,7 +637,8 @@ export async function syncNow(): Promise<void> {
   clearRetryTimer();
   setState({ status: "syncing", lastError: null });
   try {
-    let changed = await pull();
+    let changed = await reconcileRejectedCreates();
+    changed = (await pull()) || changed;
     const hasPushed = await push();
     if (hasPushed) {
       changed = (await pull()) || changed;

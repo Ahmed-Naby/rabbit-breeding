@@ -173,7 +173,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     wean: locale === "ar" ? "فطام" : "Wean",
     sale: locale === "ar" ? "بيع" : "Sale",
     death: locale === "ar" ? "نافق" : "Death",
-    retained: locale === "ar" ? "سلالة" : "Retained",
+    retained: locale === "ar" ? "احتفاظ للتربية" : "Kept for breeding",
     adjustment: locale === "ar" ? "تسوية" : "Adjustment",
   };
 
