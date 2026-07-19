@@ -3,7 +3,6 @@ import {
   Percent,
   HeartPulse,
   HeartHandshake,
-  ShieldCheck,
   Baby,
   Layers,
   Rabbit as RabbitIcon,
@@ -26,8 +25,7 @@ type FertilityRow = {
   totalKindlings: number;
   fertilityRate: number | null;
   avgBorn: number | null;
-  avgWeaned: number | null;
-  weaningSurvivalRate: number | null;
+  totalBornAlive: number;
 };
 
 export function BucksFertilityPage({ locale }: { locale: Locale }) {
@@ -37,8 +35,7 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
     overallFertility: number;
     overallKindlings: number;
     overallBreedings: number;
-    overallSurvival: number;
-    overallAvgWeaned: number;
+    overallBornAlive: number;
     overallAvgBorn: number;
   } | null>(null);
 
@@ -60,8 +57,6 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
     let overallBreedings = 0;
     let overallKindlings = 0;
     let overallBornAlive = 0;
-    let overallWeaned = 0;
-    let overallBornAliveForWeaned = 0;
 
     for (const buck of bucks) {
       // Query all breedings and litters sired by this buck
@@ -70,10 +65,9 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
         matingDate: string | null;
         actualKindlingDate: string | null;
         bornAlive: number | null;
-        weaned: number | null;
       }>(
         db,
-        `SELECT b.id, b.matingDate, b.actualKindlingDate, l.bornAlive, l.weaned
+        `SELECT b.id, b.matingDate, b.actualKindlingDate, l.bornAlive
          FROM breeding b
          LEFT JOIN litter l ON l.breedingId = b.id
          WHERE b.buckId = ? AND b.matingDate IS NOT NULL`,
@@ -90,20 +84,10 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
       const totalBornAlive = litters.reduce((sum, b) => sum + (b.bornAlive ?? 0), 0);
       const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
-      const littersWithWeaning = litters.filter((b) => b.weaned !== null);
-      const totalWeaned = littersWithWeaning.reduce((sum, b) => sum + (b.weaned ?? 0), 0);
-      const avgWeaned = totalKindlings > 0 ? totalWeaned / totalKindlings : null;
-
-      const totalBornAliveForWeaned = littersWithWeaning.reduce((sum, b) => sum + (b.bornAlive ?? 0), 0);
-      const weaningSurvivalRate =
-        totalBornAliveForWeaned > 0 ? (totalWeaned / totalBornAliveForWeaned) * 100 : null;
-
       // Add to aggregate counts
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
       overallBornAlive += totalBornAlive;
-      overallWeaned += totalWeaned;
-      overallBornAliveForWeaned += totalBornAliveForWeaned;
 
       rows.push({
         id: buck.id,
@@ -114,23 +98,19 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
         totalKindlings,
         fertilityRate,
         avgBorn,
-        avgWeaned,
-        weaningSurvivalRate,
+        totalBornAlive,
       });
     }
 
     const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
-    const overallAvgWeaned = overallKindlings > 0 ? Number((overallWeaned / overallKindlings).toFixed(1)) : 0;
-    const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;
 
     setData({
       rows,
       overallFertility,
       overallKindlings,
       overallBreedings,
-      overallSurvival,
-      overallAvgWeaned,
+      overallBornAlive,
       overallAvgBorn,
     });
   }, []);
@@ -148,8 +128,7 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
     kindlings: { type: "number", value: (r) => r.totalKindlings },
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
-    avgWeaned: { type: "number", value: (r) => r.avgWeaned ?? -1 },
-    weaningSurvival: { type: "number", value: (r) => r.weaningSurvivalRate ?? -1 },
+    totalBorn: { type: "number", value: (r) => r.totalBornAlive },
   });
 
   if (!data) {
@@ -171,7 +150,7 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
           </div>
           <div className="p-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
               <StatCard
                 icon={Percent}
                 label={t.statFertilityRate}
@@ -191,19 +170,13 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
                 className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
-                icon={ShieldCheck}
-                label={t.statWeaningSurvival}
-                value={`${data.overallSurvival}%`}
+                icon={Layers}
+                label={t.statTotalBorn}
+                value={data.overallBornAlive.toString()}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
                 icon={Baby}
-                label={t.statAvgWeaned}
-                value={data.overallAvgWeaned.toFixed(1)}
-                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              />
-              <StatCard
-                icon={Layers}
                 label={t.statAvgBorn}
                 value={data.overallAvgBorn.toFixed(1)}
                 className="border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400"
@@ -282,16 +255,8 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
-                  label={t.colAvgWeaned}
-                  sortKey="avgWeaned"
-                  activeSortKey={bucksSort.sortKey}
-                  direction={bucksSort.direction}
-                  onSort={bucksSort.toggleSort}
-                />
-                <SortableTh
-                  className="px-2 py-2 md:px-4 md:py-3 text-center"
-                  label={t.colWeaningSurvivalRate}
-                  sortKey="weaningSurvival"
+                  label={t.colTotalBorn}
+                  sortKey="totalBorn"
                   activeSortKey={bucksSort.sortKey}
                   direction={bucksSort.direction}
                   onSort={bucksSort.toggleSort}
@@ -324,11 +289,8 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-sky-600 dark:text-sky-400">
                     {r.avgBorn != null ? r.avgBorn.toFixed(1) : "—"}
                   </td>
-                  <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                    {r.avgWeaned != null ? r.avgWeaned.toFixed(1) : "—"}
-                  </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-rose-600 dark:text-rose-400">
-                    {r.weaningSurvivalRate != null ? `${Math.round(r.weaningSurvivalRate)}%` : "—"}
+                    {r.totalBornAlive}
                   </td>
                 </tr>
               ))}

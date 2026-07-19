@@ -44,8 +44,6 @@ export default async function BucksFertilityPage() {
   let overallBreedings = 0;
   let overallKindlings = 0;
   let overallBornAlive = 0;
-  let overallWeaned = 0;
-  let overallBornAliveForWeaned = 0;
 
   const rowData = bucks.map((buck) => {
     const breedings = buck.breedingsAsBuck.filter((b) => b.matingDate !== null);
@@ -59,20 +57,10 @@ export default async function BucksFertilityPage() {
     const totalBornAlive = litters.reduce((sum, l) => sum + l.bornAlive, 0);
     const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
-    const littersWithWeaning = litters.filter((l) => l.weaned !== null);
-    const totalWeaned = littersWithWeaning.reduce((sum, l) => sum + (l.weaned ?? 0), 0);
-    const avgWeaned = totalKindlings > 0 ? totalWeaned / totalKindlings : null;
-
-    const totalBornAliveForWeaned = littersWithWeaning.reduce((sum, l) => sum + l.bornAlive, 0);
-    const weaningSurvivalRate =
-      totalBornAliveForWeaned > 0 ? (totalWeaned / totalBornAliveForWeaned) * 100 : null;
-
     // Add to aggregate counts
     overallBreedings += totalBreedings;
     overallKindlings += totalKindlings;
     overallBornAlive += totalBornAlive;
-    overallWeaned += totalWeaned;
-    overallBornAliveForWeaned += totalBornAliveForWeaned;
 
     return {
       buck,
@@ -80,15 +68,12 @@ export default async function BucksFertilityPage() {
       totalKindlings,
       fertilityRate,
       avgBorn,
-      avgWeaned,
-      weaningSurvivalRate,
+      totalBornAlive,
     };
   });
 
   const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
   const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
-  const overallAvgWeaned = overallKindlings > 0 ? Number((overallWeaned / overallKindlings).toFixed(1)) : 0;
-  const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -106,7 +91,7 @@ export default async function BucksFertilityPage() {
           </CardHeader>
           <CardContent>
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
               <StatCard
                 icon={Percent}
                 label={t.bucksFertility.statFertilityRate}
@@ -126,19 +111,13 @@ export default async function BucksFertilityPage() {
                 className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
-                icon={ShieldCheck}
-                label={t.bucksFertility.statWeaningSurvival}
-                value={`${overallSurvival}%`}
+                icon={Layers}
+                label={t.bucksFertility.statTotalBorn}
+                value={overallBornAlive.toString()}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
                 icon={Baby}
-                label={t.bucksFertility.statAvgWeaned}
-                value={overallAvgWeaned.toFixed(1)}
-                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              />
-              <StatCard
-                icon={Layers}
                 label={t.bucksFertility.statAvgBorn}
                 value={overallAvgBorn.toFixed(1)}
                 className="border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400"
@@ -166,10 +145,9 @@ export default async function BucksFertilityPage() {
               { key: "kindlings", label: t.bucksFertility.colKindlings, type: "number", className: "text-center" },
               { key: "fertilityRate", label: t.bucksFertility.colFertilityRate, type: "number", className: "text-center" },
               { key: "avgBorn", label: t.bucksFertility.colAvgBorn, type: "number", className: "text-center" },
-              { key: "avgWeaned", label: t.bucksFertility.colAvgWeaned, type: "number", className: "text-center" },
-              { key: "weaningSurvival", label: t.bucksFertility.colWeaningSurvivalRate, type: "number", className: "text-center" },
+              { key: "totalBorn", label: t.bucksFertility.colTotalBorn, type: "number", className: "text-center" },
             ]}
-            rows={rowData.map(({ buck, totalBreedings, totalKindlings, fertilityRate, avgBorn, avgWeaned, weaningSurvivalRate }) => ({
+            rows={rowData.map(({ buck, totalBreedings, totalKindlings, fertilityRate, avgBorn, totalBornAlive }) => ({
               key: buck.id,
               sortValues: {
                 buckTag: buck.tagId,
@@ -179,8 +157,7 @@ export default async function BucksFertilityPage() {
                 kindlings: totalKindlings,
                 fertilityRate: fertilityRate ?? -1,
                 avgBorn: avgBorn ?? -1,
-                avgWeaned: avgWeaned ?? -1,
-                weaningSurvival: weaningSurvivalRate ?? -1,
+                totalBorn: totalBornAlive,
               },
               node: (
                 <TableRow key={buck.id} className="[&>td]:border-x [&>td]:text-center">
@@ -201,11 +178,8 @@ export default async function BucksFertilityPage() {
                   <TableCell className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
                     {avgBorn != null ? avgBorn.toFixed(1) : "—"}
                   </TableCell>
-                  <TableCell className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                    {avgWeaned != null ? avgWeaned.toFixed(1) : "—"}
-                  </TableCell>
                   <TableCell className="font-medium tabular-nums text-rose-600 dark:text-rose-400">
-                    {weaningSurvivalRate != null ? `${Math.round(weaningSurvivalRate)}%` : "—"}
+                    {totalBornAlive}
                   </TableCell>
                 </TableRow>
               ),
