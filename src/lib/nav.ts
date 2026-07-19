@@ -18,6 +18,7 @@ import {
   FileText,
   ListChecks,
   CalendarDays,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "./i18n/dictionaries/ar";
@@ -35,6 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
   { href: "/stock", labelKey: "stock", icon: Sprout },
   { href: "/mothers", labelKey: "mothers", icon: Venus },
+  { href: "/does-fertility", labelKey: "doesFertility", icon: TrendingUp },
   { href: "/bucks", labelKey: "bucks", icon: Mars },
   { href: "/mating", labelKey: "mating", icon: HeartHandshake },
   { href: "/pregnancy-test", labelKey: "pregnancyTest", icon: Microscope },

@@ -71,6 +71,8 @@ import { HealthPage } from "./pages/health-page";
 import { ReportsPage } from "./pages/reports-page";
 import { FinancePage } from "./pages/finance-page";
 import { SettingsPage } from "./pages/settings-page";
+import { DoesFertilityPage } from "./pages/does-fertility-page";
+import { TrendingUp } from "lucide-react";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
@@ -79,6 +81,7 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   "#/bucks-rounds": { path: "#/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
   "#/stock": { path: "#/stock", labelKey: "stock", icon: Sprout },
   "#/mothers": { path: "#/mothers", labelKey: "mothers", icon: Venus },
+  "#/does-fertility": { path: "#/does-fertility", labelKey: "doesFertility", icon: TrendingUp },
   "#/bucks": { path: "#/bucks", labelKey: "bucks", icon: Mars },
   "#/mating": { path: "#/mating", labelKey: "mating", icon: HeartHandshake },
   "#/pregnancy-test": { path: "#/pregnancy-test", labelKey: "pregnancyTest", icon: Microscope },
@@ -462,6 +465,7 @@ export function AppShell() {
           {/* Roster lists */}
           {route === "#/stock" && <StockPage locale={locale} />}
           {route === "#/mothers" && <MothersPage locale={locale} />}
+          {route === "#/does-fertility" && <DoesFertilityPage locale={locale} />}
           {route === "#/bucks" && <BucksPage locale={locale} />}
           {route.startsWith(RABBIT_DETAIL_PREFIX) && (
             <RabbitDetailPage locale={locale} rabbitId={route.slice(RABBIT_DETAIL_PREFIX.length)} />
