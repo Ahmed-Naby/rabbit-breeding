@@ -64,8 +64,15 @@ async function shouldSkipUpdate(
   id: string | number,
   clientAt: Date
 ): Promise<boolean> {
+  // Settings is the one model here keyed BY farmId (@id) rather than by an
+  // `id` column — it has no `id` at all (see schema.prisma). Querying
+  // { where: { id } } for it throws a PrismaClientValidationError, which
+  // push/route.ts can't recognise as deterministic, so it reports the op as
+  // a transient "error" and lets the client retry the same clientOpId
+  // forever — a permanently stuck "1 pending" that never drains.
+  const where = modelName === "settings" ? { farmId: currentFarmId() } : { id };
   const existing = await (prisma[modelName] as any).findUnique({
-    where: { id },
+    where,
     select: { updatedAt: true }
   });
   if (existing && existing.updatedAt && existing.updatedAt > clientAt) {
