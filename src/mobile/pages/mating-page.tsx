@@ -41,7 +41,6 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
   const doesSort = useSortableRows(does, {
     tag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
-    matingDate: { type: "date", value: (r) => r.matingDate },
     doeState: { type: "string", value: (r) => r.doeState },
   });
   const matingLogSort = useSortableRows(matingLog, {
