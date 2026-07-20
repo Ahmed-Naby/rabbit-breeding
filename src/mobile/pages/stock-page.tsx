@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function StockPage({ locale }: { locale: Locale }) {
+export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).stock;
   const tCommon = getClientDictionary(locale).common;
 
@@ -38,14 +38,12 @@ export function StockPage({ locale }: { locale: Locale }) {
     void load();
   }, [load]);
 
-  const handleAddRabbit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddRabbit = async (e: React.FormEvent<HTMLFormElement>, origin: "farm" | "external") => {
     e.preventDefault();
     if (saving) return;
 
-    // Registering breeding stock withdraws one kit from the available-weaning
-    // balance; block it when there's nothing left so the balance never goes
-    // negative. Record a weaning or a positive adjustment (فطام والبيع) first.
-    if (data && data.availableStock < 1) {
+    // Registering farm-born breeding stock withdraws one kit from available-weaning
+    if (origin === "farm" && data && data.availableStock < 1) {
       toast.error(
         locale === "ar"
           ? "المخزون المتاح صفر — سجّل فطامًا أو اعمل تسوية في صفحة الفطام والبيع قبل تسجيل سلالة جديدة"
@@ -54,7 +52,8 @@ export function StockPage({ locale }: { locale: Locale }) {
       return;
     }
 
-    const formData = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const formData = new FormData(formEl);
     const sex = formData.get("sex") as "doe" | "buck";
     const date = formData.get("date") as string;
     const breed = formData.get("breed") as string;
@@ -81,6 +80,7 @@ export function StockPage({ locale }: { locale: Locale }) {
         sex,
         date: new Date(date).toISOString(),
         weightKg: parseFloat(weightRaw),
+        origin,
       });
 
       if (res.outcome.status === "rejected") {
@@ -91,7 +91,7 @@ export function StockPage({ locale }: { locale: Locale }) {
           toast.error(cageRes.outcome.resultMessage);
         }
         toast.success(t.registeredToast);
-        addFormRef.current?.reset();
+        formEl.reset();
         await load();
       }
     } catch (err) {
@@ -188,95 +188,211 @@ export function StockPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-          <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
-            {rabbits.length}
-          </span>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+            <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
+              {rabbits.length}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">{t.description}</p>
         </div>
-        <p className="text-sm text-muted-foreground">{t.description}</p>
-      </div>
+      )}
 
-      {/* Register Stock Form Card */}
-      <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
-        <div className="p-6">
-          <form ref={addFormRef} onSubmit={handleAddRabbit} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">{t.sexLabel}</label>
-                <select
-                  name="sex"
-                  defaultValue="doe"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {sexOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+      {/* Forms grid: Card 1 (Farm Offspring) & Card 2 (External Purchased Stock) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Card 1: Farm Offspring (Deducts from weaning) */}
+        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-semibold text-base">
+                  {locale === "ar" ? "تسجيل سلالة (من أبناء المزرعة)" : "Register Farm Stock (Offspring)"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {locale === "ar"
+                    ? `تُخصم من رصيد الفطام المتاح (المتبقي: ${data.availableStock})`
+                    : `Deducts from available weaning stock (Available: ${data.availableStock})`}
+                </p>
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">{t.dateLabel}</label>
-                <input
-                  name="date"
-                  type="date"
-                  required
-                  defaultValue={today}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">{t.breedLabel}</label>
-                <select
-                  name="breed"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="none">{tCommon.none}</option>
-                  {breedOptions.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">{t.weightLabel}</label>
-                <input
-                  name="weightKg"
-                  type="number"
-                  step="0.001"
-                  min={0}
-                  required
-                  placeholder={t.weightPlaceholder}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold">{t.cageLabel}</label>
-                <input
-                  name="cage"
-                  type="text"
-                  maxLength={10}
-                  required
-                  placeholder={t.cagePlaceholder}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                />
-              </div>
+              <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                {locale === "ar" ? "من إنتاج المزرعة" : "Farm Offspring"}
+              </span>
             </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
-            >
-              {saving ? tCommon.saving : t.submitButton}
-            </button>
-          </form>
+
+            <form onSubmit={(e) => void handleAddRabbit(e, "farm")} className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.sexLabel}</label>
+                  <select
+                    name="sex"
+                    defaultValue="doe"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {sexOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.dateLabel}</label>
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    defaultValue={today}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold">{t.breedLabel}</label>
+                  <select
+                    name="breed"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="none">{tCommon.none}</option>
+                    {breedOptions.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.weightLabel}</label>
+                  <input
+                    name="weightKg"
+                    type="number"
+                    step="0.001"
+                    min={0}
+                    required
+                    placeholder={t.weightPlaceholder}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.cageLabel}</label>
+                  <input
+                    name="cage"
+                    type="text"
+                    maxLength={10}
+                    required
+                    placeholder={t.cagePlaceholder}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+              >
+                {saving ? tCommon.saving : (locale === "ar" ? "تسجيل سلالة المزرعة" : "Register Farm Stock")}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Card 2: External Purchased Stock */}
+        <div className="rounded-xl border bg-card text-card-foreground shadow-sm">
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-semibold text-base">
+                  {locale === "ar" ? "إضافة سلالة مشتراة (من خارج المزرعة)" : "Add Purchased Stock (External)"}
+                </h3>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                {locale === "ar" ? "مشتراة من الخارج" : "Purchased External"}
+              </span>
+            </div>
+
+            <form onSubmit={(e) => void handleAddRabbit(e, "external")} className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.sexLabel}</label>
+                  <select
+                    name="sex"
+                    defaultValue="doe"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    {sexOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.dateLabel}</label>
+                  <input
+                    name="date"
+                    type="date"
+                    required
+                    defaultValue={today}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold">{t.breedLabel}</label>
+                  <select
+                    name="breed"
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="none">{tCommon.none}</option>
+                    {breedOptions.map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.weightLabel}</label>
+                  <input
+                    name="weightKg"
+                    type="number"
+                    step="0.001"
+                    min={0}
+                    required
+                    placeholder={t.weightPlaceholder}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold">{t.cageLabel}</label>
+                  <input
+                    name="cage"
+                    type="text"
+                    maxLength={10}
+                    required
+                    placeholder={t.cagePlaceholder}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-emerald-600 text-white shadow hover:bg-emerald-700 h-9 px-4 py-2"
+              >
+                {saving ? tCommon.saving : (locale === "ar" ? "إضافة سلالة مشتراة" : "Add Purchased Stock")}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 

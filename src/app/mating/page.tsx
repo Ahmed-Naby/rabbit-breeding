@@ -15,7 +15,7 @@ export async function generateMetadata() {
   return { title: `${t.mating.title} · RabbitTrack` };
 }
 
-export default async function MatingPage() {
+export default async function MatingPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Same eligibility rule as the "تلقيح" button on /does (canMate): فاضية،
   // مرضعة، أو مستبعدة. Filtering it here at the query level (instead of
   // fetching everyone and checking client-side) means this board only ever
@@ -81,10 +81,12 @@ export default async function MatingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.mating.title}
-        description={t.mating.description(does.length)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.mating.title}
+          description={t.mating.description(does.length)}
+        />
+      )}
 
       {does.length === 0 ? (
         <EmptyState

@@ -12,7 +12,7 @@ export async function generateMetadata() {
   return { title: `${t.fostering.title} · RabbitTrack` };
 }
 
-export default async function FosteringPage() {
+export default async function FosteringPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const [logs, { locale, t }] = await Promise.all([
     prisma.fosterLog.findMany({
       include: {
@@ -26,7 +26,9 @@ export default async function FosteringPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t.fostering.pageTitle} description={t.fostering.description} />
+      {!hideHeader && (
+        <PageHeader title={t.fostering.pageTitle} description={t.fostering.description} />
+      )}
 
       <FosterForm locale={locale} />
 

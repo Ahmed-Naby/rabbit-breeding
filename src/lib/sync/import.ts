@@ -168,7 +168,7 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       const s = data.settings;
       const settingsData = {
         weightUnit: s?.weightUnit ?? "kg",
-        gestationDays: s?.gestationDays ?? 31,
+        gestationDays: s?.gestationDays ?? 30,
         gestationWindowDays: s?.gestationWindowDays ?? 3,
         pregnancyTestDays: s?.pregnancyTestDays ?? 10,
         weaningDays: s?.weaningDays ?? 28,

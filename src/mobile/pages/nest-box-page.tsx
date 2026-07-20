@@ -9,7 +9,7 @@ import { DoeStateBadge, InstallNestBoxButton } from "../components/doe-state-men
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function NestBoxPage({ locale }: { locale: Locale }) {
+export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     does: LocalNestBoxCandidate[];
@@ -59,14 +59,16 @@ export function NestBoxPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "تركيب بيوت الولادة" : "Nest Box Installation"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar"
-            ? `أمهات بحاجة لتركيب بيت الولادة بعد مرور ${nestBoxDays} أيام من التلقيح (${does.length} أمهات)`
-            : `Does requiring nest box installation after ${nestBoxDays} days (${does.length} does)`}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "تركيب بيوت الولادة" : "Nest Box Installation"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar"
+              ? `أمهات بحاجة لتركيب بيت الولادة بعد مرور ${nestBoxDays} أيام من التلقيح (${does.length} أمهات)`
+              : `Does requiring nest box installation after ${nestBoxDays} days (${does.length} does)`}
+          </p>
+        </div>
+      )}
 
       {does.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

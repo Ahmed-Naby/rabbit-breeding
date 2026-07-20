@@ -28,7 +28,7 @@ type FertilityRow = {
   totalBornAlive: number;
 };
 
-export function BucksFertilityPage({ locale }: { locale: Locale }) {
+export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).bucksFertility;
   const [data, setData] = useState<{
     rows: FertilityRow[];
@@ -138,10 +138,12 @@ export function BucksFertilityPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Page Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.description(listRows.length)}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.description(listRows.length)}</p>
+        </div>
+      )}
 
       {listRows.length > 0 && (
         <div className="rounded-xl border bg-card text-card-foreground shadow-xs">

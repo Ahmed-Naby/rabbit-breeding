@@ -67,7 +67,8 @@ export function AccountCard({ locale }: { locale: Locale }) {
     void refreshFarms().then((s) => { if (s) setSession(s); });
   }, []);
 
-  const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
+  const farms = session?.farms ?? [];
+  const activeFarm = farms.find((f) => f.farmId === session?.activeFarmId);
   const isOwner = activeFarm?.role === "owner";
 
   // Seed the farm profile fields whenever the active farm's stored values
@@ -109,16 +110,22 @@ export function AccountCard({ locale }: { locale: Locale }) {
     if (!window.confirm(t.logoutConfirm)) return;
     setBusy(true);
 
-    // logout() -> clearLocalMirror() wipes the outbox unconditionally, so
-    // anything still queued there would be lost silently. Force a flush
-    // first (or refuse outright if offline with something queued) rather
-    // than let that happen.
+    // logout() -> wipeAllLocalDatabases() wipes every local db (outbox
+    // included) unconditionally, so anything still queued there would be
+    // lost silently. Force a flush first (or refuse outright if offline
+    // with something queued) rather than let that happen.
     const netStatus = await Network.getStatus();
     const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
     if (!synced) {
       toast.error(t.logoutBlockedUnsynced);
       setBusy(false);
-      return;
+      const force = window.confirm(
+        locale === "ar"
+          ? "توجد تعديلات محليّة لم تُرفع إلى الخادم بعد (1 بانتظار الإرسال).\n\nهل تريد تسجيل الخروج القسري وتجاهل هذه التعديلات؟"
+          : "There are unsynced local changes.\n\nDo you want to force logout and discard these local changes?"
+      );
+      if (!force) return;
+      setBusy(true);
     }
 
     await logout();
@@ -299,9 +306,9 @@ export function AccountCard({ locale }: { locale: Locale }) {
 
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold">{t.farmLabel}</Label>
-          {session.farms.length > 1 ? (
+          {farms.length > 1 ? (
             <Select
-              items={session.farms.map((f) => ({ value: f.farmId, label: `${f.name} (${roleLabel(f.role)})` }))}
+              items={farms.map((f) => ({ value: f.farmId, label: `${f.name} (${roleLabel(f.role)})` }))}
               value={session.activeFarmId}
               onValueChange={handleSwitchFarm}
               disabled={busy}
@@ -310,7 +317,7 @@ export function AccountCard({ locale }: { locale: Locale }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {session.farms.map((f) => (
+                {farms.map((f) => (
                   <SelectItem key={f.farmId} value={f.farmId}>
                     {f.name} ({roleLabel(f.role)})
                   </SelectItem>

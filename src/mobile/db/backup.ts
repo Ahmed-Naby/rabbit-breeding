@@ -65,12 +65,12 @@ export async function restoreBackup(json: string): Promise<void> {
   await sqlite.importFromJson(jsonString);
 
   // On web, importFromJson() opens and closes its own private database
-  // handle internally — it never registers a connection under DB_NAME, so
-  // there is nothing yet for saveToStore() to find. Reopening via getDb()
-  // re-registers a real connection (idempotently re-applying schema.sql,
-  // a no-op against the tables we just imported) and, on web, that reopen
-  // itself persists the imported data to the store — the same path every
-  // normal app startup already goes through.
+  // handle internally — it never registers a connection under the active
+  // farm's db name, so there is nothing yet for saveToStore() to find.
+  // Reopening via getDb() re-registers a real connection (idempotently
+  // re-applying schema.sql, a no-op against the tables we just imported)
+  // and, on web, that reopen itself persists the imported data to the
+  // store — the same path every normal app startup already goes through.
   await getDb();
 
   if (preRestoreCursor) {

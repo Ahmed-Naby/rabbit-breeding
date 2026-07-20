@@ -127,6 +127,11 @@ export function QuickRabbitForm({
     { value: "buck", label: t.sexBuck },
   ];
 
+  const originOptions: Option[] = [
+    { value: "farm", label: locale === "ar" ? "من أبناء المزرعة" : "Farm Offspring" },
+    { value: "external", label: locale === "ar" ? "مشتراة من خارج المزرعة" : "Purchased External" },
+  ];
+
   return (
     <div className="space-y-6">
       <form ref={formRef} action={formAction} className="space-y-6">
@@ -137,53 +142,64 @@ export function QuickRabbitForm({
         ) : null}
 
         <Card>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <SelectField
-              name="sex"
-              label={t.sexLabel}
-              options={sexOptions}
-              defaultValue="doe"
-              error={e.sex}
-            />
-            <TextField
-              name="date"
-              type="date"
-              label={t.dateLabel}
-              required
-              defaultValue={today}
-              error={e.date}
-            />
-            <SelectField
-              name="breed"
-              label={t.breedLabel}
-              options={breedOptions}
-              includeNone
-              noneLabel={tCommon.none}
-              placeholder={tCommon.selectPlaceholder}
-              error={e.breed}
-              required
-            />
-            <TextField
-              name="weightKg"
-              type="number"
-              step="0.001"
-              min={0}
-              label={t.weightLabel}
-              placeholder={t.weightPlaceholder}
-              error={e.weightKg}
-              required
-            />
-            <Field label={t.cageLabel} htmlFor="cage" required>
-              <input
-                ref={cageRef}
-                id="cage"
-                type="text"
-                maxLength={10}
-                placeholder={t.cagePlaceholder}
-                required
-                className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+          <CardContent className="space-y-4 pt-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SelectField
+                name="origin"
+                label={locale === "ar" ? "مصدر السلالة" : "Stock Origin"}
+                options={originOptions}
+                defaultValue="farm"
               />
-            </Field>
+              <SelectField
+                name="sex"
+                label={t.sexLabel}
+                options={sexOptions}
+                defaultValue="doe"
+                error={e.sex}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <TextField
+                name="date"
+                type="date"
+                label={t.dateLabel}
+                required
+                defaultValue={today}
+                error={e.date}
+              />
+              <SelectField
+                name="breed"
+                label={t.breedLabel}
+                options={breedOptions}
+                includeNone
+                noneLabel={tCommon.none}
+                placeholder={tCommon.selectPlaceholder}
+                error={e.breed}
+                required
+              />
+              <TextField
+                name="weightKg"
+                type="number"
+                step="0.001"
+                min={0}
+                label={t.weightLabel}
+                placeholder={t.weightPlaceholder}
+                error={e.weightKg}
+                required
+              />
+              <Field label={t.cageLabel} htmlFor="cage" required>
+                <input
+                  ref={cageRef}
+                  id="cage"
+                  type="text"
+                  maxLength={10}
+                  placeholder={t.cagePlaceholder}
+                  required
+                  className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                />
+              </Field>
+            </div>
           </CardContent>
         </Card>
 

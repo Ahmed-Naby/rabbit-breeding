@@ -29,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const HEALTH_TYPE_KEYS = ["illness", "treatment", "vaccination", "deworming", "checkup"] as const;
 
-export function RoundsPage({ locale }: { locale: Locale }) {
+export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const rt = t.rounds;
   const [does, setDoes] = useState<DoeRow[] | null>(null);
@@ -127,10 +127,12 @@ export function RoundsPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
-        <p className="text-sm text-muted-foreground">{rt.description}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
+          <p className="text-sm text-muted-foreground">{rt.description}</p>
+        </div>
+      )}
 
       <div className="relative">
         <Search className="pointer-events-none absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

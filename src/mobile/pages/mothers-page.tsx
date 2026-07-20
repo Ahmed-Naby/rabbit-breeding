@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function MothersPage({ locale }: { locale: Locale }) {
+export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).mothers;
   const tCommon = getClientDictionary(locale).common;
 
@@ -55,6 +55,7 @@ export function MothersPage({ locale }: { locale: Locale }) {
         sex: "doe",
         date: new Date().toISOString(),
         weightKg,
+        origin: "external",
       });
 
       if (res.outcome.status === "rejected") {
@@ -122,10 +123,12 @@ export function MothersPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.description(does.length)}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.description(does.length)}</p>
+        </div>
+      )}
 
       {/* Add Mother Form Card */}
       <div className="rounded-xl border bg-card text-card-foreground shadow-sm">

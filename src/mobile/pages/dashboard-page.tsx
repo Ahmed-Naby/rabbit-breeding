@@ -10,17 +10,48 @@ import {
   Box,
   Sprout,
   MapPin,
+  LogOut,
 } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchDashboardStats, type DashboardStats } from "../db/queries";
-import { getSession, type AuthSession } from "../auth";
+import { getSession, logout, type AuthSession } from "../auth";
+import { flushOutbox, hasUnsyncedOps } from "../sync/sync-manager";
+import { Network } from "@capacitor/network";
+import { toast } from "sonner";
 
 export function DashboardPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [session] = useState<AuthSession | null>(() => getSession());
+  const [busy, setBusy] = useState(false);
+
+  const handleLogout = async () => {
+    if (!window.confirm(locale === "ar" ? "سيتم تسجيل الخروج ومسح البيانات المحفوظة محلياً على هذا الجهاز. هل تريد المتابعة؟" : "Are you sure you want to log out?")) return;
+    setBusy(true);
+
+    try {
+      const netStatus = await Network.getStatus();
+      const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
+      if (!synced) {
+        setBusy(false);
+        const force = window.confirm(
+          locale === "ar"
+            ? "توجد تعديلات محليّة لم تُرفع إلى الخادم بعد (1 بانتظار الإرسال).\n\nهل تريد تسجيل الخروج القسري وتجاهل هذه التعديلات؟"
+            : "There are unsynced local changes.\n\nDo you want to force logout and discard these local changes?"
+        );
+        if (!force) return;
+        setBusy(true);
+      }
+
+      await logout();
+      window.location.reload();
+    } catch (err) {
+      toast.error(String(err));
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -108,18 +139,33 @@ export function DashboardPage({ locale }: { locale: Locale }) {
           <div className="absolute inset-0 bg-linear-to-l from-black/75 via-black/45 to-transparent" />
         </div>
         <div className="absolute inset-0 flex flex-col justify-center gap-2 px-6 sm:px-8">
-          {greeting && (
-            <p className="text-xs font-semibold text-white/90 sm:text-sm uppercase tracking-wider drop-shadow-xs">{greeting}</p>
-          )}
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl drop-shadow-md">
-            {activeFarm?.name ?? t.dashboard.heroTitle}
-          </h1>
-          {activeFarm?.location && (
-            <div className="flex items-center gap-1.5 text-xs font-medium text-white/80 drop-shadow-xs">
-              <MapPin className="size-3.5 shrink-0" />
-              <span>{activeFarm.location}</span>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              {greeting && (
+                <p className="text-xs font-semibold text-white/90 sm:text-sm uppercase tracking-wider drop-shadow-xs">{greeting}</p>
+              )}
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl drop-shadow-md">
+                {activeFarm?.name ?? t.dashboard.heroTitle}
+              </h1>
+              {activeFarm?.location && (
+                <div className="flex items-center gap-1.5 text-xs font-medium text-white/80 drop-shadow-xs">
+                  <MapPin className="size-3.5 shrink-0" />
+                  <span>{activeFarm.location}</span>
+                </div>
+              )}
             </div>
-          )}
+            {session && (
+              <button
+                type="button"
+                onClick={() => void handleLogout()}
+                disabled={busy}
+                className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-black/40 backdrop-blur-md px-3 py-2 text-xs font-semibold text-white shadow-xs transition-all hover:bg-black/60 hover:border-white/40 active:scale-95 disabled:opacity-50"
+              >
+                <LogOut className="size-3.5" />
+                <span>{locale === "ar" ? "تسجيل الخروج" : "Log out"}</span>
+              </button>
+            )}
+          </div>
           <p className="max-w-md text-xs text-white/70 sm:text-sm drop-shadow-xs">
             {t.dashboard.heroDescription}
           </p>

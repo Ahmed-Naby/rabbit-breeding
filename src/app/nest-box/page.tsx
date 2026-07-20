@@ -16,7 +16,7 @@ export async function generateMetadata() {
   return { title: `${t.nestBox.title} · RabbitTrack` };
 }
 
-export default async function NestBoxPage() {
+export default async function NestBoxPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Any doe still mid-cycle (mated, kindling not yet recorded) is a nest-box
   // candidate once the configured offset from her mating date has passed —
   // "nursing" is excluded since that means this row's kindling already
@@ -78,10 +78,12 @@ export default async function NestBoxPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.nestBox.title}
-        description={t.nestBox.description(does.length, settings.nestBoxDays)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.nestBox.title}
+          description={t.nestBox.description(does.length, settings.nestBoxDays)}
+        />
+      )}
 
       {does.length === 0 ? (
         <EmptyState

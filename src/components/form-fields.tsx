@@ -145,7 +145,6 @@ export function SelectField({
     >
       <input type="hidden" name={name} value={value} />
       <Select
-        items={items}
         value={value === "" ? NONE : value}
         onValueChange={(v: string | null) => {
           const next = v === NONE || v == null ? "" : v;

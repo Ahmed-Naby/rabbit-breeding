@@ -70,28 +70,19 @@ import { BucksRoundsPage } from "./pages/bucks-rounds-page";
 import { HealthPage } from "./pages/health-page";
 import { ReportsPage } from "./pages/reports-page";
 import { FinancePage } from "./pages/finance-page";
+import { DailyOperationsPage } from "./pages/daily-operations-page";
+import { SupportOperationsPage } from "./pages/support-operations-page";
+import { DailyRoundsPage } from "./pages/daily-rounds-page";
+import { HerdAndStockPage } from "./pages/herd-and-stock-page";
 import { SettingsPage } from "./pages/settings-page";
-import { DoesFertilityPage } from "./pages/does-fertility-page";
-import { BucksFertilityPage } from "./pages/bucks-fertility-page";
-import { TrendingUp } from "lucide-react";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
+  "#/herd-and-stock": { path: "#/herd-and-stock", labelKey: "herdAndStock", icon: Sprout },
   "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
-  "#/rounds": { path: "#/rounds", labelKey: "rounds", icon: ListChecks },
-  "#/bucks-rounds": { path: "#/bucks-rounds", labelKey: "bucksRounds", icon: ListChecks },
-  "#/stock": { path: "#/stock", labelKey: "stock", icon: Sprout },
-  "#/mothers": { path: "#/mothers", labelKey: "mothers", icon: Venus },
-  "#/does-fertility": { path: "#/does-fertility", labelKey: "doesFertility", icon: TrendingUp },
-  "#/bucks": { path: "#/bucks", labelKey: "bucks", icon: Mars },
-  "#/bucks-fertility": { path: "#/bucks-fertility", labelKey: "bucksFertility", icon: TrendingUp },
-  "#/mating": { path: "#/mating", labelKey: "mating", icon: HeartHandshake },
-  "#/pregnancy-test": { path: "#/pregnancy-test", labelKey: "pregnancyTest", icon: Microscope },
-  "#/nest-box": { path: "#/nest-box", labelKey: "nestBox", icon: Box },
-  "#/kindling": { path: "#/kindling", labelKey: "kindling", icon: HeartPulse },
-  "#/fostering": { path: "#/fostering", labelKey: "fostering", icon: ArrowLeftRight },
-  "#/weaning": { path: "#/weaning", labelKey: "weaning", icon: Milk },
-  "#/mortality": { path: "#/mortality", labelKey: "mortality", icon: Skull },
+  "#/daily-rounds": { path: "#/daily-rounds", labelKey: "dailyRounds", icon: ListChecks },
+  "#/operations": { path: "#/operations", labelKey: "operations", icon: HeartHandshake },
+  "#/support-operations": { path: "#/support-operations", labelKey: "supportOps", icon: Box },
   "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
   "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },
@@ -101,9 +92,22 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
 };
 const DEFAULT_ROUTE = "#/";
 const RABBIT_DETAIL_PREFIX = "#/rabbits/";
+const LEGACY_HERD_ROUTES = ["#/stock", "#/mothers", "#/bucks"];
+const LEGACY_ROUNDS_ROUTES = ["#/rounds", "#/bucks-rounds"];
+const LEGACY_OPS_ROUTES = ["#/mating", "#/pregnancy-test", "#/kindling", "#/weaning", "#/fostering"];
+const LEGACY_SUPPORT_OPS_ROUTES = ["#/nest-box", "#/mortality"];
+const LEGACY_REPORTS_ROUTES = ["#/does-fertility", "#/bucks-fertility"];
 
 function isKnownRoute(hash: string): boolean {
-  return Boolean(ROUTES[hash]) || hash.startsWith(RABBIT_DETAIL_PREFIX);
+  return (
+    Boolean(ROUTES[hash]) ||
+    hash.startsWith(RABBIT_DETAIL_PREFIX) ||
+    LEGACY_HERD_ROUTES.some((r) => hash.startsWith(r)) ||
+    LEGACY_ROUNDS_ROUTES.some((r) => hash.startsWith(r)) ||
+    LEGACY_OPS_ROUTES.some((r) => hash.startsWith(r)) ||
+    LEGACY_SUPPORT_OPS_ROUTES.some((r) => hash.startsWith(r)) ||
+    LEGACY_REPORTS_ROUTES.some((r) => hash.startsWith(r))
+  );
 }
 
 function useHashRoute(): string {
@@ -222,7 +226,9 @@ export function AppShell() {
   // the periodic timer is only attached below the gate).
   const [authState, setAuthState] = useState<"loading" | "anon" | "authed">("loading");
   useEffect(() => {
-    void loadSession().then((s) => setAuthState(s ? "authed" : "anon"));
+    loadSession()
+      .then((s) => setAuthState(s ? "authed" : "anon"))
+      .catch(() => setAuthState("anon"));
   }, []);
 
   // Live membership snapshot (role, allowedPages) — kept in sync with auth.ts
@@ -259,7 +265,7 @@ export function AppShell() {
   // button below so the member is never locked in. Dashboard (DEFAULT_ROUTE)
   // is the one page that's never restrictable — it's the app's forced home
   // page, so every member can always reach it regardless of allowedPages.
-  const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
+  const activeFarm = session?.farms?.find((f) => f.farmId === session.activeFarmId);
   const pageFilter =
     activeFarm && activeFarm.role !== "owner" && Array.isArray(activeFarm.allowedPages)
       ? new Set(activeFarm.allowedPages)
@@ -268,6 +274,11 @@ export function AppShell() {
     !pageFilter ||
     rawRoute === DEFAULT_ROUTE ||
     pageFilter.has(rawRoute) ||
+    (rawRoute === "#/herd-and-stock" && LEGACY_HERD_ROUTES.some((r) => pageFilter.has(r))) ||
+    (rawRoute === "#/daily-rounds" && LEGACY_ROUNDS_ROUTES.some((r) => pageFilter.has(r))) ||
+    (rawRoute === "#/operations" && LEGACY_OPS_ROUTES.some((r) => pageFilter.has(r))) ||
+    (rawRoute === "#/support-operations" && LEGACY_SUPPORT_OPS_ROUTES.some((r) => pageFilter.has(r))) ||
+    (rawRoute === "#/reports" && LEGACY_REPORTS_ROUTES.some((r) => pageFilter.has(r))) ||
     rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
   // Dashboard is always allowed, so a disallowed route can simply fall back
   // to it rather than hunting for the member's "first" allowed page.
@@ -277,15 +288,22 @@ export function AppShell() {
   const handleSignOut = async () => {
     if (!window.confirm(t.mobileAuth.logoutConfirm)) return;
 
-    // logout() -> clearLocalMirror() wipes the outbox unconditionally, so
-    // anything still queued there would be lost silently. Force a flush
-    // first (or refuse outright if offline with something queued) rather
-    // than let that happen.
+    // logout() -> wipeAllLocalDatabases() wipes every local db (outbox
+    // included) unconditionally, so anything still queued there would be
+    // lost silently. Force a flush first (or refuse outright if offline
+    // with something queued) rather than let that happen.
     const netStatus = await Network.getStatus();
     const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
     if (!synced) {
       window.alert(t.mobileAuth.logoutBlockedUnsynced);
-      return;
+      const force = window.confirm(
+        t.mobileAuth.logoutConfirm +
+          "\n\n" +
+          (locale === "ar"
+            ? "توجد تعديلات محليّة لم تُرفع بعد. هل تريد تسجيل الخروج القسري وتجاهلها؟"
+            : "Force logout anyway and discard unsynced changes?")
+      );
+      if (!force) return;
     }
 
     await logout();
@@ -294,7 +312,15 @@ export function AppShell() {
 
   // Navigation Items
   const navItems = Object.entries(ROUTES)
-    .filter(([key]) => !pageFilter || key === DEFAULT_ROUTE || pageFilter.has(key))
+    .filter(([key]) => {
+      if (!pageFilter || key === DEFAULT_ROUTE || pageFilter.has(key)) return true;
+      if (key === "#/herd-and-stock" && LEGACY_HERD_ROUTES.some((r) => pageFilter.has(r))) return true;
+      if (key === "#/daily-rounds" && LEGACY_ROUNDS_ROUTES.some((r) => pageFilter.has(r))) return true;
+      if (key === "#/operations" && LEGACY_OPS_ROUTES.some((r) => pageFilter.has(r))) return true;
+      if (key === "#/support-operations" && LEGACY_SUPPORT_OPS_ROUTES.some((r) => pageFilter.has(r))) return true;
+      if (key === "#/reports" && LEGACY_REPORTS_ROUTES.some((r) => pageFilter.has(r))) return true;
+      return false;
+    })
     .map(([key, value]) => ({
       href: key,
       label: t.nav[value.labelKey],
@@ -313,7 +339,13 @@ export function AppShell() {
     </div>
   );
 
-  if (authState === "loading") return null;
+  if (authState === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        {locale === "ar" ? "جارِ التحميل…" : "Loading…"}
+      </div>
+    );
+  }
   if (authState === "anon") return <LoginPage locale={locale} />;
 
   return (
@@ -455,33 +487,32 @@ export function AppShell() {
         <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
           {route === "#/daily" && <DailyPage locale={locale} />}
-          {route === "#/rounds" && <RoundsPage locale={locale} />}
-          {route === "#/bucks-rounds" && <BucksRoundsPage locale={locale} />}
+          {(route === "#/daily-rounds" || LEGACY_ROUNDS_ROUTES.some((r) => route.startsWith(r))) && (
+            <DailyRoundsPage locale={locale} />
+          )}
           {route === "#/does" && <DoesPage locale={locale} />}
-          {route === "#/mating" && <MatingPage locale={locale} />}
-          {route === "#/pregnancy-test" && <PregnancyTestPage locale={locale} />}
-          {route === "#/nest-box" && <NestBoxPage locale={locale} />}
-          {route === "#/kindling" && <KindlingPage locale={locale} />}
-          {route === "#/weaning" && <WeaningPage locale={locale} />}
+          {(route === "#/operations" || LEGACY_OPS_ROUTES.some((r) => route.startsWith(r))) && (
+            <DailyOperationsPage locale={locale} />
+          )}
 
           {/* Roster lists */}
-          {route === "#/stock" && <StockPage locale={locale} />}
-          {route === "#/mothers" && <MothersPage locale={locale} />}
-          {route === "#/does-fertility" && <DoesFertilityPage locale={locale} />}
-          {route === "#/bucks" && <BucksPage locale={locale} />}
-          {route === "#/bucks-fertility" && <BucksFertilityPage locale={locale} />}
+          {(route === "#/herd-and-stock" || LEGACY_HERD_ROUTES.some((r) => route.startsWith(r))) && (
+            <HerdAndStockPage locale={locale} />
+          )}
           {route.startsWith(RABBIT_DETAIL_PREFIX) && (
             <RabbitDetailPage locale={locale} rabbitId={route.slice(RABBIT_DETAIL_PREFIX.length)} />
           )}
 
-          {/* Fostering and Weaning Sales offline pages */}
-          {route === "#/fostering" && <FosteringPage locale={locale} />}
+          {/* Weaning Sales offline page */}
           {route === "#/weaning-sales" && <WeaningSalesPage locale={locale} />}
 
-          {/* Offline modules */}
-          {route === "#/mortality" && <MortalityPage locale={locale} />}
+          {(route === "#/support-operations" || LEGACY_SUPPORT_OPS_ROUTES.some((r) => route.startsWith(r))) && (
+            <SupportOperationsPage locale={locale} />
+          )}
           {route === "#/health" && <HealthPage locale={locale} />}
-          {route === "#/reports" && <ReportsPage locale={locale} />}
+          {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => route.startsWith(r))) && (
+            <ReportsPage locale={locale} />
+          )}
           {route === "#/finance" && <FinancePage locale={locale} />}
           {route === "#/settings" && <SettingsPage locale={locale} />}
         </main>

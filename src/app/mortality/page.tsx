@@ -21,7 +21,7 @@ export async function generateMetadata() {
   return { title: `${t.mortality.title} · RabbitTrack` };
 }
 
-export default async function MortalityPage() {
+export default async function MortalityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const [
     nursingDoesRaw,
     activeMothers,
@@ -123,7 +123,9 @@ export default async function MortalityPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader title={t.mortality.title} description={t.mortality.description} />
+      {!hideHeader && (
+        <PageHeader title={t.mortality.title} description={t.mortality.description} />
+      )}
 
       {/* رضيع الرضاعة */}
       <div className="space-y-3">

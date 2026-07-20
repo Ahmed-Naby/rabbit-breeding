@@ -47,6 +47,7 @@ export type CreateQuickRabbitInput = {
   sex: "doe" | "buck";
   date: Date;
   weightKg: number | null;
+  origin?: "farm" | "external";
 };
 
 /**
@@ -56,14 +57,14 @@ export type CreateQuickRabbitInput = {
  * sex (@@unique([tagId, sex])), so the same number can exist once per sex.
  * Leaving tagId/weightKg blank registers the rabbit as a juvenile (sex known
  * but not yet promoted); assigning its tag later via finalizeQuickRabbit is
- * what promotes it. Registering here means it's raised on the farm, not
- * bought in — origin: "farm", carried through both finalize steps unchanged.
+ * what promotes it.
  */
 export async function createQuickRabbitOp(
   data: CreateQuickRabbitInput,
   opts?: { id?: string }
 ): Promise<OpResult<Rabbit, "TAG_IN_USE">> {
   let rabbit: Rabbit;
+  const origin = data.origin ?? "farm";
   try {
     rabbit = await prisma.$transaction(async (tx) => {
       const rabbit = await tx.rabbit.create({
@@ -73,15 +74,16 @@ export async function createQuickRabbitOp(
           breed: data.breed,
           sex: data.sex,
           acquiredDate: data.date,
-          origin: "farm",
+          origin,
         },
       });
-      // Registering a سلالة here is what removes a weaned kit from the
-      // available weaning-sales pool — it's now this specific rabbit, not a
-      // future sale or death. See stock.ts's availableStock calculation.
-      await tx.kitStockMovement.create({
-        data: { date: data.date, type: "retained", count: 1, rabbitId: rabbit.id },
-      });
+      // Registering a farm-retained سلالة removes a weaned kit from the
+      // available weaning-sales pool. External/purchased stock does NOT deduct.
+      if (origin !== "external") {
+        await tx.kitStockMovement.create({
+          data: { date: data.date, type: "retained", count: 1, rabbitId: rabbit.id },
+        });
+      }
       return rabbit;
     });
   } catch (e) {

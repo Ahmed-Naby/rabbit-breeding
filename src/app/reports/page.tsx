@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { addDays } from "date-fns";
+import { FileText, Venus, Mars } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +8,9 @@ import { PageHeader } from "@/components/page-header";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { getFollowUpReport, type FollowUpReport } from "./report-data";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import DoesFertilityPage from "../does-fertility/page";
+import BucksFertilityPage from "../bucks-fertility/page";
+import { cn } from "@/lib/utils";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -22,14 +27,13 @@ function defaultRange() {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; tab?: string }>;
 }) {
   const sp = await searchParams;
+  const activeTab = sp.tab || "follow-up";
   const { from: defaultFrom, to: defaultTo } = defaultRange();
   const from = sp.from ? fromDateInputValue(sp.from) : defaultFrom;
   const toSelected = sp.to ? fromDateInputValue(sp.to) : defaultTo;
-  // report-data's `to` is an exclusive upper bound — push it to the start of
-  // the next day so the selected end date is fully included.
   const toExclusive = addDays(toSelected, 1);
 
   const [report, { t }] = await Promise.all([
@@ -38,41 +42,105 @@ export default async function ReportsPage({
   ]);
   const rt = t.reports;
 
+  const followUpHref = `/reports?tab=follow-up${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
+
   return (
     <div className="space-y-6">
       <PageHeader title={rt.title} description={rt.description} />
 
-      <Card>
-        <CardContent className="py-4">
-          <form method="get" className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
-              <Input
-                type="date"
-                name="from"
-                defaultValue={toDateInputValue(from)}
-                className="w-40"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
-              <Input
-                type="date"
-                name="to"
-                defaultValue={toDateInputValue(toSelected)}
-                className="w-40"
-              />
-            </label>
-            <Button type="submit" size="sm">
-              {rt.applyButton}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* 3 Tabs Navigation Bar */}
+      <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
+        <Link
+          href={followUpHref}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "follow-up"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <FileText className="size-4 text-primary" />
+          {rt.tabFollowUp}
+        </Link>
 
-      <p className="text-xs text-muted-foreground">{rt.notTrackedNote}</p>
+        <Link
+          href="/reports?tab=does-fertility"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "does-fertility"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Venus className="size-4 text-rose-500" />
+          {rt.tabDoesFertility}
+        </Link>
 
-      <ReportSections report={report} rt={rt} />
+        <Link
+          href="/reports?tab=bucks-fertility"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "bucks-fertility"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Mars className="size-4 text-sky-500" />
+          {rt.tabBucksFertility}
+        </Link>
+      </div>
+
+      {/* TAB 1: Follow-Up Reports */}
+      {activeTab === "follow-up" && (
+        <div className="space-y-6 animate-fade-in">
+          <Card>
+            <CardContent className="py-4">
+              <form method="get" className="flex flex-wrap items-end gap-3">
+                <input type="hidden" name="tab" value="follow-up" />
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
+                  <Input
+                    type="date"
+                    name="from"
+                    defaultValue={toDateInputValue(from)}
+                    className="w-40"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
+                  <Input
+                    type="date"
+                    name="to"
+                    defaultValue={toDateInputValue(toSelected)}
+                    className="w-40"
+                  />
+                </label>
+                <Button type="submit" size="sm">
+                  {rt.applyButton}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="text-xs text-muted-foreground">{rt.notTrackedNote}</p>
+
+          <ReportSections report={report} rt={rt} />
+        </div>
+      )}
+
+      {/* TAB 2: Does Fertility Record */}
+      {activeTab === "does-fertility" && (
+        <div className="animate-fade-in">
+          <DoesFertilityPage hideHeader={true} />
+        </div>
+      )}
+
+      {/* TAB 3: Farm / Bucks Fertility Record */}
+      {activeTab === "bucks-fertility" && (
+        <div className="animate-fade-in">
+          <BucksFertilityPage hideHeader={true} />
+        </div>
+      )}
     </div>
   );
 }

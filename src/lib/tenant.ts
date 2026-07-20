@@ -6,8 +6,28 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * runWithFarm(farmId, ...), and the Prisma extension in prisma.ts injects
  * that farmId into every tenant-model query automatically — so the 30+
  * business ops never mention farms at all and cannot forget to scope.
+ *
+ * globalThis-cached for the same reason prisma.ts caches its client: Next
+ * dev's Fast Refresh can re-evaluate this module independently of prisma.ts
+ * (whose cached client keeps its ORIGINAL import binding to whatever
+ * instance existed when makeClient() first ran). Without this, a hot reload
+ * splits the app onto two live AsyncLocalStorage instances — runWithFarm()
+ * writes to the new one while the Prisma extension's stale closure still
+ * reads the old, permanently-empty one — so every extension-injected query
+ * silently falls through to the DEFAULT_FARM_ID fallback below while
+ * explicit currentFarmId() call sites (which re-import fresh) keep working,
+ * producing exactly the kind of split, hard-to-spot cross-farm data leak
+ * this file's fallback comment warns never to allow.
  */
-const storage = new AsyncLocalStorage<{ farmId: string }>();
+const globalForTenant = globalThis as unknown as {
+  farmStorage: AsyncLocalStorage<{ farmId: string }> | undefined;
+};
+
+const storage = globalForTenant.farmStorage ?? new AsyncLocalStorage<{ farmId: string }>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForTenant.farmStorage = storage;
+}
 
 /** The farm all pre-tenancy data was backfilled into (see the multi_farm_tenancy migration). */
 export const DEFAULT_FARM_ID = "farm_default_000000000001";

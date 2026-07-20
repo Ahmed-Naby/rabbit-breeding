@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function FosteringPage({ locale }: { locale: Locale }) {
+export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [logs, setLogs] = useState<LocalFosterLogEntry[] | null>(null);
   const [fromTagId, setFromTagId] = useState("");
@@ -74,10 +74,12 @@ export function FosteringPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.fostering.pageTitle}</h1>
-        <p className="text-sm text-muted-foreground">{t.fostering.description}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.fostering.pageTitle}</h1>
+          <p className="text-sm text-muted-foreground">{t.fostering.description}</p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

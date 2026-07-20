@@ -102,13 +102,15 @@ export async function createQuickRabbit(
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
   const d = parsed.data;
   const date = fromDateInputValue(d.date);
+  const origin = (formData.get("origin") as "farm" | "external") || "farm";
 
-  // Registering breeding stock withdraws one kit from the available-weaning
-  // balance; block it at zero so the balance never goes negative (mirrors the
-  // offline app's guard). Record a weaning or a positive adjustment first.
-  const { availableStock } = await getKitStockSummary();
-  if (availableStock <= 0) {
-    return { ok: false, errors: { _form: t.stock.noAvailableStock } };
+  // Registering farm-retained breeding stock withdraws one kit from the available-weaning
+  // balance; block it at zero so the balance never goes negative. External stock does NOT deduct.
+  if (origin !== "external") {
+    const { availableStock } = await getKitStockSummary();
+    if (availableStock <= 0) {
+      return { ok: false, errors: { _form: t.stock.noAvailableStock } };
+    }
   }
 
   const result = await createQuickRabbitOp({
@@ -117,6 +119,7 @@ export async function createQuickRabbit(
     sex: d.sex,
     date,
     weightKg: d.weightKg ?? null,
+    origin,
   });
   if (!result.ok) {
     return { ok: false, errors: { tagId: t.rabbits.tagInUse } };

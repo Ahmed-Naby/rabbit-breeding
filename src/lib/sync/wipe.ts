@@ -23,7 +23,7 @@ export async function runWipe(): Promise<{ dataResetAt: string }> {
       create: { farmId, dataResetAt },
       update: {
         weightUnit: "kg",
-        gestationDays: 31,
+        gestationDays: 30,
         gestationWindowDays: 3,
         pregnancyTestDays: 10,
         weaningDays: 28,

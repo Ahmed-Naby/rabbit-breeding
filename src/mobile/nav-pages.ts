@@ -12,19 +12,11 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 // page (see app-shell's DEFAULT_ROUTE handling), always visible to every
 // member regardless of allowedPages, so it isn't offered as a toggle here.
 export const SELECTABLE_PAGES: { hash: string; labelKey: keyof Dictionary["nav"] }[] = [
+  { hash: "#/herd-and-stock", labelKey: "herdAndStock" },
   { hash: "#/daily", labelKey: "daily" },
-  { hash: "#/rounds", labelKey: "rounds" },
-  { hash: "#/bucks-rounds", labelKey: "bucksRounds" },
-  { hash: "#/stock", labelKey: "stock" },
-  { hash: "#/mothers", labelKey: "mothers" },
-  { hash: "#/bucks", labelKey: "bucks" },
-  { hash: "#/mating", labelKey: "mating" },
-  { hash: "#/pregnancy-test", labelKey: "pregnancyTest" },
-  { hash: "#/nest-box", labelKey: "nestBox" },
-  { hash: "#/kindling", labelKey: "kindling" },
-  { hash: "#/fostering", labelKey: "fostering" },
-  { hash: "#/weaning", labelKey: "weaning" },
-  { hash: "#/mortality", labelKey: "mortality" },
+  { hash: "#/daily-rounds", labelKey: "dailyRounds" },
+  { hash: "#/operations", labelKey: "operations" },
+  { hash: "#/support-operations", labelKey: "supportOps" },
   { hash: "#/does", labelKey: "does" },
   { hash: "#/health", labelKey: "health" },
   { hash: "#/reports", labelKey: "reports" },

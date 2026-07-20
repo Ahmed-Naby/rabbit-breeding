@@ -32,14 +32,14 @@ export type DoeRow = {
 const DEFAULT_SETTINGS: LocalSettings = {
   id: 1,
   weightUnit: "kg",
-  gestationDays: 31,
+  gestationDays: 30,
   gestationWindowDays: 3,
   pregnancyTestDays: 10,
   weaningDays: 28,
   nestBoxDays: 27,
   matingWeightGrams: 3000,
   rebreedAfterKindlingDays: 0,
-  currency: "USD",
+  currency: "EGP",
 };
 
 function toDate(iso: string | null): Date | null {
@@ -1439,13 +1439,18 @@ export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
   return { settings, breeds };
 }
 
-// Settings-managed breed list only — matches the web app's getBreedOptions()
-// (src/lib/breeds.ts). These dropdowns are all add-new-rabbit breed fields,
-// not filters, so legacy free-text rabbit.breed values (old seed data, typos)
-// shouldn't appear as selectable choices here.
 export async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
   const definedBreeds = await queryAll<{ name: string }>(db, "SELECT name FROM breed ORDER BY name ASC");
-  return definedBreeds.map(b => b.name);
+  const rabbitBreeds = await queryAll<{ breed: string }>(
+    db,
+    "SELECT DISTINCT breed FROM rabbit WHERE breed IS NOT NULL AND breed != '' ORDER BY breed ASC"
+  );
+
+  const set = new Set<string>();
+  for (const b of definedBreeds) if (b.name) set.add(b.name);
+  for (const r of rabbitBreeds) if (r.breed) set.add(r.breed);
+
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "ar"));
 }
 
 export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{

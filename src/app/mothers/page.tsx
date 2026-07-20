@@ -19,7 +19,7 @@ export async function generateMetadata() {
   return { title: `${t.mothers.title} · RabbitTrack` };
 }
 
-export default async function MothersPage() {
+export default async function MothersPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Every doe promoted to the herd (has a tagId) — a plain reference table,
   // not the breeding-workflow board (that's "عمليات المزرعة" at /does).
   const [does, pendingMothersRaw, settings, breedOptions, { locale, t }] = await Promise.all([
@@ -43,6 +43,7 @@ export default async function MothersPage() {
         id: true,
         breed: true,
         cage: true,
+        acquiredDate: true,
         weightRecords: {
           orderBy: { date: "desc" },
           take: 1,
@@ -63,7 +64,9 @@ export default async function MothersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t.mothers.title} description={t.mothers.description(does.length)} />
+      {!hideHeader && (
+        <PageHeader title={t.mothers.title} description={t.mothers.description(does.length)} />
+      )}
 
       <AddMotherForm breedOptions={breedOptions} tCommon={t.common} locale={locale} />
 

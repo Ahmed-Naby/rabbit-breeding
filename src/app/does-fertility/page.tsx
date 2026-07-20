@@ -24,7 +24,7 @@ export async function generateMetadata() {
   return { title: `${t.doesFertility.title} · RabbitTrack` };
 }
 
-export default async function DoesFertilityPage() {
+export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const [does, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
@@ -56,15 +56,15 @@ export default async function DoesFertilityPage() {
 
     const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
 
-    const litters = kindlings.map((b) => b.litter).filter((l) => l !== null);
-    const totalBornAlive = litters.reduce((sum, l) => sum + l.bornAlive, 0);
+    const litters = kindlings.map((b) => b.litter).filter(Boolean);
+    const totalBornAlive = litters.reduce((sum, l) => sum + (l?.bornAlive ?? 0), 0);
     const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
-    const littersWithWeaning = litters.filter((l) => l.weaned !== null);
-    const totalWeaned = littersWithWeaning.reduce((sum, l) => sum + (l.weaned ?? 0), 0);
+    const littersWithWeaning = litters.filter((l) => l?.weaned !== null && l?.weaned !== undefined);
+    const totalWeaned = littersWithWeaning.reduce((sum, l) => sum + (l?.weaned ?? 0), 0);
     const avgWeaned = totalKindlings > 0 ? totalWeaned / totalKindlings : null;
 
-    const totalBornAliveForWeaned = littersWithWeaning.reduce((sum, l) => sum + l.bornAlive, 0);
+    const totalBornAliveForWeaned = littersWithWeaning.reduce((sum, l) => sum + (l?.bornAlive ?? 0), 0);
     const weaningSurvivalRate =
       totalBornAliveForWeaned > 0 ? (totalWeaned / totalBornAliveForWeaned) * 100 : null;
 
@@ -77,6 +77,11 @@ export default async function DoesFertilityPage() {
 
     return {
       doe,
+      id: doe.id,
+      tagId: doe.tagId!,
+      breed: doe.breed,
+      status: doe.status,
+      doeState: doe.doeState,
       totalBreedings,
       totalKindlings,
       fertilityRate,
@@ -93,10 +98,12 @@ export default async function DoesFertilityPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <PageHeader
-        title={t.doesFertility.title}
-        description={t.doesFertility.description(does.length)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.doesFertility.title}
+          description={t.doesFertility.description(does.length)}
+        />
+      )}
 
       {does.length > 0 && (
         <Card className="glass-card border">

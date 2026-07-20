@@ -75,7 +75,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [nestBoxDays, setNestBoxDays] = useState("");
   const [matingWeightGrams, setMatingWeightGrams] = useState("");
   const [rebreedAfterKindlingDays, setRebreedAfterKindlingDays] = useState("0");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("EGP");
   const [savingSettings, setSavingSettings] = useState(false);
 
   // New Breed field state
@@ -92,21 +92,50 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const db = await getDb();
-    const res = await fetchSettingsPageData(db);
-    setSettings(res.settings);
-    setBreeds(res.breeds);
+    try {
+      const db = await getDb();
+      const res = await fetchSettingsPageData(db);
+      const s = res.settings ?? {
+        id: 1,
+        weightUnit: "kg",
+        gestationDays: 30,
+        gestationWindowDays: 3,
+        pregnancyTestDays: 10,
+        weaningDays: 28,
+        nestBoxDays: 27,
+        matingWeightGrams: 3000,
+        rebreedAfterKindlingDays: 0,
+        currency: "EGP",
+      };
+      setSettings(s);
+      setBreeds(res.breeds ?? []);
 
-    // Populate state fields
-    setWeightUnit(res.settings.weightUnit);
-    setGestationDays(String(res.settings.gestationDays));
-    setGestationWindowDays(String(res.settings.gestationWindowDays));
-    setPregnancyTestDays(String(res.settings.pregnancyTestDays));
-    setWeaningDays(String(res.settings.weaningDays));
-    setNestBoxDays(String(res.settings.nestBoxDays));
-    setMatingWeightGrams(String(res.settings.matingWeightGrams));
-    setRebreedAfterKindlingDays(String(res.settings.rebreedAfterKindlingDays));
-    setCurrency(res.settings.currency);
+      // Populate state fields with safe fallbacks
+      setWeightUnit(s.weightUnit ?? "kg");
+      setGestationDays(String(s.gestationDays ?? 30));
+      setGestationWindowDays(String(s.gestationWindowDays ?? 3));
+      setPregnancyTestDays(String(s.pregnancyTestDays ?? 10));
+      setWeaningDays(String(s.weaningDays ?? 28));
+      setNestBoxDays(String(s.nestBoxDays ?? 27));
+      setMatingWeightGrams(String(s.matingWeightGrams ?? 3000));
+      setRebreedAfterKindlingDays(String(s.rebreedAfterKindlingDays ?? 0));
+      setCurrency(s.currency ?? "EGP");
+    } catch (err) {
+      console.error("[SettingsPage] Error loading settings:", err);
+      // Fallback settings so the page never gets stuck on infinite loading
+      setSettings({
+        id: 1,
+        weightUnit: "kg",
+        gestationDays: 30,
+        gestationWindowDays: 3,
+        pregnancyTestDays: 10,
+        weaningDays: 28,
+        nestBoxDays: 27,
+        matingWeightGrams: 3000,
+        rebreedAfterKindlingDays: 0,
+        currency: "EGP",
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -351,38 +380,25 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               />
             </FieldLayout>
 
-            <FieldLayout label={t.settings.matingWeightGramsLabel} hint={t.settings.matingWeightGramsHint}>
-              <Input
-                id="matingWeightGrams"
-                type="number"
-                min={1}
-                value={matingWeightGrams}
-                onChange={(e) => setMatingWeightGrams(e.target.value)}
+            <FieldLayout label={t.settings.rebreedLabel} hint={t.settings.rebreedHint}>
+              <Select
+                items={rebreedOptions}
+                value={rebreedAfterKindlingDays}
+                onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")}
                 disabled={savingSettings}
-              />
+              >
+                <SelectTrigger id="rebreedAfterKindlingDays">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {rebreedOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FieldLayout>
-
-            <div className="sm:col-span-2">
-              <FieldLayout label={t.settings.rebreedLabel} hint={t.settings.rebreedHint}>
-                <Select
-                  items={rebreedOptions}
-                  value={rebreedAfterKindlingDays}
-                  onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")}
-                  disabled={savingSettings}
-                >
-                  <SelectTrigger id="rebreedAfterKindlingDays">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rebreedOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FieldLayout>
-            </div>
           </CardContent>
         </Card>
 

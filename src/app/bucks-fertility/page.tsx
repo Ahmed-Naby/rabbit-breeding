@@ -23,7 +23,7 @@ export async function generateMetadata() {
   return { title: `${t.bucksFertility.title} · RabbitTrack` };
 }
 
-export default async function BucksFertilityPage() {
+export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const [bucks, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
@@ -53,8 +53,8 @@ export default async function BucksFertilityPage() {
 
     const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
 
-    const litters = kindlings.map((b) => b.litter).filter((l) => l !== null);
-    const totalBornAlive = litters.reduce((sum, l) => sum + l.bornAlive, 0);
+    const litters = kindlings.map((b) => b.litter).filter(Boolean);
+    const totalBornAlive = litters.reduce((sum, l) => sum + (l?.bornAlive ?? 0), 0);
     const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
     // Add to aggregate counts
@@ -77,10 +77,12 @@ export default async function BucksFertilityPage() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <PageHeader
-        title={t.bucksFertility.title}
-        description={t.bucksFertility.description(bucks.length)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.bucksFertility.title}
+          description={t.bucksFertility.description(bucks.length)}
+        />
+      )}
 
       {bucks.length > 0 && (
         <Card className="glass-card border">

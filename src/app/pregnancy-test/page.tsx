@@ -24,7 +24,7 @@ const RESULT_CLS: Record<string, string> = {
     "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
-export default async function PregnancyTestPage() {
+export default async function PregnancyTestPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Same eligibility rule as "عشار"/"سالبة" on /does (canTestPregnancy): مُلقّحة
   // ولسه منتظرة نتيجة الجس. Extra filter here (not on /does): مدة انتظار الجس
   // المسجلة بالإعدادات لازم تكون عدّت من تاريخ التلقيح — أم اتلقحت من يومين
@@ -80,10 +80,12 @@ export default async function PregnancyTestPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.pregnancyTest.title}
-        description={t.pregnancyTest.description(does.length, settings.pregnancyTestDays)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.pregnancyTest.title}
+          description={t.pregnancyTest.description(does.length, settings.pregnancyTestDays)}
+        />
+      )}
 
       {does.length === 0 ? (
         <EmptyState

@@ -6,7 +6,30 @@ import { CapacitorSQLite, SQLiteConnection, type SQLiteDBConnection } from "@cap
 // reading once, at first-open, via `applySchema` below.
 import schemaSql from "./schema.sql?raw";
 
-export const DB_NAME = "rabbittrack";
+// Falls back to a shared name only for the brief pre-login window (the
+// login/register screen may open a connection via clearLocalMirror-style
+// calls before any farm is known). Once a session exists this is always
+// overridden via setActiveFarmId before any real data is read.
+const FALLBACK_DB_NAME = "rabbittrack_anon";
+
+let activeFarmId: string | null = null;
+
+/**
+ * Each farm gets its own local SQLite database/store, keyed by farm id.
+ * Must be called once, synchronously, right after loadSession() resolves at
+ * boot (see main.tsx) and BEFORE any getDb()/withTransaction() call — every
+ * identity or farm change in this app (login, register, logout, switch
+ * farm) ends in a full window.location.reload(), so this only ever needs
+ * to be set once per JS context, never updated live mid-session.
+ */
+export function setActiveFarmId(farmId: string | null): void {
+  activeFarmId = farmId;
+}
+
+/** The current farm-scoped local database name (see setActiveFarmId). */
+export function dbName(): string {
+  return activeFarmId ? `rabbittrack_${activeFarmId}` : FALLBACK_DB_NAME;
+}
 
 export const sqlite = new SQLiteConnection(CapacitorSQLite);
 
@@ -29,31 +52,32 @@ async function openConnection(): Promise<SQLiteDBConnection> {
   console.log("[DB] openConnection v3 starting");
   await initWebStoreIfNeeded();
 
-  const alreadyOpen = await sqlite.isConnection(DB_NAME, false);
+  const name = dbName();
+  const alreadyOpen = await sqlite.isConnection(name, false);
   let db: SQLiteDBConnection;
   if (alreadyOpen.result) {
     // Same JS context re-open (e.g. retry after a failed boot) — reuse.
-    db = await sqlite.retrieveConnection(DB_NAME, false);
+    db = await sqlite.retrieveConnection(name, false);
   } else {
     // Fresh JS context. On native the plugin's connection map lives in the
     // Activity and survives WebView reloads — which login, register, and
     // farm-switch all trigger via window.location.reload(). A connection
     // created before the reload is still registered natively while this
     // context's JS map is empty, so createConnection() throws "Connection
-    // rabbittrack already exists". checkConnectionsConsistency() proved
+    // <name> already exists". checkConnectionsConsistency() proved
     // unreliable at reconciling this, so deterministically close any such
     // orphan via the RAW plugin (bypassing the JS wrapper, whose map doesn't
     // know the orphan and would refuse). The close rejects harmlessly on a
     // first-ever open when nothing is registered natively.
     if (Capacitor.getPlatform() === "android" || Capacitor.getPlatform() === "ios") {
       try {
-        await CapacitorSQLite.closeConnection({ database: DB_NAME, readonly: false });
+        await CapacitorSQLite.closeConnection({ database: name, readonly: false });
         console.log("[DB] closed orphaned native connection from before reload");
       } catch {
         // No orphaned native connection — first open on this device.
       }
     }
-    db = await sqlite.createConnection(DB_NAME, false, "no-encryption", 1, false);
+    db = await sqlite.createConnection(name, false, "no-encryption", 1, false);
   }
 
   console.log("[DB] opening database");
@@ -115,7 +139,7 @@ async function applySchema(db: SQLiteDBConnection): Promise<void> {
   }
   await applyColumnMigrations(db);
   if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-    await sqlite.saveToStore(DB_NAME);
+    await sqlite.saveToStore(dbName());
   }
   console.log("[DB] applySchema finished");
 }
@@ -145,9 +169,10 @@ export function getDb(): Promise<SQLiteDBConnection> {
  */
 export async function closeDb(): Promise<void> {
   dbPromise = null;
-  const isOpen = await sqlite.isConnection(DB_NAME, false);
+  const name = dbName();
+  const isOpen = await sqlite.isConnection(name, false);
   if (isOpen.result) {
-    await sqlite.closeConnection(DB_NAME, false);
+    await sqlite.closeConnection(name, false);
   }
 }
 
@@ -164,11 +189,48 @@ export async function withTransaction<T>(fn: (db: SQLiteDBConnection) => Promise
     const result = await fn(db);
     await db.commitTransaction();
     if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-      await sqlite.saveToStore(DB_NAME);
+      await sqlite.saveToStore(dbName());
     }
     return result;
   } catch (err) {
     await db.rollbackTransaction();
     throw err;
+  }
+}
+
+/**
+ * Deletes every locally-stored farm database on this device, not just the
+ * active one. Logout's privacy promise (see logoutConfirm) is "this
+ * device's local data cleared" — since each farm now gets its own
+ * persistent database (setActiveFarmId), a device that had switched between
+ * multiple farms could otherwise still be holding another farm's data after
+ * logging out of this one. Best-effort per database: a failure deleting one
+ * name shouldn't block logout from clearing the rest.
+ */
+export async function wipeAllLocalDatabases(): Promise<void> {
+  dbPromise = null;
+  const { values } = await sqlite.getDatabaseList();
+  // Native returns bare names ("rabbittrack_<farmId>"); jeep-sqlite's web
+  // store returns them with its internal "SQLite.db" suffix appended
+  // directly (no separator — see Database's dbName construction), so that
+  // exact suffix must come off before these names are usable as connection
+  // names again, not just the trailing ".db".
+  const names = ((values as string[] | undefined) ?? [])
+    .map((v) => (v.endsWith("SQLite.db") ? v.slice(0, -"SQLite.db".length) : v))
+    .filter((name) => name.startsWith("rabbittrack"));
+  for (const name of names) {
+    try {
+      const isOpen = await sqlite.isConnection(name, false);
+      const db = isOpen.result
+        ? await sqlite.retrieveConnection(name, false)
+        : await sqlite.createConnection(name, false, "no-encryption", 1, false);
+      if (!(await db.isDBOpen()).result) {
+        await db.open();
+      }
+      await db.delete();
+      await sqlite.closeConnection(name, false);
+    } catch (err) {
+      console.error("[DB] failed to delete local database", name, err);
+    }
   }
 }

@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function BucksPage({ locale }: { locale: Locale }) {
+export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).bucks;
   const tCommon = getClientDictionary(locale).common;
 
@@ -54,6 +54,7 @@ export function BucksPage({ locale }: { locale: Locale }) {
         sex: "buck",
         date: new Date().toISOString(),
         weightKg,
+        origin: "external",
       });
 
       if (res.outcome.status === "rejected") {
@@ -120,10 +121,12 @@ export function BucksPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.description(bucks.length)}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.description(bucks.length)}</p>
+        </div>
+      )}
 
       {/* Add Buck Form Card */}
       <div className="rounded-xl border bg-card text-card-foreground shadow-sm">

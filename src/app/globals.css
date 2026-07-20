@@ -132,6 +132,14 @@
   header, aside, main, footer, .bg-card, .border, input, select, textarea, button {
     @apply transition-all duration-200;
   }
+
+  option {
+    @apply bg-popover text-popover-foreground;
+  }
+  .dark option {
+    background-color: oklch(0.22 0.016 90);
+    color: oklch(0.96 0.01 95);
+  }
 }
 
 @keyframes fadeInUp {

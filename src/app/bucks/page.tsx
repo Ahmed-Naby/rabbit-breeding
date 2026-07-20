@@ -18,7 +18,7 @@ export async function generateMetadata() {
   return { title: `${t.bucks.title} · RabbitTrack` };
 }
 
-export default async function BucksPage() {
+export default async function BucksPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Every buck promoted to the herd (has a tagId) — a plain reference table,
   // mirrors /mothers for the buck side of the herd.
   const [bucks, pendingBucksRaw, settings, breedOptions, { locale, t }] = await Promise.all([
@@ -62,7 +62,9 @@ export default async function BucksPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t.bucks.title} description={t.bucks.description(bucks.length)} />
+      {!hideHeader && (
+        <PageHeader title={t.bucks.title} description={t.bucks.description(bucks.length)} />
+      )}
 
       <AddBuckForm breedOptions={breedOptions} tCommon={t.common} locale={locale} />
 

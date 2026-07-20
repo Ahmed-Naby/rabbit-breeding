@@ -9,7 +9,7 @@
  */
 import { Network } from "@capacitor/network";
 import { App } from "@capacitor/app";
-import { getDb, withTransaction, sqlite } from "../db/client";
+import { getDb, withTransaction, sqlite, dbName } from "../db/client";
 import { Capacitor } from "@capacitor/core";
 import { queryAll, queryOne, run, nowIso } from "../db/helpers";
 import { SYNC_API_BASE_URL, SYNC_SHARED_SECRET } from "../config";
@@ -92,6 +92,12 @@ export async function syncFetch(path: string, init?: RequestInit): Promise<unkno
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && session) {
+      const { logout } = await import("../auth");
+      await logout().catch(() => {});
+      if (typeof window !== "undefined") window.location.reload();
+      throw new Error("INVALID_TOKEN");
+    }
     let text = await res.text().catch(() => "");
     if (text.includes("<html") || text.includes("<!DOCTYPE")) {
       text = "HTML response received instead of JSON. Your Vercel deployment might have 'Deployment Protection' enabled.";
@@ -462,7 +468,7 @@ export async function pull(): Promise<boolean> {
     console.log(`[DB] Executing batch of ${set.length} sync operations...`);
     await db.executeSet(set);
     if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-      await sqlite.saveToStore("rabbittrack");
+      await sqlite.saveToStore(dbName());
     }
     console.log("[DB] Sync operations batch execution finished successfully.");
   }
@@ -508,7 +514,7 @@ async function reconcileRejectedCreates(): Promise<boolean> {
     }
   });
   if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-    await sqlite.saveToStore("rabbittrack");
+    await sqlite.saveToStore(dbName());
   }
   return true;
 }
@@ -521,6 +527,9 @@ type PushResult = { clientOpId: string; status: "applied" | "rejected" | "alread
 export async function push(): Promise<boolean> {
   const db = await getDb();
   const cursor = await getOrInitCursor(db);
+
+  // Recovery: reset any orphaned 'syncing' ops from an interrupted sync back to 'pending'
+  await run(db, "UPDATE outbox SET status = 'pending' WHERE status = 'syncing'");
 
   const pending = await queryAll<OutboxRow>(
     db,
@@ -536,7 +545,7 @@ export async function push(): Promise<boolean> {
     ids
   );
   if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-    await sqlite.saveToStore("rabbittrack");
+    await sqlite.saveToStore(dbName());
   }
 
   let response: { serverTime: string; results: PushResult[] };
@@ -562,7 +571,7 @@ export async function push(): Promise<boolean> {
       ids
     );
     if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
-      await sqlite.saveToStore("rabbittrack");
+      await sqlite.saveToStore(dbName());
     }
     throw err;
   }
@@ -657,6 +666,8 @@ export async function syncNow(): Promise<void> {
       window.dispatchEvent(new CustomEvent("local-db-updated"));
     }
   } catch (err) {
+    const db = await getDb();
+    await refreshPendingCount(db);
     const message = err instanceof Error ? err.message : String(err);
     setState({ status: "error", lastError: message });
     retryTimer = setTimeout(() => {

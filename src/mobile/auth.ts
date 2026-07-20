@@ -4,15 +4,18 @@
  * storage pressure better than localStorage on Android) and cached in a
  * module variable so syncFetch can read it synchronously.
  *
- * Farm identity note: the local SQLite mirror only ever holds ONE farm's
- * data. Any change of identity — login, register, or switching the active
- * farm — wipes the mirror and reloads, letting the normal bootstrap pull
- * the right farm from the server. That reuses the exact machinery a
- * server-side reset already exercises.
+ * Farm identity note: each farm has its own local SQLite database, keyed by
+ * farm id (see db/client.ts's setActiveFarmId). Switching the active farm
+ * just reloads — the new farm's own database opens (freshly, or resuming
+ * whatever it last synced) with no wipe needed. Login/register are the same:
+ * a brand new farm's database starts empty by construction, and a returning
+ * one resumes where it left off. Only logging out wipes local data (every
+ * farm's, not just the active one) — that's a deliberate privacy promise
+ * for shared devices, not a bootstrap mechanism.
  */
 import { Preferences } from "@capacitor/preferences";
 import { SYNC_API_BASE_URL } from "./config";
-import { withTransaction } from "./db/client";
+import { withTransaction, wipeAllLocalDatabases } from "./db/client";
 import { queryAll, run } from "./db/helpers";
 
 const STORAGE_KEY = "rabbittrack.auth";
@@ -92,8 +95,8 @@ export function login(email: string, password: string): Promise<AuthSession> {
   return authRequest("/api/auth/login", { email, password, deviceLabel: navigator.userAgent.slice(0, 80) });
 }
 
-export function register(email: string, password: string, name: string): Promise<AuthSession> {
-  return authRequest("/api/auth/register", { email, password, name });
+export function register(email: string, password: string, name: string, farmName: string): Promise<AuthSession> {
+  return authRequest("/api/auth/register", { email, password, name, farmName });
 }
 
 export async function logout(): Promise<void> {
@@ -106,7 +109,7 @@ export async function logout(): Promise<void> {
     }).catch(() => {});
   }
   await persist(null);
-  await clearLocalMirror();
+  await wipeAllLocalDatabases();
 }
 
 /** Sets/edits the signed-in account's own display name — there's no self-registration UI to set it at otherwise. */
@@ -127,7 +130,6 @@ export async function setActiveFarm(farmId: string): Promise<void> {
   const session = getSession();
   if (!session || session.activeFarmId === farmId) return;
   await persist({ ...session, activeFarmId: farmId });
-  await clearLocalMirror();
 }
 
 /**
@@ -146,9 +148,10 @@ export async function refreshFarms(): Promise<AuthSession | null> {
       cache: "no-store",
     });
     if (res.status === 401) {
-      // Token revoked (e.g. from another device) — force re-login.
+      // Token revoked (e.g. from another device) — force re-login. Same
+      // privacy promise as an explicit logout: wipe every local farm db.
       await persist(null);
-      await clearLocalMirror();
+      await wipeAllLocalDatabases();
       window.location.reload();
       return null;
     }
@@ -163,6 +166,9 @@ export async function refreshFarms(): Promise<AuthSession | null> {
     };
     await persist(updated);
     if (!stillMember) {
+      // Access to the active farm was revoked — its local copy on this
+      // device is no longer this account's to keep. Other farms' local
+      // databases (if any) are untouched.
       await clearLocalMirror();
       window.location.reload();
     }

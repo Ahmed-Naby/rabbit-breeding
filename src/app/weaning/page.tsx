@@ -16,7 +16,7 @@ export async function generateMetadata() {
   return { title: `${t.weaning.title} · RabbitTrack` };
 }
 
-export default async function WeaningPage() {
+export default async function WeaningPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Only doeStates that can carry an unweaned litter (see does/page.tsx's
   // weanActive logic). "مرضعة و ملقحة/عشار" rebred while still nursing, so
   // her latest breeding row is the new cycle (no litter yet) — the ongoing,
@@ -84,10 +84,12 @@ export default async function WeaningPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.weaning.title}
-        description={t.weaning.description(does.length, settings.weaningDays)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.weaning.title}
+          description={t.weaning.description(does.length, settings.weaningDays)}
+        />
+      )}
 
       {does.length === 0 ? (
         <EmptyState

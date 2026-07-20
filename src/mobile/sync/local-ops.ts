@@ -54,14 +54,14 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
     row ?? {
       id: 1,
       weightUnit: "kg",
-      gestationDays: 31,
+      gestationDays: 30,
       gestationWindowDays: 3,
       pregnancyTestDays: 10,
       weaningDays: 28,
       nestBoxDays: 27,
       matingWeightGrams: 3000,
       rebreedAfterKindlingDays: 0,
-      currency: "USD",
+      currency: "EGP",
     }
   );
 }
@@ -539,7 +539,7 @@ export async function updateRabbitDetails(
 
 export async function createQuickRabbit(
   db: SQLiteDBConnection,
-  payload: { tagId: string | null; breed: string | null; sex: "doe" | "buck"; date: string; weightKg: number | null; id?: string }
+  payload: { tagId: string | null; breed: string | null; sex: "doe" | "buck"; date: string; weightKg: number | null; id?: string; origin?: "farm" | "external" }
 ): Promise<LocalOpOutcome> {
   if (payload.tagId) {
     const clash = await queryOne<{ id: string }>(db, "SELECT id FROM rabbit WHERE tagId = ? AND sex = ?", [
@@ -550,12 +550,13 @@ export async function createQuickRabbit(
   }
 
   const id = payload.id ?? createId();
+  const origin = payload.origin ?? "farm";
   const now = nowIso();
   await run(
     db,
     `INSERT INTO rabbit (id, tagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
-     VALUES (?, ?, ?, NULL, ?, NULL, 'active', 'empty', NULL, 'farm', 0, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
-    [id, payload.tagId, payload.breed, payload.sex, payload.date, now, now]
+     VALUES (?, ?, ?, NULL, ?, NULL, 'active', 'empty', NULL, ?, 0, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+    [id, payload.tagId, payload.breed, payload.sex, origin, payload.date, now, now]
   );
 
   if (payload.weightKg != null) {
@@ -564,15 +565,15 @@ export async function createQuickRabbit(
   }
 
   // Mirror the server op's stock withdrawal (rabbit-ops.ts) so the available-
-  // weaning balance is correct locally too, not just after the next pull.
-  // Reconciled on pull by (type, date, count) — the intake date is a full ISO
-  // that round-trips through the server unchanged, so it matches exactly.
-  await run(
-    db,
-    `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
-     VALUES (?, ?, 'retained', 1, NULL, NULL, NULL, NULL, ?, NULL, ?, ?)`,
-    [`local-${createId()}`, payload.date, id, now, now]
-  );
+  // weaning balance is correct locally too — ONLY for farm offspring, NOT external purchases.
+  if (origin !== "external") {
+    await run(
+      db,
+      `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+       VALUES (?, ?, 'retained', 1, NULL, NULL, NULL, NULL, ?, NULL, ?, ?)`,
+      [`local-${createId()}`, payload.date, id, now, now]
+    );
+  }
   return applied;
 }
 
@@ -891,7 +892,7 @@ export async function updateSettings(
        currency = excluded.currency`,
     [
       payload.weightUnit ?? 'kg',
-      payload.gestationDays ?? 31,
+      payload.gestationDays ?? 30,
       payload.gestationWindowDays ?? 3,
       payload.pregnancyTestDays ?? 10,
       payload.weaningDays ?? 28,

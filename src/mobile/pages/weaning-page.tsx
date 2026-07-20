@@ -15,7 +15,7 @@ function survivalRate(bornAlive: number, weaned: number | null): number | null {
   return weaned / bornAlive;
 }
 
-export function WeaningPage({ locale }: { locale: Locale }) {
+export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     litters: WeaningLitterRow[];
@@ -71,14 +71,16 @@ export function WeaningPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الفطام" : "Weaning Operations"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar"
-            ? `بطون ولدت وجاهزة للفطام بعد مرور ${weaningDays} يومًا (${litters.length} بطون)`
-            : `Litters ready for weaning after ${weaningDays} days (${litters.length} litters)`}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الفطام" : "Weaning Operations"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar"
+              ? `بطون ولدت وجاهزة للفطام بعد مرور ${weaningDays} يومًا (${litters.length} بطون)`
+              : `Litters ready for weaning after ${weaningDays} days (${litters.length} litters)`}
+          </p>
+        </div>
+      )}
 
       {litters.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

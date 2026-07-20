@@ -10,7 +10,7 @@ export async function generateMetadata() {
   return { title: `${t.rounds.title} · RabbitTrack` };
 }
 
-export default async function RoundsPage() {
+export default async function RoundsPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const [doesRaw, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
@@ -44,7 +44,9 @@ export default async function RoundsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={rt.title} description={rt.description} />
+      {!hideHeader && (
+        <PageHeader title={rt.title} description={rt.description} />
+      )}
 
       {doesRaw.length === 0 ? (
         <EmptyState icon={ClipboardCheck} title={rt.emptyTitle} description={rt.emptyDescription} />

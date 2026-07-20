@@ -10,7 +10,7 @@ export async function generateMetadata() {
   return { title: `${t.stock.title} · RabbitTrack` };
 }
 
-export default async function StockPage() {
+export default async function StockPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Pending intake across both sexes: rabbits without a tagId yet ("سلالة").
   // Cage number and weight each autosave independently as soon as they're
   // entered (see saveQuickRabbitCage / saveQuickRabbitWeight) — a rabbit
@@ -58,7 +58,9 @@ export default async function StockPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={headerTitle} description={t.stock.description} />
+      {!hideHeader && (
+        <PageHeader title={headerTitle} description={t.stock.description} />
+      )}
       <QuickRabbitForm
         rows={rows}
         breedOptions={breedOptions}

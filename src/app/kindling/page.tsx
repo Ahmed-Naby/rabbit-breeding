@@ -22,7 +22,7 @@ function dayKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export default async function KindlingPage() {
+export default async function KindlingPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // "pregnant" / "nursing_pregnant" = confirmed pregnant, kindling not yet
   // recorded for this cycle (matches KindleButton's own `active` condition).
   const [candidates, settings, kindlingLog, litters, breedings, { locale, t }] = await Promise.all([
@@ -113,10 +113,12 @@ export default async function KindlingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.kindling.title}
-        description={t.kindling.description(does.length, settings.gestationDays)}
-      />
+      {!hideHeader && (
+        <PageHeader
+          title={t.kindling.title}
+          description={t.kindling.description(does.length, settings.gestationDays)}
+        />
+      )}
 
       {does.length === 0 ? (
         <EmptyState

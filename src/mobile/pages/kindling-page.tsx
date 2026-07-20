@@ -10,7 +10,7 @@ import type { DoeState } from "@/lib/enums";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function KindlingPage({ locale }: { locale: Locale }) {
+export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     does: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; expectedKindlingDate: string; buckTagId: string | null; breedingId: string }[];
@@ -60,14 +60,16 @@ export function KindlingPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الولادة" : "Kindling Operations"}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar"
-            ? `أمهات عشار مستحقة الولادة حاليًا (${does.length} أمهات)`
-            : `Pregnant does expected to kindle soon (${does.length} does)`}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الولادة" : "Kindling Operations"}</h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar"
+              ? `أمهات عشار مستحقة الولادة حاليًا (${does.length} أمهات)`
+              : `Pregnant does expected to kindle soon (${does.length} does)`}
+          </p>
+        </div>
+      )}
 
       {does.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

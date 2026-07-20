@@ -12,7 +12,7 @@ import type { LocalSettings } from "../db/types";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
-export function MatingPage({ locale }: { locale: Locale }) {
+export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     does: DoeRow[];
@@ -41,6 +41,7 @@ export function MatingPage({ locale }: { locale: Locale }) {
   const doesSort = useSortableRows(does, {
     tag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
+    matingDate: { type: "date", value: (r) => r.matingDate },
     doeState: { type: "string", value: (r) => r.doeState },
   });
   const matingLogSort = useSortableRows(matingLog, {
@@ -57,14 +58,16 @@ export function MatingPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.mating.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar"
-            ? `${does.length} أم جاهزة للتلقيح الآن`
-            : `${does.length} does ready for mating now`}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.mating.title}</h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar"
+              ? `${does.length} أم جاهزة للتلقيح الآن`
+              : `${does.length} does ready for mating now`}
+          </p>
+        </div>
+      )}
 
       {does.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

@@ -18,7 +18,7 @@ const RESULT_CLS: Record<string, string> = {
     "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300",
 };
 
-export function PregnancyTestPage({ locale }: { locale: Locale }) {
+export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     candidates: { id: string; tagId: string | null; breed: string | null; doeState: string; matingDate: string | null; buckTagId: string | null; breedingId: string }[];
@@ -71,14 +71,16 @@ export function PregnancyTestPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.pregnancyTest.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar"
-            ? `أمهات حان موعد جسها بعد مرور ${pregnancyTestDays} أيام من التلقيح (${candidates.length} أمهات)`
-            : `Does ready for testing after ${pregnancyTestDays} days (${candidates.length} does)`}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.pregnancyTest.title}</h1>
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar"
+              ? `أمهات حان موعد جسها بعد مرور ${pregnancyTestDays} أيام من التلقيح (${candidates.length} أمهات)`
+              : `Does ready for testing after ${pregnancyTestDays} days (${candidates.length} does)`}
+          </p>
+        </div>
+      )}
 
       {candidates.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

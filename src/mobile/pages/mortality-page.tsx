@@ -14,7 +14,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import type { LocalRabbit } from "../db/types";
 
-export function MortalityPage({ locale }: { locale: Locale }) {
+export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [data, setData] = useState<{
     activeMothers: LocalRabbit[];
@@ -146,10 +146,12 @@ export function MortalityPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.mortality.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.mortality.description}</p>
-      </div>
+      {!hideHeader && (
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold tracking-tight">{t.mortality.title}</h1>
+          <p className="text-sm text-muted-foreground">{t.mortality.description}</p>
+        </div>
+      )}
 
       {/* 1. رضيع الرضاعة (Nursing Kit Mortality) */}
       <div className="space-y-3">

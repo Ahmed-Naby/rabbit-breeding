@@ -84,14 +84,14 @@ CREATE INDEX IF NOT EXISTS idx_weight_record_rabbitId ON weight_record(rabbitId,
 CREATE TABLE IF NOT EXISTS settings_cache (
   id                       INTEGER PRIMARY KEY CHECK (id = 1),
   weightUnit               TEXT NOT NULL DEFAULT 'kg',
-  gestationDays             INTEGER NOT NULL DEFAULT 31,
+  gestationDays             INTEGER NOT NULL DEFAULT 30,
   gestationWindowDays       INTEGER NOT NULL DEFAULT 3,
   pregnancyTestDays         INTEGER NOT NULL DEFAULT 10,
   weaningDays               INTEGER NOT NULL DEFAULT 28,
   nestBoxDays               INTEGER NOT NULL DEFAULT 27,
   matingWeightGrams         INTEGER NOT NULL DEFAULT 3000,
   rebreedAfterKindlingDays  INTEGER NOT NULL DEFAULT 0,
-  currency                  TEXT NOT NULL DEFAULT 'USD'
+  currency                  TEXT NOT NULL DEFAULT 'EGP'
 );
 
 -- Single-row sync bookkeeping: this device's identity and its pull cursor.

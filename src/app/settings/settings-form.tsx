@@ -109,15 +109,6 @@ export function SettingsForm({
             hint={t.nestBoxDaysHint}
             error={e.nestBoxDays}
           />
-          <TextField
-            name="matingWeightGrams"
-            type="number"
-            min={1}
-            label={t.matingWeightGramsLabel}
-            defaultValue={settings.matingWeightGrams.toString()}
-            hint={t.matingWeightGramsHint}
-            error={e.matingWeightGrams}
-          />
           <SelectField
             name="rebreedAfterKindlingDays"
             label={t.rebreedLabel}

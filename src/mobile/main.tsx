@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { AppShell } from "./app-shell";
 import { attachNetworkListener, attachAppLifecycleSync, syncNow } from "./sync/sync-manager";
 import { loadSession, refreshFarms } from "./auth";
+import { setActiveFarmId } from "./db/client";
 import "@/app/globals.css";
 
 /**
@@ -26,20 +27,24 @@ async function ensureWebSqliteStore(): Promise<void> {
 }
 
 async function bootstrap() {
-  await ensureWebSqliteStore();
+  try {
+    await ensureWebSqliteStore();
+  } catch (err) {
+    console.error("[bootstrap] ensureWebSqliteStore error:", err);
+  }
 
-  // Load the stored device token BEFORE anything syncs, so syncFetch's very
-  // first request already carries the Bearer header. Sync only starts for a
-  // logged-in device — a fresh install sits on the login screen instead of
-  // legacy-syncing the default farm it has no business seeing.
-  const session = await loadSession();
-  if (session) {
-    attachNetworkListener();
-    attachAppLifecycleSync();
-    void syncNow();
-    // Best-effort background refresh of farm memberships — picks up being
-    // added to (or removed from) a farm since login without re-logging-in.
-    void refreshFarms();
+  let session = null;
+  try {
+    session = await loadSession();
+    setActiveFarmId(session?.activeFarmId ?? null);
+    if (session) {
+      attachNetworkListener();
+      attachAppLifecycleSync();
+      void syncNow();
+      void refreshFarms();
+    }
+  } catch (err) {
+    console.error("[bootstrap] session load error:", err);
   }
 
   createRoot(document.getElementById("root")!).render(

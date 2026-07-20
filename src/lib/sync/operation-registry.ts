@@ -287,6 +287,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
           sex: p.sex as "doe" | "buck",
           date: toDate(p.date),
           weightKg: (p.weightKg as number | null) ?? null,
+          origin: (p.origin as "farm" | "external") ?? "farm",
         },
         { id: p.id as string | undefined }
       )
