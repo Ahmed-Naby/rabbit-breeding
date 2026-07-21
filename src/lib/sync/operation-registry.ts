@@ -13,9 +13,11 @@
  *  - createBreedingOp/updateBreedingOp/createRabbitOp/createMotherOp/
  *    createBuckOp/finalizeMotherOp/finalizeBuckOp/updateRabbitOp —
  *    full desktop-style forms (add/edit breeding, rabbit create, pedigree/
- *    tagId/sex/photo editing), out of scope for the offline app. The mobile
+ *    sex/photo editing), out of scope for the offline app. The mobile
  *    detail page's edit form uses updateRabbitDetailsOp instead, a narrower
- *    field set (breed/color/cage/dateOfBirth/acquiredDate/acquiredFrom/notes).
+ *    field set (tagId/breed/color/cage/dateOfBirth/acquiredDate/
+ *    acquiredFrom/notes) — tagId included because that page can renumber a
+ *    herd rabbit, even though the wider pedigree edit stays desktop-only.
  *  - buckExistsOp — a read-only pre-flight check, not a mutating operation.
  */
 import {
@@ -273,16 +275,21 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.id && await shouldSkipUpdate("rabbit", p.id as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer rabbit edit exists on server" };
     }
-    await updateRabbitDetailsOp(p.id as string, {
-      breed: (p.breed as string | null) ?? null,
-      color: (p.color as string | null) ?? null,
-      cage: (p.cage as string | null) ?? null,
-      dateOfBirth: toDateOrNull(p.dateOfBirth),
-      acquiredDate: toDateOrNull(p.acquiredDate),
-      acquiredFrom: (p.acquiredFrom as string | null) ?? null,
-      notes: (p.notes as string | null) ?? null,
-    });
-    return applied;
+    // `tagId` is only present for herd rabbits (see the detail page's edit
+    // submit), and absent must stay absent rather than collapsing to null —
+    // that difference is "leave the number alone" vs "clear it".
+    return fromOpResult(
+      await updateRabbitDetailsOp(p.id as string, {
+        ...("tagId" in p ? { tagId: (p.tagId as string | null) ?? null } : {}),
+        breed: (p.breed as string | null) ?? null,
+        color: (p.color as string | null) ?? null,
+        cage: (p.cage as string | null) ?? null,
+        dateOfBirth: toDateOrNull(p.dateOfBirth),
+        acquiredDate: toDateOrNull(p.acquiredDate),
+        acquiredFrom: (p.acquiredFrom as string | null) ?? null,
+        notes: (p.notes as string | null) ?? null,
+      })
+    );
   },
 
   createQuickRabbit: async (p, clientAt) =>

@@ -461,6 +461,11 @@ export async function createHealthRecordOp(data: CreateHealthRecordInput) {
 }
 
 export type RabbitDetailsPatch = {
+  // Optional, and deliberately distinguished from null: absent means "leave
+  // the tag alone" (the detail form only submits it for herd rabbits), null
+  // means "clear it". Prisma treats an undefined field as a no-op, so both
+  // cases fall straight out of passing this to update().
+  tagId?: string | null;
   breed: string | null;
   color: string | null;
   cage: string | null;
@@ -471,13 +476,28 @@ export type RabbitDetailsPatch = {
 };
 
 /**
- * Scoped-down edit for the offline app's rabbit detail page — only the
- * fields that don't touch pedigree/identity/state (tagId, sex, status,
- * sireId/damId, photoUrl are handled elsewhere or out of scope offline).
+ * Scoped-down edit for the offline app's rabbit detail page — the fields
+ * that don't touch pedigree/state (sex, status, sireId/damId, photoUrl stay
+ * out of scope offline).
+ *
+ * tagId IS in scope: the detail page lets a herd rabbit be renumbered, and
+ * the local mirror applies that optimistically. Omitting it here meant the
+ * server silently kept the old number and the very next pull overwrote the
+ * rename back — an edit that looked saved, then reverted "on its own".
+ * Renumbering can collide with @@unique([farmId, tagId, sex]), so this
+ * reports TAG_IN_USE as an OpResult rather than throwing, matching both the
+ * other tag-assigning ops here and the local apply's own rejection code.
  */
-export async function updateRabbitDetailsOp(id: string, data: RabbitDetailsPatch): Promise<Rabbit> {
-  return prisma.rabbit.update({
-    where: { id },
-    data,
-  });
+export async function updateRabbitDetailsOp(
+  id: string,
+  data: RabbitDetailsPatch
+): Promise<OpResult<Rabbit, "TAG_IN_USE">> {
+  try {
+    return { ok: true, data: await prisma.rabbit.update({ where: { id }, data }) };
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { ok: false, code: "TAG_IN_USE" };
+    }
+    throw e;
+  }
 }
