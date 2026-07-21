@@ -12,7 +12,7 @@ import { Prisma } from "@/generated/prisma/client";
 //   "deletion must win" conflict). P2002: unique constraint — e.g. addBreed
 //   racing a duplicate name from another device.
 const DETERMINISTIC_PRISMA_CODES = new Set(["P2025", "P2002"]);
-import { operationRegistry } from "@/lib/sync/operation-registry";
+import { operationRegistry, runWithSyncBatch } from "@/lib/sync/operation-registry";
 import { authenticateSync } from "../auth";
 import { runWithFarm } from "@/lib/tenant";
 
@@ -63,6 +63,10 @@ export async function POST(request: Request) {
 
   const results: OperationResult[] = [];
 
+  // Scopes shouldSkipUpdate's conflict guard to this batch — without it, the
+  // first op to write a row makes every later op on that row look like a
+  // losing conflict and get dropped (see runWithSyncBatch).
+  await runWithSyncBatch(async () => {
   for (const op of operations) {
     if (!op.clientOpId || !op.opType || !op.clientAt) {
       results.push({ clientOpId: op.clientOpId ?? "", status: "rejected", resultMessage: "Malformed operation" });
@@ -134,6 +138,7 @@ export async function POST(request: Request) {
 
     results.push({ clientOpId: op.clientOpId, status: outcome.status, resultMessage: outcome.resultMessage });
   }
+  });
 
   return Response.json({ serverTime: new Date().toISOString(), results });
 }

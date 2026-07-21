@@ -50,8 +50,44 @@ import {
   deleteRabbitOp,
   updateRabbitDetailsOp,
 } from "@/lib/rabbit-ops";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { prisma } from "@/lib/prisma";
 import { currentFarmId } from "@/lib/tenant";
+
+// globalThis-cached for the same reason tenant.ts caches its farm storage: a
+// dev hot-reload can otherwise leave push/route.ts writing to one instance
+// while shouldSkipUpdate below reads a different, always-empty one — which
+// would silently restore the very bug this exists to fix.
+const globalForBatch = globalThis as unknown as {
+  syncBatchStartedAt: AsyncLocalStorage<Date> | undefined;
+};
+
+const batchStorage = globalForBatch.syncBatchStartedAt ?? new AsyncLocalStorage<Date>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForBatch.syncBatchStartedAt = batchStorage;
+}
+
+/**
+ * Wraps one push batch, recording when it began.
+ *
+ * shouldSkipUpdate's guard compares a row's `updatedAt` against the op's
+ * `clientAt` to mean "another device edited this after my op was created —
+ * don't clobber it". But `updatedAt` is stamped at server-apply time, always
+ * LATER than any clientAt, so once any op in a batch wrote a row, every
+ * later op touching that row looked like a losing conflict and was silently
+ * dropped (reported "applied", so the client discarded it for good).
+ *
+ * The batch's start time separates the two cases: a write this batch made
+ * carries a timestamp at or after it, while a genuine edit from another
+ * device happened before this request and stays caught. Keyed on time
+ * rather than on which rows the guard saw, because the ops that write
+ * without consulting it (startBreeding, markKindled, …) must count too —
+ * they were the ones actually bumping updatedAt in practice.
+ */
+export function runWithSyncBatch<T>(fn: () => Promise<T>): Promise<T> {
+  return batchStorage.run(new Date(), fn);
+}
 
 export type SyncOpOutcome =
   | { status: "applied"; resultMessage?: string }
@@ -78,6 +114,12 @@ async function shouldSkipUpdate(
     select: { updatedAt: true }
   });
   if (existing && existing.updatedAt && existing.updatedAt > clientAt) {
+    // An earlier op in this same push wrote the row, so its updatedAt is this
+    // batch's own handiwork rather than a competing edit — skipping here
+    // would silently drop every follow-up op on the row (see runWithSyncBatch).
+    const batchStartedAt = batchStorage.getStore();
+    if (batchStartedAt && existing.updatedAt >= batchStartedAt) return false;
+
     console.log(`[Sync] Skipping ${modelName} ID ${id} update: server updatedAt (${existing.updatedAt.toISOString()}) is newer than clientAt (${clientAt.toISOString()})`);
     return true;
   }
