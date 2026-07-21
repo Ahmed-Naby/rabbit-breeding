@@ -49,16 +49,40 @@ export function DoeAvailabilityToggle({
   current,
   locale,
   onDone,
+  statuses,
+  buttonClassName,
+  alwaysColored,
 }: {
   id: string;
   current: string;
   locale: Locale;
   onDone: () => void;
+  /**
+   * Which of the three buttons to render, for pages that split them across
+   * their layout — the does round groups "استبعاد" with the other
+   * destructive actions instead of the availability row, so it mounts this
+   * twice rather than duplicating the confirm/enqueue/toast logic. Omit for
+   * all three.
+   */
+  statuses?: RabbitStatus[];
+  /**
+   * Per-button classes, merged over the compact defaults (twMerge, so
+   * sizing here wins) — lets a host row match its own buttons' height and
+   * text size instead of this component's tighter badge sizing.
+   */
+  buttonClassName?: string;
+  /**
+   * Paint the button in its status colour even when it isn't the current
+   * status. In the availability row colour means "this is the state you're
+   * in", so it stays off by default; a standalone destructive button
+   * sitting beside other coloured actions should read as coloured always.
+   */
+  alwaysColored?: boolean;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
   const [pending, setPending] = useState<RabbitStatus | null>(null);
 
-  const options: { status: RabbitStatus; text: string; activeCls: string }[] = [
+  const allOptions: { status: RabbitStatus; text: string; activeCls: string }[] = [
     {
       status: "active",
       text: locale === "ar" ? "نشط" : "Active",
@@ -79,6 +103,8 @@ export function DoeAvailabilityToggle({
     },
   ];
 
+  const options = allOptions.filter((opt) => !statuses || statuses.includes(opt.status));
+
   return (
     <div className="inline-flex flex-wrap items-center gap-1">
       {options.map((opt) => {
@@ -90,7 +116,11 @@ export function DoeAvailabilityToggle({
             variant="outline"
             size="sm"
             disabled={pending !== null}
-            className={cn("h-7 px-2 text-[11px]", isActive && opt.activeCls)}
+            className={cn(
+              "h-7 px-2 text-[11px]",
+              buttonClassName,
+              (isActive || alwaysColored) && opt.activeCls
+            )}
             onClick={async () => {
               if (isActive) return;
               if (opt.status === "culled" && !window.confirm(t.cullConfirm)) return;

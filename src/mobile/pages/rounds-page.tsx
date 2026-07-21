@@ -176,7 +176,14 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 </div>
               </div>
 
-              <DoeAvailabilityToggle id={doe.id} current={doe.status} locale={locale} onDone={refresh} />
+              {/* "استبعاد" lives with the destructive actions below instead. */}
+              <DoeAvailabilityToggle
+                id={doe.id}
+                current={doe.status}
+                locale={locale}
+                onDone={refresh}
+                statuses={["active", "resting"]}
+              />
 
               <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-3">
                 {/* Kindling */}
@@ -264,6 +271,15 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                     >
                       {rt.doeDeathButton}
                     </Button>
+                    <DoeAvailabilityToggle
+                      id={doe.id}
+                      current={doe.status}
+                      locale={locale}
+                      onDone={refresh}
+                      statuses={["culled"]}
+                      buttonClassName="h-8 px-2.5 text-xs"
+                      alwaysColored
+                    />
                   </div>
                 </div>
               </div>

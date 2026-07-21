@@ -82,6 +82,10 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
         </div>
       )}
 
+      <div className="space-y-3">
+      <h2 className="text-lg font-bold">
+        {locale === "ar" ? "أرانب محتاجة تتفطم" : "Rabbits due for weaning"}
+      </h2>
       {litters.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
           <Milk className="h-8 w-8 text-muted-foreground" />
@@ -204,6 +208,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
           </table>
         </div>
       )}
+      </div>
 
       <div className="space-y-3 pt-4 border-t">
         <h2 className="text-lg font-bold">{locale === "ar" ? "سجل الفطام" : "Weaning Log"}</h2>

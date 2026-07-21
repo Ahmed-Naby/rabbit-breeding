@@ -82,6 +82,10 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
         </div>
       )}
 
+      <div className="space-y-3">
+      <h2 className="text-lg font-bold">
+        {locale === "ar" ? "أمهات مستعدة للجس" : "Does ready for pregnancy test"}
+      </h2>
       {candidates.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
           <Microscope className="h-8 w-8 text-muted-foreground" />
@@ -194,6 +198,7 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
           </table>
         </div>
       )}
+      </div>
 
       <div className="space-y-3 pt-4 border-t">
         <h2 className="text-lg font-bold">{locale === "ar" ? "سجل الجس" : "Pregnancy Test Log"}</h2>

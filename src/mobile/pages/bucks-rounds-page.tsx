@@ -140,7 +140,14 @@ export function BucksRoundsPage({ locale, hideHeader }: { locale: Locale; hideHe
                 <StatusBadge value={buck.status} locale={locale} />
               </div>
 
-              <DoeAvailabilityToggle id={buck.id} current={buck.status} locale={locale} onDone={refresh} />
+              {/* "استبعاد" lives with the destructive actions below instead. */}
+              <DoeAvailabilityToggle
+                id={buck.id}
+                current={buck.status}
+                locale={locale}
+                onDone={refresh}
+                statuses={["active", "resting"]}
+              />
 
               <div className="flex flex-wrap items-center gap-1.5 border-t pt-3">
                 <span className="text-[11px] font-medium text-muted-foreground me-1">{rt.healthLabel}</span>
@@ -160,6 +167,15 @@ export function BucksRoundsPage({ locale, hideHeader }: { locale: Locale; hideHe
                 >
                   {rt.deathButton}
                 </Button>
+                <DoeAvailabilityToggle
+                  id={buck.id}
+                  current={buck.status}
+                  locale={locale}
+                  onDone={refresh}
+                  statuses={["culled"]}
+                  buttonClassName="h-8 px-2.5 text-xs"
+                  alwaysColored
+                />
               </div>
 
               {healthOpen[buck.id] ? (

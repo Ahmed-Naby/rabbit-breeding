@@ -71,6 +71,10 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
         </div>
       )}
 
+      <div className="space-y-3">
+      <h2 className="text-lg font-bold">
+        {locale === "ar" ? "أمهات على وش ولادة" : "Does due to kindle"}
+      </h2>
       {does.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
           <HeartPulse className="h-8 w-8 text-muted-foreground" />
@@ -170,6 +174,7 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
           </table>
         </div>
       )}
+      </div>
 
       <div className="space-y-3 pt-4 border-t">
         <h2 className="text-lg font-bold">{locale === "ar" ? "سجل الولادة" : "Kindling Log"}</h2>
