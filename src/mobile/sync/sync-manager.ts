@@ -23,7 +23,7 @@ const BACKOFF_MAX_MS = 300_000;
 // Pulls are cheap (delta-only, since-cursor) so a foreground timer is fine
 // on a metered connection; paused while backgrounded (see attachAppLifecycleSync)
 // so it never runs, or drains data/battery, while the app isn't in use.
-const PERIODIC_SYNC_INTERVAL_MS = 4 * 60_000;
+const PERIODIC_SYNC_INTERVAL_MS = 30 * 60_000;
 // Android's "appStateChange" resume event fires on more than app-switching —
 // screen lock/unlock, the notification shade, permission dialogs — so a
 // resume-triggered sync is skipped if the last one finished more recently
@@ -296,8 +296,26 @@ export async function pull(): Promise<boolean> {
 
   for (const r of data.rabbits) {
     set.push({
-      statement: `INSERT OR REPLACE INTO rabbit (id, tagId, retiredTagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      // Use a smart UPSERT instead of INSERT OR REPLACE so that locally-edited
+      // fields (tagId, breed, color, cage, etc.) are not blindly overwritten
+      // by a stale server pull when the local row is newer.
+      statement: `INSERT INTO rabbit (id, tagId, retiredTagId, breed, color, sex, dateOfBirth, status, doeState, cage, origin, movedToHerdPen, acquiredDate, acquiredFrom, notes, photoUrl, sireId, damId, litterId, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         tagId        = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.tagId        ELSE rabbit.tagId        END,
+         retiredTagId = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.retiredTagId ELSE rabbit.retiredTagId END,
+         breed        = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.breed        ELSE rabbit.breed        END,
+         color        = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.color        ELSE rabbit.color        END,
+         cage         = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.cage         ELSE rabbit.cage         END,
+         status       = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.status       ELSE rabbit.status       END,
+         doeState     = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.doeState     ELSE rabbit.doeState     END,
+         dateOfBirth  = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.dateOfBirth  ELSE rabbit.dateOfBirth  END,
+         acquiredDate = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.acquiredDate ELSE rabbit.acquiredDate END,
+         acquiredFrom = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.acquiredFrom ELSE rabbit.acquiredFrom END,
+         notes        = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.notes        ELSE rabbit.notes        END,
+         photoUrl     = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.photoUrl     ELSE rabbit.photoUrl     END,
+         movedToHerdPen = CASE WHEN excluded.updatedAt >= rabbit.updatedAt THEN excluded.movedToHerdPen ELSE rabbit.movedToHerdPen END,
+         updatedAt    = MAX(excluded.updatedAt, rabbit.updatedAt)`,
       values: [
         r.id, r.tagId, r.retiredTagId, r.breed, r.color, r.sex, r.dateOfBirth, r.status, r.doeState, r.cage, r.origin,
         r.movedToHerdPen ? 1 : 0, r.acquiredDate, r.acquiredFrom, r.notes, r.photoUrl, r.sireId, r.damId,
@@ -436,6 +454,16 @@ export async function pull(): Promise<boolean> {
 
   if (data.pregnancyTestLogs) {
     for (const log of data.pregnancyTestLogs) {
+      // Drop the optimistic placeholder this device wrote for the same test
+      // (local-ops' insertPregnancyTestLog) before inserting the server's
+      // authoritative row — they carry different ids, so without this the
+      // same test would sit in سجل الجس twice. doeId + matingDate + result
+      // identifies it: testDate can't, since the two clocks stamp it apart.
+      set.push({
+        statement:
+          "DELETE FROM pregnancy_test_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ? AND result = ?",
+        values: [log.doeId, log.matingDate, log.result],
+      });
       set.push({
         statement: `INSERT OR REPLACE INTO pregnancy_test_log (id, doeId, buckId, matingDate, testDate, result, createdAt)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,

@@ -78,6 +78,30 @@ function getLitterByBreeding(db: SQLiteDBConnection, breedingId: string) {
   return queryOne<LocalLitter>(db, "SELECT * FROM litter WHERE breedingId = ?", [breedingId]);
 }
 
+/**
+ * Mirrors confirmPregnantOp/markMatingFailedOp's pregnancyTestLog.create so a
+ * test lands in سجل الجس immediately — offline included — instead of only
+ * reappearing once the server's own row round-trips back on the next pull.
+ * (سجل التلقيح never had this problem: it reads the breeding table directly,
+ * which these ops already write locally.)
+ *
+ * The "local-" id marks this as a placeholder; pull() drops it when the
+ * server's authoritative row arrives, matching on doeId + matingDate +
+ * result, so the two never show up as duplicate rows.
+ */
+async function insertPregnancyTestLog(
+  db: SQLiteDBConnection,
+  args: { doeId: string; buckId: string | null; matingDate: string; result: "positive" | "negative" }
+): Promise<void> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO pregnancy_test_log (id, doeId, buckId, matingDate, testDate, result, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, now, args.result, now]
+  );
+}
+
 /** Mirrors resolveBuckId server-side: a blank tag means "don't record a buck", not an error. */
 async function resolveBuckId(db: SQLiteDBConnection, buckTagId?: string): Promise<string | null> {
   const tagId = buckTagId?.trim();
@@ -259,6 +283,12 @@ export async function confirmPregnant(
     return rejected("Breeding has no mating date to confirm");
   }
   await updateRabbit(db, payload.doeId, { doeState: payload.target });
+  await insertPregnancyTestLog(db, {
+    doeId: payload.doeId,
+    buckId: breeding.buckId ?? null,
+    matingDate: breeding.matingDate,
+    result: "positive",
+  });
   return applied;
 }
 
@@ -388,12 +418,26 @@ export async function markMatingFailed(
   payload: { breedingId: string; doeId: string }
 ): Promise<LocalOpOutcome> {
   const doe = await getRabbit(db, payload.doeId);
+  // Read before mutating: both branches below destroy the matingDate this
+  // log entry records (one deletes the breeding row outright, the other
+  // nulls the date), and the server op logs only when a matingDate existed.
+  const breeding = await getBreeding(db, payload.breedingId);
+
   if (doe?.doeState === "nursing_bred") {
     await run(db, "DELETE FROM breeding WHERE id = ?", [payload.breedingId]);
     await updateRabbit(db, payload.doeId, { doeState: "nursing" });
   } else {
     await updateBreeding(db, payload.breedingId, { matingDate: null, nestBoxDate: null });
     await updateRabbit(db, payload.doeId, { doeState: "empty" });
+  }
+
+  if (breeding?.matingDate) {
+    await insertPregnancyTestLog(db, {
+      doeId: payload.doeId,
+      buckId: breeding.buckId ?? null,
+      matingDate: breeding.matingDate,
+      result: "negative",
+    });
   }
   return applied;
 }
@@ -516,6 +560,7 @@ export async function updateRabbitDetails(
   db: SQLiteDBConnection,
   payload: {
     id: string;
+    tagId?: string | null;
     breed: string | null;
     color: string | null;
     cage: string | null;
@@ -525,6 +570,18 @@ export async function updateRabbitDetails(
     notes: string | null;
   }
 ): Promise<LocalOpOutcome> {
+  // If tagId is being changed, check for duplicates (unique per sex)
+  if (payload.tagId !== undefined) {
+    if (payload.tagId) {
+      const clash = await queryOne<{ id: string }>(
+        db,
+        "SELECT id FROM rabbit WHERE tagId = ? AND sex = (SELECT sex FROM rabbit WHERE id = ?) AND id != ?",
+        [payload.tagId, payload.id, payload.id]
+      );
+      if (clash) return rejected("TAG_IN_USE");
+    }
+    await updateRabbit(db, payload.id, { tagId: payload.tagId });
+  }
   await updateRabbit(db, payload.id, {
     breed: payload.breed,
     color: payload.color,
