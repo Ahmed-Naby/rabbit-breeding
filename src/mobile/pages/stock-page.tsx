@@ -25,6 +25,8 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
 
   const [saving, setSaving] = useState(false);
   const [assigningCages, setAssigningCages] = useState(false);
+  const [farmBreed, setFarmBreed] = useState<string>("none");
+  const [externalBreed, setExternalBreed] = useState<string>("none");
   const [today] = useState(() => new Date().toISOString().split("T")[0]);
   const addFormRef = useRef<HTMLFormElement>(null);
 
@@ -55,17 +57,24 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
     const formEl = e.currentTarget;
     const formData = new FormData(formEl);
     const sex = formData.get("sex") as "doe" | "buck";
-    const date = formData.get("date") as string;
-    const breed = formData.get("breed") as string;
-    const weightRaw = (formData.get("weightKg") as string) || "";
-    const cageRaw = ((formData.get("cage") as string) || "").trim();
+    const date = (formData.get("date") as string || "").trim();
+    const breed = (formData.get("breed") as string || "").trim();
+    const weightRaw = (formData.get("weightKg") as string || "").trim();
+    const cageRaw = (formData.get("cage") as string || "").trim();
 
-    // النوع/الوزن/رقم القفص إلزامية — لا نضيف سلالة ناقصة البيانات للجدول.
-    if (breed === "none" || !weightRaw || !cageRaw) {
+    // التحقق من اكتمال جميع البيانات المطلوبة
+    const missing: string[] = [];
+    if (!sex) missing.push(locale === "ar" ? "الجنس" : "sex");
+    if (!date) missing.push(locale === "ar" ? "التاريخ" : "date");
+    if (!breed || breed === "none") missing.push(locale === "ar" ? "النوع" : "breed");
+    if (!weightRaw) missing.push(locale === "ar" ? "الوزن" : "weight");
+    if (!cageRaw) missing.push(locale === "ar" ? "رقم القفص" : "cage");
+
+    if (missing.length > 0) {
       toast.error(
         locale === "ar"
-          ? "يجب إدخال النوع والوزن ورقم القفص لتسجيل السلالة"
-          : "Type, weight, and cage number are all required to register stock"
+          ? `يجب إدخال جميع البيانات قبل الإضافة: ${missing.join(", ")}`
+          : `All fields are required before adding: ${missing.join(", ")}`
       );
       return;
     }
@@ -253,15 +262,18 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <label className="text-xs font-semibold">{t.breedLabel}</label>
                   <select
                     name="breed"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={farmBreed}
+                    onChange={(e) => setFarmBreed(e.target.value)}
+                    className={`flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-transparent ${farmBreed === "none" ? "border-destructive/50" : "border-input"}`}
                   >
-                    <option value="none">{tCommon.none}</option>
+                    <option value="none">{locale === "ar" ? "— اختر النوع —" : "— Select breed —"}</option>
                     {breedOptions.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
+                      <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
+                  {farmBreed === "none" && (
+                    <p className="text-xs text-destructive">{locale === "ar" ? "اختيار النوع إلزامي" : "Breed is required"}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -269,7 +281,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <input
                     name="weightKg"
                     type="number"
-                    step="0.001"
+                    step="0.25"
                     min={0}
                     required
                     placeholder={t.weightPlaceholder}
@@ -292,7 +304,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || farmBreed === "none"}
                 className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
               >
                 {saving ? tCommon.saving : (locale === "ar" ? "تسجيل سلالة المزرعة" : "Register Farm Stock")}
@@ -347,15 +359,18 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <label className="text-xs font-semibold">{t.breedLabel}</label>
                   <select
                     name="breed"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={externalBreed}
+                    onChange={(e) => setExternalBreed(e.target.value)}
+                    className={`flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-transparent ${externalBreed === "none" ? "border-destructive/50" : "border-input"}`}
                   >
-                    <option value="none">{tCommon.none}</option>
+                    <option value="none">{locale === "ar" ? "— اختر النوع —" : "— Select breed —"}</option>
                     {breedOptions.map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
+                      <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
+                  {externalBreed === "none" && (
+                    <p className="text-xs text-destructive">{locale === "ar" ? "اختيار النوع إلزامي" : "Breed is required"}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -363,7 +378,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <input
                     name="weightKg"
                     type="number"
-                    step="0.001"
+                    step="0.25"
                     min={0}
                     required
                     placeholder={t.weightPlaceholder}
@@ -386,7 +401,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || externalBreed === "none"}
                 className="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-emerald-600 text-white shadow hover:bg-emerald-700 h-9 px-4 py-2"
               >
                 {saving ? tCommon.saving : (locale === "ar" ? "إضافة سلالة مشتراة" : "Add Purchased Stock")}
@@ -460,6 +475,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   direction={rabbitsSort.direction}
                   onSort={rabbitsSort.toggleSort}
                 />
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "تعديل" : "Edit"}</th>
                 <th className="px-4 py-3 text-center"></th>
                 <th className="px-4 py-3 text-center"></th>
               </tr>
@@ -484,6 +500,15 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                     <td className="px-4 py-3.5">{r.breed ?? "—"}</td>
                     <td className="px-4 py-3.5">{r.cage ?? "—"}</td>
                     <td className="px-4 py-3.5">{r.weightKg ?? "—"}</td>
+                    <td className="px-4 py-3.5">
+                      <button
+                        type="button"
+                        onClick={() => { window.location.hash = `#/rabbits/${r.id}`; }}
+                        className="h-7 whitespace-nowrap rounded-md border border-sky-400 bg-sky-500 px-3 text-xs font-semibold text-white hover:bg-sky-600 dark:border-sky-600 dark:bg-sky-700 dark:hover:bg-sky-600 transition-colors"
+                      >
+                        {locale === "ar" ? "تعديل" : "Edit"}
+                      </button>
+                    </td>
                     <td className="px-4 py-3.5">
                       <button
                         type="button"

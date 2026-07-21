@@ -181,7 +181,7 @@ export function QuickRabbitForm({
               <TextField
                 name="weightKg"
                 type="number"
-                step="0.001"
+                step="0.25"
                 min={0}
                 label={t.weightLabel}
                 placeholder={t.weightPlaceholder}
@@ -325,7 +325,7 @@ function FinalizeRowCells({
         <input
           type="number"
           name="weightKg"
-          step="0.001"
+          step="0.25"
           min={0}
           placeholder={t.weightPlaceholder}
           defaultValue={weightKg ?? undefined}

@@ -7,6 +7,7 @@ import { fetchBucksPageData } from "../db/queries";
 import { enqueue } from "../sync/outbox";
 import { LocalDate } from "@/components/local-date";
 import { StatusBadge } from "@/components/status-badge";
+import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { formatWeight } from "@/lib/units";
 import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
@@ -168,7 +169,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                 <input
                   name="weightKg"
                   type="number"
-                  step="0.001"
+                  step="0.25"
                   min={0}
                   placeholder={t.weightPlaceholder}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -243,7 +244,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                           type="number"
                           name="weightKg"
                           form={formId}
-                          step="0.001"
+                          step="0.25"
                           min={0}
                           required
                           defaultValue={r.weightKg ?? undefined}
@@ -342,15 +343,13 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <tr key={buck.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
-                      <button
-                        type="button"
+                      <RabbitTagBadge
+                        tagId={buck.tagId}
+                        sex="buck"
                         onClick={() => {
                           window.location.hash = `#/rabbits/${buck.id}`;
                         }}
-                        className="hover:underline"
-                      >
-                        {buck.tagId ?? "—"}
-                      </button>
+                      />
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">{buck.breed ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">

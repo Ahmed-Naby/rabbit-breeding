@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { label, RABBIT_STATUSES } from "@/lib/enums";
+import { gramsToKg, formatWeight } from "@/lib/units";
 import { LocalDate } from "@/components/local-date";
 import { StatusBadge } from "@/components/status-badge";
 import { MetricBadge } from "@/components/metric-badge";
@@ -96,10 +97,22 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
   }
 
   const BackIcon = locale === "ar" ? ChevronRight : ChevronLeft;
-  const backHref = rabbit.sex === "buck" ? "#/bucks" : "#/mothers";
-  const backLabel = rabbit.sex === "buck" ? t.detailBackToBucks : t.detailBackToMothers;
   const displayTag = rabbit.tagId ?? rabbit.retiredTagId;
+  const backHref =
+    displayTag == null
+      ? "#/stock"
+      : rabbit.sex === "buck"
+      ? "#/bucks"
+      : "#/mothers";
+  const backLabel =
+    displayTag == null
+      ? t.detailBackToStock
+      : rabbit.sex === "buck"
+      ? t.detailBackToBucks
+      : t.detailBackToMothers;
   const title = displayTag ? t.taggedTitle(displayTag) : t.untaggedTitle;
+
+  const isHerdRabbit = displayTag != null;
 
   return (
     <div className="space-y-6">
@@ -117,24 +130,32 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
               <StatusBadge value={rabbit.sex} locale={locale} />
               {rabbit.origin ? <StatusBadge value={rabbit.origin} locale={locale} /> : null}
               {rabbit.breed ? <span className="text-sm text-muted-foreground">{rabbit.breed}</span> : null}
+              {rabbit.weightGrams ? (
+                <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {formatWeight(rabbit.weightGrams, "kg", locale)}
+                </span>
+              ) : null}
             </div>
           </div>
           {rabbit.acquiredDate ? (
-            <MetricBadge label={t.joinedHerdLabel} value={<LocalDate date={rabbit.acquiredDate} locale={locale} />} />
+            <MetricBadge label={isHerdRabbit ? (t.joinedHerdLabelHerd ?? t.joinedHerdLabel) : t.joinedHerdLabel} value={<LocalDate date={rabbit.acquiredDate} locale={locale} />} />
           ) : null}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} onDone={load} />
-          <Button size="sm" onClick={() => setEditing((v) => !v)}>
-            <Pencil className="size-4" />
-            {t.editButton}
-          </Button>
+          {isHerdRabbit && (
+            <Button size="sm" onClick={() => setEditing((v) => !v)}>
+              <Pencil className="size-4" />
+              {t.editButton}
+            </Button>
+          )}
         </div>
         {editing && (
           <EditRabbitForm
             rabbit={rabbit}
             breedOptions={breedOptions}
             locale={locale}
+            isHerdRabbit={isHerdRabbit}
             onDone={() => {
               setEditing(false);
               void load();
@@ -144,22 +165,37 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
         )}
       </div>
 
-      {rabbit.sex === "doe" && (
+      {!isHerdRabbit && (
+        <div className="rounded-xl border bg-card p-5 space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">
+            {locale === "ar" ? "كارت السلالة" : "Stock Card"}
+          </h2>
+          <EditRabbitForm
+            rabbit={rabbit}
+            breedOptions={breedOptions}
+            locale={locale}
+            onDone={() => void load()}
+          />
+        </div>
+      )}
+
+      {isHerdRabbit && rabbit.sex === "doe" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.fertilityStatsHeading}</h2>
           <DoeFertilityCards history={doeHistory} locale={locale} />
         </div>
       )}
 
-      {rabbit.sex === "buck" && (
+      {isHerdRabbit && rabbit.sex === "buck" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.fertilityStatsHeading}</h2>
           <BuckFertilityCards history={buckHistory} locale={locale} />
         </div>
       )}
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">{t.breedingHistoryHeading}</h2>
+      {isHerdRabbit && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t.breedingHistoryHeading}</h2>
 
         {rabbit.sex === "doe" && doeHistory.length === 0 && (
           <EmptyHistory icon={History} title={t.historyEmptyTitle} description={t.doeHistoryEmptyDescription} />
@@ -337,6 +373,7 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -492,12 +529,14 @@ function EditRabbitForm({
   locale,
   onDone,
   onCancel,
+  isHerdRabbit,
 }: {
   rabbit: LocalRabbitBasic;
   breedOptions: string[];
   locale: Locale;
   onDone: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  isHerdRabbit?: boolean;
 }) {
   const t = getClientDictionary(locale).rabbits;
   const tCommon = getClientDictionary(locale).common;
@@ -512,23 +551,33 @@ function EditRabbitForm({
     const formData = new FormData(e.currentTarget);
     const breed = formData.get("breed") as string;
     const color = formData.get("color") as string;
+    const tagIdVal = formData.get("tagId") as string | null;
     const cage = formData.get("cage") as string;
-    const dateOfBirth = formData.get("dateOfBirth") as string;
+    const weightKgStr = formData.get("weightKg") as string;
+    const weightKg = weightKgStr !== "" ? Number(weightKgStr) : null;
     const acquiredDate = formData.get("acquiredDate") as string;
     const acquiredFrom = formData.get("acquiredFrom") as string;
     const notes = formData.get("notes") as string;
 
     try {
-      await enqueue("updateRabbitDetails", {
+      if (weightKg != null && !isNaN(weightKg)) {
+        await enqueue("saveQuickRabbitWeight", { id: rabbit.id, weightKg });
+      }
+      const res = await enqueue("updateRabbitDetails", {
         id: rabbit.id,
+        ...(isHerdRabbit ? { tagId: tagIdVal?.trim() || null } : {}),
         breed: breed === "none" ? null : breed || null,
         color: color || null,
-        cage: cage || null,
-        dateOfBirth: dateOfBirth ? fromDateInputValue(dateOfBirth).toISOString() : null,
+        cage: isHerdRabbit ? null : cage || null,
+        dateOfBirth: null,
         acquiredDate: acquiredDate ? fromDateInputValue(acquiredDate).toISOString() : null,
         acquiredFrom: acquiredFrom || null,
         notes: notes || null,
       });
+      if (res.outcome.status === "rejected" && res.outcome.resultMessage === "TAG_IN_USE") {
+        toast.error(locale === "ar" ? "هذا الرقم مستخدم بالفعل لأرنب آخر" : "This tag number is already in use");
+        return;
+      }
       toast.success(t.saveChangesButton);
       onDone();
     } catch (err) {
@@ -538,18 +587,47 @@ function EditRabbitForm({
     }
   };
 
+  const allBreedOptions = Array.from(
+    new Set([
+      ...(rabbit.breed ? [rabbit.breed] : []),
+      ...breedOptions,
+    ])
+  ).sort((a, b) => a.localeCompare(b, locale === "ar" ? "ar" : "en"));
+
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-3 border-t pt-3">
+      {/* Herd rabbits only: the stock variant is already wrapped in a titled
+          "كارت السلالة" card by the caller, so titling here too would double it. */}
+      {isHerdRabbit && (
+        <h2 className="text-lg font-semibold tracking-tight">
+          {rabbit.sex === "doe" ? t.doeCardTitle : rabbit.sex === "buck" ? t.buckCardTitle : t.rabbitCardTitle}
+        </h2>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold">{t.weightLabel || (locale === "ar" ? "الوزن (كجم)" : "Weight (kg)")}</label>
+          <input
+            key={`weight_${rabbit.id}_${rabbit.weightGrams}`}
+            name="weightKg"
+            type="number"
+            step="0.25"
+            min={0}
+            defaultValue={rabbit.weightGrams ? gramsToKg(rabbit.weightGrams) : ""}
+            placeholder={t.weightPlaceholder || "كجم"}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold">{t.breedLabel}</label>
           <select
+            key={`breed_${rabbit.id}_${rabbit.breed}_${allBreedOptions.length}`}
             name="breed"
             defaultValue={rabbit.breed ?? "none"}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="none">{tCommon.none}</option>
-            {breedOptions.map((b) => (
+            {allBreedOptions.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
@@ -560,6 +638,7 @@ function EditRabbitForm({
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold">{t.colorLabel}</label>
           <input
+            key={`color_${rabbit.id}_${rabbit.color}`}
             name="color"
             type="text"
             defaultValue={rabbit.color ?? ""}
@@ -568,30 +647,42 @@ function EditRabbitForm({
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold">{t.dobLabel}</label>
-          <input
-            name="dateOfBirth"
-            type="date"
-            defaultValue={toDateInputValue(rabbit.dateOfBirth ? new Date(rabbit.dateOfBirth) : null)}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
+        {isHerdRabbit ? (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">
+              {rabbit.sex === "doe"
+                ? (locale === "ar" ? "رقم الأم" : "Doe Number")
+                : (locale === "ar" ? "رقم الذكر" : "Buck Number")}
+            </label>
+            <input
+              key={`tagId_${rabbit.id}_${rabbit.tagId}`}
+              name="tagId"
+              type="text"
+              defaultValue={rabbit.tagId ?? ""}
+              placeholder={rabbit.sex === "doe" ? "رقم الأم" : "رقم الذكر"}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">{t.cageLabel}</label>
+            <input
+              key={`cage_${rabbit.id}_${rabbit.cage}`}
+              name="cage"
+              type="text"
+              defaultValue={rabbit.cage ?? ""}
+              placeholder={t.cagePlaceholder}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold">{t.cageLabel}</label>
+          <label className="text-xs font-semibold">
+            {isHerdRabbit ? (t.joinedHerdLabelHerd ?? t.acquiredDateLabel) : t.acquiredDateLabel}
+          </label>
           <input
-            name="cage"
-            type="text"
-            defaultValue={rabbit.cage ?? ""}
-            placeholder={t.cagePlaceholder}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold">{t.acquiredDateLabel}</label>
-          <input
+            key={`acquiredDate_${rabbit.id}_${rabbit.acquiredDate}`}
             name="acquiredDate"
             type="date"
             defaultValue={toDateInputValue(rabbit.acquiredDate ? new Date(rabbit.acquiredDate) : null)}
@@ -602,6 +693,7 @@ function EditRabbitForm({
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold">{t.acquiredFromLabel}</label>
           <input
+            key={`acquiredFrom_${rabbit.id}_${rabbit.acquiredFrom}`}
             name="acquiredFrom"
             type="text"
             defaultValue={rabbit.acquiredFrom ?? ""}
@@ -614,6 +706,7 @@ function EditRabbitForm({
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-semibold">{t.notesLabel}</label>
         <textarea
+          key={`notes_${rabbit.id}_${rabbit.notes}`}
           name="notes"
           rows={3}
           defaultValue={rabbit.notes ?? ""}
@@ -625,7 +718,16 @@ function EditRabbitForm({
         <Button type="submit" size="sm" disabled={saving}>
           {saving ? tCommon.saving : t.saveChangesButton}
         </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+        {/* No onCancel means an always-open form (the stock card), which has
+            nothing to close — there, cancel discards edits by restoring the
+            inputs to their saved defaultValues instead of unmounting. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onCancel ?? (() => formRef.current?.reset())}
+          disabled={saving}
+        >
           {t.cancelButton}
         </Button>
       </div>

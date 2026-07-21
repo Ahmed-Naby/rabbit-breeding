@@ -8,6 +8,7 @@ import type { LocalRabbit } from "../db/types";
 import { cn } from "@/lib/utils";
 import { LABELS } from "@/lib/enums";
 import { SortableTh } from "@/components/sortable-th";
+import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; initialSex?: "doe" | "buck" | "all" }) {
@@ -187,7 +188,15 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3.5 font-medium">{r.tagId ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-medium">
+                      <RabbitTagBadge
+                        tagId={r.tagId}
+                        sex={r.sex}
+                        onClick={() => {
+                          window.location.hash = `#/rabbits/${r.id}`;
+                        }}
+                      />
+                    </td>
                     <td className="px-4 py-3.5">{r.breed ?? "—"}</td>
                     <td className="px-4 py-3.5">{r.color ?? "—"}</td>
                     <td className="px-4 py-3.5">{sexLabel}</td>

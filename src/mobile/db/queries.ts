@@ -1642,14 +1642,22 @@ export type LocalRabbitBasic = {
   acquiredDate: string | null;
   acquiredFrom: string | null;
   notes: string | null;
+  weightGrams: number | null;
 };
 
 export async function fetchRabbitBasic(db: SQLiteDBConnection, id: string): Promise<LocalRabbitBasic | null> {
-  return queryOne<LocalRabbitBasic>(
+  const r = await queryOne<Omit<LocalRabbitBasic, "weightGrams">>(
     db,
     "SELECT id, tagId, retiredTagId, breed, color, sex, status, doeState, origin, cage, dateOfBirth, acquiredDate, acquiredFrom, notes FROM rabbit WHERE id = ?",
     [id]
   );
+  if (!r) return null;
+  const w = await queryOne<{ weightGrams: number }>(
+    db,
+    "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC, id DESC LIMIT 1",
+    [id]
+  );
+  return { ...r, weightGrams: w?.weightGrams ?? null };
 }
 
 /** yyyy-MM-dd key for matching by calendar day — mirrors src/app/rabbits/[id]/breeding-history.tsx's dayKey. */

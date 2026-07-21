@@ -107,7 +107,7 @@ function FinalizeMotherRowCells({
           type="number"
           name="weightKg"
           form={formId}
-          step="0.001"
+          step="0.25"
           min={0}
           required
           defaultValue={weightKg ?? undefined}

@@ -13,6 +13,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { queryAll, queryOne } from "../db/helpers";
 import { StatusBadge } from "@/components/status-badge";
+import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
@@ -317,15 +318,13 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
               {doesSort.sorted.map((r) => (
                 <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
-                    <button
-                      type="button"
+                    <RabbitTagBadge
+                      tagId={r.tagId}
+                      sex="doe"
                       onClick={() => {
                         window.location.hash = `#/rabbits/${r.id}`;
                       }}
-                      className="hover:underline text-primary"
-                    >
-                      {r.tagId}
-                    </button>
+                    />
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5">{r.breed ?? "—"}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5">

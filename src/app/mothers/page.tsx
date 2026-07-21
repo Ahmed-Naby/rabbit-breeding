@@ -5,6 +5,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
+import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
 import { getSettings } from "@/lib/settings";
@@ -110,9 +111,7 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
-                    <Link href={`/rabbits/${doe.id}`} className="hover:underline">
-                      {doe.tagId ?? "—"}
-                    </Link>
+                    <RabbitTagBadge tagId={doe.tagId} rabbitId={doe.id} sex="doe" />
                   </TableCell>
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>

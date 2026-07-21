@@ -80,7 +80,7 @@ export function AddBuckForm({
             <TextField
               name="weightKg"
               type="number"
-              step="0.001"
+              step="0.25"
               min={0}
               label={t.weightLabel}
               placeholder={t.weightPlaceholder}

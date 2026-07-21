@@ -95,7 +95,7 @@ export function SaleForm({
                   name="weightKg"
                   type="number"
                   min={0}
-                  step="0.001"
+                  step="0.25"
                   label={t.totalWeightLabel}
                   required
                   error={e.weightKg}

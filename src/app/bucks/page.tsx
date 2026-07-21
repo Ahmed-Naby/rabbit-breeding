@@ -5,6 +5,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
+import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
 import { getSettings } from "@/lib/settings";
@@ -106,9 +107,7 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
                 <TableRow key={buck.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
-                    <Link href={`/rabbits/${buck.id}`} className="hover:underline">
-                      {buck.tagId ?? "—"}
-                    </Link>
+                    <RabbitTagBadge tagId={buck.tagId} rabbitId={buck.id} sex="buck" />
                   </TableCell>
                   <TableCell>{buck.breed ?? "—"}</TableCell>
                   <TableCell>
