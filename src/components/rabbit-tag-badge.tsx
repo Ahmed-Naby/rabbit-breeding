@@ -1,3 +1,9 @@
+// Renders an <a onClick={…}> and reads window.location.hash, so it must be a
+// Client Component — without this it's treated as a Server Component when a
+// server page (mothers, bucks) imports it, and React throws "Event handlers
+// cannot be passed to Client Component props", 500-ing the whole page.
+"use client";
+
 import React from "react";
 import { cn } from "@/lib/utils";
 
