@@ -474,6 +474,16 @@ export async function pull(): Promise<boolean> {
 
   if (data.kindlingLogs) {
     for (const log of data.kindlingLogs) {
+      // Drop this device's optimistic placeholder (local-ops' insertKindlingLog)
+      // before the server's authoritative row lands, or the same birth shows
+      // twice in سجل الولادة. Keyed on doeId + kindlingDate, NOT matingDate:
+      // that column is nullable, and SQL '= NULL' matches nothing — while a
+      // doe kindles at most once on a given date anyway.
+      set.push({
+        statement:
+          "DELETE FROM kindling_log WHERE id LIKE 'local-%' AND doeId = ? AND kindlingDate = ?",
+        values: [log.doeId, log.kindlingDate],
+      });
       set.push({
         statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
          VALUES (?, ?, ?, ?, ?, ?)`,

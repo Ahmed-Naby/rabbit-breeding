@@ -102,6 +102,25 @@ async function insertPregnancyTestLog(
   );
 }
 
+/**
+ * The same optimistic mirror for سجل الولادة, whose kindling_log table was
+ * likewise server-write-only. matingDate is nullable here (recordKindling
+ * can run on a breeding whose date was already cleared) and is captured by
+ * callers BEFORE markKindled nulls it — that snapshot is the whole reason
+ * the log keeps its own copy rather than joining back to breeding.
+ */
+async function insertKindlingLog(
+  db: SQLiteDBConnection,
+  args: { doeId: string; buckId: string | null; matingDate: string | null; kindlingDate: string }
+): Promise<void> {
+  await run(
+    db,
+    `INSERT INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.kindlingDate, nowIso()]
+  );
+}
+
 /** Mirrors resolveBuckId server-side: a blank tag means "don't record a buck", not an error. */
 async function resolveBuckId(db: SQLiteDBConnection, buckTagId?: string): Promise<string | null> {
   const tagId = buckTagId?.trim();
@@ -309,6 +328,13 @@ export async function markKindled(
   if (!breeding.matingDate) return rejected("NO_MATING_DATE");
 
   const actualKindlingDate = todayIso();
+  // Logged from the pre-update snapshot: the very next call nulls matingDate.
+  await insertKindlingLog(db, {
+    doeId: payload.doeId,
+    buckId: breeding.buckId ?? null,
+    matingDate: breeding.matingDate,
+    kindlingDate: actualKindlingDate,
+  });
   await updateBreeding(db, payload.breedingId, { matingDate: null, actualKindlingDate });
   const litter = await getLitterByBreeding(db, payload.breedingId);
   if (litter) {
@@ -512,6 +538,14 @@ export async function recordKindling(
   );
   await updateBreeding(db, payload.breedingId, { outcome: "successful", actualKindlingDate: payload.kindlingDate });
   await updateRabbit(db, breeding.doeId, { doeState });
+  // Mirrors recordKindlingOp's own kindlingLog.create — this form is an
+  // alternate entry point for the same birth, so سجل الولادة must not miss it.
+  await insertKindlingLog(db, {
+    doeId: breeding.doeId,
+    buckId: breeding.buckId ?? null,
+    matingDate: breeding.matingDate,
+    kindlingDate: payload.kindlingDate,
+  });
   return applied;
 }
 
