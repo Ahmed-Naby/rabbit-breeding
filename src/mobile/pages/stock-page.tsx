@@ -321,15 +321,14 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                 <h3 className="font-semibold text-base">
                   {locale === "ar" ? "إضافة سلالة مشتراة (من خارج المزرعة)" : "Add Purchased Stock (External)"}
                 </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {locale === "ar" ? "لا تخصم من رصيد الفطام" : "Not deducted from the weaning balance"}
+                </p>
               </div>
               <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                 {locale === "ar" ? "مشتراة من الخارج" : "Purchased External"}
               </span>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-              {locale === "ar" ? "لا تخصم من رصيد الفطام" : "Not deducted from the weaning balance"}
-            </p>
 
             <form onSubmit={(e) => void handleAddRabbit(e, "external")} className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
