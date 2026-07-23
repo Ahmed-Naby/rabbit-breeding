@@ -493,6 +493,7 @@ export const en: Dictionary = {
     colMotherTag: "Doe #",
     colBreed: "Breed",
     colDoeState: "Doe state",
+    colDoeStateAtMating: "Doe state at mating",
     colMate: "Mate",
     logHeading: "Mating log",
     logEmptyTitle: "No matings recorded yet",

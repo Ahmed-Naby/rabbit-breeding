@@ -46,7 +46,7 @@ export function MatingLog({
               { key: "breed", label: t.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
               { key: "buckTag", label: t.colBuckTag, type: "tag", className: "text-center" },
               { key: "matingDate", label: t.colMatingDate, type: "date", className: "text-center" },
-              { key: "doeState", label: t.colDoeState, type: "string", className: "text-center" },
+              { key: "doeState", label: t.colDoeStateAtMating, type: "string", className: "text-center" },
             ]}
             rows={matingLog.map((row, i) => ({
               key: row.id,

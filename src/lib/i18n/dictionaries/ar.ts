@@ -485,6 +485,7 @@ export const ar = {
     colMotherTag: "رقم الأم",
     colBreed: "النوع",
     colDoeState: "حالة الأم",
+    colDoeStateAtMating: "حالة الأم عند التلقيح",
     colMate: "تلقيح",
     logHeading: "سجل التلقيح",
     logEmptyTitle: "لا يوجد تلقيح مسجل بعد",

@@ -69,7 +69,7 @@ export function MatingLog({
                   className="px-4 py-3"
                 />
                 <SortableTh
-                  label={locale === "ar" ? "حالة الأم" : "Doe State"}
+                  label={locale === "ar" ? "حالة الأم عند التلقيح" : "Doe state at mating"}
                   sortKey="doeState"
                   activeSortKey={matingLogSort.sortKey}
                   direction={matingLogSort.direction}
