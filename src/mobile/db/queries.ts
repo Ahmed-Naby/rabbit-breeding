@@ -231,7 +231,7 @@ export type MatingLogEntry = {
   matingDate: string;
   doeTagId: string | null;
   doeBreed: string | null;
-  doeState: string;
+  wasNursingAtMating: boolean;
   buckTagId: string | null;
 };
 
@@ -303,16 +303,17 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
     matingDate: string;
     doeId: string;
     buckId: string | null;
+    wasNursingAtMating: number;
   }>(
     db,
-    "SELECT id, matingDate, doeId, buckId FROM breeding WHERE matingDate IS NOT NULL ORDER BY matingDate DESC LIMIT 100"
+    "SELECT id, matingDate, doeId, buckId, wasNursingAtMating FROM mating_log ORDER BY matingDate DESC LIMIT 100"
   );
 
   const matingLog: MatingLogEntry[] = [];
   for (const row of logRows) {
-    const doe = await queryOne<{ tagId: string | null; breed: string | null; doeState: string }>(
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
       db,
-      "SELECT tagId, breed, doeState FROM rabbit WHERE id = ?",
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
       [row.doeId]
     );
     const buck = row.buckId
@@ -323,7 +324,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
       matingDate: row.matingDate,
       doeTagId: doe?.tagId ?? null,
       doeBreed: doe?.breed ?? null,
-      doeState: doe?.doeState ?? "empty",
+      wasNursingAtMating: row.wasNursingAtMating === 1,
       buckTagId: buck?.tagId ?? null,
     });
   }

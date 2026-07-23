@@ -235,3 +235,16 @@ CREATE TABLE IF NOT EXISTS kindling_log (
   createdAt    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kindling_log_doeId ON kindling_log(doeId);
+
+-- Permanent mating-event archive, read-only on mobile (populated purely via
+-- sync pull, like pregnancy_test_log/kindling_log above) — never written by
+-- local-ops.ts, since there is no optimistic local flow for it.
+CREATE TABLE IF NOT EXISTS mating_log (
+  id                 TEXT PRIMARY KEY,
+  doeId              TEXT NOT NULL,
+  buckId             TEXT,
+  matingDate         TEXT NOT NULL,
+  wasNursingAtMating INTEGER NOT NULL DEFAULT 0,
+  createdAt          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mating_log_doeId ON mating_log(doeId);

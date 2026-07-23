@@ -204,6 +204,7 @@ type PullResponse = {
   breeds?: Record<string, unknown>[];
   pregnancyTestLogs?: Record<string, unknown>[];
   kindlingLogs?: Record<string, unknown>[];
+  matingLogs?: Record<string, unknown>[];
   tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
 };
 
@@ -490,6 +491,20 @@ export async function pull(): Promise<boolean> {
         statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
          VALUES (?, ?, ?, ?, ?, ?)`,
         values: [log.id, log.doeId, log.buckId, log.matingDate, log.kindlingDate, log.createdAt],
+      });
+    }
+  }
+
+  if (data.matingLogs) {
+    for (const log of data.matingLogs) {
+      // No optimistic local placeholder to drop here — unlike
+      // pregnancyTestLogs/kindlingLogs above, local-ops.ts never writes this
+      // table (see mating_log's schema.sql comment); it's purely populated
+      // from the server, so a plain upsert by id is enough.
+      set.push({
+        statement: `INSERT OR REPLACE INTO mating_log (id, doeId, buckId, matingDate, wasNursingAtMating, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        values: [log.id, log.doeId, log.buckId, log.matingDate, log.wasNursingAtMating ? 1 : 0, log.createdAt],
       });
     }
   }

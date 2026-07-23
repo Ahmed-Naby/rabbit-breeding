@@ -22,6 +22,7 @@ export async function runPull(since: Date) {
     healthRecords,
     transactions,
     breeds,
+    matingLogs,
     pregnancyTestLogs,
     kindlingLogs,
     tombstones,
@@ -36,6 +37,7 @@ export async function runPull(since: Date) {
     prisma.healthRecord.findMany({ where: { createdAt: { gt: since } } }),
     prisma.transaction.findMany({ where: { createdAt: { gt: since } } }),
     prisma.breed.findMany({}),
+    prisma.matingLog.findMany({ orderBy: { matingDate: "desc" }, take: 100 }),
     prisma.pregnancyTestLog.findMany({ orderBy: { testDate: "desc" }, take: 100 }),
     prisma.kindlingLog.findMany({ orderBy: { kindlingDate: "desc" }, take: 100 }),
     // Hard deletes never show up in the `updatedAt > since` diffs above (a
@@ -57,6 +59,7 @@ export async function runPull(since: Date) {
     healthRecords,
     transactions,
     breeds,
+    matingLogs,
     pregnancyTestLogs,
     kindlingLogs,
     tombstones,

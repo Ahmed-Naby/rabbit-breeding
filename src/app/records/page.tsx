@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { addDays } from "date-fns";
 import {
   HeartHandshake,
   Microscope,
@@ -11,8 +12,12 @@ import {
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { cn } from "@/lib/utils";
+import { fromDateInputValue } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { MatingLog } from "../mating/mating-log";
@@ -29,22 +34,34 @@ export async function generateMetadata() {
   return { title: `${t.records.title} · RabbitTrack` };
 }
 
-async function MatingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
-  const matingLog = await prisma.breeding.findMany({
-    where: { matingDate: { not: null } },
+type DateRange = { from: Date | null; toExclusive: Date | null };
+
+/** {gte, lt} for a DateTime field, or undefined when no bound is set (matches everything). */
+function dateRangeWhere({ from, toExclusive }: DateRange) {
+  if (!from && !toExclusive) return undefined;
+  return { ...(from ? { gte: from } : {}), ...(toExclusive ? { lt: toExclusive } : {}) };
+}
+
+async function MatingLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const matingDateWhere = dateRangeWhere(range);
+  const matingLog = await prisma.matingLog.findMany({
+    where: matingDateWhere ? { matingDate: matingDateWhere } : undefined,
     orderBy: { matingDate: "desc" },
     select: {
       id: true,
       matingDate: true,
-      doe: { select: { id: true, tagId: true, breed: true, doeState: true } },
+      wasNursingAtMating: true,
+      doe: { select: { id: true, tagId: true, breed: true } },
       buck: { select: { tagId: true } },
     },
   });
   return <MatingLog matingLog={matingLog} locale={locale} t={t.mating} />;
 }
 
-async function PregnancyTestLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function PregnancyTestLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const testDateWhere = dateRangeWhere(range);
   const testLog = await prisma.pregnancyTestLog.findMany({
+    where: testDateWhere ? { testDate: testDateWhere } : undefined,
     orderBy: { testDate: "desc" },
     select: {
       id: true,
@@ -58,8 +75,10 @@ async function PregnancyTestLogTab({ locale, t }: { locale: Locale; t: Dictionar
   return <PregnancyTestLog testLog={testLog} locale={locale} t={t.pregnancyTest} />;
 }
 
-async function ResorptionLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function ResorptionLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const resorptionDateWhere = dateRangeWhere(range);
   const resorptionLog = await prisma.resorptionLog.findMany({
+    where: resorptionDateWhere ? { resorptionDate: resorptionDateWhere } : undefined,
     orderBy: { resorptionDate: "desc" },
     select: {
       id: true,
@@ -72,9 +91,11 @@ async function ResorptionLogTab({ locale, t }: { locale: Locale; t: Dictionary }
   return <ResorptionLog resorptionLog={resorptionLog} locale={locale} t={t.resorptionLog} />;
 }
 
-async function KindlingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function KindlingLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const kindlingDateWhere = dateRangeWhere(range);
   const [kindlingLog, litters, breedings] = await Promise.all([
     prisma.kindlingLog.findMany({
+      where: kindlingDateWhere ? { kindlingDate: kindlingDateWhere } : undefined,
       orderBy: { kindlingDate: "desc" },
       select: {
         id: true,
@@ -102,9 +123,9 @@ async function KindlingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) 
   );
 }
 
-async function WeaningLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function WeaningLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
   const weanedLitters = await prisma.litter.findMany({
-    where: { weaningDate: { not: null } },
+    where: { weaningDate: { not: null, ...dateRangeWhere(range) } },
     orderBy: { weaningDate: "desc" },
     select: {
       breedingId: true,
@@ -125,8 +146,10 @@ async function WeaningLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
   return <WeaningLog weanedLitters={weanedLitters} locale={locale} t={t.weaning} />;
 }
 
-async function FosteringLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function FosteringLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const dateWhere = dateRangeWhere(range);
   const logs = await prisma.fosterLog.findMany({
+    where: dateWhere ? { date: dateWhere } : undefined,
     include: {
       fromDoe: { select: { id: true, tagId: true } },
       toDoe: { select: { id: true, tagId: true } },
@@ -136,7 +159,8 @@ async function FosteringLogTab({ locale, t }: { locale: Locale; t: Dictionary })
   return <FosteringLog logs={logs} locale={locale} t={t} />;
 }
 
-async function MortalityLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function MortalityLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const updatedAtWhere = dateRangeWhere(range);
   const [deceasedMothers, deceasedBucks, deceasedStock] = await Promise.all([
     // See mortality/page.tsx for why retiredTagId must be checked alongside
     // tagId — a deceased rabbit's tagId is cleared so the number can be reused.
@@ -145,6 +169,7 @@ async function MortalityLogTab({ locale, t }: { locale: Locale; t: Dictionary })
         sex: "doe",
         status: "deceased",
         OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+        ...(updatedAtWhere ? { updatedAt: updatedAtWhere } : {}),
       },
       select: { id: true, tagId: true, retiredTagId: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
@@ -154,12 +179,18 @@ async function MortalityLogTab({ locale, t }: { locale: Locale; t: Dictionary })
         sex: "buck",
         status: "deceased",
         OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+        ...(updatedAtWhere ? { updatedAt: updatedAtWhere } : {}),
       },
       select: { id: true, tagId: true, retiredTagId: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
     prisma.rabbit.findMany({
-      where: { tagId: null, retiredTagId: null, status: "deceased" },
+      where: {
+        tagId: null,
+        retiredTagId: null,
+        status: "deceased",
+        ...(updatedAtWhere ? { updatedAt: updatedAtWhere } : {}),
+      },
       select: { id: true, sex: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
@@ -175,11 +206,13 @@ async function MortalityLogTab({ locale, t }: { locale: Locale; t: Dictionary })
   );
 }
 
-async function CullingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+async function CullingLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
+  const updatedAtWhere = dateRangeWhere(range);
   const culledRabbits = await prisma.rabbit.findMany({
     where: {
       status: "culled",
       OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      ...(updatedAtWhere ? { updatedAt: updatedAtWhere } : {}),
     },
     select: { id: true, tagId: true, retiredTagId: true, breed: true, sex: true, updatedAt: true },
     orderBy: { updatedAt: "desc" },
@@ -190,20 +223,51 @@ async function CullingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
   const activeTab = sp.tab || "mating";
   const { locale, t } = await getDictionary();
   const rt = t.records;
 
+  const from = sp.from ? fromDateInputValue(sp.from) : null;
+  const toSelected = sp.to ? fromDateInputValue(sp.to) : null;
+  const toExclusive = toSelected ? addDays(toSelected, 1) : null;
+  const range: DateRange = { from, toExclusive };
+  const clearHref = `/records?tab=${activeTab}`;
+  const dateQS = `${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
+
   return (
     <div className="space-y-6">
       <PageHeader title={rt.title} description={rt.description} />
 
+      <Card>
+        <CardContent className="py-4">
+          <form method="get" className="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="tab" value={activeTab} />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
+              <Input type="date" name="from" defaultValue={sp.from ?? ""} className="w-40" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
+              <Input type="date" name="to" defaultValue={sp.to ?? ""} className="w-40" />
+            </label>
+            <Button type="submit" size="sm">
+              {rt.applyButton}
+            </Button>
+            {(sp.from || sp.to) && (
+              <Button asChild type="button" variant="outline" size="sm">
+                <Link href={clearHref}>{rt.clearButton}</Link>
+              </Button>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <Link
-          href="/records?tab=mating"
+          href={`/records?tab=mating${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "mating"
@@ -216,7 +280,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=pregnancy-test"
+          href={`/records?tab=pregnancy-test${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "pregnancy-test"
@@ -229,7 +293,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=resorption"
+          href={`/records?tab=resorption${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "resorption"
@@ -242,7 +306,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=kindling"
+          href={`/records?tab=kindling${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "kindling"
@@ -255,7 +319,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=weaning"
+          href={`/records?tab=weaning${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "weaning"
@@ -268,7 +332,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=fostering"
+          href={`/records?tab=fostering${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "fostering"
@@ -281,7 +345,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=mortality"
+          href={`/records?tab=mortality${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "mortality"
@@ -294,7 +358,7 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href="/records?tab=culling"
+          href={`/records?tab=culling${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
             activeTab === "culling"
@@ -308,14 +372,14 @@ export default async function RecordsPage({
       </div>
 
       <div className="animate-fade-in">
-        {activeTab === "mating" && <MatingLogTab locale={locale} t={t} />}
-        {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} t={t} />}
-        {activeTab === "resorption" && <ResorptionLogTab locale={locale} t={t} />}
-        {activeTab === "kindling" && <KindlingLogTab locale={locale} t={t} />}
-        {activeTab === "weaning" && <WeaningLogTab locale={locale} t={t} />}
-        {activeTab === "fostering" && <FosteringLogTab locale={locale} t={t} />}
-        {activeTab === "mortality" && <MortalityLogTab locale={locale} t={t} />}
-        {activeTab === "culling" && <CullingLogTab locale={locale} t={t} />}
+        {activeTab === "mating" && <MatingLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "kindling" && <KindlingLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "weaning" && <WeaningLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "fostering" && <FosteringLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "mortality" && <MortalityLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "culling" && <CullingLogTab locale={locale} t={t} range={range} />}
       </div>
     </div>
   );

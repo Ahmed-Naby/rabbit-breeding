@@ -10,12 +10,13 @@ import { DoeStateBadge } from "../does/doe-state-menu";
 
 export type MatingLogRow = {
   id: string;
-  matingDate: Date | null;
-  doe: { id: string; tagId: string | null; breed: string | null; doeState: string };
+  matingDate: Date;
+  wasNursingAtMating: boolean;
+  doe: { id: string; tagId: string | null; breed: string | null };
   buck: { tagId: string | null } | null;
 };
 
-/** "سجل التلقيح": every breeding attempt that has a mating date, most recent first. */
+/** "سجل التلقيح": a permanent archive of every mating recorded on the farm, most recent first. */
 export function MatingLog({
   matingLog,
   locale,
@@ -54,7 +55,7 @@ export function MatingLog({
                 breed: row.doe.breed,
                 buckTag: row.buck?.tagId,
                 matingDate: row.matingDate,
-                doeState: row.doe.doeState,
+                doeState: row.wasNursingAtMating ? "nursing" : "empty",
               },
               node: (
                 <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
@@ -70,7 +71,10 @@ export function MatingLog({
                     <LocalDate date={row.matingDate} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <DoeStateBadge current={row.doe.doeState} locale={locale} />
+                    <DoeStateBadge
+                      current={row.wasNursingAtMating ? "nursing" : "empty"}
+                      locale={locale}
+                    />
                   </TableCell>
                 </TableRow>
               ),

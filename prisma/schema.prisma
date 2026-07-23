@@ -140,6 +140,11 @@ model Rabbit {
   fosterLogsFrom FosterLog[] @relation("FosterLogFrom")
   fosterLogsTo   FosterLog[] @relation("FosterLogTo")
 
+  // Mating archive — every mating this doe/buck was ever part of, permanent
+  // regardless of what later happens to the Breeding row it came from.
+  matingLogsAsBuck MatingLog[] @relation("MatingLogBuck")
+  matingLogsAsDoe  MatingLog[] @relation("MatingLogDoe")
+
   // Logs
   weightRecords WeightRecord[]
   healthRecords HealthRecord[]
@@ -206,6 +211,39 @@ model Breeding {
   @@index([expectedKindlingDate])
   @@index([doeId])
   @@index([buckId])
+  @@index([farmId])
+}
+
+/// A permanent mating-event archive. Written once, at the moment a mating is
+/// recorded (guided does-board mate action or manual /breedings add form),
+/// and never updated or deleted afterward — unlike Breeding (whose row is
+/// reused/overwritten on the doe's next cycle, and whose matingDate is
+/// cleared to null on kindling/resorption/failed-mating/manual reset), this
+/// is the one place every mating that ever happened on the farm stays
+/// visible forever, regardless of what later happens to that cycle.
+/// wasNursingAtMating snapshots the doe's base state (فاضية/مرضعة) at that
+/// instant, since doeState itself keeps moving (bred → pregnant → ...)
+/// afterward. Editing an existing mating via the manual form's edit action
+/// (updateBreedingOp) deliberately does NOT touch this table — only a
+/// genuinely new mating creates a row.
+model MatingLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId             String   @default("")
+  farm               Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id                 String   @id @default(cuid())
+  doeId              String
+  doe                Rabbit   @relation("MatingLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId             String?
+  buck               Rabbit?  @relation("MatingLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  matingDate         DateTime
+  wasNursingAtMating Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([doeId])
+  @@index([matingDate])
   @@index([farmId])
 }
 
@@ -524,6 +562,7 @@ model Farm {
   transactions      Transaction[]
   kitStockMovements KitStockMovement[]
   breeds            Breed[]
+  matingLogs        MatingLog[]
   pregnancyTestLogs PregnancyTestLog[]
   resorptionLogs    ResorptionLog[]
   kindlingLogs      KindlingLog[]

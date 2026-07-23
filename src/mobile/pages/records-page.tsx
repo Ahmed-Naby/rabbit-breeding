@@ -3,6 +3,11 @@ import { HeartHandshake, Microscope, Droplets, HeartPulse, Milk, ArrowLeftRight,
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
+import { isWithinDateRange } from "@/lib/dates";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { getDb } from "../db/client";
 import {
   fetchMatingPageData,
@@ -43,7 +48,9 @@ function LoadingLine({ locale }: { locale: Locale }) {
   return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
 }
 
-function MatingLogTab({ locale }: { locale: Locale }) {
+type DateRange = { from: string; to: string };
+
+function MatingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [matingLog, setMatingLog] = useState<MatingLogEntry[] | null>(null);
 
   useEffect(() => {
@@ -55,10 +62,11 @@ function MatingLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (matingLog === null) return <LoadingLine locale={locale} />;
-  return <MatingLog matingLog={matingLog} locale={locale} />;
+  const filtered = matingLog.filter((row) => isWithinDateRange(row.matingDate, range.from, range.to));
+  return <MatingLog matingLog={filtered} locale={locale} />;
 }
 
-function PregnancyTestLogTab({ locale }: { locale: Locale }) {
+function PregnancyTestLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [testLog, setTestLog] = useState<PregnancyTestLogEntry[] | null>(null);
 
   useEffect(() => {
@@ -70,10 +78,11 @@ function PregnancyTestLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (testLog === null) return <LoadingLine locale={locale} />;
-  return <PregnancyTestLog testLog={testLog} locale={locale} />;
+  const filtered = testLog.filter((row) => isWithinDateRange(row.testDate, range.from, range.to));
+  return <PregnancyTestLog testLog={filtered} locale={locale} />;
 }
 
-function ResorptionLogTab({ locale }: { locale: Locale }) {
+function ResorptionLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [resorptionLog, setResorptionLog] = useState<ResorptionLogEntry[] | null>(null);
 
   useEffect(() => {
@@ -85,10 +94,11 @@ function ResorptionLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (resorptionLog === null) return <LoadingLine locale={locale} />;
-  return <ResorptionLog resorptionLog={resorptionLog} locale={locale} />;
+  const filtered = resorptionLog.filter((row) => isWithinDateRange(row.resorptionDate, range.from, range.to));
+  return <ResorptionLog resorptionLog={filtered} locale={locale} />;
 }
 
-function KindlingLogTab({ locale }: { locale: Locale }) {
+function KindlingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [kindlingLog, setKindlingLog] = useState<KindlingLogEntry[] | null>(null);
 
   const load = useCallback(async () => {
@@ -102,10 +112,11 @@ function KindlingLogTab({ locale }: { locale: Locale }) {
   }, [load]);
 
   if (kindlingLog === null) return <LoadingLine locale={locale} />;
-  return <KindlingLog kindlingLog={kindlingLog} locale={locale} onDone={() => void load()} />;
+  const filtered = kindlingLog.filter((row) => isWithinDateRange(row.kindlingDate, range.from, range.to));
+  return <KindlingLog kindlingLog={filtered} locale={locale} onDone={() => void load()} />;
 }
 
-function WeaningLogTab({ locale }: { locale: Locale }) {
+function WeaningLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [weanedLog, setWeanedLog] = useState<WeanedLitterLogEntry[] | null>(null);
 
   const load = useCallback(async () => {
@@ -119,10 +130,11 @@ function WeaningLogTab({ locale }: { locale: Locale }) {
   }, [load]);
 
   if (weanedLog === null) return <LoadingLine locale={locale} />;
-  return <WeaningLog weanedLog={weanedLog} locale={locale} onDone={() => void load()} />;
+  const filtered = weanedLog.filter((row) => isWithinDateRange(row.weaningDate, range.from, range.to));
+  return <WeaningLog weanedLog={filtered} locale={locale} onDone={() => void load()} />;
 }
 
-function FosteringLogTab({ locale }: { locale: Locale }) {
+function FosteringLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const t = getClientDictionary(locale);
   const [logs, setLogs] = useState<LocalFosterLogEntry[] | null>(null);
 
@@ -135,10 +147,11 @@ function FosteringLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (logs === null) return <LoadingLine locale={locale} />;
-  return <FosteringLog logs={logs} t={t} />;
+  const filtered = logs.filter((row) => isWithinDateRange(row.date, range.from, range.to));
+  return <FosteringLog logs={filtered} t={t} />;
 }
 
-function MortalityLogTab({ locale }: { locale: Locale }) {
+function MortalityLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [deceasedRabbits, setDeceasedRabbits] = useState<LocalDeceasedRabbit[] | null>(null);
 
   useEffect(() => {
@@ -150,10 +163,11 @@ function MortalityLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (deceasedRabbits === null) return <LoadingLine locale={locale} />;
-  return <MortalityLog deceasedRabbits={deceasedRabbits} locale={locale} />;
+  const filtered = deceasedRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));
+  return <MortalityLog deceasedRabbits={filtered} locale={locale} />;
 }
 
-function CullingLogTab({ locale }: { locale: Locale }) {
+function CullingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [culledRabbits, setCulledRabbits] = useState<LocalDeceasedRabbit[] | null>(null);
 
   useEffect(() => {
@@ -165,7 +179,8 @@ function CullingLogTab({ locale }: { locale: Locale }) {
   }, []);
 
   if (culledRabbits === null) return <LoadingLine locale={locale} />;
-  return <CullingLog culledRabbits={culledRabbits} locale={locale} />;
+  const filtered = culledRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));
+  return <CullingLog culledRabbits={filtered} locale={locale} />;
 }
 
 export function RecordsPage({ locale }: { locale: Locale }) {
@@ -186,12 +201,50 @@ export function RecordsPage({ locale }: { locale: Locale }) {
     return "mating";
   });
 
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const range: DateRange = { from, to };
+
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
         <p className="text-sm text-muted-foreground">{rt.description}</p>
       </div>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="records-from">{rt.fromLabel}</Label>
+              <Input
+                id="records-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="records-to">{rt.toLabel}</Label>
+              <Input id="records-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+            </div>
+            {(from || to) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFrom("");
+                  setTo("");
+                }}
+              >
+                {rt.clearButton}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <button
@@ -308,14 +361,14 @@ export function RecordsPage({ locale }: { locale: Locale }) {
       </div>
 
       <div className="animate-fade-in">
-        {activeTab === "mating" && <MatingLogTab locale={locale} />}
-        {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} />}
-        {activeTab === "resorption" && <ResorptionLogTab locale={locale} />}
-        {activeTab === "kindling" && <KindlingLogTab locale={locale} />}
-        {activeTab === "weaning" && <WeaningLogTab locale={locale} />}
-        {activeTab === "fostering" && <FosteringLogTab locale={locale} />}
-        {activeTab === "mortality" && <MortalityLogTab locale={locale} />}
-        {activeTab === "culling" && <CullingLogTab locale={locale} />}
+        {activeTab === "mating" && <MatingLogTab locale={locale} range={range} />}
+        {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} range={range} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} range={range} />}
+        {activeTab === "kindling" && <KindlingLogTab locale={locale} range={range} />}
+        {activeTab === "weaning" && <WeaningLogTab locale={locale} range={range} />}
+        {activeTab === "fostering" && <FosteringLogTab locale={locale} range={range} />}
+        {activeTab === "mortality" && <MortalityLogTab locale={locale} range={range} />}
+        {activeTab === "culling" && <CullingLogTab locale={locale} range={range} />}
       </div>
     </div>
   );

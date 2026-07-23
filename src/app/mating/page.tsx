@@ -29,11 +29,10 @@ export default async function MatingPage({
   // startBreeding/markMated actions the does board uses, which already
   // revalidate both "/does" and "/mating" — so the instant a doe is mated
   // here, she's reflected as "ملقحة" on عمليات المزرعة and drops off this list.
-  // "سجل التلقيح": every breeding attempt that actually has a mating date,
-  // most recent first — a running log of who was mated and when, separate
-  // from the "ready now" board above. Reads straight off Breeding (not
-  // per-doe latest-only like the board above) so a doe rebred more than
-  // once still shows each mating as its own log line.
+  // "سجل التلقيح": a permanent archive of every mating ever recorded on the
+  // farm, most recent first — separate from the "ready now" board above.
+  // Reads from MatingLog (not Breeding) so a row never disappears just
+  // because the doe's cycle later kindles, resorbs, fails, or gets reset.
   const [doesRaw, matingLogRaw, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
@@ -59,13 +58,13 @@ export default async function MatingPage({
       },
       orderBy: { tagId: "asc" },
     }),
-    prisma.breeding.findMany({
-      where: { matingDate: { not: null } },
+    prisma.matingLog.findMany({
       orderBy: { matingDate: "desc" },
       select: {
         id: true,
         matingDate: true,
-        doe: { select: { id: true, tagId: true, breed: true, doeState: true } },
+        wasNursingAtMating: true,
+        doe: { select: { id: true, tagId: true, breed: true } },
         buck: { select: { tagId: true } },
       },
     }),

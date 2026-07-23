@@ -757,6 +757,10 @@ export const en: Dictionary = {
     tabFostering: "Fostering Log",
     tabMortality: "Mortality Log",
     tabCulling: "Culling Log",
+    fromLabel: "From",
+    toLabel: "To",
+    applyButton: "Filter",
+    clearButton: "Clear filter",
   },
   dailyOperations: {
     title: "Daily Operations",

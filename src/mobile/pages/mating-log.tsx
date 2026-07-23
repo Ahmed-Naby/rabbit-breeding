@@ -19,7 +19,7 @@ export function MatingLog({
     breed: { type: "string", value: (r) => r.doeBreed },
     buckTag: { type: "tag", value: (r) => r.buckTagId },
     matingDate: { type: "date", value: (r) => r.matingDate },
-    doeState: { type: "string", value: (r) => r.doeState },
+    doeState: { type: "string", value: (r) => (r.wasNursingAtMating ? "nursing" : "empty") },
   });
 
   return (
@@ -89,7 +89,7 @@ export function MatingLog({
                     <LocalDate date={log.matingDate} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <DoeStateBadge current={log.doeState} locale={locale} />
+                    <DoeStateBadge current={log.wasNursingAtMating ? "nursing" : "empty"} locale={locale} />
                   </td>
                 </tr>
               ))}

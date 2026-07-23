@@ -35,26 +35,53 @@ export type CreateBreedingInput = {
   notes: string | null;
 };
 
+/**
+ * Manual /breedings form has no guided state machine to read the doe's
+ * pre-mating state off of, so it snapshots her doeState as of THIS save
+ * instead — a best-effort stand-in, since the row isn't necessarily created
+ * the same day as the mating it describes.
+ */
+async function wasNursing(doeId: string): Promise<boolean> {
+  const doe = await prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } });
+  return doe?.doeState?.startsWith("nursing") ?? false;
+}
+
 export async function createBreedingOp(
   data: CreateBreedingInput,
   opts?: { id?: string }
 ): Promise<Breeding> {
-  const settings = await getSettings();
+  const [settings, wasNursingAtMating] = await Promise.all([getSettings(), wasNursing(data.doeId)]);
 
-  return prisma.breeding.create({
-    data: {
-      id: opts?.id,
-      buckId: data.buckId,
-      doeId: data.doeId,
-      matingDate: data.matingDate,
-      expectedKindlingDate: expectedKindling(data.matingDate, settings.gestationDays),
-      actualKindlingDate: data.actualKindlingDate,
-      outcome: data.outcome,
-      notes: data.notes,
-    },
-  });
+  const [breeding] = await prisma.$transaction([
+    prisma.breeding.create({
+      data: {
+        id: opts?.id,
+        buckId: data.buckId,
+        doeId: data.doeId,
+        matingDate: data.matingDate,
+        expectedKindlingDate: expectedKindling(data.matingDate, settings.gestationDays),
+        actualKindlingDate: data.actualKindlingDate,
+        outcome: data.outcome,
+        notes: data.notes,
+      },
+    }),
+    // Permanent archive row — this is a genuinely new mating, unlike
+    // updateBreedingOp below which only corrects an existing one.
+    prisma.matingLog.create({
+      data: { doeId: data.doeId, buckId: data.buckId, matingDate: data.matingDate, wasNursingAtMating },
+    }),
+  ]);
+
+  return breeding;
 }
 
+/**
+ * Edits an EXISTING mating record (date/buck/outcome/notes correction) — not
+ * a new mating — so, per the archive's append-only contract, this
+ * deliberately never touches MatingLog. Whatever was archived when the
+ * mating was first recorded (createBreedingOp/startBreedingOp/markMatedOp)
+ * stays exactly as-is.
+ */
 export async function updateBreedingOp(
   id: string,
   data: CreateBreedingInput
@@ -123,12 +150,17 @@ export async function startBreedingOp(
   const { buckId, buckFound } = await resolveBuckId(buckTagId);
 
   await prisma.$transaction([
+    // First-ever mating for this doe — always starts from "فاضية".
     prisma.breeding.create({
       data: { id: opts?.id, doeId, buckId, matingDate, expectedKindlingDate },
     }),
     prisma.rabbit.update({
       where: { id: doeId },
       data: { doeState: "bred" },
+    }),
+    // Permanent archive row — a new mating.
+    prisma.matingLog.create({
+      data: { doeId, buckId, matingDate, wasNursingAtMating: false },
     }),
   ]);
 
@@ -202,6 +234,10 @@ export async function markMatedOp(
         where: { id: doeId },
         data: { doeState: "nursing_bred" },
       }),
+      // Permanent archive row — a new mating (she was nursing at the time).
+      prisma.matingLog.create({
+        data: { doeId, buckId, matingDate, wasNursingAtMating: true },
+      }),
     ]);
   } else {
     await prisma.$transaction([
@@ -223,6 +259,10 @@ export async function markMatedOp(
       prisma.rabbit.update({
         where: { id: doeId },
         data: { doeState: "bred" },
+      }),
+      // Permanent archive row — a new mating (she was empty at the time).
+      prisma.matingLog.create({
+        data: { doeId, buckId, matingDate, wasNursingAtMating: false },
       }),
     ]);
   }
@@ -763,18 +803,41 @@ export async function clearDoeRowOp(breedingId: string, doeId: string): Promise<
 }
 
 /**
- * Manual correction of the mating date from the does board (e.g. it was
- * logged a day late). Recomputes expectedKindlingDate from the farm's
- * gestation setting; expectedKindlingDate can't be null, so it's left
- * untouched when the date is cleared.
+ * Sets/edits the mating date inline from the does board's "تاريخ التلقيح"
+ * column. Recomputes expectedKindlingDate from the farm's gestation setting;
+ * expectedKindlingDate can't be null, so it's left untouched when the date is
+ * cleared.
+ *
+ * Stamping a date onto a row that had none is one of the primary ways a
+ * mating gets recorded here (alongside the "تلقيح" button / markMated), so
+ * that null -> date transition writes a permanent MatingLog row too. Merely
+ * correcting an already-set date, or clearing it, is NOT a new mating and
+ * leaves the archive untouched — same append-only contract as updateBreedingOp.
  */
 export async function setMatingDateOp(breedingId: string, matingDate: Date | null): Promise<Breeding> {
+  const existing = await prisma.breeding.findUniqueOrThrow({
+    where: { id: breedingId },
+    select: { matingDate: true, doeId: true, buckId: true },
+  });
+
   const data: { matingDate: Date | null; expectedKindlingDate?: Date } = {
     matingDate,
   };
   if (matingDate) {
     const settings = await getSettings();
     data.expectedKindlingDate = expectedKindling(matingDate, settings.gestationDays);
+  }
+
+  const isNewMating = matingDate != null && existing.matingDate == null;
+  if (isNewMating) {
+    const wasNursingAtMating = await wasNursing(existing.doeId);
+    const [breeding] = await prisma.$transaction([
+      prisma.breeding.update({ where: { id: breedingId }, data }),
+      prisma.matingLog.create({
+        data: { doeId: existing.doeId, buckId: existing.buckId, matingDate, wasNursingAtMating },
+      }),
+    ]);
+    return breeding;
   }
 
   return prisma.breeding.update({ where: { id: breedingId }, data });

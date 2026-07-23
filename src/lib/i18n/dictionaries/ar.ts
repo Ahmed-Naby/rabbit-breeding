@@ -747,6 +747,10 @@ export const ar = {
     tabFostering: "سجل التبني",
     tabMortality: "سجل النافق",
     tabCulling: "سجل الاستبعاد",
+    fromLabel: "من",
+    toLabel: "إلى",
+    applyButton: "تصفية",
+    clearButton: "إلغاء التصفية",
   },
   dailyOperations: {
     title: "العمليات اليومية",

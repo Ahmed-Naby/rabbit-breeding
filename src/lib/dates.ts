@@ -67,6 +67,22 @@ export function isToday(date: Date | string | null | undefined): boolean {
 }
 
 /**
+ * Whether a date/ISO string's local calendar day falls within [from, to]
+ * (each bound a "yyyy-MM-dd" input value; an empty bound is unconstrained).
+ */
+export function isWithinDateRange(
+  date: Date | string | null | undefined,
+  from: string,
+  to: string
+): boolean {
+  if (!date) return false;
+  const value = toDateInputValue(typeof date === "string" ? new Date(date) : date);
+  if (from && value < from) return false;
+  if (to && value > to) return false;
+  return true;
+}
+
+/**
  * Parse a yyyy-MM-dd string from a date input into a Date at UTC midnight,
  * so a "birthday" doesn't drift across timezones on round-trip.
  */
