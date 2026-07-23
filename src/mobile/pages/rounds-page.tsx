@@ -23,7 +23,14 @@ import { getDb } from "../db/client";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
 import type { LocalSettings } from "../db/types";
 import { enqueue } from "../sync/outbox";
-import { DoeStateBadge, DoeAvailabilityToggle, KindleButton, LitterCountInput } from "../components/doe-state-menu";
+import {
+  DoeStateBadge,
+  DoeAvailabilityToggle,
+  KindleButton,
+  LitterCountInput,
+  ConfirmPalpationButton,
+  ResorptionButton,
+} from "../components/doe-state-menu";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,7 +165,7 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
       ) : (
       <div className="space-y-3">
         {visibleDoes.map((doe) => {
-          const { current: b, litterRow, countsRow, kindleActive } = computeDoeBoardRow(
+          const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation } = computeDoeBoardRow(
             doe.doeState as DoeState,
             doe.status,
             doe.breedings,
@@ -215,7 +222,7 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 statuses={["active", "resting"]}
               />
 
-              <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-4">
                 {/* Kindling */}
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-medium text-muted-foreground">{rt.kindlingLabel}</span>
@@ -247,13 +254,43 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                       />
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
+                    <span className="block text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
+                  )}
+                </div>
+
+                {/* Palpation confirm (resorption check) */}
+                <div className="space-y-1.5">
+                  <span className="block text-[11px] font-medium text-muted-foreground">{rt.palpationLabel}</span>
+                  {canConfirmPalpation || b?.palpationConfirmedDate ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <ConfirmPalpationButton
+                        id={doe.id}
+                        breedingId={b?.id ?? ""}
+                        text={t.does.confirmPregnantButton}
+                        disabled={!canConfirmPalpation}
+                        checked={!!b?.palpationConfirmedDate}
+                        locale={locale}
+                        onDone={refresh}
+                      />
+                      {b && canConfirmPalpation ? (
+                        <ResorptionButton
+                          id={doe.id}
+                          breedingId={b.id}
+                          text={t.does.resorptionButton}
+                          disabled={!canConfirmPalpation}
+                          locale={locale}
+                          onDone={refresh}
+                        />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="block text-xs text-muted-foreground">{rt.palpationNotDueNote}</span>
                   )}
                 </div>
 
                 {/* Nursing kit death */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">{rt.nursingDeathLabel}</span>
+                  <span className="block text-[11px] font-medium text-muted-foreground">{rt.nursingDeathLabel}</span>
                   {nursingEligible ? (
                     <div className="flex items-center gap-1.5">
                       <Input
@@ -277,13 +314,13 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                       </Button>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{rt.noNursingLitterNote}</span>
+                    <span className="block text-xs text-muted-foreground">{rt.noNursingLitterNote}</span>
                   )}
                 </div>
 
                 {/* Doe death + health */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium text-muted-foreground">{rt.healthLabel}</span>
+                  <span className="block text-[11px] font-medium text-muted-foreground">{rt.healthLabel}</span>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Button
                       variant="outline"

@@ -11,6 +11,8 @@ import { computeDoeBoardRow } from "@/lib/does-board";
 import {
   DoeStateBadge,
   DoeActionButton,
+  ConfirmPalpationButton,
+  ResorptionButton,
   MateCell,
   MatingFailedButton,
   MatingDateInput,
@@ -56,6 +58,7 @@ export default async function DoesPage() {
             id: true,
             matingDate: true,
             actualKindlingDate: true,
+            palpationConfirmedDate: true,
             buck: { select: { tagId: true } },
             litter: {
               select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true },
@@ -94,6 +97,7 @@ export default async function DoesPage() {
               { key: "matingDate", label: t.does.colMatingDate, type: "date", className: "text-center" },
               { key: "testDate", label: t.does.colTestDate, type: "date", className: "text-center" },
               { key: "testResult", label: t.does.colTestResult, className: "text-center", sortable: false },
+              { key: "palpation", label: t.does.colPalpation, className: "text-center", sortable: false },
               { key: "kindlingDate", label: t.does.colKindlingDate, type: "date", className: "text-center" },
               { key: "kindle", label: t.does.colKindle, className: "text-center", sortable: false },
               { key: "bornAlive", label: t.does.colBornAlive, type: "number", className: "text-center" },
@@ -117,6 +121,7 @@ export default async function DoesPage() {
                   isWeaned,
                   canMate,
                   canTestPregnancy,
+                  canConfirmPalpation,
                   kindleActive,
                   weanActive,
                   testDate,
@@ -128,6 +133,7 @@ export default async function DoesPage() {
                     id: x.id,
                     matingDate: x.matingDate,
                     actualKindlingDate: x.actualKindlingDate,
+                    palpationConfirmedDate: x.palpationConfirmedDate,
                     buckTagId: x.buck?.tagId ?? null,
                     litter: x.litter,
                   })),
@@ -205,6 +211,27 @@ export default async function DoesPage() {
                             text={t.does.negativeButton}
                             disabled={!canTestPregnancy}
                             className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                            locale={locale}
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap justify-center gap-1.5">
+                        <ConfirmPalpationButton
+                          id={doe.id}
+                          breedingId={b?.id ?? ""}
+                          text={t.does.confirmPregnantButton}
+                          disabled={!canConfirmPalpation}
+                          checked={!!b?.palpationConfirmedDate}
+                          locale={locale}
+                        />
+                        {b ? (
+                          <ResorptionButton
+                            id={doe.id}
+                            breedingId={b.id}
+                            text={t.does.resorptionButton}
+                            disabled={!canConfirmPalpation}
                             locale={locale}
                           />
                         ) : null}

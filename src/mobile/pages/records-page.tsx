@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { HeartHandshake, Microscope, HeartPulse, Milk, ArrowLeftRight, Skull, Trash2 } from "lucide-react";
+import { HeartHandshake, Microscope, Droplets, HeartPulse, Milk, ArrowLeftRight, Skull, Trash2 } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
@@ -7,12 +7,14 @@ import { getDb } from "../db/client";
 import {
   fetchMatingPageData,
   fetchPregnancyPageData,
+  fetchResorptionPageData,
   fetchKindlingPageData,
   fetchWeaningPageData,
   fetchFosteringPageData,
   fetchMortalityPageData,
   type MatingLogEntry,
   type PregnancyTestLogEntry,
+  type ResorptionLogEntry,
   type KindlingLogEntry,
   type WeanedLitterLogEntry,
   type LocalFosterLogEntry,
@@ -20,13 +22,22 @@ import {
 } from "../db/queries";
 import { MatingLog } from "./mating-log";
 import { PregnancyTestLog } from "./pregnancy-test-log";
+import { ResorptionLog } from "./resorption-log";
 import { KindlingLog } from "./kindling-log";
 import { WeaningLog } from "./weaning-log";
 import { FosteringLog } from "./fostering-log";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
 
-type RecordsTab = "mating" | "pregnancy-test" | "kindling" | "weaning" | "fostering" | "mortality" | "culling";
+type RecordsTab =
+  | "mating"
+  | "pregnancy-test"
+  | "resorption"
+  | "kindling"
+  | "weaning"
+  | "fostering"
+  | "mortality"
+  | "culling";
 
 function LoadingLine({ locale }: { locale: Locale }) {
   return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -60,6 +71,21 @@ function PregnancyTestLogTab({ locale }: { locale: Locale }) {
 
   if (testLog === null) return <LoadingLine locale={locale} />;
   return <PregnancyTestLog testLog={testLog} locale={locale} />;
+}
+
+function ResorptionLogTab({ locale }: { locale: Locale }) {
+  const [resorptionLog, setResorptionLog] = useState<ResorptionLogEntry[] | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const db = await getDb();
+      const res = await fetchResorptionPageData(db);
+      setResorptionLog(res.resorptionLog);
+    })();
+  }, []);
+
+  if (resorptionLog === null) return <LoadingLine locale={locale} />;
+  return <ResorptionLog resorptionLog={resorptionLog} locale={locale} />;
 }
 
 function KindlingLogTab({ locale }: { locale: Locale }) {
@@ -150,6 +176,7 @@ export function RecordsPage({ locale }: { locale: Locale }) {
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
       if (hash.includes("tab=pregnancy-test")) return "pregnancy-test";
+      if (hash.includes("tab=resorption")) return "resorption";
       if (hash.includes("tab=kindling")) return "kindling";
       if (hash.includes("tab=weaning")) return "weaning";
       if (hash.includes("tab=fostering")) return "fostering";
@@ -193,6 +220,20 @@ export function RecordsPage({ locale }: { locale: Locale }) {
         >
           <Microscope className="size-4 text-purple-500" />
           {rt.tabPregnancyTest}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("resorption")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "resorption"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Droplets className="size-4 text-cyan-500" />
+          {rt.tabResorption}
         </button>
 
         <button
@@ -269,6 +310,7 @@ export function RecordsPage({ locale }: { locale: Locale }) {
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} />}
         {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} />}
         {activeTab === "kindling" && <KindlingLogTab locale={locale} />}
         {activeTab === "weaning" && <WeaningLogTab locale={locale} />}
         {activeTab === "fostering" && <FosteringLogTab locale={locale} />}

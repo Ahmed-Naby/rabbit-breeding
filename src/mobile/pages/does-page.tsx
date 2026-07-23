@@ -18,6 +18,8 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   DoeStateBadge,
   DoeActionButton,
+  ConfirmPalpationButton,
+  ResorptionButton,
   MateCell,
   MatingFailedButton,
   MatingDateInput,
@@ -224,6 +226,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 onSort={doesSort.toggleSort}
               />
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colTestResult}</th>
+              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colPalpation}</th>
               <SortableThRowSpan
                 className="px-3 py-2 text-center"
                 rowSpan={2}
@@ -284,6 +287,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 isWeaned,
                 canMate,
                 canTestPregnancy,
+                canConfirmPalpation,
                 kindleActive,
                 weanActive,
                 testDate,
@@ -341,6 +345,29 @@ export function DoesPage({ locale }: { locale: Locale }) {
                           text={t.does.negativeButton}
                           disabled={!canTestPregnancy}
                           className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                          locale={locale}
+                          onDone={refresh}
+                        />
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex flex-wrap justify-center gap-1">
+                      <ConfirmPalpationButton
+                        id={doe.id}
+                        breedingId={b?.id ?? ""}
+                        text={t.does.confirmPregnantButton}
+                        disabled={!canConfirmPalpation}
+                        checked={!!b?.palpationConfirmedDate}
+                        locale={locale}
+                        onDone={refresh}
+                      />
+                      {b ? (
+                        <ResorptionButton
+                          id={doe.id}
+                          breedingId={b.id}
+                          text={t.does.resorptionButton}
+                          disabled={!canConfirmPalpation}
                           locale={locale}
                           onDone={refresh}
                         />
@@ -430,6 +457,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
             isWeaned,
             canMate,
             canTestPregnancy,
+            canConfirmPalpation,
             kindleActive,
             weanActive,
             testDate,
@@ -493,6 +521,30 @@ export function DoesPage({ locale }: { locale: Locale }) {
                         text={t.does.negativeButton}
                         disabled={!canTestPregnancy}
                         className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                        locale={locale}
+                        onDone={refresh}
+                      />
+                    ) : null}
+                  </div>
+                </Field>
+
+                <Field label={t.does.colPalpation}>
+                  <div className="flex flex-wrap gap-1.5">
+                    <ConfirmPalpationButton
+                      id={doe.id}
+                      breedingId={b?.id ?? ""}
+                      text={t.does.confirmPregnantButton}
+                      disabled={!canConfirmPalpation}
+                      checked={!!b?.palpationConfirmedDate}
+                      locale={locale}
+                      onDone={refresh}
+                    />
+                    {b ? (
+                      <ResorptionButton
+                        id={doe.id}
+                        breedingId={b.id}
+                        text={t.does.resorptionButton}
+                        disabled={!canConfirmPalpation}
                         locale={locale}
                         onDone={refresh}
                       />

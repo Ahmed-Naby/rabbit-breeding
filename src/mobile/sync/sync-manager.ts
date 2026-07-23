@@ -272,11 +272,12 @@ export async function pull(): Promise<boolean> {
   if (data.settings) {
     const s = data.settings;
     set.push({
-      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
          gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
+         palpationCheckDays = excluded.palpationCheckDays,
          weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
          matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
          currency = excluded.currency`,
@@ -285,6 +286,7 @@ export async function pull(): Promise<boolean> {
         s.gestationDays,
         s.gestationWindowDays,
         s.pregnancyTestDays,
+        s.palpationCheckDays,
         s.weaningDays,
         s.nestBoxDays,
         s.matingWeightGrams,

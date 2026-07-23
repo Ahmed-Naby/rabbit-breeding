@@ -327,6 +327,10 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
               </span>
             </div>
 
+            <p className="text-xs text-muted-foreground">
+              {locale === "ar" ? "لا تخصم من رصيد الفطام" : "Not deducted from the weaning balance"}
+            </p>
+
             <form onSubmit={(e) => void handleAddRabbit(e, "external")} className="space-y-4">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">

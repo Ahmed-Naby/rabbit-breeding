@@ -12,6 +12,7 @@ export type DoeBoardBreeding = {
   matingDate: Date | null;
   actualKindlingDate: Date | null;
   buckTagId: string | null;
+  palpationConfirmedDate: Date | null;
   litter: {
     bornAlive: number;
     bornDead: number;
@@ -23,6 +24,7 @@ export type DoeBoardBreeding = {
 export type DoeBoardSettings = {
   rebreedAfterKindlingDays: number;
   pregnancyTestDays: number;
+  palpationCheckDays: number;
 };
 
 export type DoeBoardRow = {
@@ -37,6 +39,7 @@ export type DoeBoardRow = {
   rebreedReady: boolean;
   canMate: boolean;
   canTestPregnancy: boolean;
+  canConfirmPalpation: boolean;
   kindleActive: boolean;
   weanActive: boolean;
   testDate: Date | null;
@@ -96,6 +99,17 @@ export function computeDoeBoardRow(
     !restedOrCulled &&
     (doeState === "empty" || doeState === "excluded" || (doeState === "nursing" && rebreedReady));
   const canTestPregnancy = doeState === "bred" || doeState === "nursing_bred";
+
+  // "تأكيد الجس" (resorption check) becomes available 15 days after mating,
+  // once a positive pregnancy test is on record, and only once per cycle —
+  // hidden again as soon as palpationConfirmedDate is stamped.
+  const daysPregnant = b?.matingDate ? Math.max(0, -daysUntil(b.matingDate)) : null;
+  const canConfirmPalpation =
+    (doeState === "pregnant" || doeState === "nursing_pregnant") &&
+    !b?.palpationConfirmedDate &&
+    daysPregnant !== null &&
+    daysPregnant >= settings.palpationCheckDays;
+
   const kindleActive =
     doeState === "pregnant" ||
     doeState === "nursing" ||
@@ -125,6 +139,7 @@ export function computeDoeBoardRow(
     rebreedReady,
     canMate,
     canTestPregnancy,
+    canConfirmPalpation,
     kindleActive,
     weanActive,
     testDate,

@@ -191,6 +191,98 @@ export function DoeActionButton({
 }
 
 /**
+ * "تأكيد الجس" — mobile mirror of the web ConfirmPalpationButton, see that
+ * component's doc comment for the resorption-check background. Writes
+ * through the confirmPalpation local op (stamps palpationConfirmedDate only,
+ * no state change).
+ */
+export function ConfirmPalpationButton({
+  id,
+  breedingId,
+  text,
+  disabled,
+  checked,
+  locale,
+  onDone,
+}: {
+  id: string;
+  breedingId: string;
+  text: string;
+  disabled?: boolean;
+  checked?: boolean;
+  locale: Locale;
+  onDone: () => void;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, setPending] = useState(false);
+  if (checked) {
+    return (
+      <span className="inline-flex h-8 w-8 items-center justify-center text-emerald-600 dark:text-emerald-400">
+        <Check className="h-4 w-4" />
+      </span>
+    );
+  }
+  if (disabled) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      className="h-8 px-2.5 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+      onClick={async () => {
+        setPending(true);
+        await enqueue("confirmPalpation", { breedingId });
+        toast.success(t.palpationConfirmedToast);
+        setPending(false);
+        onDone();
+      }}
+    >
+      {text}
+    </Button>
+  );
+}
+
+/** "اختفاء الأجنة" — mobile mirror of the web ResorptionButton, see ConfirmPalpationButton. */
+export function ResorptionButton({
+  id,
+  breedingId,
+  text,
+  disabled,
+  locale,
+  onDone,
+}: {
+  id: string;
+  breedingId: string;
+  text: string;
+  disabled?: boolean;
+  locale: Locale;
+  onDone: () => void;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, setPending] = useState(false);
+  if (disabled) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      className="h-8 px-2.5 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+      onClick={async () => {
+        const confirmed = window.confirm(t.resorptionConfirm);
+        if (!confirmed) return;
+        setPending(true);
+        await enqueue("confirmResorption", { breedingId, doeId: id });
+        toast.success(t.resorptionToast);
+        setPending(false);
+        onDone();
+      }}
+    >
+      {text}
+    </Button>
+  );
+}
+
+/**
  * Mate button + buck-tag input as one unit — same behavior as the web
  * version's MateCell, but the buck-tag check reads the local mirror instead
  * of hitting the server (see buckExistsLocally above).

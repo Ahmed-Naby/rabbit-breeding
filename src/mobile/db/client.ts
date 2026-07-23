@@ -100,6 +100,8 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     `ALTER TABLE rabbit ADD COLUMN retiredTagId TEXT`,
     `ALTER TABLE sync_cursor ADD COLUMN lastResetAt TEXT`,
     `ALTER TABLE sync_cursor ADD COLUMN mirrorRefreshV INTEGER`,
+    `ALTER TABLE breeding ADD COLUMN palpationConfirmedDate TEXT`,
+    `ALTER TABLE settings_cache ADD COLUMN palpationCheckDays INTEGER NOT NULL DEFAULT 15`,
   ];
   for (const sql of migrations) {
     try {

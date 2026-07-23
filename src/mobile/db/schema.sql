@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS breeding (
   expectedKindlingDate TEXT NOT NULL,
   actualKindlingDate   TEXT,
   nestBoxDate          TEXT,
+  palpationConfirmedDate TEXT,
   outcome              TEXT NOT NULL DEFAULT 'pending',
   pregnancyTestResult  TEXT NOT NULL DEFAULT 'pending',
   notes                TEXT,
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS settings_cache (
   gestationDays             INTEGER NOT NULL DEFAULT 30,
   gestationWindowDays       INTEGER NOT NULL DEFAULT 3,
   pregnancyTestDays         INTEGER NOT NULL DEFAULT 10,
+  palpationCheckDays        INTEGER NOT NULL DEFAULT 15,
   weaningDays               INTEGER NOT NULL DEFAULT 28,
   nestBoxDays               INTEGER NOT NULL DEFAULT 27,
   matingWeightGrams         INTEGER NOT NULL DEFAULT 3000,
@@ -213,6 +215,16 @@ CREATE TABLE IF NOT EXISTS pregnancy_test_log (
   createdAt  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pregnancy_test_log_doeId ON pregnancy_test_log(doeId);
+
+CREATE TABLE IF NOT EXISTS resorption_log (
+  id             TEXT PRIMARY KEY,
+  doeId          TEXT NOT NULL,
+  buckId         TEXT,
+  matingDate     TEXT NOT NULL,
+  resorptionDate TEXT NOT NULL,
+  createdAt      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_resorption_log_doeId ON resorption_log(doeId);
 
 CREATE TABLE IF NOT EXISTS kindling_log (
   id           TEXT PRIMARY KEY,

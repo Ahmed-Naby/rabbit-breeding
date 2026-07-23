@@ -318,6 +318,7 @@ export function settingsSchema(t: Dictionary["validation"]) {
     gestationDays: z.coerce.number().int().min(1).max(60),
     gestationWindowDays: z.coerce.number().int().min(0).max(14),
     pregnancyTestDays: z.coerce.number().int().min(1).max(30),
+    palpationCheckDays: z.coerce.number().int().min(1).max(30),
     weaningDays: z.coerce.number().int().min(0).max(90),
     nestBoxDays: z.coerce.number().int().min(1).max(30),
     matingWeightGrams: z.coerce.number().int().min(1),

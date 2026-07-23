@@ -35,6 +35,7 @@ export type LocalBreeding = {
   expectedKindlingDate: string;
   actualKindlingDate: string | null;
   nestBoxDate: string | null;
+  palpationConfirmedDate: string | null;
   outcome: string;
   pregnancyTestResult: string;
   notes: string | null;
@@ -72,6 +73,7 @@ export type LocalSettings = {
   gestationDays: number;
   gestationWindowDays: number;
   pregnancyTestDays: number;
+  palpationCheckDays: number;
   weaningDays: number;
   nestBoxDays: number;
   matingWeightGrams: number;

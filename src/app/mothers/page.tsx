@@ -10,6 +10,7 @@ import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
 import { getSettings } from "@/lib/settings";
 import { getBreedOptions } from "@/lib/breeds";
+import { naturalCompare } from "@/lib/sortable";
 import { DoeStateBadge } from "../does/doe-state-menu";
 import { AddMotherForm } from "./add-mother-form";
 import { PendingMothersTable, type PendingMotherRow } from "./pending-mothers-table";
@@ -23,10 +24,9 @@ export async function generateMetadata() {
 export default async function MothersPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Every doe promoted to the herd (has a tagId) — a plain reference table,
   // not the breeding-workflow board (that's "عمليات المزرعة" at /does).
-  const [does, pendingMothersRaw, settings, breedOptions, { locale, t }] = await Promise.all([
+  const [doesRaw, pendingMothersRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "doe", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
-      orderBy: { tagId: "asc" },
       include: {
         weightRecords: {
           orderBy: { date: "desc" },
@@ -56,6 +56,9 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
     getBreedOptions(),
     getDictionary(),
   ]);
+  // Prisma's orderBy sorts tagId lexicographically ("1" < "10" < "2"); a
+  // natural sort keeps the doe-number order a farmer actually expects.
+  const does = [...doesRaw].sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? ""));
   const pendingMothers: PendingMotherRow[] = pendingMothersRaw.map((r) => ({
     id: r.id,
     breed: r.breed,

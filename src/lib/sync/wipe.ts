@@ -26,6 +26,7 @@ export async function runWipe(): Promise<{ dataResetAt: string }> {
         gestationDays: 30,
         gestationWindowDays: 3,
         pregnancyTestDays: 10,
+        palpationCheckDays: 15,
         weaningDays: 28,
         nestBoxDays: 27,
         matingWeightGrams: 3000,

@@ -90,6 +90,16 @@ export function SettingsForm({
             error={e.pregnancyTestDays}
           />
           <TextField
+            name="palpationCheckDays"
+            type="number"
+            min={1}
+            max={30}
+            label={t.palpationCheckDaysLabel}
+            defaultValue={settings.palpationCheckDays.toString()}
+            hint={t.palpationCheckDaysHint}
+            error={e.palpationCheckDays}
+          />
+          <TextField
             name="weaningDays"
             type="number"
             min={0}

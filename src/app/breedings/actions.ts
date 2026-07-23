@@ -15,6 +15,8 @@ import {
   setPregnancyTestResultOp,
   markMatedOp,
   confirmPregnantOp,
+  confirmPalpationOp,
+  confirmResorptionOp,
   installNestBoxOp,
   markKindledOp,
   markWeanedOp,
@@ -143,6 +145,21 @@ export async function confirmPregnant(breedingId: string, doeId: string, target:
   await confirmPregnantOp(breedingId, doeId, target);
 
   revalidateAllBreedingPaths();
+  revalidatePath(`/rabbits/${doeId}`);
+}
+
+export async function confirmPalpation(breedingId: string, doeId: string) {
+  await confirmPalpationOp(breedingId);
+
+  revalidateAllBreedingPaths();
+  revalidatePath(`/rabbits/${doeId}`);
+}
+
+export async function confirmResorption(breedingId: string, doeId: string) {
+  await confirmResorptionOp(breedingId, doeId);
+
+  revalidateAllBreedingPaths();
+  revalidatePath(`/breedings/${breedingId}`);
   revalidatePath(`/rabbits/${doeId}`);
 }
 

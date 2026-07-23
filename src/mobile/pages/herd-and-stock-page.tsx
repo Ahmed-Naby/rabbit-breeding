@@ -35,20 +35,6 @@ export function HerdAndStockPage({ locale }: { locale: Locale }) {
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <button
           type="button"
-          onClick={() => setActiveTab("stock")}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
-            activeTab === "stock"
-              ? "bg-background text-foreground shadow-sm border border-border/60"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
-        >
-          <Sprout className="size-4 text-emerald-500" />
-          {hs.tabStock}
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveTab("mothers")}
           className={cn(
             "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
@@ -73,6 +59,20 @@ export function HerdAndStockPage({ locale }: { locale: Locale }) {
         >
           <Mars className="size-4 text-sky-500" />
           {hs.tabBucks}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("stock")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "stock"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Sprout className="size-4 text-emerald-500" />
+          {hs.tabStock}
         </button>
       </div>
 

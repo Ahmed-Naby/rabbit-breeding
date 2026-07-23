@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   HeartHandshake,
   Microscope,
+  Droplets,
   HeartPulse,
   Milk,
   ArrowLeftRight,
@@ -16,6 +17,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { MatingLog } from "../mating/mating-log";
 import { PregnancyTestLog } from "../pregnancy-test/pregnancy-test-log";
+import { ResorptionLog } from "./resorption-log";
 import { KindlingLog } from "../kindling/kindling-log";
 import { WeaningLog } from "../weaning/weaning-log";
 import { FosteringLog } from "../fostering/fostering-log";
@@ -54,6 +56,20 @@ async function PregnancyTestLogTab({ locale, t }: { locale: Locale; t: Dictionar
     },
   });
   return <PregnancyTestLog testLog={testLog} locale={locale} t={t.pregnancyTest} />;
+}
+
+async function ResorptionLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
+  const resorptionLog = await prisma.resorptionLog.findMany({
+    orderBy: { resorptionDate: "desc" },
+    select: {
+      id: true,
+      matingDate: true,
+      resorptionDate: true,
+      doe: { select: { id: true, tagId: true, breed: true } },
+      buck: { select: { tagId: true } },
+    },
+  });
+  return <ResorptionLog resorptionLog={resorptionLog} locale={locale} t={t.resorptionLog} />;
 }
 
 async function KindlingLogTab({ locale, t }: { locale: Locale; t: Dictionary }) {
@@ -213,6 +229,19 @@ export default async function RecordsPage({
         </Link>
 
         <Link
+          href="/records?tab=resorption"
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "resorption"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Droplets className="size-4 text-cyan-500" />
+          {rt.tabResorption}
+        </Link>
+
+        <Link
           href="/records?tab=kindling"
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
@@ -281,6 +310,7 @@ export default async function RecordsPage({
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} t={t} />}
         {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} t={t} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} t={t} />}
         {activeTab === "kindling" && <KindlingLogTab locale={locale} t={t} />}
         {activeTab === "weaning" && <WeaningLogTab locale={locale} t={t} />}
         {activeTab === "fostering" && <FosteringLogTab locale={locale} t={t} />}

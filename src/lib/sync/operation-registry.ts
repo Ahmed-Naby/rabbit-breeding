@@ -35,6 +35,8 @@ import {
   setPregnancyTestResultOp,
   markMatedOp,
   confirmPregnantOp,
+  confirmPalpationOp,
+  confirmResorptionOp,
   installNestBoxOp,
   transferKitsOp,
 } from "@/lib/breeding-ops";
@@ -180,6 +182,22 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
     await confirmPregnantOp(p.breedingId as string, p.doeId as string, p.target as string);
+    return applied;
+  },
+
+  confirmPalpation: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
+    await confirmPalpationOp(p.breedingId as string);
+    return applied;
+  },
+
+  confirmResorption: async (p, clientAt) => {
+    if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
+    }
+    await confirmResorptionOp(p.breedingId as string, p.doeId as string);
     return applied;
   },
 

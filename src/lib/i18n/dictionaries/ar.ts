@@ -54,6 +54,9 @@ export const ar = {
     pregnancyTestDaysLabel: "مدة انتظار الجس (أيام)",
     pregnancyTestDaysHint:
       "عدد الأيام بعد التلقيح قبل ما تظهر الأم في صفحة 'عمليات الجس' (الافتراضي 10).",
+    palpationCheckDaysLabel: "مدة إعادة تأكيد الجس (أيام)",
+    palpationCheckDaysHint:
+      "عدد الأيام بعد التلقيح قبل ما يظهر زر 'تأكيد الجس' للكشف عن الامتصاص (الافتراضي 15).",
     weaningDaysLabel: "مدة انتظار الفطام (أيام)",
     weaningDaysHint:
       "عدد الأيام بعد الولادة قبل ما تظهر الأم في صفحة 'عمليات الفطام' (الافتراضي 28).",
@@ -243,6 +246,10 @@ export const ar = {
     matingFailedToast: "تم إلغاء التلقيح ومسح تاريخه",
     cullConfirm:
       "الاستبعاد يعني إخراج هذا الحيوان نهائيًا من القطيع، ولا يمكن التراجع عن هذه الخطوة. هل أنت متأكد؟",
+    palpationConfirmedToast: "تم تأكيد استمرار الحمل",
+    resorptionConfirm:
+      'اختفاء الأجنة يعني حدوث امتصاص وانتهاء الحمل. سيتم تسجيل الحالة في سجل الامتصاص وإعادة الأم إلى حالة "فاضية". هل أنت متأكد؟',
+    resorptionToast: "تم تسجيل الامتصاص وإعادة الأم إلى فاضية",
   },
   dashboard: {
     heroTitle: "لوحة التحكم",
@@ -415,6 +422,7 @@ export const ar = {
     colMatingDate: "تاريخ التلقيح",
     colTestDate: "تاريخ الجس",
     colTestResult: "نتيجة الجس",
+    colPalpation: "تأكيد الجس",
     colKindlingDate: "تاريخ الولادة",
     colKindle: "ولادة",
     colBornCount: "عدد المواليد",
@@ -429,6 +437,8 @@ export const ar = {
     kindleButton: "ولادة",
     weanButton: "فطام",
     clearButton: "مسح",
+    confirmPregnantButton: "تأكيد العشار",
+    resorptionButton: "اختفاء الأجنة",
   },
   rounds: {
     title: "اللف على الأمهات",
@@ -438,6 +448,8 @@ export const ar = {
     kindlingLabel: "الولادة",
     notKindledYetNote: "لسه ما ولدتش",
     pregnantDaysNote: (days: number) => `عشار ${days} يوم`,
+    palpationLabel: "تأكيد الجس",
+    palpationNotDueNote: "لسه معادش تأكيد الجس",
     nursingDeathLabel: "نافق الرضاعة",
     noNursingLitterNote: "لا يوجد رضاعة حاليًا",
     doeDeathButton: "تسجيل نفوق الأم",
@@ -524,6 +536,19 @@ export const ar = {
     logEmptyTitle: "لا يوجد جس مسجل بعد",
     logEmptyDescription:
       "أي أم يتم جسها (موجب أو سالب) هتظهر هنا مع تاريخ التلقيح والجس والنتيجة.",
+  },
+  resorptionLog: {
+    title: "سجل الامتصاص",
+    colIndex: "م",
+    colMotherTag: "رقم الأم",
+    colBreed: "النوع",
+    colBuckTag: "رقم الذكر",
+    colMatingDate: "تاريخ التلقيح",
+    colResorptionDate: "تاريخ الامتصاص",
+    logHeading: "سجل الامتصاص",
+    logEmptyTitle: "لا يوجد امتصاص مسجل بعد",
+    logEmptyDescription:
+      "أي أم يحدث لها امتصاص هتظهر هنا مع تاريخ التلقيح وتاريخ الامتصاص.",
   },
   weaning: {
     title: "عمليات الفطام",
@@ -716,6 +741,7 @@ export const ar = {
     description: "جميع سجلات عمليات المزرعة في مكان واحد.",
     tabMating: "سجل التلقيح",
     tabPregnancyTest: "سجل الجس",
+    tabResorption: "سجل الامتصاص",
     tabKindling: "سجل الولادة",
     tabWeaning: "سجل الفطام",
     tabFostering: "سجل التبني",

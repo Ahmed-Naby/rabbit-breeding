@@ -71,6 +71,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [gestationDays, setGestationDays] = useState("");
   const [gestationWindowDays, setGestationWindowDays] = useState("");
   const [pregnancyTestDays, setPregnancyTestDays] = useState("");
+  const [palpationCheckDays, setPalpationCheckDays] = useState("");
   const [weaningDays, setWeaningDays] = useState("");
   const [nestBoxDays, setNestBoxDays] = useState("");
   const [matingWeightGrams, setMatingWeightGrams] = useState("");
@@ -101,6 +102,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         gestationDays: 30,
         gestationWindowDays: 3,
         pregnancyTestDays: 10,
+        palpationCheckDays: 15,
         weaningDays: 28,
         nestBoxDays: 27,
         matingWeightGrams: 3000,
@@ -115,6 +117,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       setGestationDays(String(s.gestationDays ?? 30));
       setGestationWindowDays(String(s.gestationWindowDays ?? 3));
       setPregnancyTestDays(String(s.pregnancyTestDays ?? 10));
+      setPalpationCheckDays(String(s.palpationCheckDays ?? 15));
       setWeaningDays(String(s.weaningDays ?? 28));
       setNestBoxDays(String(s.nestBoxDays ?? 27));
       setMatingWeightGrams(String(s.matingWeightGrams ?? 3000));
@@ -129,6 +132,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         gestationDays: 30,
         gestationWindowDays: 3,
         pregnancyTestDays: 10,
+        palpationCheckDays: 15,
         weaningDays: 28,
         nestBoxDays: 27,
         matingWeightGrams: 3000,
@@ -151,6 +155,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         gestationDays: parseInt(gestationDays, 10),
         gestationWindowDays: parseInt(gestationWindowDays, 10),
         pregnancyTestDays: parseInt(pregnancyTestDays, 10),
+        palpationCheckDays: parseInt(palpationCheckDays, 10),
         weaningDays: parseInt(weaningDays, 10),
         nestBoxDays: parseInt(nestBoxDays, 10),
         matingWeightGrams: parseInt(matingWeightGrams, 10),
@@ -352,6 +357,18 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 max={30}
                 value={pregnancyTestDays}
                 onChange={(e) => setPregnancyTestDays(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            <FieldLayout label={t.settings.palpationCheckDaysLabel} hint={t.settings.palpationCheckDaysHint}>
+              <Input
+                id="palpationCheckDays"
+                type="number"
+                min={1}
+                max={30}
+                value={palpationCheckDays}
+                onChange={(e) => setPalpationCheckDays(e.target.value)}
                 disabled={savingSettings}
               />
             </FieldLayout>

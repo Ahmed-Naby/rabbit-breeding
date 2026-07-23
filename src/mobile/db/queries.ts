@@ -9,6 +9,7 @@ import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
 import { weaningDueDate, nestBoxDueDate } from "@/lib/dates";
+import { naturalCompare } from "@/lib/sortable";
 import {
   resolveNursingLitterRow,
   isWeaningCandidate,
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: LocalSettings = {
   gestationDays: 30,
   gestationWindowDays: 3,
   pregnancyTestDays: 10,
+  palpationCheckDays: 15,
   weaningDays: 28,
   nestBoxDays: 27,
   matingWeightGrams: 3000,
@@ -66,10 +68,11 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
       id: string;
       matingDate: string | null;
       actualKindlingDate: string | null;
+      palpationConfirmedDate: string | null;
       buckId: string | null;
     }>(
       db,
-      "SELECT id, matingDate, actualKindlingDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
+      "SELECT id, matingDate, actualKindlingDate, palpationConfirmedDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
       [doe.id]
     );
 
@@ -89,6 +92,7 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
         id: b.id,
         matingDate: toDate(b.matingDate),
         actualKindlingDate: toDate(b.actualKindlingDate),
+        palpationConfirmedDate: toDate(b.palpationConfirmedDate),
         buckTagId: buck?.tagId ?? null,
         litter: litter
           ? {
@@ -254,10 +258,11 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
       id: string;
       matingDate: string | null;
       actualKindlingDate: string | null;
+      palpationConfirmedDate: string | null;
       buckId: string | null;
     }>(
       db,
-      "SELECT id, matingDate, actualKindlingDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
+      "SELECT id, matingDate, actualKindlingDate, palpationConfirmedDate, buckId FROM breeding WHERE doeId = ? ORDER BY createdAt DESC LIMIT 2",
       [doe.id]
     );
 
@@ -277,6 +282,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
         id: b.id,
         matingDate: toDate(b.matingDate),
         actualKindlingDate: toDate(b.actualKindlingDate),
+        palpationConfirmedDate: toDate(b.palpationConfirmedDate),
         buckTagId: buck?.tagId ?? null,
         litter: litter
           ? {
@@ -412,6 +418,52 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
   }
 
   return { candidates, testLog, settings };
+}
+
+export type ResorptionLogEntry = {
+  id: string;
+  matingDate: string;
+  resorptionDate: string;
+  doeTagId: string | null;
+  doeBreed: string | null;
+  buckTagId: string | null;
+};
+
+export async function fetchResorptionPageData(db: SQLiteDBConnection): Promise<{
+  resorptionLog: ResorptionLogEntry[];
+}> {
+  const logRows = await queryAll<{
+    id: string;
+    matingDate: string;
+    resorptionDate: string;
+    doeId: string;
+    buckId: string | null;
+  }>(
+    db,
+    "SELECT id, matingDate, resorptionDate, doeId, buckId FROM resorption_log ORDER BY resorptionDate DESC LIMIT 100"
+  );
+
+  const resorptionLog: ResorptionLogEntry[] = [];
+  for (const row of logRows) {
+    const doe = await queryOne<{ tagId: string | null; breed: string | null }>(
+      db,
+      "SELECT tagId, breed FROM rabbit WHERE id = ?",
+      [row.doeId]
+    );
+    const buck = row.buckId
+      ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
+      : null;
+    resorptionLog.push({
+      id: row.id,
+      matingDate: row.matingDate,
+      resorptionDate: row.resorptionDate,
+      doeTagId: doe?.tagId ?? null,
+      doeBreed: doe?.breed ?? null,
+      buckTagId: buck?.tagId ?? null,
+    });
+  }
+
+  return { resorptionLog };
 }
 
 export type LocalNestBoxCandidate = {
@@ -1517,6 +1569,10 @@ export async function fetchMothersPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
+  // SQLite's ORDER BY sorts tagId lexicographically ("1" < "10" < "2"); a
+  // natural sort keeps the doe-number order a farmer actually expects.
+  does.sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? ""));
+
   return { does, pendingMothers, breedOptions: breeds, settings };
 }
 
@@ -1581,6 +1637,10 @@ export async function fetchBucksPageData(db: SQLiteDBConnection): Promise<{
       weightKg: w ? w.weightGrams / 1000 : null,
     });
   }
+
+  // SQLite's ORDER BY sorts tagId lexicographically ("1" < "10" < "2"); a
+  // natural sort keeps the buck-number order a farmer actually expects.
+  bucks.sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? ""));
 
   return { bucks, pendingBucks, breedOptions: breeds, settings };
 }

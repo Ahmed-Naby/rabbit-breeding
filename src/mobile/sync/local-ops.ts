@@ -57,6 +57,7 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
       gestationDays: 30,
       gestationWindowDays: 3,
       pregnancyTestDays: 10,
+      palpationCheckDays: 15,
       weaningDays: 28,
       nestBoxDays: 27,
       matingWeightGrams: 3000,
@@ -118,6 +119,23 @@ async function insertKindlingLog(
     `INSERT INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.kindlingDate, nowIso()]
+  );
+}
+
+/**
+ * Mirrors confirmResorptionOp's resorptionLog.create so سجل الامتصاص lands
+ * immediately offline too, same reasoning as insertPregnancyTestLog above.
+ */
+async function insertResorptionLog(
+  db: SQLiteDBConnection,
+  args: { doeId: string; buckId: string | null; matingDate: string; resorptionDate: string }
+): Promise<void> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO resorption_log (id, doeId, buckId, matingDate, resorptionDate, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.resorptionDate, now]
   );
 }
 
@@ -311,6 +329,45 @@ export async function confirmPregnant(
   return applied;
 }
 
+export async function confirmPalpation(
+  db: SQLiteDBConnection,
+  payload: { breedingId: string }
+): Promise<LocalOpOutcome> {
+  await updateBreeding(db, payload.breedingId, { palpationConfirmedDate: todayIso() });
+  return applied;
+}
+
+export async function confirmResorption(
+  db: SQLiteDBConnection,
+  payload: { breedingId: string; doeId: string }
+): Promise<LocalOpOutcome> {
+  const doe = await getRabbit(db, payload.doeId);
+  const breeding = await getBreeding(db, payload.breedingId);
+  if (!breeding?.matingDate) {
+    return rejected("Breeding has no mating date to confirm resorption for");
+  }
+
+  if (doe?.doeState === "nursing_pregnant") {
+    await run(db, "DELETE FROM breeding WHERE id = ?", [payload.breedingId]);
+    await updateRabbit(db, payload.doeId, { doeState: "nursing" });
+  } else {
+    await updateBreeding(db, payload.breedingId, {
+      matingDate: null,
+      nestBoxDate: null,
+      palpationConfirmedDate: null,
+    });
+    await updateRabbit(db, payload.doeId, { doeState: "empty" });
+  }
+
+  await insertResorptionLog(db, {
+    doeId: payload.doeId,
+    buckId: breeding.buckId ?? null,
+    matingDate: breeding.matingDate,
+    resorptionDate: todayIso(),
+  });
+  return applied;
+}
+
 export async function installNestBox(
   db: SQLiteDBConnection,
   payload: { breedingId: string }
@@ -388,6 +445,31 @@ export async function setLitterCount(
     return rejected("WEANED_EXCEEDS_BORN_ALIVE");
   }
 
+  // Mirrors setLitterCountOp's server-side fallback: nothing left to nurse,
+  // so she drops out of whichever nursing leg she's in the same way
+  // markWeaned resolves it ("nursing_bred" -> "bred", "nursing_pregnant" ->
+  // "pregnant", preserving an in-progress rebreed either way; plain
+  // "nursing" -> "empty").
+  const doe = payload.field === "bornAlive" ? await getRabbit(db, breeding.doeId) : null;
+  const dropsNursing =
+    payload.field === "bornAlive" &&
+    effectiveBornAlive === 0 &&
+    !!breeding.actualKindlingDate &&
+    (doe?.doeState === "nursing" || doe?.doeState === "nursing_bred" || doe?.doeState === "nursing_pregnant");
+  const nextState: DoeState | null = dropsNursing
+    ? doe?.doeState === "nursing_bred"
+      ? "bred"
+      : doe?.doeState === "nursing_pregnant"
+        ? "pregnant"
+        : "empty"
+    : null;
+
+  // A total loss (all kits gone before weaning) closes this litter the same
+  // way a real weaning does — stamp weaningDate so the does board's
+  // prevOngoingLitter/prevIsClosingLitter (keyed off weaningDate) stop
+  // treating it as still open indefinitely into her *next*, unrelated cycle.
+  const closingWeaningDate = dropsNursing ? todayIso() : null;
+
   await upsertLitterByBreedingId(
     db,
     payload.breedingId,
@@ -395,29 +477,14 @@ export async function setLitterCount(
       kindlingDate: breeding.actualKindlingDate ?? nowIso(),
       bornAlive: bornAlive ?? 0,
       bornDead: bornDead ?? 0,
-      weaned: weaned ?? null,
+      weaned: closingWeaningDate ? 0 : (weaned ?? null),
+      weaningDate: closingWeaningDate,
     },
-    { bornAlive, bornDead, weaned }
+    { bornAlive, bornDead, weaned: closingWeaningDate ? 0 : weaned, ...(closingWeaningDate ? { weaningDate: closingWeaningDate } : {}) }
   );
 
-  // Mirrors setLitterCountOp's server-side fallback: nothing left to nurse,
-  // so she drops out of whichever nursing leg she's in the same way
-  // markWeaned resolves it ("nursing_bred" -> "bred", "nursing_pregnant" ->
-  // "pregnant", preserving an in-progress rebreed either way; plain
-  // "nursing" -> "empty").
-  if (payload.field === "bornAlive" && effectiveBornAlive === 0 && breeding.actualKindlingDate) {
-    const doe = await getRabbit(db, breeding.doeId);
-    const nextState: DoeState | null =
-      doe?.doeState === "nursing_bred"
-        ? "bred"
-        : doe?.doeState === "nursing_pregnant"
-          ? "pregnant"
-          : doe?.doeState === "nursing"
-            ? "empty"
-            : null;
-    if (nextState) {
-      await updateRabbit(db, breeding.doeId, { doeState: nextState });
-    }
+  if (nextState) {
+    await updateRabbit(db, breeding.doeId, { doeState: nextState });
   }
 
   return applied;
@@ -448,15 +515,47 @@ export async function recordNursingKitDeath(
   payload: { breedingId: string; count?: number }
 ): Promise<LocalOpOutcome> {
   const count = payload.count ?? 1;
+  const breeding = await getBreeding(db, payload.breedingId);
   const litter = await getLitterByBreeding(db, payload.breedingId);
-  if (!litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
+  if (!breeding || !litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
     return rejected("NO_NURSING_KITS");
   }
-  await run(
-    db,
-    "UPDATE litter SET bornAlive = bornAlive - ?, bornDead = bornDead + ?, updatedAt = ? WHERE breedingId = ?",
-    [count, count, nowIso(), payload.breedingId]
-  );
+
+  // Same total-loss closing as setLitterCount's dropsNursing: if this death
+  // empties the litter entirely, close it out (weaningDate + doeState) instead
+  // of leaving it permanently "open" for the does board to keep surfacing.
+  const doe = await getRabbit(db, breeding.doeId);
+  const dropsNursing =
+    litter.bornAlive - count === 0 &&
+    !!breeding.actualKindlingDate &&
+    (doe?.doeState === "nursing" || doe?.doeState === "nursing_bred" || doe?.doeState === "nursing_pregnant");
+  const nextState: DoeState | null = dropsNursing
+    ? doe?.doeState === "nursing_bred"
+      ? "bred"
+      : doe?.doeState === "nursing_pregnant"
+        ? "pregnant"
+        : "empty"
+    : null;
+
+  if (dropsNursing) {
+    const weaningDate = todayIso();
+    await run(
+      db,
+      "UPDATE litter SET bornAlive = bornAlive - ?, bornDead = bornDead + ?, weaned = 0, weaningDate = ?, updatedAt = ? WHERE breedingId = ?",
+      [count, count, weaningDate, nowIso(), payload.breedingId]
+    );
+  } else {
+    await run(
+      db,
+      "UPDATE litter SET bornAlive = bornAlive - ?, bornDead = bornDead + ?, updatedAt = ? WHERE breedingId = ?",
+      [count, count, nowIso(), payload.breedingId]
+    );
+  }
+
+  if (nextState) {
+    await updateRabbit(db, breeding.doeId, { doeState: nextState });
+  }
+
   return applied;
 }
 
@@ -772,6 +871,10 @@ export const localOpRegistry: Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   confirmPregnant: confirmPregnant as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  confirmPalpation: confirmPalpation as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  confirmResorption: confirmResorption as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   installNestBox: installNestBox as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   markKindled: markKindled as any,
@@ -994,11 +1097,12 @@ export async function updateSettings(
 ): Promise<LocalOpOutcome> {
   await run(
     db,
-    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
        gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
+       palpationCheckDays = excluded.palpationCheckDays,
        weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
        matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
        currency = excluded.currency`,
@@ -1007,6 +1111,7 @@ export async function updateSettings(
       payload.gestationDays ?? 30,
       payload.gestationWindowDays ?? 3,
       payload.pregnancyTestDays ?? 10,
+      payload.palpationCheckDays ?? 15,
       payload.weaningDays ?? 28,
       payload.nestBoxDays ?? 27,
       payload.matingWeightGrams ?? 3000,

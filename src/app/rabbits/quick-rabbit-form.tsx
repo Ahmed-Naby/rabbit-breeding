@@ -72,6 +72,7 @@ export function QuickRabbitForm({
   // Base UI's uncontrolled Input warns if defaultValue changes after mount.
   const [today] = useState(() => toDateInputValue(new Date()));
   const [assigningCages, setAssigningCages] = useState(false);
+  const [origin, setOrigin] = useState("farm");
 
   const handleAssignRandomCages = async () => {
     const targets = rows.filter((r) => !r.cage);
@@ -149,6 +150,14 @@ export function QuickRabbitForm({
                 label={locale === "ar" ? "مصدر السلالة" : "Stock Origin"}
                 options={originOptions}
                 defaultValue="farm"
+                onValueChange={setOrigin}
+                hint={
+                  origin === "external"
+                    ? locale === "ar"
+                      ? "لا تخصم من رصيد الفطام"
+                      : "Not deducted from the weaning balance"
+                    : undefined
+                }
               />
               <SelectField
                 name="sex"

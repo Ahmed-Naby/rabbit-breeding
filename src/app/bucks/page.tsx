@@ -10,6 +10,7 @@ import { LocalDate } from "@/components/local-date";
 import { formatWeight, gramsToKg } from "@/lib/units";
 import { getSettings } from "@/lib/settings";
 import { getBreedOptions } from "@/lib/breeds";
+import { naturalCompare } from "@/lib/sortable";
 import { AddBuckForm } from "./add-buck-form";
 import { PendingBucksTable, type PendingBuckRow } from "./pending-bucks-table";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -22,10 +23,9 @@ export async function generateMetadata() {
 export default async function BucksPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   // Every buck promoted to the herd (has a tagId) — a plain reference table,
   // mirrors /mothers for the buck side of the herd.
-  const [bucks, pendingBucksRaw, settings, breedOptions, { locale, t }] = await Promise.all([
+  const [bucksRaw, pendingBucksRaw, settings, breedOptions, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
-      orderBy: { tagId: "asc" },
       include: {
         weightRecords: {
           orderBy: { date: "desc" },
@@ -54,6 +54,9 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
     getBreedOptions(),
     getDictionary(),
   ]);
+  // Prisma's orderBy sorts tagId lexicographically ("1" < "10" < "2"); a
+  // natural sort keeps the buck-number order a farmer actually expects.
+  const bucks = [...bucksRaw].sort((a, b) => naturalCompare(a.tagId ?? "", b.tagId ?? ""));
   const pendingBucks: PendingBuckRow[] = pendingBucksRaw.map((r) => ({
     id: r.id,
     breed: r.breed,

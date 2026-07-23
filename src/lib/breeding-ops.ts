@@ -216,6 +216,7 @@ export async function markMatedOp(
           expectedKindlingDate,
           actualKindlingDate: null,
           nestBoxDate: null,
+          palpationConfirmedDate: null,
           buckId,
         },
       }),
@@ -266,6 +267,84 @@ export async function confirmPregnantOp(
       data: { doeState: target as DoeState },
     }),
   ]);
+}
+
+/**
+ * "تأكيد العشار" from the does board's day-15 palpation check: confirms the
+ * pregnancy is still viable (no resorption) and stamps this cycle as
+ * palpation-confirmed so the check doesn't keep re-prompting. No state
+ * change — the doe stays pregnant/nursing_pregnant and the cycle continues
+ * normally toward kindling.
+ */
+export async function confirmPalpationOp(breedingId: string): Promise<Breeding> {
+  const palpationConfirmedDate = new Date();
+  palpationConfirmedDate.setUTCHours(0, 0, 0, 0);
+
+  return prisma.breeding.update({
+    where: { id: breedingId },
+    data: { palpationConfirmedDate },
+  });
+}
+
+/**
+ * "اختفاء الأجنة" from the does board's day-15 palpation check: confirms
+ * resorption (امتصاص) occurred — the fetuses disappeared despite an earlier
+ * positive pregnancy test. Snapshots this breeding row's matingDate/buckId
+ * into a permanent ResorptionLog entry (same reasoning as
+ * PregnancyTestLog/KindlingLog: the row is reused/overwritten on the doe's
+ * next mating) before clearing the mating date on the row and dropping the
+ * doe back to "فاضية" waiting for a new mating.
+ *
+ * If the doe is "nursing_pregnant", this row is the rebreed attempt created
+ * by markMated while she was still nursing her current litter (not her
+ * ongoing litter's own breeding row) — discard it entirely so the board
+ * reverts to showing her still-ongoing litter, and drop her back to plain
+ * "nursing" rather than "empty" (same branching as markMatingFailedOp's
+ * nursing_bred case).
+ */
+export async function confirmResorptionOp(breedingId: string, doeId: string): Promise<void> {
+  const [doe, breeding] = await Promise.all([
+    prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } }),
+    prisma.breeding.findUnique({
+      where: { id: breedingId },
+      select: { matingDate: true, buckId: true },
+    }),
+  ]);
+  if (!breeding?.matingDate) {
+    throw new Error("Breeding has no mating date to confirm resorption for");
+  }
+
+  const logEntry = prisma.resorptionLog.create({
+    data: {
+      doeId,
+      buckId: breeding.buckId,
+      matingDate: breeding.matingDate,
+    },
+  });
+
+  if (doe?.doeState === "nursing_pregnant") {
+    await prisma.$transaction([
+      logEntry,
+      prisma.breeding.delete({ where: { id: breedingId } }),
+      prisma.syncTombstone.create({ data: { model: "breeding", recordId: breedingId } }),
+      prisma.rabbit.update({
+        where: { id: doeId },
+        data: { doeState: "nursing" },
+      }),
+    ]);
+  } else {
+    await prisma.$transaction([
+      logEntry,
+      prisma.breeding.update({
+        where: { id: breedingId },
+        data: { matingDate: null, nestBoxDate: null, palpationConfirmedDate: null },
+      }),
+      prisma.rabbit.update({
+        where: { id: doeId },
+        data: { doeState: "empty" },
+      }),
+    ]);
+  }
 }
 
 /**
@@ -451,6 +530,18 @@ export async function setLitterCountOp(
         : ("empty" as const)
     : null;
 
+  // A total loss (all kits gone before weaning) closes this litter the same
+  // way a real weaning does — stamp weaningDate so the does board's
+  // prevOngoingLitter/prevIsClosingLitter (keyed off weaningDate) stop
+  // treating it as still open. Without this, a doe rebred while nursing whose
+  // litter dies out entirely keeps showing that dead litter's counts (and an
+  // active "فطام" button) for the rest of her *next*, unrelated pregnancy.
+  let closingWeaningDate: Date | undefined;
+  if (dropsNursing) {
+    closingWeaningDate = new Date();
+    closingWeaningDate.setUTCHours(0, 0, 0, 0);
+  }
+
   await prisma.$transaction([
     prisma.litter.upsert({
       where: { breedingId },
@@ -459,9 +550,15 @@ export async function setLitterCountOp(
         kindlingDate: breeding.actualKindlingDate ?? new Date(),
         bornAlive: bornAlive ?? 0,
         bornDead: bornDead ?? 0,
-        weaned: weaned ?? null,
+        weaned: closingWeaningDate ? 0 : (weaned ?? null),
+        weaningDate: closingWeaningDate ?? null,
       },
-      update: { bornAlive, bornDead, weaned },
+      update: {
+        bornAlive,
+        bornDead,
+        weaned: closingWeaningDate ? 0 : weaned,
+        ...(closingWeaningDate ? { weaningDate: closingWeaningDate } : {}),
+      },
     }),
     ...(nextState
       ? [prisma.rabbit.update({ where: { id: breeding.doeId }, data: { doeState: nextState } })]
@@ -515,18 +612,56 @@ export async function recordNursingKitDeathOp(
   breedingId: string,
   count: number = 1
 ): Promise<OpResult<void, "NO_NURSING_KITS">> {
-  const litter = await prisma.litter.findUnique({
-    where: { breedingId },
-    select: { bornAlive: true },
+  const breeding = await prisma.breeding.findUnique({
+    where: { id: breedingId },
+    select: {
+      doeId: true,
+      actualKindlingDate: true,
+      doe: { select: { doeState: true } },
+      litter: { select: { bornAlive: true } },
+    },
   });
-  if (!litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
+  const litter = breeding?.litter;
+  if (!breeding || !litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
     return { ok: false, code: "NO_NURSING_KITS" };
   }
 
-  await prisma.litter.update({
-    where: { breedingId },
-    data: { bornAlive: { decrement: count }, bornDead: { increment: count } },
-  });
+  // Same total-loss closing as setLitterCountOp's dropsNursing: if this death
+  // empties the litter entirely, close it out (weaningDate + doeState) instead
+  // of leaving it permanently "open" for the does board to keep surfacing.
+  const dropsNursing =
+    litter.bornAlive - count === 0 &&
+    !!breeding.actualKindlingDate &&
+    (breeding.doe.doeState === "nursing" ||
+      breeding.doe.doeState === "nursing_bred" ||
+      breeding.doe.doeState === "nursing_pregnant");
+  const nextState = dropsNursing
+    ? breeding.doe.doeState === "nursing_bred"
+      ? ("bred" as const)
+      : breeding.doe.doeState === "nursing_pregnant"
+        ? ("pregnant" as const)
+        : ("empty" as const)
+    : null;
+
+  let closingWeaningDate: Date | undefined;
+  if (dropsNursing) {
+    closingWeaningDate = new Date();
+    closingWeaningDate.setUTCHours(0, 0, 0, 0);
+  }
+
+  await prisma.$transaction([
+    prisma.litter.update({
+      where: { breedingId },
+      data: {
+        bornAlive: { decrement: count },
+        bornDead: { increment: count },
+        ...(closingWeaningDate ? { weaned: 0, weaningDate: closingWeaningDate } : {}),
+      },
+    }),
+    ...(nextState
+      ? [prisma.rabbit.update({ where: { id: breeding.doeId }, data: { doeState: nextState } })]
+      : []),
+  ]);
 
   return { ok: true, data: undefined };
 }
@@ -580,7 +715,7 @@ export async function markMatingFailedOp(breedingId: string, doeId: string): Pro
       ...(logEntry ? [logEntry] : []),
       prisma.breeding.update({
         where: { id: breedingId },
-        data: { matingDate: null, nestBoxDate: null },
+        data: { matingDate: null, nestBoxDate: null, palpationConfirmedDate: null },
       }),
       prisma.rabbit.update({
         where: { id: doeId },
@@ -612,7 +747,13 @@ export async function clearDoeRowOp(breedingId: string, doeId: string): Promise<
       : []),
     prisma.breeding.update({
       where: { id: breedingId },
-      data: { matingDate: null, actualKindlingDate: null, nestBoxDate: null, buckId: null },
+      data: {
+        matingDate: null,
+        actualKindlingDate: null,
+        nestBoxDate: null,
+        palpationConfirmedDate: null,
+        buckId: null,
+      },
     }),
     prisma.rabbit.update({
       where: { id: doeId },

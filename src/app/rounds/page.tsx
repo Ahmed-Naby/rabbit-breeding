@@ -27,6 +27,7 @@ export default async function RoundsPage({ hideHeader }: { hideHeader?: boolean 
             id: true,
             matingDate: true,
             actualKindlingDate: true,
+            palpationConfirmedDate: true,
             buck: { select: { tagId: true } },
             litter: {
               select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true },

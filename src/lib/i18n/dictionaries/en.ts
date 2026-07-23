@@ -56,6 +56,9 @@ export const en: Dictionary = {
     pregnancyTestDaysLabel: "Pregnancy test wait (days)",
     pregnancyTestDaysHint:
       "Days after mating before a doe appears on the 'Pregnancy Tests' page (default 10).",
+    palpationCheckDaysLabel: "Palpation re-check wait (days)",
+    palpationCheckDaysHint:
+      "Days after mating before the 'Confirm Palpation' button (resorption check) appears (default 15).",
     weaningDaysLabel: "Weaning wait (days)",
     weaningDaysHint:
       "Days after kindling before a doe appears on the 'Weaning' page (default 28).",
@@ -250,6 +253,10 @@ export const en: Dictionary = {
     matingFailedToast: "Mating canceled and its date cleared",
     cullConfirm:
       "Culling permanently removes this rabbit from the herd, and this step cannot be undone. Are you sure?",
+    palpationConfirmedToast: "Pregnancy confirmed as ongoing",
+    resorptionConfirm:
+      'Fetuses disappearing means resorption occurred and the pregnancy has ended. This will be logged in the resorption log and the doe reset to "Empty". Are you sure?',
+    resorptionToast: "Resorption logged and doe reset to empty",
   },
   dashboard: {
     heroTitle: "Dashboard",
@@ -423,6 +430,7 @@ export const en: Dictionary = {
     colMatingDate: "Mating date",
     colTestDate: "Test date",
     colTestResult: "Test result",
+    colPalpation: "Confirm palpation",
     colKindlingDate: "Kindling date",
     colKindle: "Kindle",
     colBornCount: "Born",
@@ -437,6 +445,8 @@ export const en: Dictionary = {
     kindleButton: "Kindle",
     weanButton: "Wean",
     clearButton: "Clear",
+    confirmPregnantButton: "Confirm pregnant",
+    resorptionButton: "Fetuses disappeared",
   },
   rounds: {
     title: "Farm Rounds",
@@ -446,6 +456,8 @@ export const en: Dictionary = {
     kindlingLabel: "Kindling",
     notKindledYetNote: "Hasn't kindled yet",
     pregnantDaysNote: (days: number) => `Pregnant, day ${days}`,
+    palpationLabel: "Confirm palpation",
+    palpationNotDueNote: "Not due for palpation confirmation yet",
     nursingDeathLabel: "Nursing kit death",
     noNursingLitterNote: "No nursing litter right now",
     doeDeathButton: "Record doe death",
@@ -532,6 +544,19 @@ export const en: Dictionary = {
     logEmptyTitle: "No tests recorded yet",
     logEmptyDescription:
       "Any doe that gets tested (positive or negative) will show up here with her mating date, test date, and result.",
+  },
+  resorptionLog: {
+    title: "Resorption Log",
+    colIndex: "#",
+    colMotherTag: "Doe #",
+    colBreed: "Breed",
+    colBuckTag: "Buck #",
+    colMatingDate: "Mating date",
+    colResorptionDate: "Resorption date",
+    logHeading: "Resorption log",
+    logEmptyTitle: "No resorptions recorded yet",
+    logEmptyDescription:
+      "Any doe that resorbs a pregnancy will show up here with her mating date and resorption date.",
   },
   weaning: {
     title: "Weaning",
@@ -726,6 +751,7 @@ export const en: Dictionary = {
     description: "All farm operation logs in one place.",
     tabMating: "Mating Log",
     tabPregnancyTest: "Pregnancy Test Log",
+    tabResorption: "Resorption Log",
     tabKindling: "Kindling Log",
     tabWeaning: "Weaning Log",
     tabFostering: "Fostering Log",

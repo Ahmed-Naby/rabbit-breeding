@@ -6,7 +6,14 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/status-badge";
 import { HealthRecordButton } from "@/components/health-record-form";
-import { DoeStateBadge, KindleButton, LitterCountInput, RabbitAvailabilityToggle } from "../does/doe-state-menu";
+import {
+  DoeStateBadge,
+  KindleButton,
+  LitterCountInput,
+  RabbitAvailabilityToggle,
+  ConfirmPalpationButton,
+  ResorptionButton,
+} from "../does/doe-state-menu";
 import { NursingKitDeathButton, MarkDeceasedButton } from "../mortality/mortality-actions";
 import type { DoeState } from "@/lib/enums";
 import { computeDoeBoardRow } from "@/lib/does-board";
@@ -25,6 +32,7 @@ type DoeRaw = {
     id: string;
     matingDate: Date | null;
     actualKindlingDate: Date | null;
+    palpationConfirmedDate: Date | null;
     buck: { tagId: string | null } | null;
     litter: {
       bornAlive: number;
@@ -78,13 +86,14 @@ export function RoundsList({
       ) : (
         <div className="space-y-3">
           {visibleDoes.map((doe) => {
-            const { current: b, litterRow, countsRow, kindleActive } = computeDoeBoardRow(
+            const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation } = computeDoeBoardRow(
               doe.doeState as DoeState,
               doe.status,
               doe.breedingsAsDoe.map((x) => ({
                 id: x.id,
                 matingDate: x.matingDate,
                 actualKindlingDate: x.actualKindlingDate,
+                palpationConfirmedDate: x.palpationConfirmedDate,
                 buckTagId: x.buck?.tagId ?? null,
                 litter: x.litter,
               })),
@@ -110,7 +119,7 @@ export function RoundsList({
 
                 <RabbitAvailabilityToggle id={doe.id} current={doe.status} locale={locale} />
 
-                <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-4">
                   {/* Kindling */}
                   <div className="space-y-1.5">
                     <span className="text-[11px] font-medium text-muted-foreground">{rt.kindlingLabel}</span>
@@ -139,13 +148,41 @@ export function RoundsList({
                         />
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
+                      <span className="block text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
+                    )}
+                  </div>
+
+                  {/* Palpation confirm (resorption check) */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-muted-foreground">{rt.palpationLabel}</span>
+                    {canConfirmPalpation || b?.palpationConfirmedDate ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <ConfirmPalpationButton
+                          id={doe.id}
+                          breedingId={b?.id ?? ""}
+                          text={t.does.confirmPregnantButton}
+                          disabled={!canConfirmPalpation}
+                          checked={!!b?.palpationConfirmedDate}
+                          locale={locale}
+                        />
+                        {b && canConfirmPalpation ? (
+                          <ResorptionButton
+                            id={doe.id}
+                            breedingId={b.id}
+                            text={t.does.resorptionButton}
+                            disabled={!canConfirmPalpation}
+                            locale={locale}
+                          />
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="block text-xs text-muted-foreground">{rt.palpationNotDueNote}</span>
                     )}
                   </div>
 
                   {/* Nursing kit death */}
                   <div className="space-y-1.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">{rt.nursingDeathLabel}</span>
+                    <span className="block text-[11px] font-medium text-muted-foreground">{rt.nursingDeathLabel}</span>
                     {nursingEligible ? (
                       <NursingKitDeathButton
                         breedingId={litterRow!.id}
@@ -153,13 +190,13 @@ export function RoundsList({
                         locale={locale}
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">{rt.noNursingLitterNote}</span>
+                      <span className="block text-xs text-muted-foreground">{rt.noNursingLitterNote}</span>
                     )}
                   </div>
 
                   {/* Doe death + health */}
                   <div className="space-y-1.5">
-                    <span className="text-[11px] font-medium text-muted-foreground">{rt.healthLabel}</span>
+                    <span className="block text-[11px] font-medium text-muted-foreground">{rt.healthLabel}</span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <HealthRecordButton
                         rabbitId={doe.id}

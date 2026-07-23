@@ -26,6 +26,7 @@ model Settings {
   gestationDays            Int       @default(31) // mating -> expected kindling offset
   gestationWindowDays      Int       @default(3) // +/- days for the "due window" on the calendar
   pregnancyTestDays        Int       @default(10) // mating -> earliest pregnancy test (palpation) offset
+  palpationCheckDays       Int       @default(15) // mating -> earliest resorption re-check (تأكيد الجس) offset
   weaningDays              Int       @default(28) // kindling -> earliest weaning offset
   nestBoxDays              Int       @default(27) // mating -> earliest nest-box installation offset
   matingWeightGrams        Int       @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
@@ -119,6 +120,13 @@ model Rabbit {
   pregnancyTestLogsAsBuck PregnancyTestLog[] @relation("PregnancyTestLogBuck")
   pregnancyTestLogsAsDoe  PregnancyTestLog[] @relation("PregnancyTestLogDoe")
 
+  // Resorption (امتصاص) history — same append-only reasoning as
+  // PregnancyTestLog: the Breeding row's matingDate is overwritten the next
+  // time the doe is mated, so without this snapshot a resorption event would
+  // vanish from history.
+  resorptionLogsAsBuck ResorptionLog[] @relation("ResorptionLogBuck")
+  resorptionLogsAsDoe  ResorptionLog[] @relation("ResorptionLogDoe")
+
   // Kindling history. Same append-only reasoning as PregnancyTestLog — the
   // Breeding row's actualKindlingDate gets wiped back to null the next time
   // the same doe is mated (see markMated's reuse branch), so without this
@@ -159,30 +167,35 @@ model Breeding {
   farmId String @default("")
   farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
-  id                   String    @id @default(cuid())
+  id                     String    @id @default(cuid())
   // Nullable: the does board starts a mating without picking a buck (pairings
   // aren't tracked automatically anymore) — the farm types in the buck's tag
   // number afterward if/when they want to record it, or leaves it blank.
-  buckId               String?
-  buck                 Rabbit?   @relation("Buck", fields: [buckId], references: [id], onDelete: Restrict)
-  doeId                String
-  doe                  Rabbit    @relation("Doe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId                 String?
+  buck                   Rabbit?   @relation("Buck", fields: [buckId], references: [id], onDelete: Restrict)
+  doeId                  String
+  doe                    Rabbit    @relation("Doe", fields: [doeId], references: [id], onDelete: Restrict)
   // Nullable: cleared back to null when a mating attempt fails (see the
   // "فشل التلقيح" action on the does board), leaving the row date-less
   // rather than deleting the historical buck/doe pairing.
-  matingDate           DateTime?
-  expectedKindlingDate DateTime
-  actualKindlingDate   DateTime?
+  matingDate             DateTime?
+  expectedKindlingDate   DateTime
+  actualKindlingDate     DateTime?
   // Nest box installed for this cycle — cleared back to null wherever
   // matingDate itself is reset/overwritten (markMated's reuse branch,
   // markMatingFailed, clearDoeRow), since it's a per-cycle checklist item,
   // not permanent history (unlike PregnancyTestLog/KindlingLog).
-  nestBoxDate          DateTime?
-  outcome              String    @default("pending") // "pending" | "successful" | "failed" | "not_pregnant"
+  nestBoxDate            DateTime?
+  // "تأكيد الجس" from the does board, done ~15 days after mating to catch
+  // resorption (امتصاص) — cleared back to null wherever matingDate itself is
+  // reset/overwritten (markMated's reuse branch, markMatingFailed,
+  // clearDoeRow), same per-cycle-checklist reasoning as nestBoxDate.
+  palpationConfirmedDate DateTime?
+  outcome                String    @default("pending") // "pending" | "successful" | "failed" | "not_pregnant"
   // Early pregnancy check, done ~10 days after mating — separate from the final
   // kindling `outcome` which is only known ~31 days later.
-  pregnancyTestResult  String    @default("pending") // "pending" | "positive" | "negative"
-  notes                String?
+  pregnancyTestResult    String    @default("pending") // "pending" | "positive" | "negative"
+  notes                  String?
 
   litter Litter? // one litter per mating
 
@@ -219,6 +232,32 @@ model PregnancyTestLog {
 
   @@index([doeId])
   @@index([testDate])
+  @@index([farmId])
+}
+
+/// A permanent resorption (امتصاص) record. Written once, at the moment
+/// "اختفاء الأجنة" is pressed, and never updated afterward — snapshots
+/// matingDate/buckId off the Breeding row at that instant, since that row
+/// gets reused (overwritten) the next time the same doe is mated, which
+/// would otherwise silently erase this event from history.
+model ResorptionLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id             String   @id @default(cuid())
+  doeId          String
+  doe            Rabbit   @relation("ResorptionLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId         String?
+  buck           Rabbit?  @relation("ResorptionLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  matingDate     DateTime
+  resorptionDate DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([doeId])
+  @@index([resorptionDate])
   @@index([farmId])
 }
 
@@ -486,6 +525,7 @@ model Farm {
   kitStockMovements KitStockMovement[]
   breeds            Breed[]
   pregnancyTestLogs PregnancyTestLog[]
+  resorptionLogs    ResorptionLog[]
   kindlingLogs      KindlingLog[]
   fosterLogs        FosterLog[]
   syncTombstones    SyncTombstone[]
@@ -494,17 +534,17 @@ model Farm {
 /// Membership + role. "owner" can manage members and use the danger zone
 /// (wipe/restore/reset); "worker" records day-to-day farm operations only.
 model FarmMember {
-  id        String   @id @default(cuid())
-  farmId    String
-  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String // "owner" | "worker" (displayed as مشرف/Supervisor)
+  id           String   @id @default(cuid())
+  farmId       String
+  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         String // "owner" | "worker" (displayed as مشرف/Supervisor)
   // Page-level UI permissions for workers: array of route hashes the member
   // may see (null = all pages). Enforced by the app shell — the sync API
   // itself stays role-based (owner vs worker), not per-page.
   allowedPages Json?
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@unique([farmId, userId])
   @@index([userId])

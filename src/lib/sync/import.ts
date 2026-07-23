@@ -171,6 +171,7 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         gestationDays: s?.gestationDays ?? 30,
         gestationWindowDays: s?.gestationWindowDays ?? 3,
         pregnancyTestDays: s?.pregnancyTestDays ?? 10,
+        palpationCheckDays: s?.palpationCheckDays ?? 15,
         weaningDays: s?.weaningDays ?? 28,
         nestBoxDays: s?.nestBoxDays ?? 27,
         matingWeightGrams: s?.matingWeightGrams ?? 3000,

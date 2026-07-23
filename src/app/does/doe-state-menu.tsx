@@ -21,6 +21,8 @@ import {
   startBreeding,
   buckExists,
   confirmPregnant,
+  confirmPalpation,
+  confirmResorption,
   installNestBox,
 } from "../breedings/actions";
 import { setRabbitStatus } from "../rabbits/actions";
@@ -169,6 +171,96 @@ export function DoeActionButton({
           toast.success(t.stateSetToast(label(target, locale)));
         })
       }
+    >
+      {text}
+    </Button>
+  );
+}
+
+/**
+ * "تأكيد الجس" column: appears once a doe has been pregnant for 15+ days,
+ * to catch resorption (امتصاص) — the fetuses disappearing despite an
+ * earlier positive test. Two outcomes shown side-by-side, same pattern as
+ * the "عشار"/"سالبة" pregnancy-test pair: "تأكيد العشار" just stamps
+ * palpationConfirmedDate so the check doesn't re-prompt (cycle continues
+ * normally), while "اختفاء الأجنة" snapshots the event into the permanent
+ * ResorptionLog (سجل الامتصاص) and drops the doe back to "فاضية".
+ */
+export function ConfirmPalpationButton({
+  id,
+  breedingId,
+  text,
+  disabled,
+  checked,
+  locale,
+}: {
+  id: string;
+  breedingId: string;
+  text: string;
+  disabled?: boolean;
+  /** Already confirmed for this cycle — show a checkmark instead of hiding the button. */
+  checked?: boolean;
+  locale: Locale;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, startTransition] = useTransition();
+  if (checked) {
+    return (
+      <span className="inline-flex h-7 w-7 items-center justify-center text-emerald-600 dark:text-emerald-400">
+        <Check className="h-4 w-4" />
+      </span>
+    );
+  }
+  if (disabled) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+      onClick={() =>
+        startTransition(async () => {
+          await confirmPalpation(breedingId, id);
+          toast.success(t.palpationConfirmedToast);
+        })
+      }
+    >
+      {text}
+    </Button>
+  );
+}
+
+/** "اختفاء الأجنة": confirms resorption occurred — see ConfirmPalpationButton. */
+export function ResorptionButton({
+  id,
+  breedingId,
+  text,
+  disabled,
+  locale,
+}: {
+  id: string;
+  breedingId: string;
+  text: string;
+  disabled?: boolean;
+  locale: Locale;
+}) {
+  const t = getClientDictionary(locale).doeStateMenu;
+  const [pending, startTransition] = useTransition();
+  if (disabled) return null;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={pending}
+      className="h-7 px-2 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+      onClick={() => {
+        const confirmed = window.confirm(t.resorptionConfirm);
+        if (!confirmed) return;
+        startTransition(async () => {
+          await confirmResorption(breedingId, id);
+          toast.success(t.resorptionToast);
+        });
+      }}
     >
       {text}
     </Button>

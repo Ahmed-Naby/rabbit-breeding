@@ -129,7 +129,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   ] = await Promise.all([
     queryOne<Row>(
       db,
-      `SELECT weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, weaningDays,
+      `SELECT weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays,
               nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency
        FROM settings_cache WHERE id = 1`
     ),
