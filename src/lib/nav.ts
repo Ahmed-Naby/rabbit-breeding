@@ -19,6 +19,7 @@ import {
   ListChecks,
   CalendarDays,
   TrendingUp,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import type { Dictionary } from "./i18n/dictionaries/ar";
@@ -39,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/does", labelKey: "does", icon: ClipboardList },
   { href: "/health", labelKey: "health", icon: Stethoscope },
   { href: "/reports", labelKey: "reports", icon: FileText },
+  { href: "/records", labelKey: "records", icon: History },
   { href: "/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   { href: "/finance", labelKey: "finance", icon: Wallet },
   { href: "/settings", labelKey: "settings", icon: Settings },

@@ -104,11 +104,11 @@ export default async function OperationsPage({
 
       {/* Active Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === "mating" && <MatingPage hideHeader={true} />}
-        {activeTab === "pregnancy-test" && <PregnancyTestPage hideHeader={true} />}
-        {activeTab === "kindling" && <KindlingPage hideHeader={true} />}
-        {activeTab === "weaning" && <WeaningPage hideHeader={true} />}
-        {activeTab === "fostering" && <FosteringPage hideHeader={true} />}
+        {activeTab === "mating" && <MatingPage hideHeader={true} todayOnly />}
+        {activeTab === "pregnancy-test" && <PregnancyTestPage hideHeader={true} todayOnly />}
+        {activeTab === "kindling" && <KindlingPage hideHeader={true} todayOnly />}
+        {activeTab === "weaning" && <WeaningPage hideHeader={true} todayOnly />}
+        {activeTab === "fostering" && <FosteringPage hideHeader={true} todayOnly />}
       </div>
     </div>
   );

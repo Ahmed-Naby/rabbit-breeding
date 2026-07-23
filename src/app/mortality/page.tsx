@@ -6,7 +6,6 @@ import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
-import { LocalDate } from "@/components/local-date";
 import {
   NursingKitDeathButton,
   WeaningStockDeathButton,
@@ -15,22 +14,31 @@ import {
 import { getKitStockSummary } from "../weaning-sales/stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isNursingKitDeathCandidate } from "@/lib/breeding-filters";
+import { isToday } from "@/lib/dates";
+import { MortalityLog } from "./mortality-log";
+import { CullingLog } from "./culling-log";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
   return { title: `${t.mortality.title} · RabbitTrack` };
 }
 
-export default async function MortalityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
+export default async function MortalityPage({
+  hideHeader,
+  todayOnly,
+}: {
+  hideHeader?: boolean;
+  todayOnly?: boolean;
+} = {}) {
   const [
     nursingDoesRaw,
     activeMothers,
     activeBucks,
     activeStock,
-    deceasedMothers,
-    deceasedBucks,
-    deceasedStock,
-    culledRabbits,
+    deceasedMothersRaw,
+    deceasedBucksRaw,
+    deceasedStockRaw,
+    culledRabbitsRaw,
     { availableStock },
     { locale, t },
   ] = await Promise.all([
@@ -120,6 +128,18 @@ export default async function MortalityPage({ hideHeader }: { hideHeader?: boole
       return { doe, breedingId: litterRow.id, litter: litterRow.litter! };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
+  const deceasedMothers = todayOnly
+    ? deceasedMothersRaw.filter((r) => isToday(r.updatedAt))
+    : deceasedMothersRaw;
+  const deceasedBucks = todayOnly
+    ? deceasedBucksRaw.filter((r) => isToday(r.updatedAt))
+    : deceasedBucksRaw;
+  const deceasedStock = todayOnly
+    ? deceasedStockRaw.filter((r) => isToday(r.updatedAt))
+    : deceasedStockRaw;
+  const culledRabbits = todayOnly
+    ? culledRabbitsRaw.filter((r) => isToday(r.updatedAt))
+    : culledRabbitsRaw;
 
   return (
     <div className="space-y-8">
@@ -324,166 +344,17 @@ export default async function MortalityPage({ hideHeader }: { hideHeader?: boole
       </div>
 
       {/* سجلات النافق */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {t.mortality.deceasedMothersHeading(deceasedMothers.length)}
-        </h2>
-        {deceasedMothers.length === 0 ? (
-          <EmptyState icon={Skull} title={t.mortality.deceasedMothersEmptyTitle} />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
-              ]}
-              rows={deceasedMothers.map((r, i) => ({
-                key: r.id,
-                sortValues: { tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.retiredTagId ?? r.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <LocalDate date={r.updatedAt} locale={locale} />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {t.mortality.deceasedBucksHeading(deceasedBucks.length)}
-        </h2>
-        {deceasedBucks.length === 0 ? (
-          <EmptyState icon={Skull} title={t.mortality.deceasedBucksEmptyTitle} />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mortality.colBuckTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
-              ]}
-              rows={deceasedBucks.map((r, i) => ({
-                key: r.id,
-                sortValues: { tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.retiredTagId ?? r.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <LocalDate date={r.updatedAt} locale={locale} />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {t.mortality.deceasedStrainsHeading(deceasedStock.length)}
-        </h2>
-        {deceasedStock.length === 0 ? (
-          <EmptyState icon={Skull} title={t.mortality.deceasedStrainsEmptyTitle} />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
-                { key: "breed", label: t.mortality.colStrainBreed, type: "string", className: "text-center" },
-                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
-              ]}
-              rows={deceasedStock.map((r, i) => ({
-                key: r.id,
-                sortValues: { sex: r.sex, breed: r.breed, date: r.updatedAt },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        <StatusBadge value={r.sex} locale={locale} />
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <LocalDate date={r.updatedAt} locale={locale} />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
-        )}
-      </div>
+      <MortalityLog
+        deceasedMothers={deceasedMothers}
+        deceasedBucks={deceasedBucks}
+        deceasedStock={deceasedStock}
+        locale={locale}
+        t={t}
+        todayOnly={todayOnly}
+      />
 
       {/* سجل الاستبعادات */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {t.mortality.culledHeading(culledRabbits.length)}
-        </h2>
-        {culledRabbits.length === 0 ? (
-          <EmptyState icon={Skull} title={t.mortality.culledEmptyTitle} />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
-                { key: "tag", label: t.mortality.colTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "date", label: t.mortality.colRegisteredDate, type: "date", className: "text-center" },
-              ]}
-              rows={culledRabbits.map((r, i) => ({
-                key: r.id,
-                sortValues: { sex: r.sex, tag: r.retiredTagId ?? r.tagId, breed: r.breed, date: r.updatedAt },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell>
-                      <StatusBadge value={r.sex} locale={locale} />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.retiredTagId ?? r.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <LocalDate date={r.updatedAt} locale={locale} />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
-        )}
-      </div>
+      <CullingLog culledRabbits={culledRabbits} locale={locale} t={t} todayOnly={todayOnly} />
     </div>
   );
 }

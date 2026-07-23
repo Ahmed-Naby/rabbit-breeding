@@ -56,8 +56,8 @@ export default async function SupportOperationsPage({
 
       {/* Active Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === "nest-box" && <NestBoxPage hideHeader={true} />}
-        {activeTab === "mortality" && <MortalityPage hideHeader={true} />}
+        {activeTab === "nest-box" && <NestBoxPage hideHeader={true} todayOnly />}
+        {activeTab === "mortality" && <MortalityPage hideHeader={true} todayOnly />}
       </div>
     </div>
   );

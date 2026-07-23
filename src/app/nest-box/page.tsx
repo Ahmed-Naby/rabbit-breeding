@@ -5,7 +5,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
-import { nestBoxDueDate } from "@/lib/dates";
+import { nestBoxDueDate, isToday } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, InstallNestBoxButton } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -16,12 +16,18 @@ export async function generateMetadata() {
   return { title: `${t.nestBox.title} · RabbitTrack` };
 }
 
-export default async function NestBoxPage({ hideHeader }: { hideHeader?: boolean } = {}) {
+export default async function NestBoxPage({
+  hideHeader,
+  todayOnly,
+}: {
+  hideHeader?: boolean;
+  todayOnly?: boolean;
+} = {}) {
   // Any doe still mid-cycle (mated, kindling not yet recorded) is a nest-box
   // candidate once the configured offset from her mating date has passed —
   // "nursing" is excluded since that means this row's kindling already
   // happened, so the box's window for this cycle is over.
-  const [candidates, settings, installedLog, { locale, t }] = await Promise.all([
+  const [candidates, settings, installedLogRaw, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -75,6 +81,9 @@ export default async function NestBoxPage({ hideHeader }: { hideHeader?: boolean
       return { doe, b, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
+  const installedLog = todayOnly
+    ? installedLogRaw.filter((row) => isToday(row.nestBoxDate))
+    : installedLogRaw;
 
   return (
     <div className="space-y-6">
@@ -145,7 +154,10 @@ export default async function NestBoxPage({ hideHeader }: { hideHeader?: boolean
       )}
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">{t.nestBox.logHeading}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t.nestBox.logHeading}
+          {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        </h2>
         {installedLog.length === 0 ? (
           <EmptyState
             icon={Box}

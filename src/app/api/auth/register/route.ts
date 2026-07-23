@@ -1,8 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { issueToken } from "@/lib/auth/tokens";
-import { DEFAULT_FARM_ID } from "@/lib/tenant";
+import { DEFAULT_FARM_ID, runWithFarm } from "@/lib/tenant";
 import { Prisma } from "@/generated/prisma/client";
+
+// Seeded into every newly created farm's breed picker; the owner can add to
+// or remove from this starting set from Settings afterward.
+const DEFAULT_BREEDS = [
+  "هولندي",
+  "هاي بلس",
+  "هارلي",
+  "نيوزلندي",
+  "كاليفورنيا",
+  "في بلس",
+  "فلاندر",
+  "شانتيلا",
+  "ركس",
+  "جبلي",
+  "بلدي",
+  "بلجيكي",
+  "بايون",
+  "اسكندرية",
+];
 
 /**
  * Creates an account. The first account ever registered claims ownership of
@@ -49,6 +68,9 @@ export async function POST(request: Request) {
           data: { farmId: farm.id, userId: created.id, role: "owner" },
         });
         await tx.settings.create({ data: { farmId: farm.id } });
+        await runWithFarm(farm.id, () =>
+          tx.breed.createMany({ data: DEFAULT_BREEDS.map((name) => ({ name })) })
+        );
       }
       return created;
     });

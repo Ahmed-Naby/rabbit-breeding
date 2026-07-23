@@ -4,18 +4,24 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
-import { LocalDate } from "@/components/local-date";
-import { rebreedDueDate, daysUntil } from "@/lib/dates";
+import { rebreedDueDate, daysUntil, isToday } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, MateCell } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { MatingLog } from "./mating-log";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
   return { title: `${t.mating.title} · RabbitTrack` };
 }
 
-export default async function MatingPage({ hideHeader }: { hideHeader?: boolean } = {}) {
+export default async function MatingPage({
+  hideHeader,
+  todayOnly,
+}: {
+  hideHeader?: boolean;
+  todayOnly?: boolean;
+} = {}) {
   // Same eligibility rule as the "تلقيح" button on /does (canMate): فاضية،
   // مرضعة، أو مستبعدة. Filtering it here at the query level (instead of
   // fetching everyone and checking client-side) means this board only ever
@@ -28,7 +34,7 @@ export default async function MatingPage({ hideHeader }: { hideHeader?: boolean 
   // from the "ready now" board above. Reads straight off Breeding (not
   // per-doe latest-only like the board above) so a doe rebred more than
   // once still shows each mating as its own log line.
-  const [doesRaw, matingLog, settings, { locale, t }] = await Promise.all([
+  const [doesRaw, matingLogRaw, settings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -78,6 +84,7 @@ export default async function MatingPage({ hideHeader }: { hideHeader?: boolean 
     if (!kindlingDate) return true;
     return daysUntil(rebreedDueDate(kindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
   });
+  const matingLog = todayOnly ? matingLogRaw.filter((row) => isToday(row.matingDate)) : matingLogRaw;
 
   return (
     <div className="space-y-6">
@@ -139,58 +146,7 @@ export default async function MatingPage({ hideHeader }: { hideHeader?: boolean 
         </div>
       )}
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">{t.mating.logHeading}</h2>
-        {matingLog.length === 0 ? (
-          <EmptyState
-            icon={HeartHandshake}
-            title={t.mating.logEmptyTitle}
-            description={t.mating.logEmptyDescription}
-          />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mating.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mating.colMotherTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mating.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
-                { key: "buckTag", label: t.mating.colBuckTag, type: "tag", className: "text-center" },
-                { key: "matingDate", label: t.mating.colMatingDate, type: "date", className: "text-center" },
-                { key: "doeState", label: t.mating.colDoeState, type: "string", className: "text-center" },
-              ]}
-              rows={matingLog.map((row, i) => ({
-                key: row.id,
-                sortValues: {
-                  tag: row.doe.tagId,
-                  breed: row.doe.breed,
-                  buckTag: row.buck?.tagId,
-                  matingDate: row.matingDate,
-                  doeState: row.doe.doeState,
-                },
-                node: (
-                  <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${row.doe.id}`} className="hover:underline">
-                        {row.doe.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
-                    <TableCell>{row.buck?.tagId ?? "—"}</TableCell>
-                    <TableCell>
-                      <LocalDate date={row.matingDate} locale={locale} />
-                    </TableCell>
-                    <TableCell>
-                      <DoeStateBadge current={row.doe.doeState} locale={locale} />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
-        )}
-      </div>
+      <MatingLog matingLog={matingLog} locale={locale} t={t.mating} todayOnly={todayOnly} />
     </div>
   );
 }

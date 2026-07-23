@@ -60,6 +60,12 @@ export function toDateInputValue(date: Date | null | undefined): string {
   return `${y}-${m}-${d}`;
 }
 
+/** True if a date/ISO string falls on today's calendar date (local time). */
+export function isToday(date: Date | string | null | undefined): boolean {
+  if (!date) return false;
+  return toDateInputValue(new Date(date)) === toDateInputValue(new Date());
+}
+
 /**
  * Parse a yyyy-MM-dd string from a date input into a Date at UTC midnight,
  * so a "birthday" doesn't drift across timezones on round-trip.

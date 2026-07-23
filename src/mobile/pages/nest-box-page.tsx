@@ -4,6 +4,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchNestBoxPageData, type LocalNestBoxCandidate, type LocalInstalledNestBoxLogEntry } from "../db/queries";
+import { isToday } from "@/lib/dates";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, InstallNestBoxButton } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
@@ -32,7 +33,7 @@ export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader
   }, [load]);
 
   const does = data?.does ?? [];
-  const installedLog = data?.installedLog ?? [];
+  const installedLog = (data?.installedLog ?? []).filter((entry) => isToday(entry.nestBoxDate));
   const nestBoxDays = data?.nestBoxDays ?? 0;
 
   const doesSort = useSortableRows(does, {
@@ -181,7 +182,10 @@ export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader
 
       {/* Log section */}
       <div className="space-y-3 pt-4 border-t">
-        <h2 className="text-lg font-bold">{locale === "ar" ? "سجل تركيب بيوت الولادة" : "Nest Box Installation Log"}</h2>
+        <h2 className="text-lg font-bold">
+          {locale === "ar" ? "سجل تركيب بيوت الولادة" : "Nest Box Installation Log"}
+          {locale === "ar" ? " النهاردة" : " (Today)"}
+        </h2>
         {installedLog.length === 0 ? (
           <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات تركيب بعد." : "No installation logs yet."}</p>
         ) : (

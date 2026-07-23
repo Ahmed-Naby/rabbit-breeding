@@ -399,6 +399,27 @@ export async function setLitterCount(
     },
     { bornAlive, bornDead, weaned }
   );
+
+  // Mirrors setLitterCountOp's server-side fallback: nothing left to nurse,
+  // so she drops out of whichever nursing leg she's in the same way
+  // markWeaned resolves it ("nursing_bred" -> "bred", "nursing_pregnant" ->
+  // "pregnant", preserving an in-progress rebreed either way; plain
+  // "nursing" -> "empty").
+  if (payload.field === "bornAlive" && effectiveBornAlive === 0 && breeding.actualKindlingDate) {
+    const doe = await getRabbit(db, breeding.doeId);
+    const nextState: DoeState | null =
+      doe?.doeState === "nursing_bred"
+        ? "bred"
+        : doe?.doeState === "nursing_pregnant"
+          ? "pregnant"
+          : doe?.doeState === "nursing"
+            ? "empty"
+            : null;
+    if (nextState) {
+      await updateRabbit(db, breeding.doeId, { doeState: nextState });
+    }
+  }
+
   return applied;
 }
 

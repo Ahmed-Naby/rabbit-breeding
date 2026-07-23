@@ -146,7 +146,7 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
           {isHerdRabbit && (
             <Button size="sm" onClick={() => setEditing((v) => !v)}>
               <Pencil className="size-4" />
-              {t.editButton}
+              {rabbit.sex === "doe" ? t.editDoeCardButton : rabbit.sex === "buck" ? t.editBuckCardButton : t.editRabbitCardButton}
             </Button>
           )}
         </div>

@@ -5,27 +5,29 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
-import { expectedKindling } from "@/lib/dates";
+import { expectedKindling, isToday } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
-import { DoeStateBadge, KindleButton, LitterCountInput } from "../does/doe-state-menu";
+import { DoeStateBadge, KindleButton } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { isKindlingCandidate } from "@/lib/breeding-filters";
+import { KindlingLog } from "./kindling-log";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
   return { title: `${t.kindling.title} · RabbitTrack` };
 }
 
-/** yyyy-MM-dd key for matching by calendar day, TZ-agnostic since dates are stored at UTC midnight. */
-function dayKey(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-export default async function KindlingPage({ hideHeader }: { hideHeader?: boolean } = {}) {
+export default async function KindlingPage({
+  hideHeader,
+  todayOnly,
+}: {
+  hideHeader?: boolean;
+  todayOnly?: boolean;
+} = {}) {
   // "pregnant" / "nursing_pregnant" = confirmed pregnant, kindling not yet
   // recorded for this cycle (matches KindleButton's own `active` condition).
-  const [candidates, settings, kindlingLog, litters, breedings, { locale, t }] = await Promise.all([
+  const [candidates, settings, kindlingLogRaw, litters, breedings, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -92,24 +94,7 @@ export default async function KindlingPage({ hideHeader }: { hideHeader?: boolea
       return { doe, b, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
-
-  // doeId + day -> litter counts, for enriching the kindling log below.
-  const litterByDoeDay = new Map<
-    string,
-    { bornAlive: number; bornDead: number }
-  >();
-  for (const l of litters) {
-    litterByDoeDay.set(`${l.breeding.doeId}_${dayKey(l.kindlingDate)}`, {
-      bornAlive: l.bornAlive,
-      bornDead: l.bornDead,
-    });
-  }
-
-  // doeId + day -> breedingId, so "أحياء"/"نافق" can be edited inline.
-  const breedingByDoeDay = new Map<string, string>();
-  for (const b of breedings) {
-    breedingByDoeDay.set(`${b.doeId}_${dayKey(b.actualKindlingDate!)}`, b.id);
-  }
+  const kindlingLog = todayOnly ? kindlingLogRaw.filter((row) => isToday(row.kindlingDate)) : kindlingLogRaw;
 
   return (
     <div className="space-y-6">
@@ -185,91 +170,7 @@ export default async function KindlingPage({ hideHeader }: { hideHeader?: boolea
         </div>
       )}
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">{t.kindling.logHeading}</h2>
-        {kindlingLog.length === 0 ? (
-          <EmptyState
-            icon={HeartPulse}
-            title={t.kindling.logEmptyTitle}
-            description={t.kindling.logEmptyDescription}
-          />
-        ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.kindling.colIndex, className: "text-center", sortable: false },
-                { key: "doeTag", label: t.kindling.colDoeTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.kindling.colBreed, type: "string", className: "hidden text-center sm:table-cell" },
-                { key: "buckTag", label: t.kindling.colBuckTag, type: "tag", className: "hidden text-center sm:table-cell" },
-                { key: "matingDate", label: t.kindling.colMatingDate, type: "date", className: "hidden text-center sm:table-cell" },
-                { key: "kindlingDate", label: t.kindling.colKindlingDate, type: "date", className: "text-center" },
-                { key: "bornAlive", label: t.kindling.colBornAlive, type: "number", className: "text-center" },
-                { key: "bornDead", label: t.kindling.colBornDead, type: "number", className: "text-center" },
-              ]}
-              rows={kindlingLog.map((row, i) => {
-                const day = dayKey(row.kindlingDate);
-                const m = litterByDoeDay.get(`${row.doe.id}_${day}`);
-                const breedingId = breedingByDoeDay.get(`${row.doe.id}_${day}`);
-                return {
-                  key: row.id,
-                  sortValues: {
-                    doeTag: row.doe.tagId,
-                    breed: row.doe.breed,
-                    buckTag: row.buck?.tagId,
-                    matingDate: row.matingDate,
-                    kindlingDate: row.kindlingDate,
-                    bornAlive: m?.bornAlive,
-                    bornDead: m?.bornDead,
-                  },
-                  node: (
-                    <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
-                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell className="font-medium">
-                        <Link href={`/rabbits/${row.doe.id}`} className="hover:underline">
-                          {row.doe.tagId ?? "—"}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">{row.doe.breed ?? "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{row.buck?.tagId ?? "—"}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <LocalDate date={row.matingDate} locale={locale} />
-                      </TableCell>
-                      <TableCell>
-                        <LocalDate date={row.kindlingDate} locale={locale} />
-                      </TableCell>
-                      <TableCell>
-                        {breedingId ? (
-                          <LitterCountInput
-                            breedingId={breedingId}
-                            field="bornAlive"
-                            value={m?.bornAlive ?? null}
-                            locale={locale}
-                          />
-                        ) : (
-                          (m?.bornAlive ?? "—")
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {breedingId ? (
-                          <LitterCountInput
-                            breedingId={breedingId}
-                            field="bornDead"
-                            value={m?.bornDead ?? null}
-                            locale={locale}
-                          />
-                        ) : (
-                          (m?.bornDead ?? "—")
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ),
-                };
-              })}
-            />
-          </div>
-        )}
-      </div>
+      <KindlingLog kindlingLog={kindlingLog} litters={litters} breedings={breedings} locale={locale} t={t.kindling} todayOnly={todayOnly} />
     </div>
   );
 }

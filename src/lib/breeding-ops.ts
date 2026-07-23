@@ -400,6 +400,12 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
  * litter (same reasoning as markWeaned: the board's quick "ولادة" doesn't
  * create one) and writes only the touched field, leaving the others at their
  * current value.
+ *
+ * If this brings "حي" down to 0 for a doe in any nursing state, there's
+ * nothing left to feed — she's dropped out of that nursing leg the same way
+ * markWeaned resolves it: "nursing_bred" -> "bred", "nursing_pregnant" ->
+ * "pregnant" (an in-progress rebreed is preserved either way), plain
+ * "nursing" -> "empty".
  */
 export async function setLitterCountOp(
   breedingId: string,
@@ -409,7 +415,7 @@ export async function setLitterCountOp(
   const [breeding, litter] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
-      select: { actualKindlingDate: true },
+      select: { actualKindlingDate: true, doeId: true, doe: { select: { doeState: true } } },
     }),
     prisma.litter.findUnique({
       where: { breedingId },
@@ -430,17 +436,37 @@ export async function setLitterCountOp(
     return { ok: false, code: "WEANED_EXCEEDS_BORN_ALIVE" };
   }
 
-  await prisma.litter.upsert({
-    where: { breedingId },
-    create: {
-      breedingId,
-      kindlingDate: breeding.actualKindlingDate ?? new Date(),
-      bornAlive: bornAlive ?? 0,
-      bornDead: bornDead ?? 0,
-      weaned: weaned ?? null,
-    },
-    update: { bornAlive, bornDead, weaned },
-  });
+  const dropsNursing =
+    field === "bornAlive" &&
+    effectiveBornAlive === 0 &&
+    !!breeding.actualKindlingDate &&
+    (breeding.doe.doeState === "nursing" ||
+      breeding.doe.doeState === "nursing_bred" ||
+      breeding.doe.doeState === "nursing_pregnant");
+  const nextState = dropsNursing
+    ? breeding.doe.doeState === "nursing_bred"
+      ? ("bred" as const)
+      : breeding.doe.doeState === "nursing_pregnant"
+        ? ("pregnant" as const)
+        : ("empty" as const)
+    : null;
+
+  await prisma.$transaction([
+    prisma.litter.upsert({
+      where: { breedingId },
+      create: {
+        breedingId,
+        kindlingDate: breeding.actualKindlingDate ?? new Date(),
+        bornAlive: bornAlive ?? 0,
+        bornDead: bornDead ?? 0,
+        weaned: weaned ?? null,
+      },
+      update: { bornAlive, bornDead, weaned },
+    }),
+    ...(nextState
+      ? [prisma.rabbit.update({ where: { id: breeding.doeId }, data: { doeState: nextState } })]
+      : []),
+  ]);
 
   return { ok: true, data: undefined };
 }

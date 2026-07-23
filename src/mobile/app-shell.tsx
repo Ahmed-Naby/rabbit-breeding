@@ -36,6 +36,7 @@ import {
   ListChecks,
   CalendarDays,
   LogOut,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
@@ -75,6 +76,7 @@ import { SupportOperationsPage } from "./pages/support-operations-page";
 import { DailyRoundsPage } from "./pages/daily-rounds-page";
 import { HerdAndStockPage } from "./pages/herd-and-stock-page";
 import { SettingsPage } from "./pages/settings-page";
+import { RecordsPage } from "./pages/records-page";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
@@ -86,6 +88,7 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
   "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },
+  "#/records": { path: "#/records", labelKey: "records", icon: History },
   "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   "#/finance": { path: "#/finance", labelKey: "finance", icon: Wallet },
   "#/settings": { path: "#/settings", labelKey: "settings", icon: Settings },
@@ -513,6 +516,7 @@ export function AppShell() {
           {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => route.startsWith(r))) && (
             <ReportsPage locale={locale} />
           )}
+          {route === "#/records" && <RecordsPage locale={locale} />}
           {route === "#/finance" && <FinancePage locale={locale} />}
           {route === "#/settings" && <SettingsPage locale={locale} />}
         </main>

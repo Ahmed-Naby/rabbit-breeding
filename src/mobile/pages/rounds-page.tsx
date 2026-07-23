@@ -11,11 +11,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, Search } from "lucide-react";
 import { toast } from "sonner";
 import { computeDoeBoardRow } from "@/lib/does-board";
+import { isKindlingCandidate } from "@/lib/breeding-filters";
 import type { DoeState } from "@/lib/enums";
 import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
-import { toDateInputValue } from "@/lib/dates";
+import { toDateInputValue, daysUntil } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import { naturalCompare } from "@/lib/sortable";
 import { getDb } from "../db/client";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
@@ -28,6 +30,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const HEALTH_TYPE_KEYS = ["illness", "treatment", "vaccination", "deworming", "checkup"] as const;
+
+// Day gestation runs past this without kindling, she likely needs an
+// oxytocin/kindling-induction shot — flash the days-pregnant badge so the
+// supervisor doesn't miss it on the daily round.
+const OVERDUE_PREGNANCY_DAYS = 32;
 
 export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -161,6 +168,17 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
           const nursingEligible = !!litter && !litter.weaningDate && litter.bornAlive > 0;
           const bornAlive = litter?.bornAlive ?? 0;
           const nursingCount = nursingCounts[doe.id] || 1;
+
+          // Not yet kindled (pregnant / re-bred while still nursing an older
+          // litter): the kindle button + count inputs only make sense once
+          // she's actually due, per isKindlingCandidate's app-wide gestation
+          // threshold — otherwise show a running "pregnant, day N" note.
+          const notYetKindled = doe.doeState === "pregnant" || doe.doeState === "nursing_pregnant";
+          const dueForKindling =
+            notYetKindled &&
+            !!b?.matingDate &&
+            isKindlingCandidate({ id: b.id, matingDate: b.matingDate, actualKindlingDate: b.actualKindlingDate }, settings.gestationDays);
+          const daysPregnant = b?.matingDate ? Math.max(0, -daysUntil(b.matingDate)) : null;
           const healthDraftForDoe = healthDraft[doe.id] ?? { type: "illness", disease: "other" as DiseaseType, description: "" };
 
           return (
@@ -169,6 +187,18 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 <div className="flex items-baseline gap-2">
                   <span className="text-base font-semibold">{doe.tagId ?? "—"}</span>
                   <span className="text-xs text-muted-foreground">{doe.breed ?? "—"}</span>
+                  {notYetKindled && daysPregnant !== null ? (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+                        daysPregnant >= OVERDUE_PREGNANCY_DAYS
+                          ? "animate-pulse bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                          : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                      )}
+                    >
+                      {rt.pregnantDaysNote(daysPregnant)}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <StatusBadge value={doe.status} locale={locale} />
@@ -189,7 +219,7 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 {/* Kindling */}
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-medium text-muted-foreground">{rt.kindlingLabel}</span>
-                  {kindleActive ? (
+                  {kindleActive && (!notYetKindled || dueForKindling) ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <KindleButton
                         breedingId={b?.id ?? ""}
