@@ -29,6 +29,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "vite build --config vite.config.web.ts && next build",
+    "vercel-build": "prisma migrate deploy && vite build --config vite.config.web.ts && next build",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
