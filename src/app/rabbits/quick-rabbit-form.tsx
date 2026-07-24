@@ -237,6 +237,7 @@ export function QuickRabbitForm({
           <div className="rounded-xl border bg-card">
             <SortableTable
               headerRowClassName="[&>th]:border-x"
+              initialSortKey="cage"
               columns={[
                 { key: "date", label: t.colDate, type: "date", className: "text-center" },
                 { key: "sex", label: t.colSex, type: "string", className: "text-center" },

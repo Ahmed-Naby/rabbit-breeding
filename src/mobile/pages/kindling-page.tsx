@@ -45,7 +45,7 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
     matingDate: { type: "date", value: (r) => r.matingDate },
     expectedDate: { type: "date", value: (r) => r.expectedKindlingDate },
     doeState: { type: "string", value: (r) => r.doeState },
-  });
+  }, { key: "tag" });
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }

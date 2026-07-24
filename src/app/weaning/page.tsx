@@ -107,6 +107,7 @@ export default async function WeaningPage({
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            initialSortKey="doeTag"
             columns={[
               { key: "index", label: t.weaning.colIndex, className: "text-center", sortable: false },
               { key: "doeTag", label: t.weaning.colMotherTag, type: "tag", className: "text-center" },

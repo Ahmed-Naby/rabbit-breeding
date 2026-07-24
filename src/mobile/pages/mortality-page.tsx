@@ -119,16 +119,16 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   const mothersSort = useSortableRows(activeMothers, {
     tag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
-  });
+  }, { key: "tag" });
   const bucksSort = useSortableRows(activeBucks, {
     tag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
-  });
+  }, { key: "tag" });
   const stockSort = useSortableRows(activeStock, {
     sex: { type: "string", value: (r) => r.sex },
     breed: { type: "string", value: (r) => r.breed },
     cage: { type: "tag", value: (r) => r.cage },
-  });
+  }, { key: "cage" });
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }

@@ -158,6 +158,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            initialSortKey="buckTag"
             columns={[
               { key: "buckTag", label: t.bucksFertility.colBuckTag, type: "tag", className: "text-center" },
               { key: "breed", label: t.bucksFertility.colBreed, type: "string", className: "text-center" },

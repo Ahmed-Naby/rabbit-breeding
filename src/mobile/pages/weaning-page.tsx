@@ -46,7 +46,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
     doeState: { type: "string", value: (r) => r.doeState },
     alive: { type: "number", value: (r) => r.bornAlive },
     dead: { type: "number", value: (r) => r.bornDead },
-  });
+  }, { key: "doeTag" });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;

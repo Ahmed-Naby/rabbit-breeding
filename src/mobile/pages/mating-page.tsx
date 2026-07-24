@@ -43,7 +43,7 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
     tag: { type: "tag", value: (r) => r.tagId },
     breed: { type: "string", value: (r) => r.breed },
     doeState: { type: "string", value: (r) => r.doeState },
-  });
+  }, { key: "tag" });
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }

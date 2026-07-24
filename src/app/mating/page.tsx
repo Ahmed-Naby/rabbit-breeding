@@ -104,6 +104,7 @@ export default async function MatingPage({
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            initialSortKey="tag"
             columns={[
               { key: "index", label: t.mating.colIndex, className: "text-center", sortable: false },
               { key: "tag", label: t.mating.colMotherTag, type: "tag", className: "text-center" },

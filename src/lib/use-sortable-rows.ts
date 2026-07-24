@@ -13,11 +13,19 @@ export interface SortColumnDef<T> {
  * already available in full (no server-side pagination). `columns` maps a
  * sort key (matching the key passed to `toggleSort`) to how to read/compare
  * that column's value.
+ *
+ * `initial` seeds the default sort (e.g. natural tag order) so the table isn't
+ * shown in raw query order until the user clicks a header; omit it to start
+ * unsorted. It only sets the starting state — the header toggles still win.
  */
-export function useSortableRows<T>(rows: T[], columns: Record<string, SortColumnDef<T>>) {
+export function useSortableRows<T>(
+  rows: T[],
+  columns: Record<string, SortColumnDef<T>>,
+  initial?: { key: string; direction?: SortDirection }
+) {
   const [sort, setSort] = useState<{ key: string | null; direction: SortDirection }>({
-    key: null,
-    direction: "asc",
+    key: initial?.key ?? null,
+    direction: initial?.direction ?? "asc",
   });
   const { key: sortKey, direction } = sort;
 

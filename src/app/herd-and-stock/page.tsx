@@ -18,7 +18,7 @@ export default async function HerdAndStockPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const sp = await searchParams;
-  const activeTab = sp.tab || "stock";
+  const activeTab = sp.tab || "mothers";
   const { t } = await getDictionary();
   const hs = t.herdAndStock;
 

@@ -142,7 +142,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
       type: "number",
       value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.weaningWeightGrams ?? null,
     },
-  });
+  }, { key: "tag" });
 
   if (does === null || settings === null) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
@@ -433,7 +433,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
 
       {/* Mobile Card View */}
       <div className="xl:hidden space-y-3">
-        {does.map((doe) => {
+        {doesSort.sorted.map((doe) => {
           const {
             current: b,
             countsRow,

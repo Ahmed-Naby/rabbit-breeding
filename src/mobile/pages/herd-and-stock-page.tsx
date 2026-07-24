@@ -20,7 +20,7 @@ export function HerdAndStockPage({ locale }: { locale: Locale }) {
       if (hash.includes("tab=bucks") || hash.startsWith("#/bucks")) return "bucks";
       if (hash.includes("tab=stock") || hash.startsWith("#/stock")) return "stock";
     }
-    return "stock";
+    return "mothers";
   });
 
   return (

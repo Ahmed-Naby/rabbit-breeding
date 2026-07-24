@@ -32,14 +32,19 @@ export function SortableTable({
   columns,
   rows,
   headerRowClassName,
+  initialSortKey,
+  initialSortDirection = "asc",
 }: {
   columns: SortableColumn[];
   rows: SortableRowItem[];
   headerRowClassName?: string;
+  /** Seeds the default sort (e.g. natural tag order) instead of raw row order. */
+  initialSortKey?: string;
+  initialSortDirection?: SortDirection;
 }) {
   const [sort, setSort] = React.useState<{ key: string | null; direction: SortDirection }>({
-    key: null,
-    direction: "asc",
+    key: initialSortKey ?? null,
+    direction: initialSortDirection,
   });
   const { key: sortKey, direction } = sort;
 

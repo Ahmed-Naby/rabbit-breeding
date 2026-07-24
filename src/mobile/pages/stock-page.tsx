@@ -188,7 +188,7 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
     breed: { type: "string", value: (r) => r.breed },
     cage: { type: "tag", value: (r) => r.cage },
     weight: { type: "number", value: (r) => r.weightKg },
-  });
+  }, { key: "cage" });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;

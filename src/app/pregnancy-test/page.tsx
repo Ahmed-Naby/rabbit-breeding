@@ -97,6 +97,7 @@ export default async function PregnancyTestPage({
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            initialSortKey="doeTag"
             columns={[
               { key: "index", label: t.pregnancyTest.colIndex, className: "text-center", sortable: false },
               { key: "doeTag", label: t.pregnancyTest.colMotherTag, type: "tag", className: "text-center" },

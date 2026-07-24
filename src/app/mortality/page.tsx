@@ -224,6 +224,7 @@ export default async function MortalityPage({
           <div className="rounded-xl border bg-card">
             <SortableTable
               headerRowClassName="[&>th]:border-x"
+              initialSortKey="tag"
               columns={[
                 { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
                 { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
@@ -266,6 +267,7 @@ export default async function MortalityPage({
           <div className="rounded-xl border bg-card">
             <SortableTable
               headerRowClassName="[&>th]:border-x"
+              initialSortKey="tag"
               columns={[
                 { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
                 { key: "tag", label: t.mortality.colBuckTag, type: "tag", className: "text-center" },
@@ -308,6 +310,7 @@ export default async function MortalityPage({
           <div className="rounded-xl border bg-card">
             <SortableTable
               headerRowClassName="[&>th]:border-x"
+              initialSortKey="cage"
               columns={[
                 { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
                 { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },

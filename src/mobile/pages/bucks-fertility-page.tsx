@@ -140,7 +140,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
     totalBorn: { type: "number", value: (r) => r.totalBornAlive },
-  });
+  }, { key: "buckTag" });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;

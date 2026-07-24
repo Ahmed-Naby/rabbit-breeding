@@ -47,7 +47,7 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
       value: (r) => (r.matingDate ? pregnancyTestDate(new Date(r.matingDate), pregnancyTestDays) : null),
     },
     doeState: { type: "string", value: (r) => r.doeState },
-  });
+  }, { key: "doeTag" });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;

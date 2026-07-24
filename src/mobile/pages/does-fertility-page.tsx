@@ -170,7 +170,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
     avgWeaned: { type: "number", value: (r) => r.avgWeaned ?? -1 },
     weaningSurvival: { type: "number", value: (r) => r.weaningSurvivalRate ?? -1 },
-  });
+  }, { key: "doeTag" });
 
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
