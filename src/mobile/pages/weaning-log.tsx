@@ -1,7 +1,6 @@
 import type { Locale } from "@/lib/i18n/locales";
 import type { WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
-import { LitterCountInput, LitterWeightInput } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
@@ -10,15 +9,15 @@ function survivalRate(bornAlive: number, weaned: number | null): number | null {
   return weaned / bornAlive;
 }
 
+// Read-only archive (سجل الفطام): weaned count and weaning weight are entered
+// on the daily الأمهات board; each row here is frozen at weaning, never edited.
 export function WeaningLog({
   weanedLog,
   locale,
-  onDone,
   todayOnly,
 }: {
   weanedLog: WeanedLitterLogEntry[];
   locale: Locale;
-  onDone: () => void;
   todayOnly?: boolean;
 }) {
   const weanedLogSort = useSortableRows(weanedLog, {
@@ -135,7 +134,7 @@ export function WeaningLog({
                 const rate = survivalRate(log.bornAlive, log.weaned);
 
                 return (
-                  <tr key={log.breedingId} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                  <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
@@ -148,25 +147,8 @@ export function WeaningLog({
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornAlive}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornDead || "—"}</td>
-                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">
-                      <LitterCountInput
-                        breedingId={log.breedingId}
-                        field="weaned"
-                        value={log.weaned}
-                        locale={locale}
-                        className="w-9 md:w-12 mx-auto"
-                        onDone={onDone}
-                      />
-                    </td>
-                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">
-                      <LitterWeightInput
-                        breedingId={log.breedingId}
-                        valueGrams={log.weaningWeightGrams}
-                        locale={locale}
-                        className="w-12 md:w-16 mx-auto"
-                        onDone={onDone}
-                      />
-                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center font-bold">{log.weaned ?? "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.weaningWeightGrams ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell text-center font-semibold">
                       {rate != null ? (
                         <span className="text-emerald-600 dark:text-emerald-400">

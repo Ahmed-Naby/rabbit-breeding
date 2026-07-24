@@ -14,7 +14,7 @@ if (!connectionString) throw new Error("DATABASE_URL is not set");
 const TENANT_MODELS = new Set([
   "Rabbit", "Breeding", "Litter", "WeightRecord", "HealthRecord",
   "Transaction", "KitStockMovement", "Breed", "PregnancyTestLog",
-  "KindlingLog", "MatingLog", "FosterLog", "SyncTombstone",
+  "KindlingLog", "WeaningLog", "MatingLog", "FosterLog", "SyncTombstone",
 ]);
 
 // Operations whose `where` receives the farm filter. findUnique/update/

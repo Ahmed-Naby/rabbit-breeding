@@ -431,6 +431,7 @@ export const ar = {
     colWean: "فطام",
     colWeanedCount: "عدد الفطام",
     colWeaningDate: "تاريخ الفطام",
+    colWeaningWeight: "وزن الفطام (جم)",
     colClear: "مسح",
     pregnantButton: "عشار",
     negativeButton: "سالبة",

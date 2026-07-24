@@ -102,6 +102,9 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     `ALTER TABLE sync_cursor ADD COLUMN mirrorRefreshV INTEGER`,
     `ALTER TABLE breeding ADD COLUMN palpationConfirmedDate TEXT`,
     `ALTER TABLE settings_cache ADD COLUMN palpationCheckDays INTEGER NOT NULL DEFAULT 15`,
+    `ALTER TABLE kindling_log ADD COLUMN breedingId TEXT`,
+    `ALTER TABLE kindling_log ADD COLUMN bornAlive INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE kindling_log ADD COLUMN bornDead INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of migrations) {
     try {

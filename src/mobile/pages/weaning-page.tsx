@@ -194,7 +194,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
       </div>
 
       <div className="pt-4 border-t">
-        <WeaningLog weanedLog={weanedLog} locale={locale} onDone={() => void load()} todayOnly />
+        <WeaningLog weanedLog={weanedLog} locale={locale} todayOnly />
       </div>
     </div>
   );

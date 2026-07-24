@@ -19,6 +19,7 @@ import {
   KindleButton,
   WeanButton,
   LitterCountInput,
+  LitterWeightInput,
   ClearDoeButton,
 } from "./doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -61,7 +62,7 @@ export default async function DoesPage() {
             palpationConfirmedDate: true,
             buck: { select: { tagId: true } },
             litter: {
-              select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true },
+              select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true, weaningWeightGrams: true },
             },
           },
         },
@@ -105,6 +106,7 @@ export default async function DoesPage() {
               { key: "wean", label: t.does.colWean, className: "text-center", sortable: false },
               { key: "weanedCount", label: t.does.colWeanedCount, type: "number", className: "text-center" },
               { key: "weaningDate", label: t.does.colWeaningDate, type: "date", className: "text-center" },
+              { key: "weaningWeight", label: t.does.colWeaningWeight, type: "number", className: "text-center" },
               { key: "clear", label: t.does.colClear, className: "text-center", sortable: false },
             ]}
             rows={does.map((doe, i) => {
@@ -153,6 +155,7 @@ export default async function DoesPage() {
                     bornDead: countsRow?.litter?.bornDead,
                     weanedCount: countsRow?.litter?.weaned,
                     weaningDate: countsRow?.litter?.weaningDate,
+                    weaningWeight: countsRow?.litter?.weaningWeightGrams,
                   },
                   node: (
                   <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
@@ -292,6 +295,14 @@ export default async function DoesPage() {
                       ) : (
                         "—"
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <LitterWeightInput
+                        breedingId={countsRow?.id ?? ""}
+                        valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
+                        disabled={!isWeaned}
+                        locale={locale}
+                      />
                     </TableCell>
                     <TableCell>
                       {b ? (

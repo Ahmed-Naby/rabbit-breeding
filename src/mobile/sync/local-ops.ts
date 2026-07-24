@@ -16,10 +16,12 @@
  * once the server's real row comes back (see pull.ts's upsert-by-natural-key
  * for both tables).
  *
- * Deliberately NOT mirrored/written here: PregnancyTestLog, KindlingLog,
- * FosterLog, KitStockMovement — all append-only history/reporting tables,
- * not needed for the boards' immediate optimistic feedback, refreshed from
- * the server on the next pull like everything else read-only.
+ * The append-only history tables that back a read-only board the farmer
+ * lands on right after an action — PregnancyTestLog (سجل الجس), ResorptionLog
+ * (سجل الامتصاص), KindlingLog (سجل الولادة), WeaningLog (سجل الفطام) — are
+ * written/mirrored optimistically here so the row shows without waiting for a
+ * pull. Purely-reporting tables (FosterLog, KitStockMovement) are not; they
+ * refresh from the server on the next pull like everything else read-only.
  */
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { createId } from "@paralleldrive/cuid2";
@@ -109,16 +111,101 @@ async function insertPregnancyTestLog(
  * can run on a breeding whose date was already cleared) and is captured by
  * callers BEFORE markKindled nulls it — that snapshot is the whole reason
  * the log keeps its own copy rather than joining back to breeding.
+ *
+ * The log is an append-only archive: bornAlive/bornDead live on the row and
+ * are mirrored one-way from the live litter (see mirrorKindlingLogCounts) so
+ * a re-mate that reuses this breeding never rewrites a prior cycle's row.
  */
 async function insertKindlingLog(
   db: SQLiteDBConnection,
-  args: { doeId: string; buckId: string | null; matingDate: string | null; kindlingDate: string }
+  args: {
+    doeId: string;
+    buckId: string | null;
+    breedingId: string;
+    matingDate: string | null;
+    kindlingDate: string;
+    bornAlive?: number;
+    bornDead?: number;
+  }
 ): Promise<void> {
   await run(
     db,
-    `INSERT INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.kindlingDate, nowIso()]
+    `INSERT INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      `local-${createId()}`,
+      args.doeId,
+      args.buckId ?? null,
+      args.breedingId,
+      args.matingDate,
+      args.kindlingDate,
+      args.bornAlive ?? 0,
+      args.bornDead ?? 0,
+      nowIso(),
+    ]
+  );
+}
+
+/**
+ * Optimistic mirror for سجل الفطام. Like the kindling log this is append-only:
+ * one row per weaning event, frozen at write time. Written on the "فطام" press
+ * (markWeaned) and whenever a total loss closes a litter with no press
+ * (setLitterCount/recordNursingKitDeath). The "local-" id is reconciled away by
+ * pull() matching the server's real row on doeId + weaningDate.
+ */
+async function insertWeaningLog(
+  db: SQLiteDBConnection,
+  args: {
+    doeId: string;
+    buckId: string | null;
+    breedingId: string;
+    kindlingDate: string | null;
+    weaningDate: string;
+    bornAlive: number;
+    bornDead: number;
+    weaned: number | null;
+    weaningWeightGrams?: number | null;
+  }
+): Promise<void> {
+  const now = nowIso();
+  await run(
+    db,
+    `INSERT INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      `local-${createId()}`,
+      args.doeId,
+      args.buckId ?? null,
+      args.breedingId,
+      args.kindlingDate,
+      args.weaningDate,
+      args.bornAlive,
+      args.bornDead,
+      args.weaned,
+      args.weaningWeightGrams ?? null,
+      now,
+    ]
+  );
+}
+
+/**
+ * One-way mirror of the live litter counts into the CURRENT cycle's log rows,
+ * matching the server's kindlingLog/weaningLog.updateMany. Matched on
+ * breedingId + the cycle date so only the current cycle's row moves — older
+ * rows (same reused breedingId, different date) stay frozen.
+ */
+async function mirrorKindlingLogCounts(
+  db: SQLiteDBConnection,
+  breedingId: string,
+  kindlingDate: string | null,
+  bornAlive: number,
+  bornDead: number
+): Promise<void> {
+  if (!kindlingDate) return;
+  await run(
+    db,
+    "UPDATE kindling_log SET bornAlive = ?, bornDead = ? WHERE breedingId = ? AND kindlingDate = ?",
+    [bornAlive, bornDead, breedingId, kindlingDate]
   );
 }
 
@@ -389,6 +476,7 @@ export async function markKindled(
   await insertKindlingLog(db, {
     doeId: payload.doeId,
     buckId: breeding.buckId ?? null,
+    breedingId: payload.breedingId,
     matingDate: breeding.matingDate,
     kindlingDate: actualKindlingDate,
   });
@@ -417,12 +505,32 @@ export async function markWeaned(
         ? "pregnant"
         : "empty";
 
+  // Snapshot the live litter BEFORE the upsert so the frozen فطام row records
+  // the counts as they stood at weaning. Guarded like markWeanedOp's
+  // isNewWeaning: only write a log row the first time this litter is weaned,
+  // so a re-pressed "فطام" doesn't spawn a duplicate.
+  const litter = await getLitterByBreeding(db, payload.breedingId);
+  const isNewWeaning = !litter?.weaningDate;
+
   await upsertLitterByBreedingId(
     db,
     payload.breedingId,
     { kindlingDate: breeding.actualKindlingDate ?? weaningDate, weaningDate },
     { weaningDate }
   );
+  if (isNewWeaning) {
+    await insertWeaningLog(db, {
+      doeId: payload.doeId,
+      buckId: breeding.buckId ?? null,
+      breedingId: payload.breedingId,
+      kindlingDate: breeding.actualKindlingDate ?? null,
+      weaningDate,
+      bornAlive: litter?.bornAlive ?? 0,
+      bornDead: litter?.bornDead ?? 0,
+      weaned: litter?.weaned ?? null,
+      weaningWeightGrams: litter?.weaningWeightGrams ?? null,
+    });
+  }
   await updateRabbit(db, payload.doeId, { doeState: nextState });
   return applied;
 }
@@ -483,6 +591,33 @@ export async function setLitterCount(
     { bornAlive, bornDead, weaned: closingWeaningDate ? 0 : weaned, ...(closingWeaningDate ? { weaningDate: closingWeaningDate } : {}) }
   );
 
+  // Mirror the new live counts one-way into the frozen archive rows, matching
+  // setLitterCountOp: the current kindling row always, and the weaning row
+  // either created now (a total loss closes the litter with no "فطام" press)
+  // or updated in place if this litter was already weaned.
+  const newBornAlive = payload.field === "bornAlive" ? (payload.value ?? 0) : (litter?.bornAlive ?? 0);
+  const newBornDead = payload.field === "bornDead" ? (payload.value ?? 0) : (litter?.bornDead ?? 0);
+  const newWeaned = closingWeaningDate ? 0 : (payload.field === "weaned" ? payload.value : (litter?.weaned ?? null));
+  await mirrorKindlingLogCounts(db, payload.breedingId, breeding.actualKindlingDate, newBornAlive, newBornDead);
+  if (closingWeaningDate) {
+    await insertWeaningLog(db, {
+      doeId: breeding.doeId,
+      buckId: breeding.buckId ?? null,
+      breedingId: payload.breedingId,
+      kindlingDate: breeding.actualKindlingDate ?? null,
+      weaningDate: closingWeaningDate,
+      bornAlive: newBornAlive,
+      bornDead: newBornDead,
+      weaned: 0,
+    });
+  } else if (litter?.weaningDate) {
+    await run(
+      db,
+      "UPDATE weaning_log SET bornAlive = ?, bornDead = ?, weaned = ? WHERE breedingId = ? AND weaningDate = ?",
+      [newBornAlive, newBornDead, newWeaned, payload.breedingId, litter.weaningDate]
+    );
+  }
+
   if (nextState) {
     await updateRabbit(db, breeding.doeId, { doeState: nextState });
   }
@@ -500,6 +635,7 @@ export async function setLitterWeaningWeight(
   }
   const breeding = await getBreeding(db, payload.breedingId);
   if (!breeding) return rejected("Breeding not found locally");
+  const litter = await getLitterByBreeding(db, payload.breedingId);
 
   await upsertLitterByBreedingId(
     db,
@@ -507,6 +643,15 @@ export async function setLitterWeaningWeight(
     { kindlingDate: breeding.actualKindlingDate ?? nowIso(), weaningWeightGrams },
     { weaningWeightGrams }
   );
+  // Mirror the weight into the current cycle's frozen فطام row (matches
+  // setLitterWeaningWeightOp's weaningLog.updateMany).
+  if (litter?.weaningDate) {
+    await run(
+      db,
+      "UPDATE weaning_log SET weaningWeightGrams = ? WHERE breedingId = ? AND weaningDate = ?",
+      [weaningWeightGrams, payload.breedingId, litter.weaningDate]
+    );
+  }
   return applied;
 }
 
@@ -537,18 +682,44 @@ export async function recordNursingKitDeath(
         : "empty"
     : null;
 
-  if (dropsNursing) {
-    const weaningDate = todayIso();
+  const newBornAlive = litter.bornAlive - count;
+  const newBornDead = litter.bornDead + count;
+  const closingWeaningDate = dropsNursing ? todayIso() : null;
+
+  if (closingWeaningDate) {
     await run(
       db,
       "UPDATE litter SET bornAlive = bornAlive - ?, bornDead = bornDead + ?, weaned = 0, weaningDate = ?, updatedAt = ? WHERE breedingId = ?",
-      [count, count, weaningDate, nowIso(), payload.breedingId]
+      [count, count, closingWeaningDate, nowIso(), payload.breedingId]
     );
   } else {
     await run(
       db,
       "UPDATE litter SET bornAlive = bornAlive - ?, bornDead = bornDead + ?, updatedAt = ? WHERE breedingId = ?",
       [count, count, nowIso(), payload.breedingId]
+    );
+  }
+
+  // Mirror the new counts into the frozen archive rows, matching
+  // recordNursingKitDeathOp: current kindling row always; weaning row created
+  // on a total-loss close (no "فطام" press) or updated if already weaned.
+  await mirrorKindlingLogCounts(db, payload.breedingId, breeding.actualKindlingDate, newBornAlive, newBornDead);
+  if (closingWeaningDate) {
+    await insertWeaningLog(db, {
+      doeId: breeding.doeId,
+      buckId: breeding.buckId ?? null,
+      breedingId: payload.breedingId,
+      kindlingDate: breeding.actualKindlingDate ?? null,
+      weaningDate: closingWeaningDate,
+      bornAlive: newBornAlive,
+      bornDead: newBornDead,
+      weaned: 0,
+    });
+  } else if (litter.weaningDate) {
+    await run(
+      db,
+      "UPDATE weaning_log SET bornAlive = ?, bornDead = ? WHERE breedingId = ? AND weaningDate = ?",
+      [newBornAlive, newBornDead, payload.breedingId, litter.weaningDate]
     );
   }
 
@@ -663,9 +834,26 @@ export async function recordKindling(
   await insertKindlingLog(db, {
     doeId: breeding.doeId,
     buckId: breeding.buckId ?? null,
+    breedingId: payload.breedingId,
     matingDate: breeding.matingDate,
     kindlingDate: payload.kindlingDate,
+    bornAlive: payload.bornAlive,
+    bornDead: payload.bornDead,
   });
+  // A one-shot record of an already-weaned litter needs its permanent فطام
+  // row too — the does board never surfaces this cycle (mirrors recordKindlingOp).
+  if (payload.weaningDate) {
+    await insertWeaningLog(db, {
+      doeId: breeding.doeId,
+      buckId: breeding.buckId ?? null,
+      breedingId: payload.breedingId,
+      kindlingDate: payload.kindlingDate,
+      weaningDate: payload.weaningDate,
+      bornAlive: payload.bornAlive,
+      bornDead: payload.bornDead,
+      weaned: payload.weaned,
+    });
+  }
   return applied;
 }
 

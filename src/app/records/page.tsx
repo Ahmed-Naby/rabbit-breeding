@@ -93,57 +93,40 @@ async function ResorptionLogTab({ locale, t, range }: { locale: Locale; t: Dicti
 
 async function KindlingLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
   const kindlingDateWhere = dateRangeWhere(range);
-  const [kindlingLog, litters, breedings] = await Promise.all([
-    prisma.kindlingLog.findMany({
-      where: kindlingDateWhere ? { kindlingDate: kindlingDateWhere } : undefined,
-      orderBy: { kindlingDate: "desc" },
-      select: {
-        id: true,
-        matingDate: true,
-        kindlingDate: true,
-        doe: { select: { id: true, tagId: true, breed: true } },
-        buck: { select: { tagId: true } },
-      },
-    }),
-    prisma.litter.findMany({
-      select: {
-        kindlingDate: true,
-        bornAlive: true,
-        bornDead: true,
-        breeding: { select: { doeId: true } },
-      },
-    }),
-    prisma.breeding.findMany({
-      where: { actualKindlingDate: { not: null } },
-      select: { id: true, doeId: true, actualKindlingDate: true },
-    }),
-  ]);
-  return (
-    <KindlingLog kindlingLog={kindlingLog} litters={litters} breedings={breedings} locale={locale} t={t.kindling} />
-  );
+  const kindlingLog = await prisma.kindlingLog.findMany({
+    where: kindlingDateWhere ? { kindlingDate: kindlingDateWhere } : undefined,
+    orderBy: { kindlingDate: "desc" },
+    select: {
+      id: true,
+      matingDate: true,
+      kindlingDate: true,
+      bornAlive: true,
+      bornDead: true,
+      doe: { select: { id: true, tagId: true, breed: true } },
+      buck: { select: { tagId: true } },
+    },
+  });
+  return <KindlingLog kindlingLog={kindlingLog} locale={locale} t={t.kindling} />;
 }
 
 async function WeaningLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
-  const weanedLitters = await prisma.litter.findMany({
-    where: { weaningDate: { not: null, ...dateRangeWhere(range) } },
+  const weaningDateWhere = dateRangeWhere(range);
+  const weaningLog = await prisma.weaningLog.findMany({
+    where: weaningDateWhere ? { weaningDate: weaningDateWhere } : undefined,
     orderBy: { weaningDate: "desc" },
     select: {
-      breedingId: true,
+      id: true,
       kindlingDate: true,
       weaningDate: true,
       bornAlive: true,
       bornDead: true,
       weaned: true,
       weaningWeightGrams: true,
-      breeding: {
-        select: {
-          doe: { select: { id: true, tagId: true, breed: true } },
-          buck: { select: { tagId: true } },
-        },
-      },
+      doe: { select: { id: true, tagId: true, breed: true } },
+      buck: { select: { tagId: true } },
     },
   });
-  return <WeaningLog weanedLitters={weanedLitters} locale={locale} t={t.weaning} />;
+  return <WeaningLog weaningLog={weaningLog} locale={locale} t={t.weaning} />;
 }
 
 async function FosteringLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {

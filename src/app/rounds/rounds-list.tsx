@@ -39,6 +39,7 @@ type DoeRaw = {
       bornDead: number;
       weaned: number | null;
       weaningDate: Date | null;
+      weaningWeightGrams: number | null;
     } | null;
   }[];
 };

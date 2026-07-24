@@ -230,11 +230,33 @@ CREATE TABLE IF NOT EXISTS kindling_log (
   id           TEXT PRIMARY KEY,
   doeId        TEXT NOT NULL,
   buckId       TEXT,
+  breedingId   TEXT,
   matingDate   TEXT,
   kindlingDate TEXT NOT NULL,
+  bornAlive    INTEGER NOT NULL DEFAULT 0,
+  bornDead     INTEGER NOT NULL DEFAULT 0,
   createdAt    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kindling_log_doeId ON kindling_log(doeId);
+
+-- Permanent weaning-event archive, read-only view on mobile (populated via
+-- sync pull) but ALSO written optimistically by local-ops.ts markWeaned so a
+-- weaning shows in سجل الفطام before the next sync — the pull later reconciles
+-- the placeholder (local-<id>) against the server row by doeId+weaningDate.
+CREATE TABLE IF NOT EXISTS weaning_log (
+  id                 TEXT PRIMARY KEY,
+  doeId              TEXT NOT NULL,
+  buckId             TEXT,
+  breedingId         TEXT,
+  kindlingDate       TEXT,
+  weaningDate        TEXT NOT NULL,
+  bornAlive          INTEGER NOT NULL DEFAULT 0,
+  bornDead           INTEGER NOT NULL DEFAULT 0,
+  weaned             INTEGER,
+  weaningWeightGrams INTEGER,
+  createdAt          TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_weaning_log_doeId ON weaning_log(doeId);
 
 -- Permanent mating-event archive, read-only on mobile (populated purely via
 -- sync pull, like pregnancy_test_log/kindling_log above) — never written by

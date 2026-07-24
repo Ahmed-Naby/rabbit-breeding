@@ -16,6 +16,7 @@ export type FullExportData = {
   breeds: Prisma.BreedCreateManyInput[];
   pregnancyTestLogs: Prisma.PregnancyTestLogCreateManyInput[];
   kindlingLogs: Prisma.KindlingLogCreateManyInput[];
+  weaningLogs: Prisma.WeaningLogCreateManyInput[];
   fosterLogs: Prisma.FosterLogCreateManyInput[];
 };
 
@@ -122,6 +123,12 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
   const kindlingLogs = dedupeById(data.kindlingLogs)
     .filter((log) => rabbitIds.has(log.doeId as string))
     .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
+  // weaningLogs is absent from backups taken before the سجل الفطام archive
+  // existed, so tolerate its absence rather than requiring it (see
+  // REQUIRED_KEYS) — an old restore simply carries no weaning archive.
+  const weaningLogs = dedupeById(data.weaningLogs ?? [])
+    .filter((log) => rabbitIds.has(log.doeId as string))
+    .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
   const fosterLogs = dedupeById(data.fosterLogs).filter(
     (f) => rabbitIds.has(f.fromDoeId as string) && rabbitIds.has(f.toDoeId as string)
   );
@@ -163,6 +170,7 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       if (kitStockMovements.length) await tx.kitStockMovement.createMany({ data: kitStockMovements });
       if (pregnancyTestLogs.length) await tx.pregnancyTestLog.createMany({ data: pregnancyTestLogs });
       if (kindlingLogs.length) await tx.kindlingLog.createMany({ data: kindlingLogs });
+      if (weaningLogs.length) await tx.weaningLog.createMany({ data: weaningLogs });
       if (fosterLogs.length) await tx.fosterLog.createMany({ data: fosterLogs });
 
       const s = data.settings;

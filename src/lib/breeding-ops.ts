@@ -445,6 +445,7 @@ export async function markKindledOp(
       data: {
         doeId,
         buckId: breeding.buckId,
+        breedingId,
         matingDate: breeding.matingDate,
         kindlingDate: actualKindlingDate,
       },
@@ -483,12 +484,16 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
   const weaningDate = new Date();
   weaningDate.setUTCHours(0, 0, 0, 0);
 
-  const [breeding, doe] = await Promise.all([
+  const [breeding, doe, litter] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
-      select: { actualKindlingDate: true },
+      select: { actualKindlingDate: true, buckId: true },
     }),
     prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } }),
+    prisma.litter.findUnique({
+      where: { breedingId },
+      select: { bornAlive: true, bornDead: true, weaned: true, weaningWeightGrams: true, weaningDate: true },
+    }),
   ]);
   const nextState =
     doe?.doeState === "nursing_bred"
@@ -496,6 +501,11 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
       : doe?.doeState === "pregnant" || doe?.doeState === "nursing_pregnant"
         ? "pregnant"
         : "empty";
+
+  // Only the FIRST weaning of this litter writes a permanent WeaningLog row;
+  // a re-press (litter already carries a weaningDate) is a no-op for the
+  // archive, mirroring setMatingDate's "new mating only" guard.
+  const isNewWeaning = !litter?.weaningDate;
 
   await prisma.$transaction([
     prisma.litter.upsert({
@@ -507,6 +517,23 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
       },
       update: { weaningDate },
     }),
+    ...(isNewWeaning
+      ? [
+          prisma.weaningLog.create({
+            data: {
+              doeId,
+              buckId: breeding.buckId,
+              breedingId,
+              kindlingDate: breeding.actualKindlingDate,
+              weaningDate,
+              bornAlive: litter?.bornAlive ?? 0,
+              bornDead: litter?.bornDead ?? 0,
+              weaned: litter?.weaned ?? null,
+              weaningWeightGrams: litter?.weaningWeightGrams ?? null,
+            },
+          }),
+        ]
+      : []),
     prisma.rabbit.update({
       where: { id: doeId },
       data: { doeState: nextState },
@@ -534,11 +561,11 @@ export async function setLitterCountOp(
   const [breeding, litter] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
-      select: { actualKindlingDate: true, doeId: true, doe: { select: { doeState: true } } },
+      select: { actualKindlingDate: true, doeId: true, buckId: true, doe: { select: { doeState: true } } },
     }),
     prisma.litter.findUnique({
       where: { breedingId },
-      select: { bornAlive: true, weaned: true },
+      select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true },
     }),
   ]);
 
@@ -582,6 +609,13 @@ export async function setLitterCountOp(
     closingWeaningDate.setUTCHours(0, 0, 0, 0);
   }
 
+  // Values the Litter will hold after this edit, mirrored one-way into the
+  // permanent logs so "سجل الولادة"/"سجل الفطام" reflect count edits without
+  // ever being editable there directly.
+  const newBornAlive = effectiveBornAlive;
+  const newBornDead = field === "bornDead" ? (value ?? 0) : (litter?.bornDead ?? 0);
+  const newWeaned = closingWeaningDate ? 0 : effectiveWeaned;
+
   await prisma.$transaction([
     prisma.litter.upsert({
       where: { breedingId },
@@ -600,6 +634,43 @@ export async function setLitterCountOp(
         ...(closingWeaningDate ? { weaningDate: closingWeaningDate } : {}),
       },
     }),
+    // Mirror born counts into this cycle's KindlingLog row (matched by
+    // kindlingDate so only the current cycle's row, not an older reused one,
+    // is touched).
+    ...(breeding.actualKindlingDate
+      ? [
+          prisma.kindlingLog.updateMany({
+            where: { breedingId, kindlingDate: breeding.actualKindlingDate },
+            data: { bornAlive: newBornAlive, bornDead: newBornDead },
+          }),
+        ]
+      : []),
+    // Mirror into the WeaningLog: update the current weaning row if one exists,
+    // or create one now if a total loss just closed this litter (there's no
+    // "فطام" press in that path to write it).
+    ...(closingWeaningDate
+      ? [
+          prisma.weaningLog.create({
+            data: {
+              doeId: breeding.doeId,
+              buckId: breeding.buckId,
+              breedingId,
+              kindlingDate: breeding.actualKindlingDate,
+              weaningDate: closingWeaningDate,
+              bornAlive: newBornAlive,
+              bornDead: newBornDead,
+              weaned: 0,
+            },
+          }),
+        ]
+      : litter?.weaningDate
+        ? [
+            prisma.weaningLog.updateMany({
+              where: { breedingId, weaningDate: litter.weaningDate },
+              data: { bornAlive: newBornAlive, bornDead: newBornDead, weaned: newWeaned },
+            }),
+          ]
+        : []),
     ...(nextState
       ? [prisma.rabbit.update({ where: { id: breeding.doeId }, data: { doeState: nextState } })]
       : []),
@@ -624,20 +695,35 @@ export async function setLitterWeaningWeightOp(
     return { ok: false, code: "INVALID_VALUE" };
   }
 
-  const breeding = await prisma.breeding.findUniqueOrThrow({
-    where: { id: breedingId },
-    select: { actualKindlingDate: true },
-  });
+  const [breeding, litter] = await Promise.all([
+    prisma.breeding.findUniqueOrThrow({
+      where: { id: breedingId },
+      select: { actualKindlingDate: true },
+    }),
+    prisma.litter.findUnique({ where: { breedingId }, select: { weaningDate: true } }),
+  ]);
 
-  await prisma.litter.upsert({
-    where: { breedingId },
-    create: {
-      breedingId,
-      kindlingDate: breeding.actualKindlingDate ?? new Date(),
-      weaningWeightGrams,
-    },
-    update: { weaningWeightGrams },
-  });
+  await prisma.$transaction([
+    prisma.litter.upsert({
+      where: { breedingId },
+      create: {
+        breedingId,
+        kindlingDate: breeding.actualKindlingDate ?? new Date(),
+        weaningWeightGrams,
+      },
+      update: { weaningWeightGrams },
+    }),
+    // Mirror the weight into this cycle's WeaningLog row (matched by weaningDate
+    // so only the current weaning, not an older reused cycle, is touched).
+    ...(litter?.weaningDate
+      ? [
+          prisma.weaningLog.updateMany({
+            where: { breedingId, weaningDate: litter.weaningDate },
+            data: { weaningWeightGrams },
+          }),
+        ]
+      : []),
+  ]);
 
   return { ok: true, data: undefined };
 }
@@ -656,9 +742,10 @@ export async function recordNursingKitDeathOp(
     where: { id: breedingId },
     select: {
       doeId: true,
+      buckId: true,
       actualKindlingDate: true,
       doe: { select: { doeState: true } },
-      litter: { select: { bornAlive: true } },
+      litter: { select: { bornAlive: true, bornDead: true, weaningDate: true } },
     },
   });
   const litter = breeding?.litter;
@@ -689,6 +776,10 @@ export async function recordNursingKitDeathOp(
     closingWeaningDate.setUTCHours(0, 0, 0, 0);
   }
 
+  // Litter values after this death, mirrored one-way into the permanent logs.
+  const newBornAlive = litter.bornAlive - count;
+  const newBornDead = litter.bornDead + count;
+
   await prisma.$transaction([
     prisma.litter.update({
       where: { breedingId },
@@ -698,6 +789,41 @@ export async function recordNursingKitDeathOp(
         ...(closingWeaningDate ? { weaned: 0, weaningDate: closingWeaningDate } : {}),
       },
     }),
+    // Mirror born counts into this cycle's KindlingLog row.
+    ...(breeding.actualKindlingDate
+      ? [
+          prisma.kindlingLog.updateMany({
+            where: { breedingId, kindlingDate: breeding.actualKindlingDate },
+            data: { bornAlive: newBornAlive, bornDead: newBornDead },
+          }),
+        ]
+      : []),
+    // A total loss closes the litter with no "فطام" press, so write its
+    // permanent WeaningLog row here; an already-weaned litter (shouldn't nurse,
+    // but be safe) gets its snapshot updated instead.
+    ...(closingWeaningDate
+      ? [
+          prisma.weaningLog.create({
+            data: {
+              doeId: breeding.doeId,
+              buckId: breeding.buckId,
+              breedingId,
+              kindlingDate: breeding.actualKindlingDate,
+              weaningDate: closingWeaningDate,
+              bornAlive: newBornAlive,
+              bornDead: newBornDead,
+              weaned: 0,
+            },
+          }),
+        ]
+      : litter.weaningDate
+        ? [
+            prisma.weaningLog.updateMany({
+              where: { breedingId, weaningDate: litter.weaningDate },
+              data: { bornAlive: newBornAlive, bornDead: newBornDead },
+            }),
+          ]
+        : []),
     ...(nextState
       ? [prisma.rabbit.update({ where: { id: breeding.doeId }, data: { doeState: nextState } })]
       : []),
@@ -903,10 +1029,31 @@ export async function recordKindlingOp(
       data: {
         doeId: breeding.doeId,
         buckId: breeding.buckId,
+        breedingId,
         matingDate: breeding.matingDate,
         kindlingDate: data.kindlingDate,
+        bornAlive: data.bornAlive,
+        bornDead: data.bornDead,
       },
     }),
+    // If this form records an already-weaned litter in one shot, the weaning
+    // needs its own permanent row too — the does board never sees this cycle.
+    ...(data.weaningDate
+      ? [
+          prisma.weaningLog.create({
+            data: {
+              doeId: breeding.doeId,
+              buckId: breeding.buckId,
+              breedingId,
+              kindlingDate: data.kindlingDate,
+              weaningDate: data.weaningDate,
+              bornAlive: data.bornAlive,
+              bornDead: data.bornDead,
+              weaned: data.weaned,
+            },
+          }),
+        ]
+      : []),
     prisma.rabbit.update({
       where: { id: breeding.doeId },
       data: { doeState },
@@ -925,7 +1072,7 @@ export async function recordKindlingOp(
 async function resolveCurrentLitter(
   tagId: string
 ): Promise<
-  | { ok: true; doeId: string; breedingId: string; bornAlive: number }
+  | { ok: true; doeId: string; breedingId: string; bornAlive: number; kindlingDate: Date | null }
   | { ok: false; code: "DOE_NOT_FOUND" | "NO_CURRENT_LITTER" }
 > {
   const doe = await prisma.rabbit.findFirst({
@@ -953,7 +1100,13 @@ async function resolveCurrentLitter(
   if (!litterRow || !litter || litter.weaningDate) {
     return { ok: false, code: "NO_CURRENT_LITTER" };
   }
-  return { ok: true, doeId: doe.id, breedingId: litterRow.id, bornAlive: litter.bornAlive };
+  return {
+    ok: true,
+    doeId: doe.id,
+    breedingId: litterRow.id,
+    bornAlive: litter.bornAlive,
+    kindlingDate: litterRow.actualKindlingDate,
+  };
 }
 
 export type TransferKitsInput = {
@@ -999,6 +1152,24 @@ export async function transferKitsOp(
       where: { breedingId: to.breedingId },
       data: { bornAlive: { increment: data.count } },
     }),
+    // Mirror the new bornAlive on both sides into each doe's current
+    // KindlingLog row (matched by kindlingDate so only the live cycle moves).
+    ...(from.kindlingDate
+      ? [
+          prisma.kindlingLog.updateMany({
+            where: { breedingId: from.breedingId, kindlingDate: from.kindlingDate },
+            data: { bornAlive: from.bornAlive - data.count },
+          }),
+        ]
+      : []),
+    ...(to.kindlingDate
+      ? [
+          prisma.kindlingLog.updateMany({
+            where: { breedingId: to.breedingId, kindlingDate: to.kindlingDate },
+            data: { bornAlive: to.bornAlive + data.count },
+          }),
+        ]
+      : []),
     prisma.fosterLog.create({
       data: { fromDoeId: from.doeId, toDoeId: to.doeId, count: data.count },
     }),

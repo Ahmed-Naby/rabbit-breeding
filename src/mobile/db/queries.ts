@@ -86,7 +86,12 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
         bornDead: number;
         weaned: number | null;
         weaningDate: string | null;
-      }>(db, "SELECT bornAlive, bornDead, weaned, weaningDate FROM litter WHERE breedingId = ?", [b.id]);
+        weaningWeightGrams: number | null;
+      }>(
+        db,
+        "SELECT bornAlive, bornDead, weaned, weaningDate, weaningWeightGrams FROM litter WHERE breedingId = ?",
+        [b.id]
+      );
 
       breedings.push({
         id: b.id,
@@ -100,6 +105,7 @@ export async function fetchDoesBoard(db: SQLiteDBConnection): Promise<{ does: Do
               bornDead: litter.bornDead,
               weaned: litter.weaned,
               weaningDate: toDate(litter.weaningDate),
+              weaningWeightGrams: litter.weaningWeightGrams,
             }
           : null,
       });
@@ -276,7 +282,12 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
         bornDead: number;
         weaned: number | null;
         weaningDate: string | null;
-      }>(db, "SELECT bornAlive, bornDead, weaned, weaningDate FROM litter WHERE breedingId = ?", [b.id]);
+        weaningWeightGrams: number | null;
+      }>(
+        db,
+        "SELECT bornAlive, bornDead, weaned, weaningDate, weaningWeightGrams FROM litter WHERE breedingId = ?",
+        [b.id]
+      );
 
       breedings.push({
         id: b.id,
@@ -290,6 +301,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
               bornDead: litter.bornDead,
               weaned: litter.weaned,
               weaningDate: toDate(litter.weaningDate),
+              weaningWeightGrams: litter.weaningWeightGrams,
             }
           : null,
       });
@@ -662,16 +674,22 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  // 2. Fetch kindling log from local kindling_log table
+  // 2. Fetch kindling log from local kindling_log table. This is an
+  // append-only archive: bornAlive/bornDead are stored on the log row itself
+  // (mirrored one-way from the litter at write time, on server and locally),
+  // so a re-mate of the same doe never overwrites a prior cycle's history.
   const logRows = await queryAll<{
     id: string;
     matingDate: string | null;
     kindlingDate: string;
+    breedingId: string | null;
+    bornAlive: number | null;
+    bornDead: number | null;
     doeId: string;
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, kindlingDate, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
+    "SELECT id, matingDate, kindlingDate, breedingId, bornAlive, bornDead, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
   );
 
   const kindlingLog: KindlingLogEntry[] = [];
@@ -685,37 +703,13 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
       : null;
 
-    // Resolve breedingId from the breeding table itself (matched by doe + kindlingDate day),
-    // not via litter — litter rows are only created lazily once a count is first entered
-    // (see local-ops.ts), so a doe just marked as kindled has no litter row yet and an
-    // inner join through litter would leave breedingId unresolvable forever.
-    let bornAlive = 0;
-    let bornDead = 0;
-    let breedingId = "";
-    if (row.kindlingDate) {
-      const dateStr = row.kindlingDate.slice(0, 10);
-      const matchingBreeding = await queryOne<{ id: string; bornAlive: number | null; bornDead: number | null }>(
-        db,
-        `SELECT b.id, l.bornAlive, l.bornDead
-         FROM breeding b
-         LEFT JOIN litter l ON l.breedingId = b.id
-         WHERE b.doeId = ? AND substr(b.actualKindlingDate, 1, 10) = ?`,
-        [row.doeId, dateStr]
-      );
-      if (matchingBreeding) {
-        bornAlive = matchingBreeding.bornAlive ?? 0;
-        bornDead = matchingBreeding.bornDead ?? 0;
-        breedingId = matchingBreeding.id;
-      }
-    }
-
     kindlingLog.push({
       id: row.id,
-      breedingId,
+      breedingId: row.breedingId ?? "",
       kindlingDate: row.kindlingDate,
       matingDate: row.matingDate,
-      bornAlive,
-      bornDead,
+      bornAlive: row.bornAlive ?? 0,
+      bornDead: row.bornDead ?? 0,
       doeId: row.doeId,
       doeTagId: doe?.tagId ?? null,
       doeBreed: doe?.breed ?? null,
@@ -740,8 +734,9 @@ export type WeaningLitterRow = {
 };
 
 export type WeanedLitterLogEntry = {
+  id: string;
   breedingId: string;
-  kindlingDate: string;
+  kindlingDate: string | null;
   weaningDate: string;
   bornAlive: number;
   bornDead: number;
@@ -835,10 +830,14 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  // 2. Get weaned log entries derived from litter table
+  // 2. Get weaned log entries from the append-only weaning_log table (mirrors
+  // the server WeaningLog). Reading straight from this archive — rather than
+  // deriving from the live litter row — is what makes prior weaning cycles
+  // survive a re-mate of the same doe (which reuses the breeding/litter row).
   const logRows = await queryAll<{
-    breedingId: string;
-    kindlingDate: string;
+    id: string;
+    breedingId: string | null;
+    kindlingDate: string | null;
     weaningDate: string;
     bornAlive: number;
     bornDead: number;
@@ -848,11 +847,9 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     buckId: string | null;
   }>(
     db,
-    `SELECT l.breedingId, l.kindlingDate, l.weaningDate, l.bornAlive, l.bornDead, l.weaned, l.weaningWeightGrams, b.doeId, b.buckId
-     FROM litter l
-     JOIN breeding b ON l.breedingId = b.id
-     WHERE l.weaningDate IS NOT NULL
-     ORDER BY l.weaningDate DESC LIMIT 100`
+    `SELECT id, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, doeId, buckId
+     FROM weaning_log
+     ORDER BY weaningDate DESC LIMIT 100`
   );
 
   const weanedLog: WeanedLitterLogEntry[] = [];
@@ -866,7 +863,8 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [row.buckId])
       : null;
     weanedLog.push({
-      breedingId: row.breedingId,
+      id: row.id,
+      breedingId: row.breedingId ?? "",
       kindlingDate: row.kindlingDate,
       weaningDate: row.weaningDate,
       bornAlive: row.bornAlive,

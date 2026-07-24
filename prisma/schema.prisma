@@ -134,6 +134,12 @@ model Rabbit {
   kindlingLogsAsBuck KindlingLog[] @relation("KindlingLogBuck")
   kindlingLogsAsDoe  KindlingLog[] @relation("KindlingLogDoe")
 
+  // Weaning history. Same append-only reasoning: the Litter's weaning fields
+  // get reused/reset on the next cycle, so without this snapshot a doe's
+  // weaning history would collapse to just her current cycle.
+  weaningLogsAsBuck WeaningLog[] @relation("WeaningLogBuck")
+  weaningLogsAsDoe  WeaningLog[] @relation("WeaningLogDoe")
+
   // Fostering (kit transfer) history, both directions. Append-only, same
   // reasoning as PregnancyTestLog/KindlingLog — but two-sided (fromDoe/toDoe)
   // by nature, so it can never be folded into a Breeding row at all.
@@ -316,12 +322,56 @@ model KindlingLog {
   doe          Rabbit    @relation("KindlingLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
   buckId       String?
   buck         Rabbit?   @relation("KindlingLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  // breedingId ties this row to the cycle that produced it so live count edits
+  // on the does board can be mirrored back here (see breeding-ops). It is NOT
+  // unique: a reused Breeding row spawns a fresh KindlingLog per cycle, and the
+  // kindlingDate distinguishes them so only the current cycle's row is updated.
+  breedingId   String?
   matingDate   DateTime?
   kindlingDate DateTime
+  // Snapshot of the litter's born counts, mirrored one-way from Litter while
+  // the litter is the doe's current cycle; frozen once she starts a new cycle.
+  bornAlive    Int       @default(0)
+  bornDead     Int       @default(0)
   createdAt    DateTime  @default(now())
 
   @@index([doeId])
   @@index([kindlingDate])
+  @@index([breedingId])
+  @@index([farmId])
+}
+
+/// A permanent weaning record. Written once, at the moment "فطام" is pressed,
+/// and never updated by the user — snapshots the doe/buck/dates and born counts
+/// off the Litter at that instant, then mirrors the weaned count and weaning
+/// weight from the Litter one-way while it stays the doe's current cycle (those
+/// are entered gradually on the does board after weaning). Decoupled from the
+/// Breeding/Litter rows because those get reused/overwritten on the next cycle,
+/// which would otherwise erase this weaning from history ("لا يمسح السطر").
+model WeaningLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id                 String    @id @default(cuid())
+  doeId              String
+  doe                Rabbit    @relation("WeaningLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  buckId             String?
+  buck               Rabbit?   @relation("WeaningLogBuck", fields: [buckId], references: [id], onDelete: Restrict)
+  breedingId         String?
+  kindlingDate       DateTime?
+  weaningDate        DateTime
+  bornAlive          Int       @default(0)
+  bornDead           Int       @default(0)
+  weaned             Int?
+  weaningWeightGrams Int?
+  createdAt          DateTime  @default(now())
+
+  @@index([doeId])
+  @@index([weaningDate])
+  @@index([breedingId])
   @@index([farmId])
 }
 
@@ -566,6 +616,7 @@ model Farm {
   pregnancyTestLogs PregnancyTestLog[]
   resorptionLogs    ResorptionLog[]
   kindlingLogs      KindlingLog[]
+  weaningLogs       WeaningLog[]
   fosterLogs        FosterLog[]
   syncTombstones    SyncTombstone[]
 }

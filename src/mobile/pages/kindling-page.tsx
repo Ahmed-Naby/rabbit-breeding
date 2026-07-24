@@ -169,7 +169,7 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
       </div>
 
       <div className="pt-4 border-t">
-        <KindlingLog kindlingLog={kindlingLog} locale={locale} onDone={() => void load()} todayOnly />
+        <KindlingLog kindlingLog={kindlingLog} locale={locale} todayOnly />
       </div>
     </div>
   );

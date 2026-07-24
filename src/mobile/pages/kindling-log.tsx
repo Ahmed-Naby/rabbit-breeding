@@ -1,19 +1,18 @@
 import type { Locale } from "@/lib/i18n/locales";
 import type { KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
-import { LitterCountInput } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
+// Read-only archive (سجل الولادة): counts are entered/adjusted on the daily
+// الأمهات board; each row here is frozen at the birth and never edited.
 export function KindlingLog({
   kindlingLog,
   locale,
-  onDone,
   todayOnly,
 }: {
   kindlingLog: KindlingLogEntry[];
   locale: Locale;
-  onDone: () => void;
   todayOnly?: boolean;
 }) {
   const logSort = useSortableRows(kindlingLog, {
@@ -111,26 +110,8 @@ export function KindlingLog({
                   <td className="px-4 py-3.5">
                     <LocalDate date={log.kindlingDate} />
                   </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <LitterCountInput
-                      breedingId={log.breedingId}
-                      field="bornAlive"
-                      value={log.bornAlive}
-                      locale={locale}
-                      onDone={onDone}
-                      className="h-6 w-10 md:h-8 md:w-16"
-                    />
-                  </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <LitterCountInput
-                      breedingId={log.breedingId}
-                      field="bornDead"
-                      value={log.bornDead}
-                      locale={locale}
-                      onDone={onDone}
-                      className="h-6 w-10 md:h-8 md:w-16"
-                    />
-                  </td>
+                  <td className="px-4 py-3.5 text-center font-bold">{log.bornAlive}</td>
+                  <td className="px-4 py-3.5 text-center">{log.bornDead || "—"}</td>
                 </tr>
               ))}
             </tbody>

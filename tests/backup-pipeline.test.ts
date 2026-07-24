@@ -21,7 +21,7 @@ function emptySnapshot(): FullExportData {
   return {
     settings: null, rabbits: [], breedings: [], litters: [], weightRecords: [],
     healthRecords: [], transactions: [], kitStockMovements: [], breeds: [],
-    pregnancyTestLogs: [], kindlingLogs: [], fosterLogs: [],
+    pregnancyTestLogs: [], kindlingLogs: [], weaningLogs: [], fosterLogs: [],
   };
 }
 

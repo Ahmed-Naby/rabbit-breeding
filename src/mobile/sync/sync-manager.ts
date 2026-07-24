@@ -204,6 +204,7 @@ type PullResponse = {
   breeds?: Record<string, unknown>[];
   pregnancyTestLogs?: Record<string, unknown>[];
   kindlingLogs?: Record<string, unknown>[];
+  weaningLogs?: Record<string, unknown>[];
   matingLogs?: Record<string, unknown>[];
   tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
 };
@@ -488,9 +489,50 @@ export async function pull(): Promise<boolean> {
         values: [log.doeId, log.kindlingDate],
       });
       set.push({
-        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, matingDate, kindlingDate, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        values: [log.id, log.doeId, log.buckId, log.matingDate, log.kindlingDate, log.createdAt],
+        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [
+          log.id,
+          log.doeId,
+          log.buckId,
+          log.breedingId ?? null,
+          log.matingDate,
+          log.kindlingDate,
+          log.bornAlive ?? 0,
+          log.bornDead ?? 0,
+          log.createdAt,
+        ],
+      });
+    }
+  }
+
+  if (data.weaningLogs) {
+    for (const log of data.weaningLogs) {
+      // Same optimistic-placeholder reconciliation as kindlingLogs: drop this
+      // device's local-<id> row (local-ops' insertWeaningLog) before the
+      // server's authoritative row lands. Keyed on doeId + weaningDate (a doe
+      // weans at most once on a given date; weaningDate is NOT NULL).
+      set.push({
+        statement:
+          "DELETE FROM weaning_log WHERE id LIKE 'local-%' AND doeId = ? AND weaningDate = ?",
+        values: [log.doeId, log.weaningDate],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        values: [
+          log.id,
+          log.doeId,
+          log.buckId,
+          log.breedingId ?? null,
+          log.kindlingDate ?? null,
+          log.weaningDate,
+          log.bornAlive ?? 0,
+          log.bornDead ?? 0,
+          log.weaned ?? null,
+          log.weaningWeightGrams ?? null,
+          log.createdAt,
+        ],
       });
     }
   }

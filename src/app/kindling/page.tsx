@@ -27,7 +27,7 @@ export default async function KindlingPage({
 } = {}) {
   // "pregnant" / "nursing_pregnant" = confirmed pregnant, kindling not yet
   // recorded for this cycle (matches KindleButton's own `active` condition).
-  const [candidates, settings, kindlingLogRaw, litters, breedings, { locale, t }] = await Promise.all([
+  const [candidates, settings, kindlingLogRaw, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -50,37 +50,20 @@ export default async function KindlingPage({
     }),
     getSettings(),
     // Permanent, append-only log — written once by markKindled and never
-    // touched again, so births survive even after the underlying Breeding
-    // row is reused for the doe's next mating.
+    // touched again (the أحياء/نافق counts are mirrored in one-way from the
+    // does board), so births survive even after the underlying Breeding row
+    // is reused for the doe's next mating.
     prisma.kindlingLog.findMany({
       orderBy: { kindlingDate: "desc" },
       select: {
         id: true,
         matingDate: true,
         kindlingDate: true,
+        bornAlive: true,
+        bornDead: true,
         doe: { select: { id: true, tagId: true, breed: true } },
         buck: { select: { tagId: true } },
       },
-    }),
-    // bornAlive/bornDead/weaned live on Litter (keyed to Breeding, which gets
-    // reused/overwritten on rebreeding), not on KindlingLog — matched below
-    // by doe + calendar day, so a birth's counts only show up here as long as
-    // its Litter row hasn't since been recycled by a later cycle.
-    prisma.litter.findMany({
-      select: {
-        kindlingDate: true,
-        bornAlive: true,
-        bornDead: true,
-        breeding: { select: { doeId: true } },
-      },
-    }),
-    // Matched by doe + calendar day (same best-effort join as litters below)
-    // so "أحياء"/"نافق" can be entered inline in the log without needing a
-    // breedingId on KindlingLog itself — the row's Breeding may since have
-    // been reused for a later mating, in which case no input is shown.
-    prisma.breeding.findMany({
-      where: { actualKindlingDate: { not: null } },
-      select: { id: true, doeId: true, actualKindlingDate: true },
     }),
     getDictionary(),
   ]);
@@ -170,7 +153,7 @@ export default async function KindlingPage({
         </div>
       )}
 
-      <KindlingLog kindlingLog={kindlingLog} litters={litters} breedings={breedings} locale={locale} t={t.kindling} todayOnly={todayOnly} />
+      <KindlingLog kindlingLog={kindlingLog} locale={locale} t={t.kindling} todayOnly={todayOnly} />
     </div>
   );
 }

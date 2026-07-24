@@ -28,7 +28,7 @@ export default async function WeaningPage({
   // weanActive logic). "مرضعة و ملقحة/عشار" rebred while still nursing, so
   // her latest breeding row is the new cycle (no litter yet) — the ongoing,
   // not-yet-weaned litter still lives on the *previous* row, hence take: 2.
-  const [candidates, settings, weanedLittersRaw, { locale, t }] = await Promise.all([
+  const [candidates, settings, weaningLogRaw, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: {
         sex: "doe",
@@ -55,25 +55,21 @@ export default async function WeaningPage({
       orderBy: { tagId: "asc" },
     }),
     getSettings(),
-    // "سجل الفطام": litters already weaned, so "عدد الفطام" can be entered
-    // inline here instead of having to go back to the does board.
-    prisma.litter.findMany({
-      where: { weaningDate: { not: null } },
+    // "سجل الفطام": a permanent, append-only log — written once at weaning and
+    // never edited/deleted (عدد الفطام/وزن الفطام are mirrored in one-way from
+    // the does board), so weanings survive the Litter row being recycled.
+    prisma.weaningLog.findMany({
       orderBy: { weaningDate: "desc" },
       select: {
-        breedingId: true,
+        id: true,
         kindlingDate: true,
         weaningDate: true,
         bornAlive: true,
         bornDead: true,
         weaned: true,
         weaningWeightGrams: true,
-        breeding: {
-          select: {
-            doe: { select: { id: true, tagId: true, breed: true } },
-            buck: { select: { tagId: true } },
-          },
-        },
+        doe: { select: { id: true, tagId: true, breed: true } },
+        buck: { select: { tagId: true } },
       },
     }),
     getDictionary(),
@@ -88,9 +84,9 @@ export default async function WeaningPage({
       return { doe, litterRow, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
-  const weanedLitters = todayOnly
-    ? weanedLittersRaw.filter((row) => isToday(row.weaningDate))
-    : weanedLittersRaw;
+  const weaningLog = todayOnly
+    ? weaningLogRaw.filter((row) => isToday(row.weaningDate))
+    : weaningLogRaw;
 
   return (
     <div className="space-y-6">
@@ -173,7 +169,7 @@ export default async function WeaningPage({
         </div>
       )}
 
-      <WeaningLog weanedLitters={weanedLitters} locale={locale} t={t.weaning} todayOnly={todayOnly} />
+      <WeaningLog weaningLog={weaningLog} locale={locale} t={t.weaning} todayOnly={todayOnly} />
     </div>
   );
 }

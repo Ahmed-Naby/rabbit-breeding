@@ -26,6 +26,7 @@ import {
   KindleButton,
   WeanButton,
   LitterCountInput,
+  LitterWeightInput,
   ClearDoeButton,
 } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
@@ -142,6 +143,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
       type: "date",
       value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.weaningDate ?? null,
     },
+    weaningWeight: {
+      type: "number",
+      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).countsRow?.litter?.weaningWeightGrams ?? null,
+    },
   });
 
   if (does === null || settings === null) {
@@ -253,6 +258,15 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 rowSpan={2}
                 label={t.does.colWeaningDate}
                 sortKey="weaningDate"
+                activeSortKey={doesSort.sortKey}
+                direction={doesSort.direction}
+                onSort={doesSort.toggleSort}
+              />
+              <SortableThRowSpan
+                className="px-3 py-2 text-center"
+                rowSpan={2}
+                label={t.does.colWeaningWeight}
+                sortKey="weaningWeight"
                 activeSortKey={doesSort.sortKey}
                 direction={doesSort.direction}
                 onSort={doesSort.toggleSort}
@@ -434,6 +448,15 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <LitterWeightInput
+                      breedingId={countsRow?.id ?? ""}
+                      valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
+                      disabled={!isWeaned}
+                      locale={locale}
+                      onDone={refresh}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
                     {b ? (
@@ -618,6 +641,16 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
+                </Field>
+
+                <Field label={t.does.colWeaningWeight}>
+                  <LitterWeightInput
+                    breedingId={countsRow?.id ?? ""}
+                    valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
+                    disabled={!isWeaned}
+                    locale={locale}
+                    onDone={refresh}
+                  />
                 </Field>
               </div>
 

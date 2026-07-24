@@ -125,7 +125,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
 
   const [
     settings, rabbits, breedings, litters, weightRecords, healthRecords,
-    transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, fosterLogs,
+    transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs, fosterLogs,
   ] = await Promise.all([
     queryOne<Row>(
       db,
@@ -177,7 +177,13 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     ),
     queryAll<Row>(
       db,
-      "SELECT id, doeId, buckId, matingDate, kindlingDate, createdAt FROM kindling_log"
+      "SELECT id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt FROM kindling_log"
+    ),
+    queryAll<Row>(
+      db,
+      `SELECT id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned,
+              weaningWeightGrams, createdAt
+       FROM weaning_log`
     ),
     queryAll<Row>(db, "SELECT id, fromDoeId, toDoeId, count, date, createdAt FROM foster_log"),
   ]);
@@ -227,6 +233,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     breeds: breeds.map(withPermanentId()),
     pregnancyTestLogs,
     kindlingLogs,
+    weaningLogs,
     fosterLogs: fosterLogs.map(withPermanentId()),
   };
 }

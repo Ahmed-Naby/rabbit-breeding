@@ -113,7 +113,7 @@ function KindlingLogTab({ locale, range }: { locale: Locale; range: DateRange })
 
   if (kindlingLog === null) return <LoadingLine locale={locale} />;
   const filtered = kindlingLog.filter((row) => isWithinDateRange(row.kindlingDate, range.from, range.to));
-  return <KindlingLog kindlingLog={filtered} locale={locale} onDone={() => void load()} />;
+  return <KindlingLog kindlingLog={filtered} locale={locale} />;
 }
 
 function WeaningLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
@@ -131,7 +131,7 @@ function WeaningLogTab({ locale, range }: { locale: Locale; range: DateRange }) 
 
   if (weanedLog === null) return <LoadingLine locale={locale} />;
   const filtered = weanedLog.filter((row) => isWithinDateRange(row.weaningDate, range.from, range.to));
-  return <WeaningLog weanedLog={filtered} locale={locale} onDone={() => void load()} />;
+  return <WeaningLog weanedLog={filtered} locale={locale} />;
 }
 
 function FosteringLogTab({ locale, range }: { locale: Locale; range: DateRange }) {

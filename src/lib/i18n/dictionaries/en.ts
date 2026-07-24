@@ -439,6 +439,7 @@ export const en: Dictionary = {
     colWean: "Wean",
     colWeanedCount: "Weaned",
     colWeaningDate: "Weaning date",
+    colWeaningWeight: "Weaning wt (g)",
     colClear: "Clear",
     pregnantButton: "Pregnant",
     negativeButton: "Negative",
