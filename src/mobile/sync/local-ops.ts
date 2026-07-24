@@ -465,26 +465,37 @@ export async function installNestBox(
 
 export async function markKindled(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; doeId: string }
+  payload: { breedingId: string; doeId: string; bornAlive: number; bornDead: number }
 ): Promise<LocalOpOutcome> {
   const breeding = await getBreeding(db, payload.breedingId);
   if (!breeding) return rejected("Breeding not found locally");
   if (!breeding.matingDate) return rejected("NO_MATING_DATE");
 
   const actualKindlingDate = todayIso();
+  const bornAlive = payload.bornAlive ?? 0;
+  const bornDead = payload.bornDead ?? 0;
   // Logged from the pre-update snapshot: the very next call nulls matingDate.
+  // The counts are confirmed on the board before "ولادة" is pressed, so the
+  // log row carries them from the start (mirrors markKindledOp).
   await insertKindlingLog(db, {
     doeId: payload.doeId,
     buckId: breeding.buckId ?? null,
     breedingId: payload.breedingId,
     matingDate: breeding.matingDate,
     kindlingDate: actualKindlingDate,
+    bornAlive,
+    bornDead,
   });
   await updateBreeding(db, payload.breedingId, { matingDate: null, actualKindlingDate });
-  const litter = await getLitterByBreeding(db, payload.breedingId);
-  if (litter) {
-    await run(db, "UPDATE litter SET weaningDate = NULL, updatedAt = ? WHERE breedingId = ?", [nowIso(), payload.breedingId]);
-  }
+  // Create/refresh the litter carrying the confirmed counts (upsert: a first
+  // kindling has no litter row yet), clearing any stale weaningDate from a
+  // previous cycle on a reused breeding row.
+  await upsertLitterByBreedingId(
+    db,
+    payload.breedingId,
+    { kindlingDate: actualKindlingDate, bornAlive, bornDead, weaningDate: null },
+    { bornAlive, bornDead, weaningDate: null }
+  );
   await updateRabbit(db, payload.doeId, { doeState: "nursing" });
   return applied;
 }

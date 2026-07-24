@@ -213,7 +213,14 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    return fromOpResult(await markKindledOp(p.breedingId as string, p.doeId as string));
+    return fromOpResult(
+      await markKindledOp(
+        p.breedingId as string,
+        p.doeId as string,
+        (p.bornAlive as number | undefined) ?? 0,
+        (p.bornDead as number | undefined) ?? 0
+      )
+    );
   },
 
   markWeaned: async (p, clientAt) => {

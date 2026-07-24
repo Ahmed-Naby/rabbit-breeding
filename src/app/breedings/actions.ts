@@ -171,8 +171,13 @@ export async function installNestBox(breedingId: string, doeId: string) {
   revalidatePath(`/rabbits/${doeId}`);
 }
 
-export async function markKindled(breedingId: string, doeId: string) {
-  const result = await markKindledOp(breedingId, doeId);
+export async function markKindled(
+  breedingId: string,
+  doeId: string,
+  bornAlive: number,
+  bornDead: number
+) {
+  const result = await markKindledOp(breedingId, doeId, bornAlive, bornDead);
   if (!result.ok) {
     throw new Error(`Cannot mark kindled: ${result.code}`);
   }

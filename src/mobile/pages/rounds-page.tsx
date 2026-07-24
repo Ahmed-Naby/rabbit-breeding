@@ -26,8 +26,7 @@ import { enqueue } from "../sync/outbox";
 import {
   DoeStateBadge,
   DoeAvailabilityToggle,
-  KindleButton,
-  LitterCountInput,
+  KindleCell,
   ConfirmPalpationButton,
   ResorptionButton,
 } from "../components/doe-state-menu";
@@ -227,32 +226,17 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-medium text-muted-foreground">{rt.kindlingLabel}</span>
                   {kindleActive && (!notYetKindled || dueForKindling) ? (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <KindleButton
-                        breedingId={b?.id ?? ""}
-                        doeId={doe.id}
-                        text={t.does.kindleButton}
-                        doeState={doe.doeState as DoeState}
-                        locale={locale}
-                        onDone={refresh}
-                      />
-                      <LitterCountInput
-                        breedingId={countsRow?.id ?? ""}
-                        field="bornAlive"
-                        value={countsRow?.litter?.bornAlive ?? null}
-                        disabled={!kindleActive}
-                        locale={locale}
-                        onDone={refresh}
-                      />
-                      <LitterCountInput
-                        breedingId={countsRow?.id ?? ""}
-                        field="bornDead"
-                        value={countsRow?.litter?.bornDead ?? null}
-                        disabled={!kindleActive}
-                        locale={locale}
-                        onDone={refresh}
-                      />
-                    </div>
+                    <KindleCell
+                      breedingId={b?.id ?? ""}
+                      doeId={doe.id}
+                      text={t.does.kindleButton}
+                      doeState={doe.doeState as DoeState}
+                      bornAlive={countsRow?.litter?.bornAlive ?? null}
+                      bornDead={countsRow?.litter?.bornDead ?? null}
+                      locale={locale}
+                      variant="inline"
+                      onDone={refresh}
+                    />
                   ) : (
                     <span className="block text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
                   )}

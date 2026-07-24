@@ -235,6 +235,8 @@ export const ar = {
     matedTodayToast: "تم تسجيل التلقيح بتاريخ اليوم",
     tagNotFound: (value: string) => `رقم ${value} غير موجود`,
     kindledToast: "تم تسجيل الولادة",
+    bornAlivePlaceholder: "حي",
+    bornDeadPlaceholder: "نافق",
     nestBoxInstalledToast: "تم تسجيل تركيب بيت الولادة",
     installButton: "تركيب",
     weanedTodayToast: "تم تسجيل الفطام بتاريخ اليوم",

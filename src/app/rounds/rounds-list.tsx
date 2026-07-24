@@ -8,8 +8,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { HealthRecordButton } from "@/components/health-record-form";
 import {
   DoeStateBadge,
-  KindleButton,
-  LitterCountInput,
+  KindleCell,
   RabbitAvailabilityToggle,
   ConfirmPalpationButton,
   ResorptionButton,
@@ -125,29 +124,16 @@ export function RoundsList({
                   <div className="space-y-1.5">
                     <span className="text-[11px] font-medium text-muted-foreground">{rt.kindlingLabel}</span>
                     {kindleActive ? (
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <KindleButton
-                          breedingId={b?.id ?? ""}
-                          doeId={doe.id}
-                          text={t.does.kindleButton}
-                          doeState={doe.doeState as DoeState}
-                          locale={locale}
-                        />
-                        <LitterCountInput
-                          breedingId={countsRow?.id ?? ""}
-                          field="bornAlive"
-                          value={countsRow?.litter?.bornAlive ?? null}
-                          disabled={!kindleActive}
-                          locale={locale}
-                        />
-                        <LitterCountInput
-                          breedingId={countsRow?.id ?? ""}
-                          field="bornDead"
-                          value={countsRow?.litter?.bornDead ?? null}
-                          disabled={!kindleActive}
-                          locale={locale}
-                        />
-                      </div>
+                      <KindleCell
+                        breedingId={b?.id ?? ""}
+                        doeId={doe.id}
+                        text={t.does.kindleButton}
+                        doeState={doe.doeState as DoeState}
+                        bornAlive={countsRow?.litter?.bornAlive ?? null}
+                        bornDead={countsRow?.litter?.bornDead ?? null}
+                        locale={locale}
+                        variant="inline"
+                      />
                     ) : (
                       <span className="block text-xs text-muted-foreground">{rt.notKindledYetNote}</span>
                     )}

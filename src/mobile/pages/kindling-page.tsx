@@ -5,7 +5,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchKindlingPageData, type KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
-import { DoeStateBadge, KindleButton } from "../components/doe-state-menu";
+import { DoeStateBadge, KindleCell } from "../components/doe-state-menu";
 import type { DoeState } from "@/lib/enums";
 import { isToday } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
@@ -151,14 +151,19 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
                     <DoeStateBadge current={row.doeState} locale={locale} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <KindleButton
-                      breedingId={row.breedingId}
-                      doeId={row.id}
-                      text={t.kindling.kindleButton}
-                      doeState={row.doeState as DoeState}
-                      locale={locale}
-                      onDone={() => void load()}
-                    />
+                    <div className="flex justify-center">
+                      <KindleCell
+                        breedingId={row.breedingId}
+                        doeId={row.id}
+                        text={t.kindling.kindleButton}
+                        doeState={row.doeState as DoeState}
+                        bornAlive={null}
+                        bornDead={null}
+                        locale={locale}
+                        variant="inline"
+                        onDone={() => void load()}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

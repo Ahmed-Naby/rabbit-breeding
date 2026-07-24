@@ -27,7 +27,7 @@ describe("breeding lifecycle", () => {
     expect(breeding.pregnancyTestResult).toBe("positive");
 
     const matingDateBeforeKindling = breeding.matingDate!;
-    const kindled = await markKindledOp(breeding.id, doe.id);
+    const kindled = await markKindledOp(breeding.id, doe.id, 7, 1);
     expect(kindled.ok).toBe(true);
     breeding = await prisma.breeding.findUniqueOrThrow({ where: { id: breeding.id } });
     // The row is a reusable current-cycle scratchpad: kindling clears the
@@ -36,10 +36,15 @@ describe("breeding lifecycle", () => {
     expect(breeding.actualKindlingDate).not.toBeNull();
     const log = await prisma.kindlingLog.findFirstOrThrow({ where: { doeId: doe.id } });
     expect(log.matingDate?.toISOString()).toBe(matingDateBeforeKindling.toISOString());
+    // Counts confirmed at the kindle press land on both the litter and the log.
+    expect(log.bornAlive).toBe(7);
+    expect(log.bornDead).toBe(1);
     expect((await prisma.rabbit.findUniqueOrThrow({ where: { id: doe.id } })).doeState).toBe("nursing");
 
     await markWeanedOp(breeding.id, doe.id);
     const litter = await prisma.litter.findUniqueOrThrow({ where: { breedingId: breeding.id } });
+    expect(litter.bornAlive).toBe(7);
+    expect(litter.bornDead).toBe(1);
     expect(litter.weaningDate).not.toBeNull();
     expect((await prisma.rabbit.findUniqueOrThrow({ where: { id: doe.id } })).doeState).toBe("empty");
   });
@@ -51,7 +56,7 @@ describe("breeding lifecycle", () => {
     });
     const breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
 
-    const result = await markKindledOp(breeding.id, doe.id);
+    const result = await markKindledOp(breeding.id, doe.id, 0, 0);
     expect(result).toEqual({ ok: false, code: "NO_MATING_DATE" });
     expect(await prisma.kindlingLog.count()).toBe(0);
   });
@@ -60,7 +65,7 @@ describe("breeding lifecycle", () => {
     const doe = await makeDoe();
     await startBreedingOp(doe.id);
     const breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
-    await markKindledOp(breeding.id, doe.id);
+    await markKindledOp(breeding.id, doe.id, 6, 0);
     await prisma.rabbit.update({ where: { id: doe.id }, data: { doeState: "empty" } });
 
     await markMatedOp(breeding.id, doe.id);
@@ -74,7 +79,7 @@ describe("breeding lifecycle", () => {
     const doe = await makeDoe();
     await startBreedingOp(doe.id);
     const first = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
-    await markKindledOp(first.id, doe.id);
+    await markKindledOp(first.id, doe.id, 5, 0);
 
     await markMatedOp(first.id, doe.id);
     expect(await prisma.breeding.count({ where: { doeId: doe.id } })).toBe(2);

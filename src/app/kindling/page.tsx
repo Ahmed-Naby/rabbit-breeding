@@ -8,7 +8,7 @@ import { LocalDate } from "@/components/local-date";
 import { expectedKindling, isToday } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
-import { DoeStateBadge, KindleButton } from "../does/doe-state-menu";
+import { DoeStateBadge, KindleCell } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { isKindlingCandidate } from "@/lib/breeding-filters";
 import { KindlingLog } from "./kindling-log";
@@ -138,13 +138,18 @@ export default async function KindlingPage({
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>
-                    <KindleButton
-                      breedingId={b.id}
-                      doeId={doe.id}
-                      text={t.kindling.kindleButton}
-                      doeState={doe.doeState as DoeState}
-                      locale={locale}
-                    />
+                    <div className="flex justify-center">
+                      <KindleCell
+                        breedingId={b.id}
+                        doeId={doe.id}
+                        text={t.kindling.kindleButton}
+                        doeState={doe.doeState as DoeState}
+                        bornAlive={null}
+                        bornDead={null}
+                        locale={locale}
+                        variant="inline"
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ),

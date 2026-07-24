@@ -421,13 +421,22 @@ export async function installNestBoxOp(breedingId: string): Promise<Breeding> {
  * are overwritten (see markMated's reuse branch) the next time this doe is
  * mated, which would otherwise silently erase this birth from history.
  *
+ * The born-alive/born-dead counts are entered and confirmed on the board
+ * BEFORE "ولادة" is pressed and are committed here in the same shot, so the
+ * litter is created already carrying them (rather than an empty litter filled
+ * in later by save-on-blur) and the board freezes its count inputs the moment
+ * she's "nursing". `bornAlive` is required by the UI (the button stays
+ * disabled until it's a valid number); `bornDead` blank counts as 0.
+ *
  * Requires a mating date on the row — offline replay is the first scenario
  * where the client's belief of state can be stale (the button is otherwise
  * always disabled by the UI unless this holds today).
  */
 export async function markKindledOp(
   breedingId: string,
-  doeId: string
+  doeId: string,
+  bornAlive: number,
+  bornDead: number
 ): Promise<OpResult<void, "NO_MATING_DATE">> {
   const actualKindlingDate = new Date();
   actualKindlingDate.setUTCHours(0, 0, 0, 0);
@@ -441,6 +450,15 @@ export async function markKindledOp(
   }
 
   await prisma.$transaction([
+    // Upsert, not updateMany: at a first kindling there's normally no litter
+    // row yet, so it's created here carrying the confirmed counts; on a reused
+    // breeding row (re-mated doe) it's updated in place. weaningDate is cleared
+    // either way so this fresh nursing cycle doesn't read as already weaned.
+    prisma.litter.upsert({
+      where: { breedingId },
+      create: { breedingId, kindlingDate: actualKindlingDate, bornAlive, bornDead, weaningDate: null },
+      update: { bornAlive, bornDead, weaningDate: null },
+    }),
     prisma.kindlingLog.create({
       data: {
         doeId,
@@ -448,15 +466,13 @@ export async function markKindledOp(
         breedingId,
         matingDate: breeding.matingDate,
         kindlingDate: actualKindlingDate,
+        bornAlive,
+        bornDead,
       },
     }),
     prisma.breeding.update({
       where: { id: breedingId },
       data: { matingDate: null, actualKindlingDate },
-    }),
-    prisma.litter.updateMany({
-      where: { breedingId },
-      data: { weaningDate: null },
     }),
     prisma.rabbit.update({
       where: { id: doeId },

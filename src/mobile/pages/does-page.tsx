@@ -23,7 +23,7 @@ import {
   MateCell,
   MatingFailedButton,
   MatingDateInput,
-  KindleButton,
+  KindleCell,
   WeanButton,
   LitterCountInput,
   LitterWeightInput,
@@ -391,36 +391,17 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <td className="px-3 py-2.5">
                     <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
                   </td>
-                  <td className="px-3 py-2.5">
-                    <KindleButton
-                      breedingId={b?.id ?? ""}
-                      doeId={doe.id}
-                      text={t.does.kindleButton}
-                      doeState={doe.doeState as DoeState}
-                      locale={locale}
-                      onDone={refresh}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <LitterCountInput
-                      breedingId={countsRow?.id ?? ""}
-                      field="bornAlive"
-                      value={countsRow?.litter?.bornAlive ?? null}
-                      disabled={!kindleActive}
-                      locale={locale}
-                      onDone={refresh}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <LitterCountInput
-                      breedingId={countsRow?.id ?? ""}
-                      field="bornDead"
-                      value={countsRow?.litter?.bornDead ?? null}
-                      disabled={!kindleActive}
-                      locale={locale}
-                      onDone={refresh}
-                    />
-                  </td>
+                  <KindleCell
+                    breedingId={b?.id ?? ""}
+                    doeId={doe.id}
+                    text={t.does.kindleButton}
+                    doeState={doe.doeState as DoeState}
+                    bornAlive={countsRow?.litter?.bornAlive ?? null}
+                    bornDead={countsRow?.litter?.bornDead ?? null}
+                    locale={locale}
+                    variant="cells"
+                    onDone={refresh}
+                  />
                   <td className="px-3 py-2.5">
                     <WeanButton
                       breedingId={litterRow?.id ?? ""}
@@ -579,38 +560,17 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
                 </Field>
 
-                <Field label={t.does.colKindle}>
-                  <KindleButton
-                    breedingId={b?.id ?? ""}
-                    doeId={doe.id}
-                    text={t.does.kindleButton}
-                    doeState={doe.doeState as DoeState}
-                    locale={locale}
-                    onDone={refresh}
-                  />
-                </Field>
-
-                <Field label={t.does.colBornAlive}>
-                  <LitterCountInput
-                    breedingId={countsRow?.id ?? ""}
-                    field="bornAlive"
-                    value={countsRow?.litter?.bornAlive ?? null}
-                    disabled={!kindleActive}
-                    locale={locale}
-                    onDone={refresh}
-                  />
-                </Field>
-
-                <Field label={t.does.colBornDead}>
-                  <LitterCountInput
-                    breedingId={countsRow?.id ?? ""}
-                    field="bornDead"
-                    value={countsRow?.litter?.bornDead ?? null}
-                    disabled={!kindleActive}
-                    locale={locale}
-                    onDone={refresh}
-                  />
-                </Field>
+                <KindleCell
+                  breedingId={b?.id ?? ""}
+                  doeId={doe.id}
+                  text={t.does.kindleButton}
+                  doeState={doe.doeState as DoeState}
+                  bornAlive={countsRow?.litter?.bornAlive ?? null}
+                  bornDead={countsRow?.litter?.bornDead ?? null}
+                  locale={locale}
+                  variant="fields"
+                  onDone={refresh}
+                />
 
                 <Field label={t.does.colWean}>
                   <WeanButton

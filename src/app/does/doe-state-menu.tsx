@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { DOE_STATES, label, type DoeState, type RabbitStatus } from "@/lib/enums";
 import { toDateInputValue } from "@/lib/dates";
@@ -399,53 +400,148 @@ export function MateCell({
 }
 
 /**
- * "ولادة": a three-way status button rather than a plain enabled/disabled
- * one. Red + clickable (value 0) while pregnant and kindling hasn't been
- * recorded yet; green + disabled (value 1) once she's nursing, showing
- * kindling was already recorded for this cycle; hidden otherwise, when
- * kindling isn't relevant to her current state.
+ * "ولادة" as a confirm-then-freeze unit: the born-alive/stillborn boxes and
+ * the button belong together, mirroring MateCell's staged-commit pattern.
+ * While she's due to kindle (active) the boxes are editable and typing saves
+ * nothing — the counts are only written when "ولادة" is pressed, which records
+ * the birth and both counts in a single markKindled call. Once pressed she's
+ * "nursing" and the boxes freeze read-only, so the recorded numbers can't
+ * drift afterward. "حي" (born alive) is required — the button stays disabled
+ * until it's a whole number ≥ 0 (0 covers an all-stillborn litter); "نافق"
+ * (stillborn) left blank counts as 0.
+ *
+ * `variant`:
+ *  - "inline" — boxes then button in one flex row, for the grouped round
+ *    cards the farmer sees on /rounds; returns null when kindling isn't
+ *    relevant to her state.
+ *  - "cells" — three <td>s (button, born-alive, stillborn) in the does
+ *    table's header order; the two count cells show the frozen counts
+ *    read-only for does that aren't currently kindling.
  */
-export function KindleButton({
+export function KindleCell({
   breedingId,
   doeId,
   text,
   doeState,
+  bornAlive,
+  bornDead,
   locale,
+  variant = "inline",
 }: {
   breedingId: string;
   doeId: string;
   text: string;
   doeState: DoeState;
+  bornAlive: number | null;
+  bornDead: number | null;
   locale: Locale;
+  variant?: "inline" | "cells";
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
   const active = doeState === "pregnant" || doeState === "nursing_pregnant";
   const pressed = doeState === "nursing" || doeState === "nursing_bred";
 
-  if (!active && !pressed) return null;
+  // Staged counts, meaningful only while active — a brand-new litter starts
+  // empty. Reset whenever she leaves the active phase (e.g. the press flips
+  // her to nursing, or a refresh brings a fresh cycle) so stale keystrokes
+  // never carry over.
+  const [aliveText, setAliveText] = useState("");
+  const [deadText, setDeadText] = useState("");
+  useEffect(() => {
+    if (!active) {
+      setAliveText("");
+      setDeadText("");
+    }
+  }, [active]);
 
-  return (
-    <Button
-      variant="outline"
-      size="sm"
+  const aliveParsed = aliveText.trim() === "" ? null : Number(aliveText);
+  const canKindle =
+    active && aliveParsed !== null && Number.isInteger(aliveParsed) && aliveParsed >= 0;
+
+  const submit = () => {
+    const alive = aliveText.trim() === "" ? null : Number(aliveText);
+    if (alive === null || !Number.isInteger(alive) || alive < 0) return;
+    const deadParsed = deadText.trim() === "" ? 0 : Number(deadText);
+    const dead = Number.isInteger(deadParsed) && deadParsed > 0 ? deadParsed : 0;
+    startTransition(async () => {
+      await markKindled(breedingId, doeId, alive, dead);
+      toast.success(t.kindledToast);
+    });
+  };
+
+  const inputClass =
+    "h-7 w-16 rounded-md border border-input bg-transparent px-1.5 text-center text-xs disabled:opacity-50";
+
+  const aliveInput = (
+    <input
+      type="number"
+      min={0}
+      inputMode="numeric"
+      placeholder={active ? t.bornAlivePlaceholder : ""}
+      value={active ? aliveText : (bornAlive ?? "").toString()}
       disabled={pending || !active}
-      className={cn(
-        "h-7 px-2 text-xs",
-        active &&
-          "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900",
-        pressed &&
-          "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-      )}
-      onClick={() =>
-        startTransition(async () => {
-          await markKindled(breedingId, doeId);
-          toast.success(t.kindledToast);
-        })
-      }
-    >
-      {text}
-    </Button>
+      className={inputClass}
+      onChange={(e) => setAliveText(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") submit();
+      }}
+    />
+  );
+
+  const deadInput = (
+    <input
+      type="number"
+      min={0}
+      inputMode="numeric"
+      placeholder={active ? t.bornDeadPlaceholder : ""}
+      value={active ? deadText : (bornDead ?? "").toString()}
+      disabled={pending || !active}
+      className={inputClass}
+      onChange={(e) => setDeadText(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") submit();
+      }}
+    />
+  );
+
+  const button =
+    active || pressed ? (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={pending || !active || !canKindle}
+        className={cn(
+          "h-7 px-2 text-xs",
+          active &&
+            "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900",
+          pressed &&
+            "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+        )}
+        onClick={submit}
+      >
+        {text}
+      </Button>
+    ) : null;
+
+  if (variant === "cells") {
+    return (
+      <>
+        <TableCell>{button}</TableCell>
+        <TableCell>{aliveInput}</TableCell>
+        <TableCell>{deadInput}</TableCell>
+      </>
+    );
+  }
+
+  // inline (grouped round card): numbers first, then the button.
+  if (!active && !pressed) return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      {aliveInput}
+      {deadInput}
+      {button}
+    </div>
   );
 }
 

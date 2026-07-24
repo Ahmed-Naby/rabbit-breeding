@@ -242,6 +242,8 @@ export const en: Dictionary = {
     matedTodayToast: "Mating recorded for today",
     tagNotFound: (value: string) => `#${value} not found`,
     kindledToast: "Kindling recorded",
+    bornAlivePlaceholder: "Alive",
+    bornDeadPlaceholder: "Dead",
     nestBoxInstalledToast: "Nest box install recorded",
     installButton: "Install",
     weanedTodayToast: "Weaning recorded for today",
