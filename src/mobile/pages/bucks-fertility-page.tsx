@@ -10,7 +10,7 @@ import {
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
-import { queryAll } from "../db/helpers";
+import { queryAll, queryOne } from "../db/helpers";
 import { StatusBadge } from "@/components/status-badge";
 import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { SortableTh } from "@/components/sortable-th";
@@ -57,37 +57,47 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     const rows: FertilityRow[] = [];
     let overallBreedings = 0;
     let overallKindlings = 0;
+    let overallResolved = 0;
     let overallBornAlive = 0;
 
     for (const buck of bucks) {
-      // Query all breedings and litters sired by this buck
-      const breedings = await queryAll<{
-        id: string;
-        matingDate: string | null;
-        actualKindlingDate: string | null;
-        bornAlive: number | null;
-      }>(
+      // Lifetime counts come from the append-only archive logs, NOT the live
+      // breeding row: it's nulled and reused on the doe's next cycle (see
+      // breeding-ops markKindled), so counting off it drops every past mating
+      // the moment she kindles. These logs only reset when an operations/data
+      // reset clears them.
+      const matingRow = await queryOne<{ c: number }>(
         db,
-        `SELECT b.id, b.matingDate, b.actualKindlingDate, l.bornAlive
-         FROM breeding b
-         LEFT JOIN litter l ON l.breedingId = b.id
-         WHERE b.buckId = ? AND b.matingDate IS NOT NULL`,
+        "SELECT COUNT(*) AS c FROM mating_log WHERE buckId = ?",
+        [buck.id]
+      );
+      const kindlingRow = await queryOne<{ c: number; born: number }>(
+        db,
+        "SELECT COUNT(*) AS c, COALESCE(SUM(bornAlive), 0) AS born FROM kindling_log WHERE buckId = ?",
+        [buck.id]
+      );
+      // A mating with no outcome yet shouldn't drag the fertility rate down
+      // before its result is known: the live breeding row still carries
+      // matingDate until the cycle resolves.
+      const openRow = await queryOne<{ c: number }>(
+        db,
+        "SELECT COUNT(*) AS c FROM breeding WHERE buckId = ? AND matingDate IS NOT NULL AND actualKindlingDate IS NULL",
         [buck.id]
       );
 
-      const totalBreedings = breedings.length;
-      const kindlings = breedings.filter((b) => b.actualKindlingDate !== null);
-      const totalKindlings = kindlings.length;
+      const totalBreedings = matingRow?.c ?? 0;
+      const totalKindlings = kindlingRow?.c ?? 0;
+      const totalBornAlive = kindlingRow?.born ?? 0;
+      const openMatings = openRow?.c ?? 0;
+      const resolved = Math.max(0, totalBreedings - openMatings);
 
-      const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
-
-      const litters = kindlings.filter((b) => b.bornAlive !== null);
-      const totalBornAlive = litters.reduce((sum, b) => sum + (b.bornAlive ?? 0), 0);
+      const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
       const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
       // Add to aggregate counts
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
+      overallResolved += resolved;
       overallBornAlive += totalBornAlive;
 
       rows.push({
@@ -103,7 +113,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
       });
     }
 
-    const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+    const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
 
     setData({

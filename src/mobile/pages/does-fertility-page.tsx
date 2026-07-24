@@ -63,51 +63,65 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     const rows: FertilityRow[] = [];
     let overallBreedings = 0;
     let overallKindlings = 0;
+    let overallResolved = 0;
     let overallBornAlive = 0;
     let overallWeaned = 0;
+    let overallWeanings = 0;
     let overallBornAliveForWeaned = 0;
 
     for (const doe of does) {
-      // Query all breedings and litters for this doe
-      const breedings = await queryAll<{
-        id: string;
-        matingDate: string | null;
-        actualKindlingDate: string | null;
-        bornAlive: number | null;
-        weaned: number | null;
-      }>(
+      // Lifetime counts come from the append-only archive logs, NOT the live
+      // breeding row: its matingDate/actualKindlingDate are nulled and the row
+      // reused on the doe's next cycle (see breeding-ops markKindled), so
+      // counting off it drops every past mating the moment she kindles. These
+      // logs only grow — they reset to zero solely when an operations/data
+      // reset clears them.
+      const matingRow = await queryOne<{ c: number }>(
         db,
-        `SELECT b.id, b.matingDate, b.actualKindlingDate, l.bornAlive, l.weaned
-         FROM breeding b
-         LEFT JOIN litter l ON l.breedingId = b.id
-         WHERE b.doeId = ? AND b.matingDate IS NOT NULL`,
+        "SELECT COUNT(*) AS c FROM mating_log WHERE doeId = ?",
+        [doe.id]
+      );
+      const kindlingRow = await queryOne<{ c: number; born: number }>(
+        db,
+        "SELECT COUNT(*) AS c, COALESCE(SUM(bornAlive), 0) AS born FROM kindling_log WHERE doeId = ?",
+        [doe.id]
+      );
+      const weaningRow = await queryOne<{ c: number; weaned: number; born: number }>(
+        db,
+        "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned, COALESCE(SUM(bornAlive), 0) AS born FROM weaning_log WHERE doeId = ?",
+        [doe.id]
+      );
+      // A mating with no outcome yet (bred/pregnant, not kindled or failed)
+      // shouldn't drag the fertility rate down before its result is known: the
+      // live breeding row still carries matingDate until the cycle resolves.
+      const openRow = await queryOne<{ c: number }>(
+        db,
+        "SELECT COUNT(*) AS c FROM breeding WHERE doeId = ? AND matingDate IS NOT NULL AND actualKindlingDate IS NULL",
         [doe.id]
       );
 
-      const totalBreedings = breedings.length;
-      const kindlings = breedings.filter((b) => b.actualKindlingDate !== null);
-      const totalKindlings = kindlings.length;
+      const totalBreedings = matingRow?.c ?? 0;
+      const totalKindlings = kindlingRow?.c ?? 0;
+      const bornAlive = kindlingRow?.born ?? 0;
+      const weanings = weaningRow?.c ?? 0;
+      const weaned = weaningRow?.weaned ?? 0;
+      const bornAliveForWeaned = weaningRow?.born ?? 0;
+      const openMatings = openRow?.c ?? 0;
+      const resolved = Math.max(0, totalBreedings - openMatings);
 
-      const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
-
-      const litters = kindlings.filter((b) => b.bornAlive !== null);
-      const totalBornAlive = litters.reduce((sum, b) => sum + (b.bornAlive ?? 0), 0);
-      const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
-
-      const littersWithWeaning = litters.filter((b) => b.weaned !== null);
-      const totalWeaned = littersWithWeaning.reduce((sum, b) => sum + (b.weaned ?? 0), 0);
-      const avgWeaned = totalKindlings > 0 ? totalWeaned / totalKindlings : null;
-
-      const totalBornAliveForWeaned = littersWithWeaning.reduce((sum, b) => sum + (b.bornAlive ?? 0), 0);
-      const weaningSurvivalRate =
-        totalBornAliveForWeaned > 0 ? (totalWeaned / totalBornAliveForWeaned) * 100 : null;
+      const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
+      const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
+      const avgWeaned = weanings > 0 ? weaned / weanings : null;
+      const weaningSurvivalRate = bornAliveForWeaned > 0 ? (weaned / bornAliveForWeaned) * 100 : null;
 
       // Add to aggregate counts
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
-      overallBornAlive += totalBornAlive;
-      overallWeaned += totalWeaned;
-      overallBornAliveForWeaned += totalBornAliveForWeaned;
+      overallResolved += resolved;
+      overallBornAlive += bornAlive;
+      overallWeaned += weaned;
+      overallWeanings += weanings;
+      overallBornAliveForWeaned += bornAliveForWeaned;
 
       rows.push({
         id: doe.id,
@@ -124,9 +138,9 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       });
     }
 
-    const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+    const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
-    const overallAvgWeaned = overallKindlings > 0 ? Number((overallWeaned / overallKindlings).toFixed(1)) : 0;
+    const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
     const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;
 
     setData({

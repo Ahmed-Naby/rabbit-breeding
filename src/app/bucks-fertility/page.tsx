@@ -13,7 +13,6 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
-import { getSettings } from "@/lib/settings";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -24,42 +23,62 @@ export async function generateMetadata() {
 }
 
 export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
-  const [bucks, settings, { locale, t }] = await Promise.all([
+  const [bucks, matingGroups, kindlingGroups, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       orderBy: { tagId: "asc" },
-      include: {
-        breedingsAsBuck: {
-          include: {
-            litter: true,
-          },
-        },
+      select: {
+        id: true,
+        tagId: true,
+        breed: true,
+        status: true,
+        // Only used to spot a currently-open (unresolved) mating so it's kept
+        // out of the fertility-rate denominator — counts come from the logs.
+        breedingsAsBuck: { select: { matingDate: true, actualKindlingDate: true } },
       },
     }),
-    getSettings(),
+    // Lifetime counts come from the append-only archive logs, NOT the live
+    // Breeding row: it's nulled and reused on the doe's next cycle (see
+    // breeding-ops markKindled), so counting off it drops every past mating the
+    // moment she kindles. These logs only reset when an operations/data reset
+    // clears them.
+    prisma.matingLog.groupBy({ by: ["buckId"], _count: { _all: true } }),
+    prisma.kindlingLog.groupBy({ by: ["buckId"], _count: { _all: true }, _sum: { bornAlive: true } }),
     getDictionary(),
   ]);
+
+  const matingByBuck = new Map(matingGroups.map((g) => [g.buckId, g._count._all]));
+  const kindlingByBuck = new Map(
+    kindlingGroups.map((g) => [g.buckId, { count: g._count._all, bornAlive: g._sum.bornAlive ?? 0 }])
+  );
 
   // Aggregate stats across all bucks
   let overallBreedings = 0;
   let overallKindlings = 0;
+  let overallResolved = 0;
   let overallBornAlive = 0;
 
   const rowData = bucks.map((buck) => {
-    const breedings = buck.breedingsAsBuck.filter((b) => b.matingDate !== null);
-    const totalBreedings = breedings.length;
-    const kindlings = breedings.filter((b) => b.actualKindlingDate !== null);
-    const totalKindlings = kindlings.length;
+    const totalBreedings = matingByBuck.get(buck.id) ?? 0;
+    const k = kindlingByBuck.get(buck.id);
+    const totalKindlings = k?.count ?? 0;
+    const totalBornAlive = k?.bornAlive ?? 0;
 
-    const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
+    // A mating with no outcome yet shouldn't drag the fertility rate down
+    // before its result is known: the live Breeding row still carries
+    // matingDate until the cycle resolves.
+    const openMatings = buck.breedingsAsBuck.filter(
+      (b) => b.matingDate !== null && b.actualKindlingDate === null
+    ).length;
+    const resolved = Math.max(0, totalBreedings - openMatings);
 
-    const litters = kindlings.map((b) => b.litter).filter(Boolean);
-    const totalBornAlive = litters.reduce((sum, l) => sum + (l?.bornAlive ?? 0), 0);
+    const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
     const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
 
     // Add to aggregate counts
     overallBreedings += totalBreedings;
     overallKindlings += totalKindlings;
+    overallResolved += resolved;
     overallBornAlive += totalBornAlive;
 
     return {
@@ -72,7 +91,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
     };
   });
 
-  const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+  const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
   const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
 
   return (
