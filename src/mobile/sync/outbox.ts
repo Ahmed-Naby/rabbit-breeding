@@ -19,7 +19,21 @@ import { localOpRegistry, type LocalOpOutcome } from "./local-ops";
 // accepts an explicit `id`, defaulting server-side to its own cuid() only
 // when none is supplied). Everything else operates on an existing row and
 // needs no id injected.
-const CREATING_OP_TYPES = new Set(["startBreeding", "markMated", "createQuickRabbit"]);
+//
+// confirmPregnant/markMatingFailed each mint the PregnancyTestLog row, and
+// confirmResorption the ResorptionLog row; injecting the id here makes the
+// optimistic local row and the server's row share it, so sync dedups by id
+// instead of the drift-prone matingDate (which left سجل الجس showing the same
+// test twice). The id is harmlessly unused when the op writes no log (e.g.
+// markMatingFailed on a breeding with no matingDate).
+const CREATING_OP_TYPES = new Set([
+  "startBreeding",
+  "markMated",
+  "createQuickRabbit",
+  "confirmPregnant",
+  "markMatingFailed",
+  "confirmResorption",
+]);
 
 export type EnqueueResult = {
   clientOpId: string;

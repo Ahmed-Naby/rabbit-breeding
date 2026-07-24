@@ -181,7 +181,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    await confirmPregnantOp(p.breedingId as string, p.doeId as string, p.target as string);
+    await confirmPregnantOp(p.breedingId as string, p.doeId as string, p.target as string, p.id as string | undefined);
     return applied;
   },
 
@@ -197,7 +197,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    await confirmResorptionOp(p.breedingId as string, p.doeId as string);
+    await confirmResorptionOp(p.breedingId as string, p.doeId as string, p.id as string | undefined);
     return applied;
   },
 
@@ -280,7 +280,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    await markMatingFailedOp(p.breedingId as string, p.doeId as string);
+    await markMatingFailedOp(p.breedingId as string, p.doeId as string, p.id as string | undefined);
     return applied;
   },
 

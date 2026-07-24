@@ -458,11 +458,13 @@ export async function pull(): Promise<boolean> {
 
   if (data.pregnancyTestLogs) {
     for (const log of data.pregnancyTestLogs) {
-      // Drop the optimistic placeholder this device wrote for the same test
-      // (local-ops' insertPregnancyTestLog) before inserting the server's
-      // authoritative row — they carry different ids, so without this the
-      // same test would sit in سجل الجس twice. doeId + matingDate + result
-      // identifies it: testDate can't, since the two clocks stamp it apart.
+      // The optimistic row (local-ops' insertPregnancyTestLog) now carries the
+      // same client id as the server's row, so the INSERT OR REPLACE below
+      // overwrites it in place — no matingDate matching needed. This DELETE is
+      // legacy-only cleanup: it clears any pre-fix "local-" placeholder still
+      // lingering from before ids were shared (matched on doeId + matingDate +
+      // result, best-effort — matingDate can have drifted). Harmless to current
+      // rows, whose ids don't start with "local-".
       set.push({
         statement:
           "DELETE FROM pregnancy_test_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ? AND result = ?",

@@ -280,7 +280,14 @@ export async function markMatedOp(
 export async function confirmPregnantOp(
   breedingId: string,
   doeId: string,
-  target: string
+  target: string,
+  // The mobile client generates this id up front and writes its own optimistic
+  // PregnancyTestLog row under it, so the server's row lands with the SAME id
+  // and the pull's INSERT OR REPLACE overwrites the placeholder in place —
+  // dedup by id, never by the drift-prone matingDate (see local-ops.ts +
+  // sync-manager's pregnancy_test_log block). Undefined from the web app, where
+  // there's no optimistic mirror; then the schema's @default(cuid()) applies.
+  logId?: string
 ): Promise<void> {
   if (!DOE_STATES.includes(target as DoeState)) {
     throw new Error(`Invalid doe state: ${target}`);
@@ -296,6 +303,7 @@ export async function confirmPregnantOp(
   await prisma.$transaction([
     prisma.pregnancyTestLog.create({
       data: {
+        id: logId,
         doeId,
         buckId: breeding.buckId,
         matingDate: breeding.matingDate,
@@ -342,7 +350,14 @@ export async function confirmPalpationOp(breedingId: string): Promise<Breeding> 
  * "nursing" rather than "empty" (same branching as markMatingFailedOp's
  * nursing_bred case).
  */
-export async function confirmResorptionOp(breedingId: string, doeId: string): Promise<void> {
+export async function confirmResorptionOp(
+  breedingId: string,
+  doeId: string,
+  // Client-generated id shared with the mobile optimistic ResorptionLog row so
+  // sync dedups by id, not matingDate (same reasoning as confirmPregnantOp).
+  // Undefined from the web app; the schema's @default(cuid()) then applies.
+  logId?: string
+): Promise<void> {
   const [doe, breeding] = await Promise.all([
     prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } }),
     prisma.breeding.findUnique({
@@ -356,6 +371,7 @@ export async function confirmResorptionOp(breedingId: string, doeId: string): Pr
 
   const logEntry = prisma.resorptionLog.create({
     data: {
+      id: logId,
       doeId,
       buckId: breeding.buckId,
       matingDate: breeding.matingDate,
@@ -862,7 +878,14 @@ export async function recordNursingKitDeathOp(
  * the board reverts to showing her still-ongoing litter, and drop her back to
  * plain "nursing" rather than "empty".
  */
-export async function markMatingFailedOp(breedingId: string, doeId: string): Promise<void> {
+export async function markMatingFailedOp(
+  breedingId: string,
+  doeId: string,
+  // Client-generated id shared with the mobile optimistic PregnancyTestLog row
+  // (result "negative") so sync dedups by id, not matingDate (same reasoning as
+  // confirmPregnantOp). Undefined from the web app; @default(cuid()) applies.
+  logId?: string
+): Promise<void> {
   const [doe, breeding] = await Promise.all([
     prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } }),
     prisma.breeding.findUnique({
@@ -874,6 +897,7 @@ export async function markMatingFailedOp(breedingId: string, doeId: string): Pro
   const logEntry = breeding?.matingDate
     ? prisma.pregnancyTestLog.create({
         data: {
+          id: logId,
           doeId,
           buckId: breeding.buckId,
           matingDate: breeding.matingDate,

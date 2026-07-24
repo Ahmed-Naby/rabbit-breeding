@@ -88,20 +88,24 @@ function getLitterByBreeding(db: SQLiteDBConnection, breedingId: string) {
  * (سجل التلقيح never had this problem: it reads the breeding table directly,
  * which these ops already write locally.)
  *
- * The "local-" id marks this as a placeholder; pull() drops it when the
- * server's authoritative row arrives, matching on doeId + matingDate +
- * result, so the two never show up as duplicate rows.
+ * The caller passes the outbox-injected client id (see outbox.ts's
+ * CREATING_OP_TYPES) so this optimistic row and the server's authoritative row
+ * share it: the next pull's INSERT OR REPLACE then overwrites this row in place
+ * rather than adding a second one. Matching on doeId + matingDate used to do
+ * that reconciliation, but matingDate is stamped by two clocks and drifted,
+ * leaving the same test in سجل الجس twice — the shared id removes that guess.
+ * Falls back to a "local-" placeholder id only if ever called without one.
  */
 async function insertPregnancyTestLog(
   db: SQLiteDBConnection,
-  args: { doeId: string; buckId: string | null; matingDate: string; result: "positive" | "negative" }
+  args: { id?: string; doeId: string; buckId: string | null; matingDate: string; result: "positive" | "negative" }
 ): Promise<void> {
   const now = nowIso();
   await run(
     db,
     `INSERT INTO pregnancy_test_log (id, doeId, buckId, matingDate, testDate, result, createdAt)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, now, args.result, now]
+    [args.id ?? `local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, now, args.result, now]
   );
 }
 
@@ -215,14 +219,14 @@ async function mirrorKindlingLogCounts(
  */
 async function insertResorptionLog(
   db: SQLiteDBConnection,
-  args: { doeId: string; buckId: string | null; matingDate: string; resorptionDate: string }
+  args: { id?: string; doeId: string; buckId: string | null; matingDate: string; resorptionDate: string }
 ): Promise<void> {
   const now = nowIso();
   await run(
     db,
     `INSERT INTO resorption_log (id, doeId, buckId, matingDate, resorptionDate, createdAt)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [`local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.resorptionDate, now]
+    [args.id ?? `local-${createId()}`, args.doeId, args.buckId ?? null, args.matingDate, args.resorptionDate, now]
   );
 }
 
@@ -397,7 +401,7 @@ export async function markMated(
 
 export async function confirmPregnant(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; doeId: string; target: string }
+  payload: { id?: string; breedingId: string; doeId: string; target: string }
 ): Promise<LocalOpOutcome> {
   if (!DOE_STATES.includes(payload.target as DoeState)) {
     return rejected(`Invalid doe state: ${payload.target}`);
@@ -408,6 +412,7 @@ export async function confirmPregnant(
   }
   await updateRabbit(db, payload.doeId, { doeState: payload.target });
   await insertPregnancyTestLog(db, {
+    id: payload.id,
     doeId: payload.doeId,
     buckId: breeding.buckId ?? null,
     matingDate: breeding.matingDate,
@@ -426,7 +431,7 @@ export async function confirmPalpation(
 
 export async function confirmResorption(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; doeId: string }
+  payload: { id?: string; breedingId: string; doeId: string }
 ): Promise<LocalOpOutcome> {
   const doe = await getRabbit(db, payload.doeId);
   const breeding = await getBreeding(db, payload.breedingId);
@@ -447,6 +452,7 @@ export async function confirmResorption(
   }
 
   await insertResorptionLog(db, {
+    id: payload.id,
     doeId: payload.doeId,
     buckId: breeding.buckId ?? null,
     matingDate: breeding.matingDate,
@@ -743,7 +749,7 @@ export async function recordNursingKitDeath(
 
 export async function markMatingFailed(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; doeId: string }
+  payload: { id?: string; breedingId: string; doeId: string }
 ): Promise<LocalOpOutcome> {
   const doe = await getRabbit(db, payload.doeId);
   // Read before mutating: both branches below destroy the matingDate this
@@ -761,6 +767,7 @@ export async function markMatingFailed(
 
   if (breeding?.matingDate) {
     await insertPregnancyTestLog(db, {
+      id: payload.id,
       doeId: payload.doeId,
       buckId: breeding.buckId ?? null,
       matingDate: breeding.matingDate,
