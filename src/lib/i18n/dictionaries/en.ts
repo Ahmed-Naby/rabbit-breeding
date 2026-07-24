@@ -86,8 +86,9 @@ export const en: Dictionary = {
     addBreedButton: "Add",
     dangerZoneHeading: "Danger zone",
     resetOpsDescription:
-      "Permanently deletes every recorded operation on the farm — matings, pregnancy tests, kindlings, weanings, fostering, rabbit weights, health records, financial transactions, and stock movements — from all devices.",
-    resetOpsKeepNote: "Kept: rabbits, bucks, and registered breeds. Every doe's state is reset to “empty”.",
+      "Permanently deletes every recorded operation on the farm — matings, pregnancy tests, kindlings, weanings, fostering, rabbit weights, health records, financial transactions, stock movements, and deaths/cullings — from all devices.",
+    resetOpsKeepNote:
+      "Kept: living rabbits, bucks, and registered breeds. Rabbits recorded as deceased or culled are deleted, and every doe's state is reset to “empty”.",
     resetOpsConfirmWord: "RESET OPERATIONS",
     resetOpsConfirmLabel: (word: string) => `Type “${word}” to confirm`,
     resetOpsButton: "Delete all operations",
@@ -195,8 +196,8 @@ export const en: Dictionary = {
     resettingOpsLabel: "Clearing…",
     resetOpsConfirm: (pendingCount: number) =>
       pendingCount > 0
-        ? `A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock…) will be permanently deleted — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. Rabbits, bucks, and breeds are kept. This can only be undone by restoring that backup. Are you sure?`
-        : "A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock…) will be permanently deleted — from this device, the server, and every other device. Rabbits, bucks, and breeds are kept. This can only be undone by restoring that backup. Are you sure?",
+        ? `A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock, deaths, cullings…) will be permanently deleted — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. Living rabbits, bucks, and breeds are kept (rabbits recorded as deceased or culled are deleted). This can only be undone by restoring that backup. Are you sure?`
+        : "A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock, deaths, cullings…) will be permanently deleted — from this device, the server, and every other device. Living rabbits, bucks, and breeds are kept (rabbits recorded as deceased or culled are deleted). This can only be undone by restoring that backup. Are you sure?",
     resetOpsSuccessToast: "All operations cleared",
   },
   kindling: {

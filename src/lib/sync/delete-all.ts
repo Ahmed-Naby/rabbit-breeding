@@ -10,10 +10,18 @@ type Tx = {
   };
 } & {
   rabbit: {
-    deleteMany(): Promise<unknown>;
+    deleteMany(args?: { where?: { status?: { in: string[] } } }): Promise<unknown>;
     updateMany(args: { data: { doeState: string } }): Promise<unknown>;
   };
 };
+
+// Recording a death (نافق) or a culling (استبعاد) is a soft-delete: it sets
+// Rabbit.status and retires the tag, keeping the row for pedigree — so the
+// Records page's mortality/culling tabs are just views over these statuses.
+// An operations reset therefore has to hard-delete these rabbits, or those
+// two logs would survive a "clear all operations". Safe to delete: sireId/
+// damId are onDelete: SetNull, so any living offspring simply lose the link.
+const OPERATION_OUTCOME_STATUSES = ["deceased", "culled"];
 
 /**
  * Deletes every farm-data row of the ACTIVE farm. It clears all operations
@@ -48,7 +56,9 @@ export async function deleteAllFarmData(tx: Tx): Promise<void> {
  * (a kit's birth litter) is onDelete: SetNull, so a surviving rabbit simply
  * loses that back-link.
  *
- * Finally every rabbit's doeState is reset to "empty": with the breedings and
+ * Deceased/culled rabbits are then hard-deleted (their death/culling records
+ * are operations too — see OPERATION_OUTCOME_STATUSES above), and finally every
+ * surviving rabbit's doeState is reset to "empty": with the breedings and
  * litters gone, a doe left "pregnant"/"nursing"/"bred" would show a phantom
  * reproductive cycle on the board with nothing behind it (bucks are already
  * "empty", so the blanket update is a no-op for them).
@@ -66,5 +76,6 @@ export async function deleteAllFarmOperations(tx: Tx): Promise<void> {
   await tx.matingLog.deleteMany();
   await tx.litter.deleteMany();
   await tx.breeding.deleteMany();
+  await tx.rabbit.deleteMany({ where: { status: { in: OPERATION_OUTCOME_STATUSES } } });
   await tx.rabbit.updateMany({ data: { doeState: "empty" } });
 }
