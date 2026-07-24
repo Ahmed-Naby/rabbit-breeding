@@ -123,6 +123,7 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                         doeId={doe.id}
                         canMate={canMate}
                         buckTagId={b?.buckTagId ?? null}
+                        matingDate={b?.matingDate ?? null}
                         locale={locale}
                         onDone={() => void load()}
                       />

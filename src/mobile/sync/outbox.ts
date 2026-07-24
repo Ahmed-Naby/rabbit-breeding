@@ -35,6 +35,16 @@ const CREATING_OP_TYPES = new Set([
   "confirmResorption",
 ]);
 
+// Ops that record a NEW mating also append a permanent MatingLog row. That row
+// needs its OWN client id (separate from the Breeding row's `id` above) so the
+// optimistic local mating_log row and the server's row share it, and the pull's
+// INSERT OR REPLACE dedups by id instead of the drift-prone (doeId, matingDate).
+// Without this سجل التلقيح stayed empty offline until a sync pulled the row back
+// — unlike every other archive log, which local-ops writes immediately. The id
+// is harmlessly unused when the op writes no log (e.g. setMatingDate merely
+// correcting or clearing an existing date).
+const MATING_LOG_OP_TYPES = new Set(["startBreeding", "markMated", "setMatingDate"]);
+
 export type EnqueueResult = {
   clientOpId: string;
   outcome: LocalOpOutcome;
@@ -49,8 +59,13 @@ export async function enqueue(
 
   const clientOpId = createId();
   const clientAt = nowIso();
-  const finalPayload =
-    CREATING_OP_TYPES.has(opType) && !payload.id ? { ...payload, id: createId() } : payload;
+  let finalPayload = payload;
+  if (CREATING_OP_TYPES.has(opType) && !finalPayload.id) {
+    finalPayload = { ...finalPayload, id: createId() };
+  }
+  if (MATING_LOG_OP_TYPES.has(opType) && !finalPayload.matingLogId) {
+    finalPayload = { ...finalPayload, matingLogId: createId() };
+  }
 
   const outcome = await withTransaction<LocalOpOutcome>(async (db) => {
     let result: LocalOpOutcome;

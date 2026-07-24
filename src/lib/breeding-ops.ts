@@ -64,6 +64,19 @@ async function matingAlreadyLogged(doeId: string, matingDate: Date): Promise<boo
   return existing != null;
 }
 
+/**
+ * True if this doe already has a mating archived on the given day. Backs the
+ * does board's "تلقيح" button, which stays disabled when the picked date was
+ * already used for her — the same (doe, mating day) uniqueness
+ * matingAlreadyLogged enforces, surfaced to the UI before the op runs so a
+ * duplicate can't even be queued.
+ */
+export async function matingDateUsedOp(doeId: string, matingDate: Date): Promise<boolean> {
+  const d = new Date(matingDate);
+  d.setUTCHours(0, 0, 0, 0);
+  return matingAlreadyLogged(doeId, d);
+}
+
 export async function createBreedingOp(
   data: CreateBreedingInput,
   opts?: { id?: string }
@@ -104,11 +117,14 @@ export async function createBreedingOp(
 }
 
 /**
- * Edits an EXISTING mating record (date/buck/outcome/notes correction) — not
- * a new mating — so, per the archive's append-only contract, this
- * deliberately never touches MatingLog. Whatever was archived when the
- * mating was first recorded (createBreedingOp/startBreedingOp/markMatedOp)
- * stays exactly as-is.
+ * Edits an EXISTING mating record (date/buck/outcome/notes correction) — not a
+ * new mating, so it never APPENDS to MatingLog. It does, though, keep THIS
+ * cycle's already-archived MatingLog row in step when the correction moves the
+ * mating date/buck/doe: the archive has no breedingId, so that row is located
+ * by its original (doeId, matingDate). Without this, سجل التلقيح kept showing
+ * the pre-edit mating date while every later snapshot (pregnancy test,
+ * kindling) already reflected the corrected one — the two drifted a month
+ * apart in /records.
  */
 export async function updateBreedingOp(
   id: string,
@@ -135,6 +151,17 @@ export async function updateBreedingOp(
       notes: data.notes,
     },
   });
+
+  // Correct this cycle's permanent MatingLog row to match the edit (see the
+  // doc comment). Only when a mating was actually archived — existing.matingDate
+  // present; recording a brand-new mating is createBreeding/setMatingDate's
+  // job, not this edit path.
+  if (existing.matingDate) {
+    await prisma.matingLog.updateMany({
+      where: { doeId: existing.doeId, matingDate: existing.matingDate },
+      data: { doeId: data.doeId, buckId: data.buckId, matingDate: data.matingDate },
+    });
+  }
 
   return { ok: true, data: { breeding, previousDoeId: existing.doeId } };
 }
@@ -165,14 +192,18 @@ export async function buckExistsOp(buckTagId: string): Promise<boolean> {
  * to record it, or leaves it blank. Creates that first row so the standard
  * mate/kindle/wean flow (markMated, markKindled, ...) can take over from
  * here.
+ *
+ * `opts.matingDate` is the day the mating actually happened, picked on the
+ * does board before pressing "تلقيح"; it defaults to today when omitted (older
+ * clients that don't send one).
  */
 export async function startBreedingOp(
   doeId: string,
   buckTagId?: string,
-  opts?: { id?: string }
+  opts?: { id?: string; matingLogId?: string; matingDate?: Date }
 ): Promise<{ buckFound: boolean }> {
   const settings = await getSettings();
-  const matingDate = new Date();
+  const matingDate = opts?.matingDate ? new Date(opts.matingDate) : new Date();
   matingDate.setUTCHours(0, 0, 0, 0);
   const expectedKindlingDate = expectedKindling(matingDate, settings.gestationDays);
   const { buckId, buckFound } = await resolveBuckId(buckTagId);
@@ -191,7 +222,7 @@ export async function startBreedingOp(
     // (op replay) so the archive never double-counts one mating.
     ...(alreadyLogged
       ? []
-      : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: false } })]),
+      : [prisma.matingLog.create({ data: { id: opts?.matingLogId, doeId, buckId, matingDate, wasNursingAtMating: false } })]),
   ]);
 
   return { buckFound };
@@ -231,15 +262,19 @@ export async function setPregnancyTestResultOp(id: string, result: string): Prom
  * tied to her current litter's history — flips her to the combined
  * "nursing_bred" state, and the does board (one row per doe, latest breeding
  * only) now shows this new cycle instead of the ongoing litter.
+ *
+ * `opts.matingDate` is the day the mating actually happened, picked on the
+ * does board before pressing "تلقيح"; it defaults to today when omitted (older
+ * clients that don't send one).
  */
 export async function markMatedOp(
   breedingId: string,
   doeId: string,
   buckTagId?: string,
-  opts?: { id?: string }
+  opts?: { id?: string; matingLogId?: string; matingDate?: Date }
 ): Promise<{ buckFound: boolean }> {
   const settings = await getSettings();
-  const matingDate = new Date();
+  const matingDate = opts?.matingDate ? new Date(opts.matingDate) : new Date();
   matingDate.setUTCHours(0, 0, 0, 0);
   const expectedKindlingDate = expectedKindling(matingDate, settings.gestationDays);
   const { buckId, buckFound } = await resolveBuckId(buckTagId);
@@ -269,7 +304,7 @@ export async function markMatedOp(
       // double-counts one mating.
       ...(alreadyLogged
         ? []
-        : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: true } })]),
+        : [prisma.matingLog.create({ data: { id: opts?.matingLogId, doeId, buckId, matingDate, wasNursingAtMating: true } })]),
     ]);
   } else {
     await prisma.$transaction([
@@ -297,7 +332,7 @@ export async function markMatedOp(
       // double-counts one mating.
       ...(alreadyLogged
         ? []
-        : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: false } })]),
+        : [prisma.matingLog.create({ data: { id: opts?.matingLogId, doeId, buckId, matingDate, wasNursingAtMating: false } })]),
     ]);
   }
 
@@ -1010,11 +1045,18 @@ export async function clearDoeRowOp(breedingId: string, doeId: string): Promise<
  *
  * Stamping a date onto a row that had none is one of the primary ways a
  * mating gets recorded here (alongside the "تلقيح" button / markMated), so
- * that null -> date transition writes a permanent MatingLog row too. Merely
- * correcting an already-set date, or clearing it, is NOT a new mating and
- * leaves the archive untouched — same append-only contract as updateBreedingOp.
+ * that null -> date transition writes a permanent MatingLog row too.
+ * Correcting an already-set date to a different day is NOT a new mating, but
+ * it must still carry the correction into this cycle's existing MatingLog row
+ * (located by its original (doeId, matingDate), the only handle the archive
+ * has) — otherwise سجل التلقيح keeps the old day while سجل الجس shows the new
+ * one. Clearing the date is neither, and leaves the archive untouched.
  */
-export async function setMatingDateOp(breedingId: string, matingDate: Date | null): Promise<Breeding> {
+export async function setMatingDateOp(
+  breedingId: string,
+  matingDate: Date | null,
+  opts?: { matingLogId?: string }
+): Promise<Breeding> {
   const existing = await prisma.breeding.findUniqueOrThrow({
     where: { id: breedingId },
     select: { matingDate: true, doeId: true, buckId: true },
@@ -1042,9 +1084,24 @@ export async function setMatingDateOp(breedingId: string, matingDate: Date | nul
         ? []
         : [
             prisma.matingLog.create({
-              data: { doeId: existing.doeId, buckId: existing.buckId, matingDate, wasNursingAtMating },
+              data: { id: opts?.matingLogId, doeId: existing.doeId, buckId: existing.buckId, matingDate, wasNursingAtMating },
             }),
           ]),
+    ]);
+    return breeding;
+  }
+
+  // Correcting an already-archived mating to a different day: keep this cycle's
+  // permanent MatingLog row in step, located by its original (doeId,
+  // matingDate) since the archive has no breedingId. Without this سجل التلقيح
+  // would keep the stale day while سجل الجس (the pregnancy-test snapshot) moves.
+  if (matingDate && existing.matingDate && existing.matingDate.getTime() !== matingDate.getTime()) {
+    const [breeding] = await prisma.$transaction([
+      prisma.breeding.update({ where: { id: breedingId }, data }),
+      prisma.matingLog.updateMany({
+        where: { doeId: existing.doeId, matingDate: existing.matingDate },
+        data: { matingDate },
+      }),
     ]);
     return breeding;
   }

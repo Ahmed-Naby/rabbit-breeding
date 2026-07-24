@@ -8,6 +8,7 @@ import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import {
   buckExistsOp,
+  matingDateUsedOp,
   createBreedingOp,
   updateBreedingOp,
   startBreedingOp,
@@ -102,11 +103,20 @@ export async function buckExists(buckTagId: string): Promise<boolean> {
   return buckExistsOp(buckTagId);
 }
 
+/** Backs the does board's "تلقيح" button: true if this doe already has a mating on `value` (a yyyy-MM-dd input value). */
+export async function matingDateUsed(doeId: string, value: string): Promise<boolean> {
+  if (!value) return false;
+  return matingDateUsedOp(doeId, fromDateInputValue(value));
+}
+
 export async function startBreeding(
   doeId: string,
-  buckTagId?: string
+  buckTagId?: string,
+  matingDate?: string
 ): Promise<{ ok: true; buckFound: boolean }> {
-  const { buckFound } = await startBreedingOp(doeId, buckTagId);
+  const { buckFound } = await startBreedingOp(doeId, buckTagId, {
+    matingDate: matingDate ? fromDateInputValue(matingDate) : undefined,
+  });
 
   revalidateAllBreedingPaths();
   revalidatePath(`/rabbits/${doeId}`);
@@ -130,9 +140,12 @@ export async function setPregnancyTestResult(id: string, result: string) {
 export async function markMated(
   breedingId: string,
   doeId: string,
-  buckTagId?: string
+  buckTagId?: string,
+  matingDate?: string
 ): Promise<{ ok: true; buckFound: boolean }> {
-  const { buckFound } = await markMatedOp(breedingId, doeId, buckTagId);
+  const { buckFound } = await markMatedOp(breedingId, doeId, buckTagId, {
+    matingDate: matingDate ? fromDateInputValue(matingDate) : undefined,
+  });
 
   revalidateAllBreedingPaths();
   revalidatePath(`/breedings/${breedingId}`);

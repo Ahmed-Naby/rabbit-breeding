@@ -21,6 +21,7 @@ import {
   clearDoeRow,
   startBreeding,
   buckExists,
+  matingDateUsed,
   confirmPregnant,
   confirmPalpation,
   confirmResorption,
@@ -294,12 +295,14 @@ export function MateCell({
   doeId,
   canMate,
   buckTagId,
+  matingDate,
   locale,
 }: {
   breedingId: string | null;
   doeId: string;
   canMate: boolean;
   buckTagId: string | null;
+  matingDate: string | Date | null;
   locale: Locale;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
@@ -307,12 +310,20 @@ export function MateCell({
   const [value, setValue] = useState(() => (canMate ? "" : (buckTagId ?? "")));
   const [valid, setValid] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [date, setDate] = useState(() =>
+    toDateInputValue(canMate ? new Date() : matingDate ? new Date(matingDate) : null)
+  );
+  const [dateUsed, setDateUsed] = useState(false);
+  const [dateChecking, setDateChecking] = useState(false);
 
   useEffect(() => {
     setValue(canMate ? "" : (buckTagId ?? ""));
     setValid(false);
     setChecking(false);
-  }, [canMate, buckTagId]);
+    setDate(toDateInputValue(canMate ? new Date() : matingDate ? new Date(matingDate) : null));
+    setDateUsed(false);
+    setDateChecking(false);
+  }, [canMate, buckTagId, matingDate]);
 
   // Debounced live check of whatever's currently typed, so the button only
   // ever becomes clickable once the tag is confirmed to match a real buck.
@@ -339,16 +350,53 @@ export function MateCell({
     };
   }, [value, canMate]);
 
+  // Debounced check that the picked date isn't a day this doe was already
+  // mated on — the "one mating per doe per day" rule, surfaced before the op so
+  // "تلقيح" stays disabled on a duplicate.
+  useEffect(() => {
+    if (!canMate) return;
+    if (!date) {
+      setDateUsed(false);
+      setDateChecking(false);
+      return;
+    }
+    setDateChecking(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const used = await matingDateUsed(doeId, date);
+      if (!cancelled) {
+        setDateUsed(used);
+        setDateChecking(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [date, canMate, doeId]);
+
   const showInvalid = canMate && !checking && value.trim() !== "" && !valid;
+  const canSubmit =
+    canMate && !pending && !checking && valid && !dateChecking && !dateUsed && !!date;
 
   return (
     <div className="flex flex-col items-center gap-1">
+      <input
+        type="date"
+        value={date}
+        disabled={!canMate || pending}
+        onChange={(e) => setDate(e.target.value)}
+        className={cn(
+          "h-7 w-38 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+          canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
+        )}
+      />
       <div className="flex items-center gap-1.5">
         {canMate ? (
           <Button
             variant="outline"
             size="sm"
-            disabled={pending || checking || !valid}
+            disabled={!canSubmit}
             className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
             onClick={() =>
               startTransition(async () => {
@@ -361,12 +409,20 @@ export function MateCell({
                   toast.error(t.buckNotFoundToast(buckTag));
                   return;
                 }
-                if (breedingId) {
-                  await markMated(breedingId, doeId, buckTag);
-                } else {
-                  await startBreeding(doeId, buckTag);
+                // Same safety net for the date: guard against a concurrent
+                // mating landing on the same day between the debounced check
+                // and the click.
+                if (await matingDateUsed(doeId, date)) {
+                  setDateUsed(true);
+                  toast.error(t.matingDateUsedToast);
+                  return;
                 }
-                toast.success(t.matedTodayToast);
+                if (breedingId) {
+                  await markMated(breedingId, doeId, buckTag, date);
+                } else {
+                  await startBreeding(doeId, buckTag, date);
+                }
+                toast.success(t.matedToast);
               })
             }
           >
@@ -393,6 +449,11 @@ export function MateCell({
       {showInvalid ? (
         <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">
           {t.tagNotFound(value.trim())}
+        </span>
+      ) : null}
+      {canMate && dateUsed ? (
+        <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">
+          {t.matingDateUsedShort}
         </span>
       ) : null}
     </div>

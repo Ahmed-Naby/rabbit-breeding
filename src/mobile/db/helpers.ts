@@ -30,3 +30,12 @@ export function addDaysIso(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString();
 }
+
+/**
+ * Convert a yyyy-MM-dd <input type="date"> value to a UTC-midnight ISO string,
+ * matching todayIso()'s format so a hand-picked mating date is stored the same
+ * way as a "today" stamp (and the same way the server stores it).
+ */
+export function dateInputToIso(value: string): string {
+  return new Date(`${value}T00:00:00.000Z`).toISOString();
+}

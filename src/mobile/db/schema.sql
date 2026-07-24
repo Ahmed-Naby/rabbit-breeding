@@ -258,9 +258,11 @@ CREATE TABLE IF NOT EXISTS weaning_log (
 );
 CREATE INDEX IF NOT EXISTS idx_weaning_log_doeId ON weaning_log(doeId);
 
--- Permanent mating-event archive, read-only on mobile (populated purely via
--- sync pull, like pregnancy_test_log/kindling_log above) — never written by
--- local-ops.ts, since there is no optimistic local flow for it.
+-- Permanent mating-event archive. Written optimistically by local-ops.ts on
+-- every mating (startBreeding/markMated/setMatingDate) so سجل التلقيح shows a
+-- mating offline before the next sync — the pull then reconciles the local row
+-- against the server's by the shared matingLogId (falling back to a local-<id>
+-- placeholder matched on doeId + matingDate).
 CREATE TABLE IF NOT EXISTS mating_log (
   id                 TEXT PRIMARY KEY,
   doeId              TEXT NOT NULL,

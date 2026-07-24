@@ -147,7 +147,11 @@ function toDateOrNull(value: unknown): Date | null {
 
 export const operationRegistry: Record<string, SyncOpHandler> = {
   startBreeding: async (p, clientAt) => {
-    await startBreedingOp(p.doeId as string, p.buckTagId as string | undefined, { id: p.id as string | undefined });
+    await startBreedingOp(p.doeId as string, p.buckTagId as string | undefined, {
+      id: p.id as string | undefined,
+      matingLogId: p.matingLogId as string | undefined,
+      matingDate: toDateOrNull(p.matingDate) ?? undefined,
+    });
     return applied;
   },
 
@@ -173,6 +177,8 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     }
     await markMatedOp(p.breedingId as string, p.doeId as string, p.buckTagId as string | undefined, {
       id: p.id as string | undefined,
+      matingLogId: p.matingLogId as string | undefined,
+      matingDate: toDateOrNull(p.matingDate) ?? undefined,
     });
     return applied;
   },
@@ -296,7 +302,9 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    await setMatingDateOp(p.breedingId as string, toDateOrNull(p.matingDate));
+    await setMatingDateOp(p.breedingId as string, toDateOrNull(p.matingDate), {
+      matingLogId: p.matingLogId as string | undefined,
+    });
     return applied;
   },
 

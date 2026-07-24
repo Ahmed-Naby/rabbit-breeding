@@ -122,6 +122,27 @@ export async function buckExistsLocally(db: SQLiteDBConnection, tagId: string): 
   return !!row;
 }
 
+/**
+ * Local mirror of matingDateUsedOp: has this doe already got a mating archived
+ * on `dateValue` (a yyyy-MM-dd input value)? Backs the does board's "تلقيح"
+ * button, disabled for a date she's already been mated on. mating_log.matingDate
+ * is stored in mixed shapes (full ISO from startBreeding/markMated and server
+ * pulls, bare yyyy-MM-dd from an older setMatingDate), so we compare on the
+ * leading day slice, which both shapes share.
+ */
+export async function matingDateUsedLocally(
+  db: SQLiteDBConnection,
+  doeId: string,
+  dateValue: string
+): Promise<boolean> {
+  const row = await queryOne<{ id: string }>(
+    db,
+    "SELECT id FROM mating_log WHERE doeId = ? AND substr(matingDate, 1, 10) = ? LIMIT 1",
+    [doeId, dateValue]
+  );
+  return !!row;
+}
+
 export type DashboardStats = {
   stockCount: number;
   activeDoes: number;

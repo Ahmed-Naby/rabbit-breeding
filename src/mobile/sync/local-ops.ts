@@ -25,7 +25,7 @@
  */
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { createId } from "@paralleldrive/cuid2";
-import { queryOne, run, nowIso, todayIso, addDaysIso } from "../db/helpers";
+import { queryOne, run, nowIso, todayIso, addDaysIso, dateInputToIso } from "../db/helpers";
 import type { LocalRabbit, LocalBreeding, LocalLitter, LocalSettings } from "../db/types";
 import {
   BREEDING_OUTCOMES,
@@ -230,6 +230,47 @@ async function insertResorptionLog(
   );
 }
 
+/**
+ * Optimistic mirror for سجل التلقيح — the mating archive was the last
+ * server-write-only log, so a mating recorded offline stayed invisible in
+ * سجل التلقيح until the next sync pulled it back. Now every mating-recording
+ * op writes its row here too, sharing the outbox-injected matingLogId (see
+ * outbox.ts's MATING_LOG_OP_TYPES) with the server's row so the pull's INSERT
+ * OR REPLACE reconciles them by id rather than the drift-prone (doeId,
+ * matingDate). Guarded by matingLoggedLocally to honour the "one mating per doe
+ * per day" rule, mirroring the server's matingAlreadyLogged. Falls back to a
+ * "local-" id only if ever called without one.
+ */
+async function insertMatingLog(
+  db: SQLiteDBConnection,
+  args: { id?: string; doeId: string; buckId: string | null; matingDate: string; wasNursingAtMating: boolean }
+): Promise<void> {
+  if (await matingLoggedLocally(db, args.doeId, args.matingDate)) return;
+  await run(
+    db,
+    `INSERT INTO mating_log (id, doeId, buckId, matingDate, wasNursingAtMating, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      args.id ?? `local-${createId()}`,
+      args.doeId,
+      args.buckId ?? null,
+      args.matingDate,
+      args.wasNursingAtMating ? 1 : 0,
+      nowIso(),
+    ]
+  );
+}
+
+/** Local mirror of the server's matingAlreadyLogged: one mating per doe+day. */
+async function matingLoggedLocally(db: SQLiteDBConnection, doeId: string, matingDate: string): Promise<boolean> {
+  const existing = await queryOne<{ id: string }>(
+    db,
+    "SELECT id FROM mating_log WHERE doeId = ? AND matingDate = ? LIMIT 1",
+    [doeId, matingDate]
+  );
+  return existing != null;
+}
+
 /** Mirrors resolveBuckId server-side: a blank tag means "don't record a buck", not an error. */
 async function resolveBuckId(db: SQLiteDBConnection, buckTagId?: string): Promise<string | null> {
   const tagId = buckTagId?.trim();
@@ -327,10 +368,10 @@ async function upsertLatestWeightRecord(db: SQLiteDBConnection, rabbitId: string
 
 export async function startBreeding(
   db: SQLiteDBConnection,
-  payload: { doeId: string; buckTagId?: string; id?: string }
+  payload: { doeId: string; buckTagId?: string; id?: string; matingLogId?: string; matingDate?: string }
 ): Promise<LocalOpOutcome> {
   const settings = await getSettings(db);
-  const matingDate = todayIso();
+  const matingDate = payload.matingDate ? dateInputToIso(payload.matingDate) : todayIso();
   const expectedKindlingDate = addDaysIso(matingDate, settings.gestationDays);
   const buckId = await resolveBuckId(db, payload.buckTagId);
   const now = nowIso();
@@ -342,6 +383,14 @@ export async function startBreeding(
     [payload.id ?? createId(), buckId, payload.doeId, matingDate, expectedKindlingDate, now, now]
   );
   await updateRabbit(db, payload.doeId, { doeState: "bred" });
+  // First-ever mating for this doe — she starts from "فاضية", so never nursing.
+  await insertMatingLog(db, {
+    id: payload.matingLogId,
+    doeId: payload.doeId,
+    buckId,
+    matingDate,
+    wasNursingAtMating: false,
+  });
   return applied;
 }
 
@@ -369,16 +418,17 @@ export async function setPregnancyTestResult(
 
 export async function markMated(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; doeId: string; buckTagId?: string; id?: string }
+  payload: { breedingId: string; doeId: string; buckTagId?: string; id?: string; matingLogId?: string; matingDate?: string }
 ): Promise<LocalOpOutcome> {
   const settings = await getSettings(db);
-  const matingDate = todayIso();
+  const matingDate = payload.matingDate ? dateInputToIso(payload.matingDate) : todayIso();
   const expectedKindlingDate = addDaysIso(matingDate, settings.gestationDays);
   const buckId = await resolveBuckId(db, payload.buckTagId);
   const doe = await getRabbit(db, payload.doeId);
   const now = nowIso();
+  const wasNursingAtMating = doe?.doeState === "nursing";
 
-  if (doe?.doeState === "nursing") {
+  if (wasNursingAtMating) {
     await run(
       db,
       `INSERT INTO breeding (id, buckId, doeId, matingDate, expectedKindlingDate, actualKindlingDate, nestBoxDate, outcome, pregnancyTestResult, notes, createdAt, updatedAt)
@@ -396,6 +446,13 @@ export async function markMated(
     });
     await updateRabbit(db, payload.doeId, { doeState: "bred" });
   }
+  await insertMatingLog(db, {
+    id: payload.matingLogId,
+    doeId: payload.doeId,
+    buckId,
+    matingDate,
+    wasNursingAtMating,
+  });
   return applied;
 }
 
@@ -794,14 +851,39 @@ export async function clearDoeRow(
 
 export async function setMatingDate(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; matingDate: string | null }
+  payload: { breedingId: string; matingDate: string | null; matingLogId?: string }
 ): Promise<LocalOpOutcome> {
+  const existing = await getBreeding(db, payload.breedingId);
+  const oldDate = existing?.matingDate ?? null;
+
   const patch: Record<string, unknown> = { matingDate: payload.matingDate };
   if (payload.matingDate) {
     const settings = await getSettings(db);
     patch.expectedKindlingDate = addDaysIso(payload.matingDate, settings.gestationDays);
   }
   await updateBreeding(db, payload.breedingId, patch);
+
+  if (existing && payload.matingDate && !oldDate) {
+    // Stamping a date onto a date-less row is a NEW mating — archive it, same
+    // as startBreeding/markMated. wasNursing from the doe's current state.
+    const doe = await getRabbit(db, existing.doeId);
+    await insertMatingLog(db, {
+      id: payload.matingLogId,
+      doeId: existing.doeId,
+      buckId: existing.buckId ?? null,
+      matingDate: payload.matingDate,
+      wasNursingAtMating: doe?.doeState?.startsWith("nursing") ?? false,
+    });
+  } else if (existing && payload.matingDate && oldDate && oldDate !== payload.matingDate) {
+    // Correcting an already-archived mating to a different day: move this
+    // cycle's local mating_log row too, mirroring setMatingDateOp's updateMany
+    // so سجل التلقيح agrees with سجل الجس offline as well.
+    await run(
+      db,
+      "UPDATE mating_log SET matingDate = ? WHERE doeId = ? AND matingDate = ?",
+      [payload.matingDate, existing.doeId, oldDate]
+    );
+  }
   return applied;
 }
 

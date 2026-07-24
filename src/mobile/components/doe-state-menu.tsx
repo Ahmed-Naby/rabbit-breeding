@@ -18,7 +18,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
 import { enqueue } from "../sync/outbox";
 import { getDb } from "../db/client";
-import { buckExistsLocally } from "../db/queries";
+import { buckExistsLocally, matingDateUsedLocally } from "../db/queries";
 
 const BADGE_CLS: Record<DoeState, string> = {
   empty: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
@@ -283,15 +283,25 @@ export function ResorptionButton({
 }
 
 /**
- * Mate button + buck-tag input as one unit — same behavior as the web
- * version's MateCell, but the buck-tag check reads the local mirror instead
- * of hitting the server (see buckExistsLocally above).
+ * Mating date + buck-tag input + "تلقيح" button as one staged-commit unit —
+ * same behavior as the web version's MateCell, but the buck-tag and
+ * duplicate-date checks read the local mirror instead of hitting the server
+ * (see buckExistsLocally / matingDateUsedLocally above).
+ *
+ * The date is picked FIRST, sitting above the buck field: it defaults to today
+ * but can be back-dated, and the "تلقيح" button stays disabled until BOTH the
+ * typed buck matches a real buck AND the date isn't one this doe was already
+ * mated on (the "one mating per doe per day" rule, surfaced up front). Pressing
+ * "تلقيح" writes the buck and the chosen date together in a single op; the
+ * cycle exists from that point on, and the date/buck freeze read-only here —
+ * corrections happen through the full breeding edit form, not this cell.
  */
 export function MateCell({
   breedingId,
   doeId,
   canMate,
   buckTagId,
+  matingDate,
   locale,
   onDone,
 }: {
@@ -299,6 +309,7 @@ export function MateCell({
   doeId: string;
   canMate: boolean;
   buckTagId: string | null;
+  matingDate: Date | null;
   locale: Locale;
   onDone: () => void;
 }) {
@@ -307,12 +318,18 @@ export function MateCell({
   const [value, setValue] = useState(() => (canMate ? "" : (buckTagId ?? "")));
   const [valid, setValid] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [date, setDate] = useState(() => toDateInputValue(canMate ? new Date() : matingDate));
+  const [dateUsed, setDateUsed] = useState(false);
+  const [dateChecking, setDateChecking] = useState(false);
 
   useEffect(() => {
     setValue(canMate ? "" : (buckTagId ?? ""));
     setValid(false);
     setChecking(false);
-  }, [canMate, buckTagId]);
+    setDate(toDateInputValue(canMate ? new Date() : matingDate));
+    setDateUsed(false);
+    setDateChecking(false);
+  }, [canMate, buckTagId, matingDate]);
 
   useEffect(() => {
     if (!canMate) return;
@@ -337,31 +354,70 @@ export function MateCell({
     };
   }, [value, canMate]);
 
+  useEffect(() => {
+    if (!canMate) return;
+    if (!date) {
+      setDateUsed(false);
+      setDateChecking(false);
+      return;
+    }
+    setDateChecking(true);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const used = await matingDateUsedLocally(await getDb(), doeId, date);
+      if (!cancelled) {
+        setDateUsed(used);
+        setDateChecking(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [date, canMate, doeId]);
+
   const showInvalid = canMate && !checking && value.trim() !== "" && !valid;
+  const canSubmit = canMate && !pending && !checking && valid && !dateChecking && !dateUsed && !!date;
 
   return (
     <div className="flex flex-col items-start gap-1">
+      <input
+        type="date"
+        value={date}
+        disabled={!canMate || pending}
+        onChange={(e) => setDate(e.target.value)}
+        className={cn(
+          "h-8 w-36 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+          canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
+        )}
+      />
       <div className="flex items-center gap-1.5">
         {canMate ? (
           <Button
             variant="outline"
             size="sm"
-            disabled={pending || checking || !valid}
+            disabled={!canSubmit}
             className="h-8 px-2.5 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
             onClick={async () => {
               const buckTag = value.trim();
-              if (!buckTag || !(await buckExistsLocally(await getDb(), buckTag))) {
+              const db = await getDb();
+              if (!buckTag || !(await buckExistsLocally(db, buckTag))) {
                 setValid(false);
                 toast.error(t.buckNotFoundToast(buckTag));
                 return;
               }
+              if (await matingDateUsedLocally(db, doeId, date)) {
+                setDateUsed(true);
+                toast.error(t.matingDateUsedToast);
+                return;
+              }
               setPending(true);
               if (breedingId) {
-                await enqueue("markMated", { breedingId, doeId, buckTagId: buckTag });
+                await enqueue("markMated", { breedingId, doeId, buckTagId: buckTag, matingDate: date });
               } else {
-                await enqueue("startBreeding", { doeId, buckTagId: buckTag });
+                await enqueue("startBreeding", { doeId, buckTagId: buckTag, matingDate: date });
               }
-              toast.success(t.matedTodayToast);
+              toast.success(t.matedToast);
               setPending(false);
               onDone();
             }}
@@ -388,6 +444,9 @@ export function MateCell({
       </div>
       {showInvalid ? (
         <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">{t.tagNotFound(value.trim())}</span>
+      ) : null}
+      {canMate && dateUsed ? (
+        <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">{t.matingDateUsedShort}</span>
       ) : null}
     </div>
   );

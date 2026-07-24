@@ -22,7 +22,6 @@ import {
   ResorptionButton,
   MateCell,
   MatingFailedButton,
-  MatingDateInput,
   KindleCell,
   WeanButton,
   LitterCountInput,
@@ -115,10 +114,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
       type: "tag",
       value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).current?.buckTagId ?? null,
     },
-    matingDate: {
-      type: "date",
-      value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).current?.matingDate ?? null,
-    },
     testDate: {
       type: "date",
       value: (r) => computeDoeBoardRow(r.doeState as DoeState, r.status, r.breedings, settings!).testDate,
@@ -208,15 +203,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 rowSpan={2}
                 label={t.does.colMate}
                 sortKey="mate"
-                activeSortKey={doesSort.sortKey}
-                direction={doesSort.direction}
-                onSort={doesSort.toggleSort}
-              />
-              <SortableThRowSpan
-                className="px-3 py-2 text-center"
-                rowSpan={2}
-                label={t.does.colMatingDate}
-                sortKey="matingDate"
                 activeSortKey={doesSort.sortKey}
                 direction={doesSort.direction}
                 onSort={doesSort.toggleSort}
@@ -325,16 +311,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
                       doeId={doe.id}
                       canMate={canMate}
                       buckTagId={b?.buckTagId ?? null}
+                      matingDate={b?.matingDate ?? null}
                       locale={locale}
                       onDone={refresh}
                     />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {b ? (
-                      <MatingDateInput breedingId={b.id} date={b.matingDate} locale={locale} onDone={refresh} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
                   </td>
                   <td className="px-3 py-2.5">
                     <LocalDate date={testDate} locale={locale} className="text-xs" />
@@ -488,17 +468,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     doeId={doe.id}
                     canMate={canMate}
                     buckTagId={b?.buckTagId ?? null}
+                    matingDate={b?.matingDate ?? null}
                     locale={locale}
                     onDone={refresh}
                   />
-                </Field>
-
-                <Field label={t.does.colMatingDate}>
-                  {b ? (
-                    <MatingDateInput breedingId={b.id} date={b.matingDate} locale={locale} onDone={refresh} />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
                 </Field>
 
                 <Field label={t.does.colTestDate}>

@@ -15,7 +15,6 @@ import {
   ResorptionButton,
   MateCell,
   MatingFailedButton,
-  MatingDateInput,
   KindleCell,
   WeanButton,
   LitterCountInput,
@@ -95,7 +94,6 @@ export default async function DoesPage() {
               { key: "breed", label: t.does.colBreed, type: "string", className: "text-center" },
               { key: "doeState", label: t.does.colDoeState, type: "string", className: "text-center" },
               { key: "mate", label: t.does.colMate, type: "tag", className: "text-center" },
-              { key: "matingDate", label: t.does.colMatingDate, type: "date", className: "text-center" },
               { key: "testDate", label: t.does.colTestDate, type: "date", className: "text-center" },
               { key: "testResult", label: t.does.colTestResult, className: "text-center", sortable: false },
               { key: "palpation", label: t.does.colPalpation, className: "text-center", sortable: false },
@@ -148,7 +146,6 @@ export default async function DoesPage() {
                     breed: doe.breed,
                     doeState: doe.doeState,
                     mate: b?.buckTagId ?? null,
-                    matingDate: b?.matingDate,
                     testDate,
                     kindlingDate,
                     bornAlive: countsRow?.litter?.bornAlive,
@@ -175,15 +172,9 @@ export default async function DoesPage() {
                         doeId={doe.id}
                         canMate={canMate}
                         buckTagId={b?.buckTagId ?? null}
+                        matingDate={b?.matingDate ?? null}
                         locale={locale}
                       />
-                    </TableCell>
-                    <TableCell>
-                      {b ? (
-                        <MatingDateInput breedingId={b.id} date={b.matingDate} locale={locale} />
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
                     </TableCell>
                     <TableCell>
                       <LocalDate date={testDate} locale={locale} />

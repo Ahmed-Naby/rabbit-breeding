@@ -541,10 +541,16 @@ export async function pull(): Promise<boolean> {
 
   if (data.matingLogs) {
     for (const log of data.matingLogs) {
-      // No optimistic local placeholder to drop here — unlike
-      // pregnancyTestLogs/kindlingLogs above, local-ops.ts never writes this
-      // table (see mating_log's schema.sql comment); it's purely populated
-      // from the server, so a plain upsert by id is enough.
+      // local-ops.ts now writes an optimistic mating_log row that shares its id
+      // with the server's (outbox's matingLogId), so the INSERT OR REPLACE below
+      // reconciles the common case by id. The local-% delete is the fallback for
+      // a row that ever got a "local-" placeholder id instead — same
+      // belt-and-suspenders as pregnancyTestLogs above, keyed on doeId +
+      // matingDate (a doe is mated at most once per day).
+      set.push({
+        statement: "DELETE FROM mating_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ?",
+        values: [log.doeId, log.matingDate],
+      });
       set.push({
         statement: `INSERT OR REPLACE INTO mating_log (id, doeId, buckId, matingDate, wasNursingAtMating, createdAt)
          VALUES (?, ?, ?, ?, ?, ?)`,

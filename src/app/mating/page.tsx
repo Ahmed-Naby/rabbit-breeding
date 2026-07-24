@@ -134,6 +134,10 @@ export default async function MatingPage({
                         doeId={doe.id}
                         canMate
                         buckTagId={b?.buck?.tagId ?? null}
+                        // Always canMate here, so MateCell defaults the date to
+                        // today and never reads this; the mating query doesn't
+                        // select matingDate.
+                        matingDate={null}
                         locale={locale}
                       />
                     </TableCell>
