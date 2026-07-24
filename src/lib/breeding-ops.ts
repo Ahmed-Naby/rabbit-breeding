@@ -46,11 +46,33 @@ async function wasNursing(doeId: string): Promise<boolean> {
   return doe?.doeState?.startsWith("nursing") ?? false;
 }
 
+/**
+ * A doe's reproduction cycle starts with a mating, and she can be mated at
+ * most once on a given day — the cycle's identity is (doe, mating day). This
+ * guards the permanent MatingLog archive against a second row for the same
+ * doe+day: unlike the Breeding row (deduped by its client id on replay), the
+ * archive row has no such key, so a replayed/duplicated mating op would
+ * otherwise append a phantom that inflates her mating count and splits her
+ * breeding history into two identical rows. Callers normalize matingDate to
+ * UTC midnight, so an exact match pins the day.
+ */
+async function matingAlreadyLogged(doeId: string, matingDate: Date): Promise<boolean> {
+  const existing = await prisma.matingLog.findFirst({
+    where: { doeId, matingDate },
+    select: { id: true },
+  });
+  return existing != null;
+}
+
 export async function createBreedingOp(
   data: CreateBreedingInput,
   opts?: { id?: string }
 ): Promise<Breeding> {
-  const [settings, wasNursingAtMating] = await Promise.all([getSettings(), wasNursing(data.doeId)]);
+  const [settings, wasNursingAtMating, alreadyLogged] = await Promise.all([
+    getSettings(),
+    wasNursing(data.doeId),
+    matingAlreadyLogged(data.doeId, data.matingDate),
+  ]);
 
   const [breeding] = await prisma.$transaction([
     prisma.breeding.create({
@@ -66,10 +88,16 @@ export async function createBreedingOp(
       },
     }),
     // Permanent archive row — this is a genuinely new mating, unlike
-    // updateBreedingOp below which only corrects an existing one.
-    prisma.matingLog.create({
-      data: { doeId: data.doeId, buckId: data.buckId, matingDate: data.matingDate, wasNursingAtMating },
-    }),
+    // updateBreedingOp below which only corrects an existing one. Skipped when
+    // this doe already has a mating logged for the same day (a duplicate op
+    // replay) so the archive never double-counts one mating.
+    ...(alreadyLogged
+      ? []
+      : [
+          prisma.matingLog.create({
+            data: { doeId: data.doeId, buckId: data.buckId, matingDate: data.matingDate, wasNursingAtMating },
+          }),
+        ]),
   ]);
 
   return breeding;
@@ -148,6 +176,7 @@ export async function startBreedingOp(
   matingDate.setUTCHours(0, 0, 0, 0);
   const expectedKindlingDate = expectedKindling(matingDate, settings.gestationDays);
   const { buckId, buckFound } = await resolveBuckId(buckTagId);
+  const alreadyLogged = await matingAlreadyLogged(doeId, matingDate);
 
   await prisma.$transaction([
     // First-ever mating for this doe — always starts from "فاضية".
@@ -158,10 +187,11 @@ export async function startBreedingOp(
       where: { id: doeId },
       data: { doeState: "bred" },
     }),
-    // Permanent archive row — a new mating.
-    prisma.matingLog.create({
-      data: { doeId, buckId, matingDate, wasNursingAtMating: false },
-    }),
+    // Permanent archive row — a new mating. Skipped on a same-day duplicate
+    // (op replay) so the archive never double-counts one mating.
+    ...(alreadyLogged
+      ? []
+      : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: false } })]),
   ]);
 
   return { buckFound };
@@ -214,10 +244,10 @@ export async function markMatedOp(
   const expectedKindlingDate = expectedKindling(matingDate, settings.gestationDays);
   const { buckId, buckFound } = await resolveBuckId(buckTagId);
 
-  const doe = await prisma.rabbit.findUnique({
-    where: { id: doeId },
-    select: { doeState: true },
-  });
+  const [doe, alreadyLogged] = await Promise.all([
+    prisma.rabbit.findUnique({ where: { id: doeId }, select: { doeState: true } }),
+    matingAlreadyLogged(doeId, matingDate),
+  ]);
 
   if (doe?.doeState === "nursing") {
     await prisma.$transaction([
@@ -235,9 +265,11 @@ export async function markMatedOp(
         data: { doeState: "nursing_bred" },
       }),
       // Permanent archive row — a new mating (she was nursing at the time).
-      prisma.matingLog.create({
-        data: { doeId, buckId, matingDate, wasNursingAtMating: true },
-      }),
+      // Skipped on a same-day duplicate (op replay) so the archive never
+      // double-counts one mating.
+      ...(alreadyLogged
+        ? []
+        : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: true } })]),
     ]);
   } else {
     await prisma.$transaction([
@@ -261,9 +293,11 @@ export async function markMatedOp(
         data: { doeState: "bred" },
       }),
       // Permanent archive row — a new mating (she was empty at the time).
-      prisma.matingLog.create({
-        data: { doeId, buckId, matingDate, wasNursingAtMating: false },
-      }),
+      // Skipped on a same-day duplicate (op replay) so the archive never
+      // double-counts one mating.
+      ...(alreadyLogged
+        ? []
+        : [prisma.matingLog.create({ data: { doeId, buckId, matingDate, wasNursingAtMating: false } })]),
     ]);
   }
 
@@ -996,12 +1030,21 @@ export async function setMatingDateOp(breedingId: string, matingDate: Date | nul
 
   const isNewMating = matingDate != null && existing.matingDate == null;
   if (isNewMating) {
-    const wasNursingAtMating = await wasNursing(existing.doeId);
+    const [wasNursingAtMating, alreadyLogged] = await Promise.all([
+      wasNursing(existing.doeId),
+      matingAlreadyLogged(existing.doeId, matingDate),
+    ]);
     const [breeding] = await prisma.$transaction([
       prisma.breeding.update({ where: { id: breedingId }, data }),
-      prisma.matingLog.create({
-        data: { doeId: existing.doeId, buckId: existing.buckId, matingDate, wasNursingAtMating },
-      }),
+      // Skipped on a same-day duplicate (op replay) so the archive never
+      // double-counts one mating.
+      ...(alreadyLogged
+        ? []
+        : [
+            prisma.matingLog.create({
+              data: { doeId: existing.doeId, buckId: existing.buckId, matingDate, wasNursingAtMating },
+            }),
+          ]),
     ]);
     return breeding;
   }
