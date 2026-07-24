@@ -1747,7 +1747,14 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
   const cycles = new Map<string, DoeBreedingHistoryRow>();
 
   function ensure(matingDate: string, buckTagId: string | null): DoeBreedingHistoryRow {
-    let c = cycles.get(matingDate);
+    // Key by calendar day, not the raw timestamp: a doe is mated at most once
+    // per day (a same-day re-mate is forbidden — see markMated), so every log
+    // stage of one cycle shares that day even if their snapshotted matingDate
+    // strings drift apart by a fraction (two clocks stamp them). Keying on the
+    // raw string split such a cycle into two rows — the same mating showing
+    // twice in سجل التزاوج.
+    const key = dayKey(matingDate);
+    let c = cycles.get(key);
     if (!c) {
       c = {
         matingDate,
@@ -1760,7 +1767,7 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
         weaningDate: null,
         weaned: null,
       };
-      cycles.set(matingDate, c);
+      cycles.set(key, c);
     } else if (!c.buckTagId && buckTagId) {
       c.buckTagId = buckTagId;
     }
@@ -1871,7 +1878,11 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
   }
 
   async function ensure(doeId: string, matingDate: string): Promise<BuckBreedingHistoryRow> {
-    const key = `${doeId}_${matingDate}`;
+    // Key by doe + calendar day, not the raw timestamp: a doe is mated at most
+    // once per day, so a cycle's log stages share that day even if their
+    // snapshotted matingDate strings drift by a fraction. Keying on the raw
+    // string split one mating into two rows here too.
+    const key = `${doeId}_${dayKey(matingDate)}`;
     let c = cycles.get(key);
     if (!c) {
       const doe = await doeInfo(doeId);

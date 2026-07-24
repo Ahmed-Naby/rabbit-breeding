@@ -64,7 +64,11 @@ export function buildBuckCycles({
     doe: { id: string; tagId: string | null; breed: string | null },
     matingDate: Date
   ) {
-    const key = `${doe.id}_${matingDate.toISOString()}`;
+    // Key by doe + calendar day, not the raw timestamp: a doe is mated at most
+    // once per day, so a cycle's log stages share that day even if their
+    // snapshotted matingDate values drift by a fraction. Keying on the full ISO
+    // string split one mating into two rows here too.
+    const key = `${doe.id}_${dayKey(matingDate)}`;
     let c = cycles.get(key);
     if (!c) {
       c = {

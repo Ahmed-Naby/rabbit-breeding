@@ -66,7 +66,12 @@ export function buildDoeCycles({
   const cycles = new Map<string, DoeCycle>();
 
   function ensure(matingDate: Date, buckTagId: string | null) {
-    const key = matingDate.toISOString();
+    // Key by calendar day, not the raw timestamp: a doe is mated at most once
+    // per day (a same-day re-mate is forbidden — see markMated), so every log
+    // stage of one cycle shares that day even if their snapshotted matingDate
+    // values drift by a fraction. Keying on the full ISO string split such a
+    // cycle into two rows — the same mating showing twice in سجل التزاوج.
+    const key = dayKey(matingDate);
     let c = cycles.get(key);
     if (!c) {
       c = {
