@@ -7,6 +7,7 @@ import { settingsSchema, breedSchema } from "@/lib/validations";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
 import { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { runResetOperations } from "@/lib/sync/reset-operations";
 
 export async function updateSettings(
   _prev: FormState,
@@ -72,5 +73,17 @@ export async function deleteBreed(id: string) {
     }
     throw e;
   }
+  revalidatePath("/", "layout");
+}
+
+/**
+ * Danger zone: permanently deletes every recorded operation of the active
+ * farm (keeping the rabbits/bucks and breed registry) and stamps a fresh
+ * dataResetAt so every syncing device re-bootstraps — see runResetOperations.
+ * Irreversible; the client component gates it behind a typed confirmation.
+ */
+export async function resetOperations() {
+  await runResetOperations();
+  // Operations touch data shown across the whole app.
   revalidatePath("/", "layout");
 }

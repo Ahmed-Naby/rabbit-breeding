@@ -84,6 +84,15 @@ export const en: Dictionary = {
     newBreedLabel: "New breed",
     newBreedPlaceholder: "e.g. New Zealand White",
     addBreedButton: "Add",
+    dangerZoneHeading: "Danger zone",
+    resetOpsDescription:
+      "Permanently deletes every recorded operation on the farm — matings, pregnancy tests, kindlings, weanings, fostering, rabbit weights, health records, financial transactions, and stock movements — from all devices.",
+    resetOpsKeepNote: "Kept: rabbits, bucks, and registered breeds. Every doe's state is reset to “empty”.",
+    resetOpsConfirmWord: "RESET OPERATIONS",
+    resetOpsConfirmLabel: (word: string) => `Type “${word}” to confirm`,
+    resetOpsButton: "Delete all operations",
+    resettingOpsLabel: "Deleting…",
+    resetOpsSuccessToast: "All operations deleted",
   },
   // Mobile-only (offline app) Danger Zone strings. Kept out of `settings`
   // above because that section is passed wholesale from a Server Component
@@ -182,6 +191,13 @@ export const en: Dictionary = {
         : "A backup will be saved automatically first, then ALL farm data will be permanently deleted — from this device, the server, and every other device. This can only be undone by restoring that backup. Are you sure?",
     resetSuccessToast: "Database reset",
     resetOffline: "Reset needs an internet connection to wipe the central database too — nothing was deleted. Check your connection and try again.",
+    resetOpsButton: "Clear operations",
+    resettingOpsLabel: "Clearing…",
+    resetOpsConfirm: (pendingCount: number) =>
+      pendingCount > 0
+        ? `A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock…) will be permanently deleted — from this device, the server, and every other device — including ${pendingCount} change${pendingCount === 1 ? "" : "s"} not yet synced. Rabbits, bucks, and breeds are kept. This can only be undone by restoring that backup. Are you sure?`
+        : "A backup will be saved automatically first, then every recorded operation (matings, kindlings, weanings, weights, health, finance, stock…) will be permanently deleted — from this device, the server, and every other device. Rabbits, bucks, and breeds are kept. This can only be undone by restoring that backup. Are you sure?",
+    resetOpsSuccessToast: "All operations cleared",
   },
   kindling: {
     title: "Kindling",

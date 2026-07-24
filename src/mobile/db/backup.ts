@@ -8,6 +8,7 @@ import { syncFetch } from "../sync/sync-manager";
 // are sent programmatically.
 import { WIPE_CONFIRM_PHRASE } from "@/lib/sync/wipe-confirm-phrase";
 import { RESTORE_CONFIRM_PHRASE } from "@/lib/sync/restore-confirm-phrase";
+import { RESET_OPERATIONS_CONFIRM_PHRASE } from "@/lib/sync/reset-operations-confirm-phrase";
 
 /** Serializes the entire local database (schema + rows, including any unsynced outbox entries) to a JSON string. */
 export async function exportBackup(): Promise<string> {
@@ -261,6 +262,42 @@ export async function resetEverything(): Promise<void> {
     throw new Error("RESET_OFFLINE");
   }
 
+  await wipeLocalTables();
+}
+
+/**
+ * The "clear all operations" action: permanently deletes every recorded
+ * OPERATION (matings, pregnancy tests, kindlings, weanings, fostering, weight/
+ * health records, finance, stock movements, and the live breeding/litter
+ * cycle) from the central database, while KEEPING the rabbits/bucks and the
+ * breed registry. The server also resets every doe's reproductive state and
+ * stamps a fresh Settings.dataResetAt; this device then wipes its whole local
+ * mirror and — after the caller reloads — re-bootstraps from the server, which
+ * still holds the herd but none of the deleted operations. Every other device
+ * discovers the same dataResetAt on its next sync and re-bootstraps too, so
+ * one button clears operations across the whole farm everywhere.
+ *
+ * Server-first for the same reason as resetEverything(): if the device is
+ * offline the request fails before anything local is touched and the reset
+ * cleanly aborts (the caller surfaces RESET_OFFLINE) instead of wiping the
+ * device only to re-download everything on the next sync.
+ */
+export async function resetOperations(): Promise<void> {
+  try {
+    await syncFetch("/api/sync/reset-operations", {
+      method: "POST",
+      body: JSON.stringify({ confirm: RESET_OPERATIONS_CONFIRM_PHRASE }),
+    });
+  } catch {
+    throw new Error("RESET_OFFLINE");
+  }
+
+  await wipeLocalTables();
+}
+
+/** Empties every local mirror table (leaving the schema intact) so the next
+ * app startup re-bootstraps a fresh copy from the server. */
+async function wipeLocalTables(): Promise<void> {
   await withTransaction(async (db) => {
     const tables = await queryAll<{ name: string }>(
       db,

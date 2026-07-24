@@ -3,6 +3,7 @@ import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { SettingsForm } from "./settings-form";
 import { BreedsManager } from "./breeds-manager";
+import { DangerZone } from "./danger-zone";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
         t={t.settings}
       />
       <BreedsManager breeds={breeds} t={t.settings} />
+      <DangerZone t={t.settings} />
     </div>
   );
 }

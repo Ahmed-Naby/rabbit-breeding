@@ -9,7 +9,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchSettingsPageData, type LocalBreed } from "../db/queries";
 import { enqueue } from "../sync/outbox";
-import { exportBackup, restoreBackup, resetEverything } from "../db/backup";
+import { exportBackup, restoreBackup, resetEverything, resetOperations } from "../db/backup";
 import { AccountCard } from "../components/account-card";
 import { getSyncStatus } from "../sync/sync-manager";
 import { Button } from "@/components/ui/button";
@@ -90,6 +90,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [backingUp, setBackingUp] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [resettingOps, setResettingOps] = useState(false);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -267,6 +268,28 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       const message = err instanceof Error ? err.message : "Error";
       toast.error(message === "RESET_OFFLINE" ? t.mobileSettings.resetOffline : message);
       setResetting(false);
+    }
+  };
+
+  const handleResetOperations = async () => {
+    const pendingCount = getSyncStatus().pendingCount;
+    if (!window.confirm(t.mobileSettings.resetOpsConfirm(pendingCount))) return;
+
+    setResettingOps(true);
+    try {
+      // Same reasoning as handleReset: an operations reset is unrecoverable
+      // except from a backup file, so always save a fresh one right before
+      // clearing (if it fails, the reset aborts untouched).
+      const json = await exportBackup();
+      await saveBackupFile(json, backupFilename());
+
+      await resetOperations();
+      toast.success(t.mobileSettings.resetOpsSuccessToast);
+      window.location.reload();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Error";
+      toast.error(message === "RESET_OFFLINE" ? t.mobileSettings.resetOffline : message);
+      setResettingOps(false);
     }
   };
 
@@ -488,7 +511,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
             <Button
               type="button"
               variant="outline"
-              disabled={backingUp || restoring || resetting}
+              disabled={backingUp || restoring || resetting || resettingOps}
               onClick={handleBackupNow}
               className="flex-1 gap-2"
             >
@@ -499,7 +522,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
             <Button
               type="button"
               variant="outline"
-              disabled={backingUp || restoring || resetting}
+              disabled={backingUp || restoring || resetting || resettingOps}
               onClick={() => restoreInputRef.current?.click()}
               className="flex-1 gap-2"
             >
@@ -517,13 +540,29 @@ export function SettingsPage({ locale }: { locale: Locale }) {
             <Button
               type="button"
               variant="destructive"
-              disabled={backingUp || restoring || resetting}
+              disabled={backingUp || restoring || resetting || resettingOps}
               onClick={handleReset}
               className="flex-1 gap-2"
             >
               <TriangleAlert className="size-4" />
               {resetting ? t.mobileSettings.resettingLabel : t.mobileSettings.resetButton}
             </Button>
+          </div>
+
+          <div className="border-t pt-4">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={backingUp || restoring || resetting || resettingOps}
+              onClick={handleResetOperations}
+              className="w-full gap-2"
+            >
+              <TriangleAlert className="size-4" />
+              {resettingOps ? t.mobileSettings.resettingOpsLabel : t.mobileSettings.resetOpsButton}
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground leading-normal">
+              {t.settings.resetOpsKeepNote}
+            </p>
           </div>
         </CardContent>
       </Card>
