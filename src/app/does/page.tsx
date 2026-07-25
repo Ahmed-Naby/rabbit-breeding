@@ -7,7 +7,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { getSettings } from "@/lib/settings";
 import type { DoeState } from "@/lib/enums";
-import { computeDoeBoardRow } from "@/lib/does-board";
+import { computeDoeBoardRow, weaningEntryComplete } from "@/lib/does-board";
 import {
   DoeStateBadge,
   DoeActionButton,
@@ -252,15 +252,20 @@ export default async function DoesPage() {
                         text={t.does.weanButton}
                         active={weanActive}
                         weaned={isWeaned}
+                        ready={weaningEntryComplete(countsRow?.litter)}
                         locale={locale}
                       />
                     </TableCell>
                     <TableCell>
+                      {/* Open from the moment she has a litter under care, not
+                          only after weaning: the press is now gated on these two
+                          being filled (see WeanButton's `ready`), so locking
+                          them until the press would deadlock the row. */}
                       <LitterCountInput
                         breedingId={countsRow?.id ?? ""}
                         field="weaned"
                         value={countsRow?.litter?.weaned ?? null}
-                        disabled={!isWeaned}
+                        disabled={!isWeaned && !weanActive}
                         locale={locale}
                       />
                     </TableCell>
@@ -275,7 +280,7 @@ export default async function DoesPage() {
                       <LitterWeightInput
                         breedingId={countsRow?.id ?? ""}
                         valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                        disabled={!isWeaned}
+                        disabled={!isWeaned && !weanActive}
                         locale={locale}
                       />
                     </TableCell>

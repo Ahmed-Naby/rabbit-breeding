@@ -226,6 +226,12 @@ export function litterSchema(t: Dictionary["validation"]) {
       bornAlive: z.coerce.number().int().min(0).default(0),
       bornDead: z.coerce.number().int().min(0).default(0),
       weaned: z.coerce.number().int().min(0).optional(),
+      // Total litter weight in grams at weaning. Belongs here and not only on
+      // the board's inline input: this form can record a birth AND its weaning
+      // in one shot, and the WeaningLog row it stamps is permanent and not
+      // editable from سجل الفطام — leaving the weight out meant «وزن الفطام»
+      // was unrecoverable for every litter entered this way.
+      weaningWeightGrams: z.coerce.number().int().min(0).optional(),
       weaningDate: optionalDate(t),
       notes: optionalText,
     })

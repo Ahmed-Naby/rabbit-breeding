@@ -7,9 +7,15 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import { weaningDueDate, isToday } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
-import { DoeStateBadge, WeanButton } from "../does/doe-state-menu";
+import {
+  DoeStateBadge,
+  WeanButton,
+  LitterCountInput,
+  LitterWeightInput,
+} from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isWeaningCandidate } from "@/lib/breeding-filters";
+import { weaningEntryComplete } from "@/lib/does-board";
 import { WeaningLog } from "./weaning-log";
 
 export async function generateMetadata() {
@@ -48,7 +54,17 @@ export default async function WeaningPage({
             id: true,
             actualKindlingDate: true,
             buck: { select: { tagId: true } },
-            litter: { select: { weaningDate: true, bornAlive: true, bornDead: true } },
+            litter: {
+              select: {
+                weaningDate: true,
+                bornAlive: true,
+                bornDead: true,
+                // Typed in on this page now, before "فطام" is pressed — see the
+                // two input columns below.
+                weaned: true,
+                weaningWeightGrams: true,
+              },
+            },
           },
         },
       },
@@ -66,6 +82,8 @@ export default async function WeaningPage({
         weaningDate: true,
         bornAlive: true,
         bornDead: true,
+        // Feeds «نسبة بقاء الفطام» — see weaningSurvivalRate in kit-mortality.ts.
+        bornDeadAtKindling: true,
         weaned: true,
         weaningWeightGrams: true,
         doe: { select: { id: true, tagId: true, breed: true } },
@@ -118,6 +136,8 @@ export default async function WeaningPage({
               { key: "doeState", label: t.weaning.colDoeState, type: "string", className: "hidden text-center sm:table-cell" },
               { key: "alive", label: t.weaning.colAlive, type: "number", className: "text-center" },
               { key: "dead", label: t.weaning.colDead, type: "number", className: "text-center" },
+              { key: "weanedCount", label: t.weaning.colWeanedCount, type: "number", className: "text-center" },
+              { key: "weaningWeight", label: t.weaning.colWeaningWeight, type: "number", className: "text-center" },
               { key: "wean", label: t.weaning.colWean, className: "text-center", sortable: false },
             ]}
             rows={does.map(({ doe, litterRow, dueDate }, i) => ({
@@ -131,6 +151,8 @@ export default async function WeaningPage({
                 doeState: doe.doeState,
                 alive: litterRow.litter?.bornAlive,
                 dead: litterRow.litter?.bornDead,
+                weanedCount: litterRow.litter?.weaned,
+                weaningWeight: litterRow.litter?.weaningWeightGrams,
               },
               node: (
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
@@ -153,6 +175,28 @@ export default async function WeaningPage({
                   </TableCell>
                   <TableCell>{litterRow.litter?.bornAlive ?? "—"}</TableCell>
                   <TableCell>{litterRow.litter?.bornDead ?? "—"}</TableCell>
+                  {/* Enabled here, unlike the does board where the same two
+                      inputs stay locked until "فطام" is pressed: this row
+                      disappears from the list the moment she's weaned, so the
+                      counts have to be typed in *before* the press. Doing it in
+                      that order is also what puts the real numbers into the
+                      permanent سجل الفطام row — markWeanedOp copies whatever the
+                      litter holds at press time. */}
+                  <TableCell>
+                    <LitterCountInput
+                      breedingId={litterRow.id}
+                      field="weaned"
+                      value={litterRow.litter?.weaned ?? null}
+                      locale={locale}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <LitterWeightInput
+                      breedingId={litterRow.id}
+                      valueGrams={litterRow.litter?.weaningWeightGrams ?? null}
+                      locale={locale}
+                    />
+                  </TableCell>
                   <TableCell>
                     <WeanButton
                       breedingId={litterRow.id}
@@ -160,6 +204,7 @@ export default async function WeaningPage({
                       text={t.weaning.weanButton}
                       active
                       weaned={false}
+                      ready={weaningEntryComplete(litterRow.litter)}
                       locale={locale}
                     />
                   </TableCell>

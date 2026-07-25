@@ -276,6 +276,7 @@ export const en: Dictionary = {
     nestBoxInstalledToast: "Nest box install recorded",
     installButton: "Install",
     weanedTodayToast: "Weaning recorded for today",
+    weanNeedsCounts: "Enter the weaned count and weight first",
     matingDateUpdatedToast: "Mating date updated",
     invalidValueFallback: "Invalid value",
     clearConfirm:
@@ -1044,6 +1045,7 @@ export const en: Dictionary = {
     bornAliveLabel: "Born alive",
     bornDeadLabel: "Stillborn",
     weanedLabel: "Weaned",
+    weaningWeightLabel: "Weaning weight (g)",
     weaningDateLabel: "Weaning date",
     notesLabel: "Notes",
     saveChangesButton: "Save changes",
@@ -1083,6 +1085,7 @@ export const en: Dictionary = {
     // after fostering and kit deaths. The frozen birth count lives on the doe page.
     colAvgBorn: "Avg Nursed",
     colAvgWeaned: "Avg Weaned Kits",
+    colAvgWeaningWeight: "Avg Weaning Weight (g)",
     colWeaningSurvivalRate: "Weaning Survival",
     emptyTitle: "No does registered",
     emptyDescription: "Register active does with a tag number to see them here.",

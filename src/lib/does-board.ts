@@ -54,6 +54,25 @@ export type DoeBoardRow = {
  * the previous row, and both are needed to render the row without losing
  * sight of her current litter.
  */
+/**
+ * Whether عدد الفطام/وزن الفطام have been filled in, i.e. whether pressing
+ * "فطام" would stamp a meaningful سجل الفطام row. markWeanedOp copies whatever
+ * the Litter holds at press time, so pressing first writes blanks into a
+ * permanent, non-editable archive row.
+ *
+ * The weight is waived when `weaned === 0` — a litter lost entirely has nothing
+ * left to weigh, and demanding it would leave that row unweanable forever.
+ *
+ * Shared by the does board and the weaning board so the two can't drift on what
+ * counts as "ready".
+ */
+export function weaningEntryComplete(
+  litter: { weaned: number | null; weaningWeightGrams: number | null } | null | undefined
+): boolean {
+  if (!litter || litter.weaned == null) return false;
+  return litter.weaned === 0 || litter.weaningWeightGrams != null;
+}
+
 export function computeDoeBoardRow(
   doeState: DoeState,
   status: RabbitStatus | string,

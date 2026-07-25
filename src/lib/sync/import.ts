@@ -129,13 +129,24 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       // back to bornAlive rather than the column default, or every restored
       // litter would read as zero-born. Same best-effort as the migration.
       bornAliveAtKindling: log.bornAliveAtKindling ?? log.bornAlive ?? 0,
+      // The stillborn count gets NO such fallback — it keeps the -1 "unknown"
+      // sentinel. bornDead has already absorbed every post-birth death, so
+      // borrowing it here would erase «نافق الرعاية» for the whole restore and
+      // report a flattering ~100% survival. See src/lib/kit-mortality.ts.
+      bornDeadAtKindling: log.bornDeadAtKindling ?? -1,
     }));
   // weaningLogs is absent from backups taken before the سجل الفطام archive
   // existed, so tolerate its absence rather than requiring it (see
   // REQUIRED_KEYS) — an old restore simply carries no weaning archive.
   const weaningLogs = dedupeById(data.weaningLogs ?? [])
     .filter((log) => rabbitIds.has(log.doeId as string))
-    .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
+    .map((log) => ({
+      ...log,
+      buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null,
+      // Same -1 sentinel contract as the kindling row above: a backup predating
+      // the column restores as "survival unknown", never as a guess.
+      bornDeadAtKindling: log.bornDeadAtKindling ?? -1,
+    }));
   const fosterLogs = dedupeById(data.fosterLogs).filter(
     (f) => rabbitIds.has(f.fromDoeId as string) && rabbitIds.has(f.toDoeId as string)
   );

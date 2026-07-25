@@ -122,8 +122,9 @@ async function insertPregnancyTestLog(
  * The log is an append-only archive: bornAlive/bornDead live on the row and
  * are mirrored one-way from the live litter (see mirrorKindlingLogCounts) so
  * a re-mate that reuses this breeding never rewrites a prior cycle's row.
- * bornAliveAtKindling is the same number captured here and then left alone
- * forever — the mirror deliberately never touches it (see «عدد الخلفة»).
+ * bornAliveAtKindling/bornDeadAtKindling are the same two numbers captured here
+ * and then left alone forever — the mirror deliberately never touches them
+ * (see «عدد الخلفة»).
  */
 async function insertKindlingLog(
   db: SQLiteDBConnection,
@@ -139,8 +140,8 @@ async function insertKindlingLog(
 ): Promise<void> {
   await run(
     db,
-    `INSERT INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, bornDeadAtKindling, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       `local-${createId()}`,
       args.doeId,
@@ -151,6 +152,7 @@ async function insertKindlingLog(
       args.bornAlive ?? 0,
       args.bornDead ?? 0,
       args.bornAlive ?? 0,
+      args.bornDead ?? 0,
       nowIso(),
     ]
   );
@@ -162,6 +164,10 @@ async function insertKindlingLog(
  * (markWeaned) and whenever a total loss closes a litter with no press
  * (setLitterCount/recordNursingKitDeath). The "local-" id is reconciled away by
  * pull() matching the server's real row on doeId + weaningDate.
+ *
+ * bornDeadAtKindling isn't a parameter: it's read here off this cycle's
+ * kindling_log row, mirroring the server's currentBornDeadAtKindling, so none
+ * of the four callers has to carry a value none of them naturally holds.
  */
 async function insertWeaningLog(
   db: SQLiteDBConnection,
@@ -178,10 +184,18 @@ async function insertWeaningLog(
   }
 ): Promise<void> {
   const now = nowIso();
+  // Newest kindling row for this breeding is the cycle being weaned — a
+  // Breeding is reused, so its logs are chronological. No row at all (a litter
+  // that predates the archive) leaves the -1 "survival unknown" sentinel.
+  const kindling = await queryOne<{ bornDeadAtKindling: number }>(
+    db,
+    "SELECT bornDeadAtKindling FROM kindling_log WHERE breedingId = ? ORDER BY kindlingDate DESC LIMIT 1",
+    [args.breedingId]
+  );
   await run(
     db,
-    `INSERT INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling, weaned, weaningWeightGrams, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       `local-${createId()}`,
       args.doeId,
@@ -191,6 +205,7 @@ async function insertWeaningLog(
       args.weaningDate,
       args.bornAlive,
       args.bornDead,
+      kindling?.bornDeadAtKindling ?? -1,
       args.weaned,
       args.weaningWeightGrams ?? null,
       now,
@@ -901,6 +916,7 @@ export async function recordKindling(
     bornAlive: number;
     bornDead: number;
     weaned: number | null;
+    weaningWeightGrams: number | null;
     weaningDate: string | null;
     notes: string | null;
   }
@@ -928,6 +944,7 @@ export async function recordKindling(
       bornAlive: payload.bornAlive,
       bornDead: payload.bornDead,
       weaned: payload.weaned,
+      weaningWeightGrams: payload.weaningWeightGrams,
       weaningDate: payload.weaningDate,
       notes: payload.notes,
     },
@@ -958,6 +975,7 @@ export async function recordKindling(
       bornAlive: payload.bornAlive,
       bornDead: payload.bornDead,
       weaned: payload.weaned,
+      weaningWeightGrams: payload.weaningWeightGrams,
     });
   }
   return applied;

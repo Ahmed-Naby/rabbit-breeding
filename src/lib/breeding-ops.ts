@@ -554,8 +554,9 @@ export async function markKindledOp(
         bornAlive,
         bornDead,
         // Frozen at birth — the mirrors below (deaths, fostering) only ever
-        // touch bornAlive/bornDead, never this.
+        // touch bornAlive/bornDead, never these two.
         bornAliveAtKindling: bornAlive,
+        bornDeadAtKindling: bornDead,
       },
     }),
     prisma.breeding.update({
@@ -584,11 +585,30 @@ export async function markKindledOp(
  * confirmed before weaning the old litter), so her in-progress next cycle
  * isn't erased; otherwise back to "empty".
  */
+/**
+ * The frozen stillborn count for this breeding's CURRENT cycle, to be
+ * snapshotted onto a WeaningLog row (see WeaningLog.bornDeadAtKindling). The
+ * newest KindlingLog row wins: a Breeding is reused across cycles, so its logs
+ * are chronological and the last one belongs to the litter being weaned now.
+ *
+ * Returns the -1 "unknown" sentinel when there is no kindling row at all — a
+ * litter typed in before KindlingLog existed, or a weaning recorded without a
+ * birth — so «نسبة بقاء الفطام» renders «—» instead of a rate built on a guess.
+ */
+async function currentBornDeadAtKindling(breedingId: string): Promise<number> {
+  const log = await prisma.kindlingLog.findFirst({
+    where: { breedingId },
+    orderBy: { kindlingDate: "desc" },
+    select: { bornDeadAtKindling: true },
+  });
+  return log?.bornDeadAtKindling ?? -1;
+}
+
 export async function markWeanedOp(breedingId: string, doeId: string): Promise<void> {
   const weaningDate = new Date();
   weaningDate.setUTCHours(0, 0, 0, 0);
 
-  const [breeding, doe, litter] = await Promise.all([
+  const [breeding, doe, litter, bornDeadAtKindling] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
       select: { actualKindlingDate: true, buckId: true },
@@ -598,6 +618,7 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
       where: { breedingId },
       select: { bornAlive: true, bornDead: true, weaned: true, weaningWeightGrams: true, weaningDate: true },
     }),
+    currentBornDeadAtKindling(breedingId),
   ]);
   const nextState =
     doe?.doeState === "nursing_bred"
@@ -632,6 +653,9 @@ export async function markWeanedOp(breedingId: string, doeId: string): Promise<v
               weaningDate,
               bornAlive: litter?.bornAlive ?? 0,
               bornDead: litter?.bornDead ?? 0,
+              // Frozen birth value carried over from the kindling row so this
+              // archive row can answer «نسبة بقاء الفطام» on its own.
+              bornDeadAtKindling,
               weaned: litter?.weaned ?? null,
               weaningWeightGrams: litter?.weaningWeightGrams ?? null,
             },
@@ -662,7 +686,7 @@ export async function setLitterCountOp(
   field: "bornAlive" | "bornDead" | "weaned",
   value: number | null
 ): Promise<OpResult<void, "WEANED_EXCEEDS_BORN_ALIVE">> {
-  const [breeding, litter] = await Promise.all([
+  const [breeding, litter, bornDeadAtKindling] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
       select: { actualKindlingDate: true, doeId: true, buckId: true, doe: { select: { doeState: true } } },
@@ -671,6 +695,9 @@ export async function setLitterCountOp(
       where: { breedingId },
       select: { bornAlive: true, bornDead: true, weaned: true, weaningDate: true },
     }),
+    // Only consumed by the total-loss weaningLog.create below, but fetched
+    // unconditionally — dropsNursing isn't known until the litter resolves.
+    currentBornDeadAtKindling(breedingId),
   ]);
 
   const bornAlive = field === "bornAlive" ? (value ?? 0) : undefined;
@@ -763,6 +790,7 @@ export async function setLitterCountOp(
               weaningDate: closingWeaningDate,
               bornAlive: newBornAlive,
               bornDead: newBornDead,
+              bornDeadAtKindling,
               weaned: 0,
             },
           }),
@@ -842,16 +870,20 @@ export async function recordNursingKitDeathOp(
   breedingId: string,
   count: number = 1
 ): Promise<OpResult<void, "NO_NURSING_KITS">> {
-  const breeding = await prisma.breeding.findUnique({
-    where: { id: breedingId },
-    select: {
-      doeId: true,
-      buckId: true,
-      actualKindlingDate: true,
-      doe: { select: { doeState: true } },
-      litter: { select: { bornAlive: true, bornDead: true, weaningDate: true } },
-    },
-  });
+  const [breeding, bornDeadAtKindling] = await Promise.all([
+    prisma.breeding.findUnique({
+      where: { id: breedingId },
+      select: {
+        doeId: true,
+        buckId: true,
+        actualKindlingDate: true,
+        doe: { select: { doeState: true } },
+        litter: { select: { bornAlive: true, bornDead: true, weaningDate: true } },
+      },
+    }),
+    // Only consumed by the total-loss weaningLog.create below.
+    currentBornDeadAtKindling(breedingId),
+  ]);
   const litter = breeding?.litter;
   if (!breeding || !litter || litter.bornAlive <= 0 || count < 1 || count > litter.bornAlive) {
     return { ok: false, code: "NO_NURSING_KITS" };
@@ -916,6 +948,7 @@ export async function recordNursingKitDeathOp(
               weaningDate: closingWeaningDate,
               bornAlive: newBornAlive,
               bornDead: newBornDead,
+              bornDeadAtKindling,
               weaned: 0,
             },
           }),
@@ -1117,6 +1150,7 @@ export type RecordKindlingInput = {
   bornAlive: number;
   bornDead: number;
   weaned: number | null;
+  weaningWeightGrams: number | null;
   weaningDate: Date | null;
   notes: string | null;
 };
@@ -1160,6 +1194,7 @@ export async function recordKindlingOp(
         bornAlive: data.bornAlive,
         bornDead: data.bornDead,
         weaned: data.weaned,
+        weaningWeightGrams: data.weaningWeightGrams,
         weaningDate: data.weaningDate,
         notes: data.notes,
       },
@@ -1179,6 +1214,7 @@ export async function recordKindlingOp(
         bornDead: data.bornDead,
         // Frozen at birth — see the sibling create in recordKindling.
         bornAliveAtKindling: data.bornAlive,
+        bornDeadAtKindling: data.bornDead,
       },
     }),
     // If this form records an already-weaned litter in one shot, the weaning
@@ -1194,7 +1230,15 @@ export async function recordKindlingOp(
               weaningDate: data.weaningDate,
               bornAlive: data.bornAlive,
               bornDead: data.bornDead,
+              // No lookup needed here, unlike the other weaning rows: this form
+              // records the birth and the weaning in one shot, so the typed
+              // bornDead IS the value frozen on the KindlingLog row above.
+              bornDeadAtKindling: data.bornDead,
               weaned: data.weaned,
+              // Carried through like weaned: this row is permanent and سجل
+              // الفطام can't edit it, so a weight omitted here is only ever
+              // recoverable by re-typing it on the board.
+              weaningWeightGrams: data.weaningWeightGrams,
             },
           }),
         ]

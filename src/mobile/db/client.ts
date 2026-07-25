@@ -115,6 +115,16 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     // (each statement is independently try/caught), which is harmless — the
     // WHERE skips every row the server has since sent a real value for.
     `UPDATE kindling_log SET bornAliveAtKindling = bornAlive WHERE bornAliveAtKindling = 0`,
+    // Stillborns at birth. Defaults to -1 and — unlike its bornAlive sibling
+    // above — is deliberately NOT backfilled: 0 is a legitimate birth value
+    // here (most litters have no stillborns), so a row filled in from the
+    // by-then-larger bornDead would be indistinguishable from a doe that truly
+    // lost nothing, and «نسبة بقاء الفطام» would read ~100% across all history.
+    // -1 can only mean "predates the column"; see src/lib/kit-mortality.ts.
+    `ALTER TABLE kindling_log ADD COLUMN bornDeadAtKindling INTEGER NOT NULL DEFAULT -1`,
+    // Same sentinel on the weaning archive, where the survival rate is actually
+    // computed (the rate needs bornAlive + bornDead + this, all on one row).
+    `ALTER TABLE weaning_log ADD COLUMN bornDeadAtKindling INTEGER NOT NULL DEFAULT -1`,
   ];
   for (const sql of migrations) {
     try {

@@ -99,6 +99,7 @@ describe("breeding lifecycle", () => {
       bornAlive: 8,
       bornDead: 1,
       weaned: null,
+      weaningWeightGrams: null,
       weaningDate: null,
       notes: null,
     });
@@ -112,6 +113,7 @@ describe("breeding lifecycle", () => {
       bornAlive: 5,
       bornDead: 0,
       weaned: null,
+      weaningWeightGrams: null,
       weaningDate: null,
       notes: null,
     });

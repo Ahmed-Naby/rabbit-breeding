@@ -751,6 +751,9 @@ export type WeaningLitterRow = {
   kindlingDate: string;
   bornAlive: number;
   bornDead: number;
+  // Editable on the weaning page before "فطام" is pressed, same as the web.
+  weaned: number | null;
+  weaningWeightGrams: number | null;
   doeId: string;
   doeTagId: string | null;
   doeBreed: string | null;
@@ -765,6 +768,8 @@ export type WeanedLitterLogEntry = {
   weaningDate: string;
   bornAlive: number;
   bornDead: number;
+  /** Frozen at birth; the gap from bornDead is «نافق الرعاية». -1 = unknown. */
+  bornDeadAtKindling: number;
   weaned: number | null;
   weaningWeightGrams: number | null;
   doeTagId: string | null;
@@ -831,9 +836,13 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     if (!resolved || !isWeaningCandidate(resolved, settings.weaningDays, today)) continue;
 
     const originalBreeding = breedings.find(x => x.id === resolved.id)!;
-    const litRow = await queryOne<{ id: string }>(
+    const litRow = await queryOne<{
+      id: string;
+      weaned: number | null;
+      weaningWeightGrams: number | null;
+    }>(
       db,
-      "SELECT id FROM litter WHERE breedingId = ?",
+      "SELECT id, weaned, weaningWeightGrams FROM litter WHERE breedingId = ?",
       [resolved.id]
     );
 
@@ -847,6 +856,8 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
       kindlingDate: originalBreeding.actualKindlingDate!,
       bornAlive: resolved.litter!.bornAlive,
       bornDead: resolved.litter!.bornDead,
+      weaned: litRow?.weaned ?? null,
+      weaningWeightGrams: litRow?.weaningWeightGrams ?? null,
       doeId: doe.id,
       doeTagId: doe.tagId,
       doeBreed: doe.breed,
@@ -866,13 +877,15 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     weaningDate: string;
     bornAlive: number;
     bornDead: number;
+    bornDeadAtKindling: number;
     weaned: number | null;
     weaningWeightGrams: number | null;
     doeId: string;
     buckId: string | null;
   }>(
     db,
-    `SELECT id, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, doeId, buckId
+    `SELECT id, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling,
+            weaned, weaningWeightGrams, doeId, buckId
      FROM weaning_log
      ORDER BY weaningDate DESC LIMIT 100`
   );
@@ -894,6 +907,7 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
       weaningDate: row.weaningDate,
       bornAlive: row.bornAlive,
       bornDead: row.bornDead,
+      bornDeadAtKindling: row.bornDeadAtKindling,
       weaned: row.weaned,
       weaningWeightGrams: row.weaningWeightGrams,
       doeTagId: doe?.tagId ?? null,

@@ -179,12 +179,14 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     ),
     queryAll<Row>(
       db,
-      "SELECT id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt FROM kindling_log"
+      `SELECT id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead,
+              bornAliveAtKindling, bornDeadAtKindling, createdAt
+       FROM kindling_log`
     ),
     queryAll<Row>(
       db,
-      `SELECT id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned,
-              weaningWeightGrams, createdAt
+      `SELECT id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead,
+              bornDeadAtKindling, weaned, weaningWeightGrams, createdAt
        FROM weaning_log`
     ),
     queryAll<Row>(db, "SELECT id, fromDoeId, toDoeId, count, date, createdAt FROM foster_log"),

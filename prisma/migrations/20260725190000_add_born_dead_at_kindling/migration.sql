@@ -1,0 +1,14 @@
+-- The stillborn count at the kindling moment, frozen forever — the mirror
+-- image of bornAliveAtKindling. KindlingLog.bornDead keeps growing as
+-- pre-weaning kit deaths are typed into «نافق» on the does board, so it can
+-- never answer "how many were born dead".
+--
+-- Defaults to -1, NOT 0, and existing rows are deliberately NOT backfilled from
+-- bornDead the way bornAliveAtKindling's migration was. 0 is a perfectly normal
+-- birth value here (most litters have no stillborns), so a backfilled row would
+-- be indistinguishable from a doe that genuinely lost nothing — and «نسبة بقاء
+-- الفطام», which is derived from this column, would report a flattering ~100%
+-- for all of history instead of «—». Only a value outside the real domain can
+-- carry "this row predates the column"; see hasKnownSurvival in
+-- src/lib/kit-mortality.ts. Matches the local SQLite mirror's sentinel exactly.
+ALTER TABLE "KindlingLog" ADD COLUMN "bornDeadAtKindling" INTEGER NOT NULL DEFAULT -1;

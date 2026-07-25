@@ -27,9 +27,9 @@ export function parseDate(d: Date | string | null | undefined): Date | null {
  * Resolves the ongoing nursing litter row for a doe, taking into account
  * lookahead for a newer mating attempt that has not kindled yet.
  */
-export function resolveNursingLitterRow(
-  breedings: BaseBreeding[]
-): BaseBreeding | null {
+export function resolveNursingLitterRow<T extends BaseBreeding>(
+  breedings: T[]
+): T | null {
   if (breedings.length === 0) return null;
   const b = breedings[0];
   const prev = breedings[1];

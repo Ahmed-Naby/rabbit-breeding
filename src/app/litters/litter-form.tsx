@@ -17,6 +17,7 @@ export type LitterValues = {
   bornAlive: number;
   bornDead: number;
   weaned: number | null;
+  weaningWeightGrams: number | null;
   weaningDate: string | Date | null;
   notes: string | null;
 };
@@ -75,6 +76,14 @@ export function LitterForm({
             label={t.weanedLabel}
             defaultValue={litter.weaned?.toString() ?? ""}
             error={e.weaned}
+          />
+          <TextField
+            name="weaningWeightGrams"
+            type="number"
+            min={0}
+            label={t.weaningWeightLabel}
+            defaultValue={litter.weaningWeightGrams?.toString() ?? ""}
+            error={e.weaningWeightGrams}
           />
           <TextField
             name="weaningDate"

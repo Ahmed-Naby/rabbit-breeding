@@ -269,6 +269,7 @@ export const ar = {
     nestBoxInstalledToast: "تم تسجيل تركيب بيت الولادة",
     installButton: "تركيب",
     weanedTodayToast: "تم تسجيل الفطام بتاريخ اليوم",
+    weanNeedsCounts: "اكتب عدد الفطام والوزن الأول",
     matingDateUpdatedToast: "تم تحديث تاريخ التلقيح",
     invalidValueFallback: "قيمة غير صالحة",
     clearConfirm:
@@ -1036,6 +1037,8 @@ export const ar = {
     bornAliveLabel: "مواليد أحياء",
     bornDeadLabel: "مواليد أموات",
     weanedLabel: "مفطوم",
+    // وزن البطن كله وقت الفطام، مش وزن الأرنب الواحد.
+    weaningWeightLabel: "وزن الفطام (جم)",
     weaningDateLabel: "تاريخ الفطام",
     notesLabel: "ملاحظات",
     saveChangesButton: "حفظ التغييرات",
@@ -1075,6 +1078,9 @@ export const ar = {
     // بعد التبني والنفوق. «عدد الخلفة» الثابت لحظة الولادة في صفحة الأم.
     colAvgBorn: "متوسط الرعاية",
     colAvgWeaned: "متوسط عدد الفطام",
+    // وزن الأرنب الواحد وقت الفطام: مجموع أوزان البطون ÷ مجموع الأرانب المفطومة
+    // فيها. الصفوف اللي مالهاش وزن مسجّل بتتشال من البسط والمقام مع بعض.
+    colAvgWeaningWeight: "متوسط وزن الفطام (جم)",
     colWeaningSurvivalRate: "نسبة بقاء الفطام",
     emptyTitle: "لا توجد أمهات مسجلة",
     emptyDescription: "سجل أمهات نشطة برقم وشم في المزرعة لتظهر هنا.",

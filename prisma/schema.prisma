@@ -351,6 +351,17 @@ model KindlingLog {
   // historical values can be off by any fostering/mortality that happened
   // before the backfill.
   bornAliveAtKindling Int @default(0)
+  // The stillborn count at the kindling moment. Same contract as
+  // bornAliveAtKindling: written once at create, NEVER mirrored — bornDead
+  // above keeps growing as pre-weaning kit deaths get typed into «نافق», so
+  // this is the only field that still answers "how many were born dead".
+  // Its gap from bornDead is «نافق الرعاية» (see src/lib/kit-mortality.ts).
+  //
+  // -1 is a sentinel meaning "this row predates the column", NOT a count.
+  // Unlike bornAliveAtKindling, rows are NOT backfilled from the live value:
+  // 0 is a normal birth value here, so a backfilled row would be
+  // indistinguishable from a doe that truly lost nothing.
+  bornDeadAtKindling Int @default(-1)
   createdAt    DateTime  @default(now())
 
   @@index([doeId])
@@ -383,6 +394,14 @@ model WeaningLog {
   weaningDate        DateTime
   bornAlive          Int       @default(0)
   bornDead           Int       @default(0)
+  // Copied off this cycle's KindlingLog row at the «فطام» press, so the gap
+  // from bornDead above gives «نافق الرعاية» without a join back to
+  // KindlingLog — which has no relation to this model and would not resolve at
+  // all for a row whose breedingId is null. It is what makes «نسبة بقاء
+  // الفطام» computable here: weaned ÷ (bornAlive + نافق الرعاية). Frozen like
+  // every other snapshot on this row; -1 means "predates the column".
+  // See kitsUnderCare in src/lib/kit-mortality.ts.
+  bornDeadAtKindling Int       @default(-1)
   weaned             Int?
   weaningWeightGrams Int?
   createdAt          DateTime  @default(now())

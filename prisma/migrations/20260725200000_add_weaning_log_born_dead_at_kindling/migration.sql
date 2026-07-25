@@ -1,0 +1,14 @@
+-- «نسبة بقاء الفطام» is weaned ÷ (kits actually under her care), and the
+-- denominator is bornAlive + (bornDead - bornDeadAtKindling). WeaningLog
+-- already carries bornAlive and bornDead, but not the frozen birth value — so
+-- the rate could not be computed from a weaning row at all.
+--
+-- Snapshotted here rather than joined from KindlingLog: there is no relation
+-- between the two models, and a WeaningLog row with a null breedingId (the
+-- one-shot litter form) has nothing to join on.
+--
+-- Same -1 sentinel contract as KindlingLog.bornDeadAtKindling, and the same
+-- reason for not backfilling: 0 is a normal birth value, so a backfilled row
+-- would be indistinguishable from a doe that lost no kits, and every historical
+-- weaning would report ~100% survival instead of «—».
+ALTER TABLE "WeaningLog" ADD COLUMN "bornDeadAtKindling" INTEGER NOT NULL DEFAULT -1;

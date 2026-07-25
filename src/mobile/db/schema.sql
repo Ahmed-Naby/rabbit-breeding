@@ -242,6 +242,13 @@ CREATE TABLE IF NOT EXISTS kindling_log (
   bornAlive    INTEGER NOT NULL DEFAULT 0,
   bornDead     INTEGER NOT NULL DEFAULT 0,
   bornAliveAtKindling INTEGER NOT NULL DEFAULT 0,
+  -- Stillborns at birth, frozen the same way. -1 is a sentinel meaning "this
+  -- row predates the column", NOT a count: unlike bornAlive, 0 is a perfectly
+  -- normal birth value here, so legacy rows are left at -1 rather than
+  -- backfilled (see applyColumnMigrations) — otherwise they'd be
+  -- indistinguishable from a doe that truly lost nothing. Every INSERT writes
+  -- the column explicitly, so the default only ever reaches legacy rows.
+  bornDeadAtKindling INTEGER NOT NULL DEFAULT -1,
   createdAt    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kindling_log_doeId ON kindling_log(doeId);
@@ -259,6 +266,11 @@ CREATE TABLE IF NOT EXISTS weaning_log (
   weaningDate        TEXT NOT NULL,
   bornAlive          INTEGER NOT NULL DEFAULT 0,
   bornDead           INTEGER NOT NULL DEFAULT 0,
+  -- Copied off this cycle's kindling_log row at the «فطام» press. Carries the
+  -- same -1 "predates the column" sentinel as kindling_log's, and exists so
+  -- «نسبة بقاء الفطام» — weaned ÷ (bornAlive + bornDead - this) — can be read
+  -- off a single weaning row with no join.
+  bornDeadAtKindling INTEGER NOT NULL DEFAULT -1,
   weaned             INTEGER,
   weaningWeightGrams INTEGER,
   createdAt          TEXT NOT NULL

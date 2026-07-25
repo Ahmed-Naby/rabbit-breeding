@@ -29,6 +29,7 @@ export async function updateLitter(
   }
   const data = parsed.data;
   const kindlingDate = fromDateInputValue(data.kindlingDate);
+  const weaningDate = data.weaningDate ? fromDateInputValue(data.weaningDate) : null;
 
   await prisma.$transaction([
     prisma.litter.update({
@@ -38,9 +39,8 @@ export async function updateLitter(
         bornAlive: data.bornAlive,
         bornDead: data.bornDead,
         weaned: data.weaned ?? null,
-        weaningDate: data.weaningDate
-          ? fromDateInputValue(data.weaningDate)
-          : null,
+        weaningWeightGrams: data.weaningWeightGrams ?? null,
+        weaningDate,
         notes: data.notes ?? null,
       },
     }),
@@ -49,6 +49,27 @@ export async function updateLitter(
       where: { id: existing.breedingId },
       data: { actualKindlingDate: kindlingDate },
     }),
+    // Mirror one-way into the permanent سجل الفطام row, the same way
+    // setLitterCountOp/setLitterWeaningWeightOp do for the board's inline
+    // edits. Without this, this form was the one place where a count or
+    // weight could be corrected on the Litter and the archive would keep
+    // showing «—» forever — the archive is never editable directly.
+    // Matched on the OLD weaningDate: if this edit moved it, the row to
+    // update is still the one stamped under the previous value.
+    ...(existing.weaningDate
+      ? [
+          prisma.weaningLog.updateMany({
+            where: { breedingId: existing.breedingId, weaningDate: existing.weaningDate },
+            data: {
+              bornAlive: data.bornAlive,
+              bornDead: data.bornDead,
+              weaned: data.weaned ?? null,
+              weaningWeightGrams: data.weaningWeightGrams ?? null,
+              ...(weaningDate ? { weaningDate } : {}),
+            },
+          }),
+        ]
+      : []),
   ]);
 
   // bornAlive/bornDead/weaned feed the counts shown on /does, /kindling

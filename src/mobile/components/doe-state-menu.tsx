@@ -617,12 +617,15 @@ export function KindleCell({
   );
 }
 
+/** Mirrors the web WeanButton — see src/app/does/doe-state-menu.tsx for what
+ *  `ready` is for and why the blocked state is disabled rather than hidden. */
 export function WeanButton({
   breedingId,
   doeId,
   text,
   active,
   weaned,
+  ready,
   locale,
   onDone,
 }: {
@@ -631,6 +634,7 @@ export function WeanButton({
   text: string;
   active: boolean;
   weaned: boolean;
+  ready?: boolean;
   locale: Locale;
   onDone: () => void;
 }) {
@@ -639,14 +643,17 @@ export function WeanButton({
 
   if (!active && !weaned) return null;
 
-  return (
+  const blocked = active && !weaned && ready === false;
+
+  const button = (
     <Button
       variant="outline"
       size="sm"
-      disabled={pending || !active}
+      disabled={pending || !active || blocked}
       className={cn(
         "h-8 px-2.5 text-xs",
         active &&
+          !blocked &&
           "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900",
         weaned &&
           "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
@@ -662,6 +669,8 @@ export function WeanButton({
       {text}
     </Button>
   );
+
+  return blocked ? <span title={t.weanNeedsCounts}>{button}</span> : button;
 }
 
 export function MatingDateInput({

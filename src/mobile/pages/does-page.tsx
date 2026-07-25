@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Rabbit as RabbitIcon } from "lucide-react";
-import { computeDoeBoardRow } from "@/lib/does-board";
+import { computeDoeBoardRow, weaningEntryComplete } from "@/lib/does-board";
 import type { DoeState } from "@/lib/enums";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -389,16 +389,19 @@ export function DoesPage({ locale }: { locale: Locale }) {
                       text={t.does.weanButton}
                       active={weanActive}
                       weaned={isWeaned}
+                      ready={weaningEntryComplete(countsRow?.litter)}
                       locale={locale}
                       onDone={refresh}
                     />
                   </td>
                   <td className="px-3 py-2.5">
+                    {/* Open while she's still nursing — the press is gated on
+                        these two now, so locking them until it would deadlock. */}
                     <LitterCountInput
                       breedingId={countsRow?.id ?? ""}
                       field="weaned"
                       value={countsRow?.litter?.weaned ?? null}
-                      disabled={!isWeaned}
+                      disabled={!isWeaned && !weanActive}
                       locale={locale}
                       onDone={refresh}
                     />
@@ -414,7 +417,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     <LitterWeightInput
                       breedingId={countsRow?.id ?? ""}
                       valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                      disabled={!isWeaned}
+                      disabled={!isWeaned && !weanActive}
                       locale={locale}
                       onDone={refresh}
                     />
@@ -552,6 +555,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     text={t.does.weanButton}
                     active={weanActive}
                     weaned={isWeaned}
+                    ready={weaningEntryComplete(countsRow?.litter)}
                     locale={locale}
                     onDone={refresh}
                   />
@@ -562,7 +566,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     breedingId={countsRow?.id ?? ""}
                     field="weaned"
                     value={countsRow?.litter?.weaned ?? null}
-                    disabled={!isWeaned}
+                    disabled={!isWeaned && !weanActive}
                     locale={locale}
                     onDone={refresh}
                   />
@@ -580,7 +584,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <LitterWeightInput
                     breedingId={countsRow?.id ?? ""}
                     valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                    disabled={!isWeaned}
+                    disabled={!isWeaned && !weanActive}
                     locale={locale}
                     onDone={refresh}
                   />

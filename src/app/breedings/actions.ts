@@ -40,6 +40,8 @@ function revalidateAllBreedingPaths() {
   revalidatePath("/kindling");
   revalidatePath("/weaning");
   revalidatePath("/weaning-sales");
+  // Hosts all five boards above as tabs, so it goes stale with any of them.
+  revalidatePath("/operations");
 }
 
 export async function createBreeding(
@@ -234,7 +236,9 @@ export async function setLitterWeaningWeight(
     return { ok: false, message: t.doeStateMenu.invalidValueFallback };
   }
 
-  revalidatePath("/weaning");
+  // Not just /weaning: the weight now gates the "فطام" button on the does
+  // board too, so that page goes stale on every edit here as well.
+  revalidateAllBreedingPaths();
   revalidatePath(`/breedings/${breedingId}`);
   return { ok: true };
 }
@@ -304,6 +308,7 @@ export async function recordKindling(
     bornAlive: data.bornAlive,
     bornDead: data.bornDead,
     weaned: data.weaned ?? null,
+    weaningWeightGrams: data.weaningWeightGrams ?? null,
     weaningDate: data.weaningDate ? fromDateInputValue(data.weaningDate) : null,
     notes: data.notes ?? null,
   });

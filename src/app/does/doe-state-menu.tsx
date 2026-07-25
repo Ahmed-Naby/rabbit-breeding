@@ -651,6 +651,15 @@ export function InstallNestBoxButton({
  * than derived from doeState here, since a doe can still have an unweaned
  * litter even after doeState has moved on to "pregnant" (rebred while
  * nursing, then confirmed pregnant before weaning the old litter).
+ *
+ * `ready` (see weaningEntryComplete) holds the press until عدد الفطام/الوزن
+ * are typed in: markWeaned copies whatever the Litter holds at press time, so
+ * pressing first stamps blanks into the permanent, non-editable سجل الفطام
+ * row. Both boards therefore keep those two inputs open while she's nursing —
+ * anywhere `ready` is gated, they must be unlocked, or the row deadlocks.
+ *
+ * Blocked renders grey-and-disabled rather than hidden: the row still needs to
+ * show where the action is.
  */
 export function WeanButton({
   breedingId,
@@ -658,6 +667,7 @@ export function WeanButton({
   text,
   active,
   weaned,
+  ready,
   locale,
 }: {
   breedingId: string;
@@ -665,6 +675,7 @@ export function WeanButton({
   text: string;
   active: boolean;
   weaned: boolean;
+  ready?: boolean;
   locale: Locale;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
@@ -672,14 +683,17 @@ export function WeanButton({
 
   if (!active && !weaned) return null;
 
-  return (
+  const blocked = active && !weaned && ready === false;
+
+  const button = (
     <Button
       variant="outline"
       size="sm"
-      disabled={pending || !active}
+      disabled={pending || !active || blocked}
       className={cn(
         "h-7 px-2 text-xs",
         active &&
+          !blocked &&
           "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900",
         weaned &&
           "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
@@ -694,6 +708,10 @@ export function WeanButton({
       {text}
     </Button>
   );
+
+  // A disabled button gets `pointer-events-none`, so the hint has to hang off a
+  // wrapper to be hoverable at all.
+  return blocked ? <span title={t.weanNeedsCounts}>{button}</span> : button;
 }
 
 /** "تاريخ التلقيح": editable by hand (e.g. logged a day late), not just set via "تلقيح". */

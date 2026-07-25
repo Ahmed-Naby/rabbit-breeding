@@ -3,11 +3,10 @@ import type { WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
-
-function survivalRate(bornAlive: number, weaned: number | null): number | null {
-  if (bornAlive <= 0 || weaned === null) return null;
-  return weaned / bornAlive;
-}
+// Shared with the web table rather than redefined here — this file used to
+// carry its own copy of the survival formula, which meant every change to the
+// rule had to be made twice.
+import { weaningSurvivalRate } from "@/lib/kit-mortality";
 
 // Read-only archive (سجل الفطام): weaned count and weaning weight are entered
 // on the daily الأمهات board; each row here is frozen at weaning, never edited.
@@ -30,7 +29,7 @@ export function WeaningLog({
     dead: { type: "number", value: (r) => r.bornDead },
     weanedCount: { type: "number", value: (r) => r.weaned },
     weaningWeight: { type: "number", value: (r) => r.weaningWeightGrams },
-    survivalRate: { type: "number", value: (r) => survivalRate(r.bornAlive, r.weaned) },
+    survivalRate: { type: "number", value: (r) => weaningSurvivalRate(r) },
   });
 
   return (
@@ -131,7 +130,7 @@ export function WeaningLog({
             </thead>
             <tbody className="divide-y">
               {weanedLogSort.sorted.map((log, index) => {
-                const rate = survivalRate(log.bornAlive, log.weaned);
+                const rate = weaningSurvivalRate(log);
 
                 return (
                   <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">

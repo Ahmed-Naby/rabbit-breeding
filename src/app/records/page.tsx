@@ -120,6 +120,8 @@ async function WeaningLogTab({ locale, t, range }: { locale: Locale; t: Dictiona
       weaningDate: true,
       bornAlive: true,
       bornDead: true,
+      // Feeds «نسبة بقاء الفطام» — see weaningSurvivalRate in kit-mortality.ts.
+      bornDeadAtKindling: true,
       weaned: true,
       weaningWeightGrams: true,
       doe: { select: { id: true, tagId: true, breed: true } },

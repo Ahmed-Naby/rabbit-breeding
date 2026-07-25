@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
-import { survivalRate } from "@/lib/dates";
+import { weaningSurvivalRate } from "@/lib/kit-mortality";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
@@ -14,6 +14,8 @@ export type WeaningLogRow = {
   weaningDate: Date;
   bornAlive: number;
   bornDead: number;
+  /** Frozen at birth; the gap from bornDead is «نافق الرعاية». -1 = unknown. */
+  bornDeadAtKindling: number;
   weaned: number | null;
   weaningWeightGrams: number | null;
   doe: { id: string; tagId: string | null; breed: string | null };
@@ -62,7 +64,10 @@ export function WeaningLog({
               { key: "survivalRate", label: t.colSurvivalRate, type: "number", className: "hidden text-center sm:table-cell" },
             ]}
             rows={weaningLog.map((l, i) => {
-              const r = survivalRate(l.bornAlive, l.weaned);
+              // Denominator is the kits she actually raised (survivors + those
+              // lost while nursing), not the surviving count — see
+              // kit-mortality.ts. Null for cycles predating bornDeadAtKindling.
+              const r = weaningSurvivalRate(l);
               return {
                 key: l.id,
                 sortValues: {

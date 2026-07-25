@@ -33,6 +33,8 @@ type FertilityRow = {
   /** «متوسط الرعاية» — from the live nursing count. */
   avgBorn: number | null;
   avgWeaned: number | null;
+  /** «متوسط وزن الفطام» — grams per kit, not per litter. */
+  avgWeaningWeight: number | null;
   weaningSurvivalRate: number | null;
 };
 
@@ -69,7 +71,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     let overallBornAlive = 0;
     let overallWeaned = 0;
     let overallWeanings = 0;
-    let overallBornAliveForWeaned = 0;
+    let overallSurvivalWeaned = 0;
+    let overallUnderCare = 0;
 
     for (const doe of does) {
       // Lifetime counts come from the append-only archive logs, NOT the live
@@ -91,9 +94,33 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
            FROM kindling_log WHERE doeId = ?`,
         [doe.id]
       );
-      const weaningRow = await queryOne<{ c: number; weaned: number; born: number }>(
+      const weaningRow = await queryOne<{ c: number; weaned: number }>(
         db,
-        "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned, COALESCE(SUM(bornAlive), 0) AS born FROM weaning_log WHERE doeId = ?",
+        "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned FROM weaning_log WHERE doeId = ?",
+        [doe.id]
+      );
+      // «نسبة بقاء الفطام» gets its own pass, mirroring the web page's second
+      // groupBy: rows with the -1 "predates the column" sentinel are excluded
+      // from BOTH sides, since summing the sentinel would inflate the
+      // denominator. underCare = Σ(bornAlive + نافق الرعاية) — the kits she
+      // actually raised, not the ones that survived.
+      const survivalRow = await queryOne<{ weaned: number; underCare: number }>(
+        db,
+        `SELECT COALESCE(SUM(weaned), 0) AS weaned,
+                COALESCE(SUM(bornAlive + bornDead - bornDeadAtKindling), 0) AS underCare
+           FROM weaning_log WHERE doeId = ? AND bornDeadAtKindling >= 0`,
+        [doe.id]
+      );
+      // «متوسط وزن الفطام»: Σ(وزن البطن) ÷ Σ(عدد الفطام). Mirrors the web
+      // page's third groupBy — rows with no weight recorded are dropped from
+      // BOTH sides, since counting their kits without their grams would drag
+      // the average down.
+      const weightRow = await queryOne<{ grams: number; weaned: number }>(
+        db,
+        `SELECT COALESCE(SUM(weaningWeightGrams), 0) AS grams,
+                COALESCE(SUM(weaned), 0) AS weaned
+           FROM weaning_log
+          WHERE doeId = ? AND weaningWeightGrams IS NOT NULL AND weaned > 0`,
         [doe.id]
       );
       const totalBreedings = matingRow?.c ?? 0;
@@ -102,7 +129,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       const bornAtKindling = kindlingRow?.bornAtKindling ?? 0;
       const weanings = weaningRow?.c ?? 0;
       const weaned = weaningRow?.weaned ?? 0;
-      const bornAliveForWeaned = weaningRow?.born ?? 0;
+      const survivalWeaned = survivalRow?.weaned ?? 0;
+      const underCare = survivalRow?.underCare ?? 0;
 
       // Plain kindlings ÷ matings, both straight off the archive logs. An
       // earlier version subtracted still-open matings from the denominator so
@@ -115,7 +143,16 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       const avgBornAtKindling = totalKindlings > 0 ? bornAtKindling / totalKindlings : null;
       const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
       const avgWeaned = weanings > 0 ? weaned / weanings : null;
-      const weaningSurvivalRate = bornAliveForWeaned > 0 ? (weaned / bornAliveForWeaned) * 100 : null;
+      // Weaned ÷ kits actually raised, NOT ÷ the surviving count: bornAlive is
+      // decremented by every nursing death, so the old denominator shrank with
+      // the numerator and scored a well-tracked doe at ~100%. Null while she
+      // has no weaning newer than the bornDeadAtKindling column.
+      const weaningSurvivalRate =
+        underCare > 0 ? Math.min(100, (survivalWeaned / underCare) * 100) : null;
+      // Both sides summed before dividing, so a 10-kit litter carries more
+      // weight than a 2-kit one — averaging the per-litter averages would not.
+      const avgWeaningWeight =
+        weightRow && weightRow.weaned > 0 ? weightRow.grams / weightRow.weaned : null;
 
       // Add to aggregate counts
       overallBreedings += totalBreedings;
@@ -123,7 +160,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       overallBornAlive += bornAlive;
       overallWeaned += weaned;
       overallWeanings += weanings;
-      overallBornAliveForWeaned += bornAliveForWeaned;
+      overallSurvivalWeaned += survivalWeaned;
+      overallUnderCare += underCare;
 
       rows.push({
         id: doe.id,
@@ -137,6 +175,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         avgBornAtKindling,
         avgBorn,
         avgWeaned,
+        avgWeaningWeight,
         weaningSurvivalRate,
       });
     }
@@ -144,7 +183,10 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
     const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
-    const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;
+    const overallSurvival =
+      overallUnderCare > 0
+        ? Math.min(100, Math.round((overallSurvivalWeaned / overallUnderCare) * 100))
+        : 0;
 
     setData({
       rows,
@@ -173,6 +215,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     avgBornAtKindling: { type: "number", value: (r) => r.avgBornAtKindling ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
     avgWeaned: { type: "number", value: (r) => r.avgWeaned ?? -1 },
+    avgWeaningWeight: { type: "number", value: (r) => r.avgWeaningWeight ?? -1 },
     weaningSurvival: { type: "number", value: (r) => r.weaningSurvivalRate ?? -1 },
   }, { key: "doeTag" });
 
@@ -332,6 +375,14 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={t.colAvgWeaningWeight}
+                  sortKey="avgWeaningWeight"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colWeaningSurvivalRate}
                   sortKey="weaningSurvival"
                   activeSortKey={doesSort.sortKey}
@@ -372,6 +423,9 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-amber-600 dark:text-amber-400">
                     {r.avgWeaned != null ? r.avgWeaned.toFixed(1) : "—"}
+                  </td>
+                  <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-teal-600 dark:text-teal-400">
+                    {r.avgWeaningWeight != null ? Math.round(r.avgWeaningWeight).toString() : "—"}
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-rose-600 dark:text-rose-400">
                     {r.weaningSurvivalRate != null ? `${Math.round(r.weaningSurvivalRate)}%` : "—"}

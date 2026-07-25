@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { PageHeader } from "@/components/page-header";
-import { survivalRate, ageString } from "@/lib/dates";
+import { ageString } from "@/lib/dates";
+import { weaningSurvivalRate } from "@/lib/kit-mortality";
 import { compareTagId } from "@/lib/utils";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
@@ -54,7 +55,20 @@ export default async function LitterDetailPage({
   if (!litter) notFound();
   litter.kits.sort((a, b) => compareTagId(a.tagId, b.tagId));
 
-  const rate = survivalRate(litter.bornAlive, litter.weaned);
+  // Litter carries only the live counts, and its bornAlive has already been
+  // decremented by every nursing death — the stillborn count frozen at birth
+  // lives on KindlingLog. Matched on kindlingDate too, since a Breeding row is
+  // reused across cycles and each cycle logs its own kindling.
+  const kindling = await prisma.kindlingLog.findFirst({
+    where: { breedingId: litter.breedingId, kindlingDate: litter.kindlingDate },
+    select: { bornDeadAtKindling: true },
+  });
+  // -1 ("predates the column") when no kindling row matches, so «نسبة بقاء
+  // الفطام» reads «—» rather than a rate built on the shrunken live count.
+  const rate = weaningSurvivalRate({
+    ...litter,
+    bornDeadAtKindling: kindling?.bornDeadAtKindling ?? -1,
+  });
   const totalBorn = litter.bornAlive + litter.bornDead;
 
   return (

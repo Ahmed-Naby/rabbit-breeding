@@ -5,8 +5,14 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchWeaningPageData, type WeaningLitterRow, type WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
-import { DoeStateBadge, WeanButton } from "../components/doe-state-menu";
+import {
+  DoeStateBadge,
+  WeanButton,
+  LitterCountInput,
+  LitterWeightInput,
+} from "../components/doe-state-menu";
 import { weaningDueDate, isToday } from "@/lib/dates";
+import { weaningEntryComplete } from "@/lib/does-board";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { WeaningLog } from "./weaning-log";
@@ -149,6 +155,8 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
                   direction={littersSort.direction}
                   onSort={littersSort.toggleSort}
                 />
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.weaning.colWeanedCount}</th>
+                <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.weaning.colWeaningWeight}</th>
                 <th className="px-2 py-2 md:px-4 md:py-3 text-center">{locale === "ar" ? "الفطام" : "Wean"}</th>
               </tr>
             </thead>
@@ -173,6 +181,25 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornAlive}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornDead}</td>
+                    {/* Enabled before "فطام" is pressed — see the web page for
+                        why the does board keeps the same inputs locked. */}
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
+                      <LitterCountInput
+                        breedingId={row.breedingId}
+                        field="weaned"
+                        value={row.weaned}
+                        locale={locale}
+                        onDone={() => void load()}
+                      />
+                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
+                      <LitterWeightInput
+                        breedingId={row.breedingId}
+                        valueGrams={row.weaningWeightGrams}
+                        locale={locale}
+                        onDone={() => void load()}
+                      />
+                    </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <WeanButton
                         breedingId={row.breedingId}
@@ -180,6 +207,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
                         text={t.weaning.weanButton}
                         active
                         weaned={false}
+                        ready={weaningEntryComplete(row)}
                         locale={locale}
                         onDone={() => void load()}
                       />

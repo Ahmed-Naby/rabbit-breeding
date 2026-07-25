@@ -21,7 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { Button } from "@/components/ui/button";
-import { daysUntil, survivalRate, rebreedDueDate } from "@/lib/dates";
+import { daysUntil, rebreedDueDate } from "@/lib/dates";
+import { hasKnownSurvival, kitsUnderCare, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { getSettings } from "@/lib/settings";
 import { RABBIT_STATUSES } from "@/lib/enums";
 import { cn } from "@/lib/utils";
@@ -186,10 +187,35 @@ export default async function DashboardPage() {
     return !!b && isKindlingCandidate({ ...b, actualKindlingDate: null }, settings.gestationDays);
   }).length;
 
-  // Herd weaning survival across recent litters.
-  const alive = recentLitters.reduce((s, l) => s + l.bornAlive, 0);
-  const weaned = recentLitters.reduce((s, l) => s + (l.weaned ?? 0), 0);
-  const herdSurvival = alive > 0 ? Math.round((weaned / alive) * 100) : null;
+  // «نسبة بقاء الفطام» needs the stillborn count frozen at birth, which lives
+  // on KindlingLog — Litter only carries the live counts, and its bornAlive has
+  // already been decremented by every nursing death. Matched on
+  // breedingId + kindlingDate because both rows are reused across cycles, so
+  // breedingId alone would sometimes pick an older litter's birth numbers.
+  const kindlingForRecent = await prisma.kindlingLog.findMany({
+    where: { breedingId: { in: recentLitters.map((l) => l.breedingId) } },
+    select: { breedingId: true, kindlingDate: true, bornDeadAtKindling: true },
+  });
+  const cycleKey = (breedingId: string | null, kindlingDate: Date) =>
+    `${breedingId}|${kindlingDate.toISOString()}`;
+  const bornDeadAtKindlingByCycle = new Map(
+    kindlingForRecent.map((k) => [cycleKey(k.breedingId, k.kindlingDate), k.bornDeadAtKindling])
+  );
+  // -1 ("predates the column") for a litter with no kindling row at all, so it
+  // scores as unknown rather than borrowing a number it doesn't have.
+  const recentWithBirthCounts = recentLitters.map((l) => ({
+    ...l,
+    bornDeadAtKindling:
+      bornDeadAtKindlingByCycle.get(cycleKey(l.breedingId, l.kindlingDate)) ?? -1,
+  }));
+
+  // Herd weaning survival across recent litters. Summed, not averaged, so a big
+  // litter carries more weight than a small one; litters whose birth counts
+  // predate the column are excluded from both sides rather than scored at ~100%.
+  const knownRecent = recentWithBirthCounts.filter(hasKnownSurvival);
+  const underCare = knownRecent.reduce((s, l) => s + kitsUnderCare(l), 0);
+  const weaned = knownRecent.reduce((s, l) => s + (l.weaned ?? 0), 0);
+  const herdSurvival = underCare > 0 ? Math.min(100, Math.round((weaned / underCare) * 100)) : null;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -418,8 +444,8 @@ export default async function DashboardPage() {
                 {t.dashboard.noWeanedLitters}
               </p>
             ) : (
-              recentLitters.map((l) => {
-                const rate = survivalRate(l.bornAlive, l.weaned);
+              recentWithBirthCounts.map((l) => {
+                const rate = weaningSurvivalRate(l);
                 const pct = rate == null ? 0 : Math.round(rate * 100);
                 return (
                   <Link
