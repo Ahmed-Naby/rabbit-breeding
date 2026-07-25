@@ -26,7 +26,6 @@ import {
   WeanButton,
   LitterCountInput,
   LitterWeightInput,
-  ClearDoeButton,
 } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { SortIcon } from "@/components/sort-icon";
@@ -218,6 +217,8 @@ export function DoesPage({ locale }: { locale: Locale }) {
               />
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colTestResult}</th>
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colPalpation}</th>
+              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colKindle}</th>
+              <th className="px-3 py-2 text-center border-b" colSpan={2}>{t.does.colBornCount}</th>
               <SortableThRowSpan
                 className="px-3 py-2 text-center"
                 rowSpan={2}
@@ -227,8 +228,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 direction={doesSort.direction}
                 onSort={doesSort.toggleSort}
               />
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colKindle}</th>
-              <th className="px-3 py-2 text-center border-b" colSpan={2}>{t.does.colBornCount}</th>
               <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colWean}</th>
               <SortableThRowSpan
                 className="px-3 py-2 text-center"
@@ -242,8 +241,8 @@ export function DoesPage({ locale }: { locale: Locale }) {
               <SortableThRowSpan
                 className="px-3 py-2 text-center"
                 rowSpan={2}
-                label={t.does.colWeaningDate}
-                sortKey="weaningDate"
+                label={t.does.colWeaningWeight}
+                sortKey="weaningWeight"
                 activeSortKey={doesSort.sortKey}
                 direction={doesSort.direction}
                 onSort={doesSort.toggleSort}
@@ -251,13 +250,12 @@ export function DoesPage({ locale }: { locale: Locale }) {
               <SortableThRowSpan
                 className="px-3 py-2 text-center"
                 rowSpan={2}
-                label={t.does.colWeaningWeight}
-                sortKey="weaningWeight"
+                label={t.does.colWeaningDate}
+                sortKey="weaningDate"
                 activeSortKey={doesSort.sortKey}
                 direction={doesSort.direction}
                 onSort={doesSort.toggleSort}
               />
-              <th className="px-3 py-2 text-center" rowSpan={2}>{t.does.colClear}</th>
             </tr>
             <tr className="[&>th]:border-x">
               <SortableTh
@@ -368,9 +366,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
-                    <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
-                  </td>
                   <KindleCell
                     breedingId={b?.id ?? ""}
                     doeId={doe.id}
@@ -382,6 +377,9 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     variant="cells"
                     onDone={refresh}
                   />
+                  <td className="px-3 py-2.5">
+                    <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
+                  </td>
                   <td className="px-3 py-2.5">
                     <WeanButton
                       breedingId={litterRow?.id ?? ""}
@@ -407,13 +405,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     />
                   </td>
                   <td className="px-3 py-2.5">
-                    {countsRow?.litter?.weaningDate ? (
-                      <LocalDate date={countsRow.litter.weaningDate} locale={locale} className="text-xs" />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
                     <LitterWeightInput
                       breedingId={countsRow?.id ?? ""}
                       valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
@@ -423,9 +414,11 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     />
                   </td>
                   <td className="px-3 py-2.5">
-                    {b ? (
-                      <ClearDoeButton breedingId={b.id} doeId={doe.id} text={t.does.clearButton} locale={locale} onDone={refresh} />
-                    ) : null}
+                    {countsRow?.litter?.weaningDate ? (
+                      <LocalDate date={countsRow.litter.weaningDate} locale={locale} className="text-xs" />
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 </tr>
               );
@@ -532,10 +525,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   </div>
                 </Field>
 
-                <Field label={t.does.colKindlingDate}>
-                  <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
-                </Field>
-
                 <KindleCell
                   breedingId={b?.id ?? ""}
                   doeId={doe.id}
@@ -547,6 +536,10 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   variant="fields"
                   onDone={refresh}
                 />
+
+                <Field label={t.does.colKindlingDate}>
+                  <LocalDate date={kindlingDate} locale={locale} className="text-xs" />
+                </Field>
 
                 <Field label={t.does.colWean}>
                   <WeanButton
@@ -572,14 +565,6 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   />
                 </Field>
 
-                <Field label={t.does.colWeaningDate}>
-                  {countsRow?.litter?.weaningDate ? (
-                    <LocalDate date={countsRow.litter.weaningDate} locale={locale} className="text-xs" />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </Field>
-
                 <Field label={t.does.colWeaningWeight}>
                   <LitterWeightInput
                     breedingId={countsRow?.id ?? ""}
@@ -589,13 +574,15 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     onDone={refresh}
                   />
                 </Field>
-              </div>
 
-              {b ? (
-                <div className="flex justify-end border-t pt-2">
-                  <ClearDoeButton breedingId={b.id} doeId={doe.id} text={t.does.clearButton} locale={locale} onDone={refresh} />
-                </div>
-              ) : null}
+                <Field label={t.does.colWeaningDate}>
+                  {countsRow?.litter?.weaningDate ? (
+                    <LocalDate date={countsRow.litter.weaningDate} locale={locale} className="text-xs" />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </Field>
+              </div>
             </div>
           );
         })}

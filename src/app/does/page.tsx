@@ -19,7 +19,6 @@ import {
   WeanButton,
   LitterCountInput,
   LitterWeightInput,
-  ClearDoeButton,
 } from "./doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
@@ -98,15 +97,14 @@ export default async function DoesPage() {
               { key: "testDate", label: t.does.colTestDate, type: "date", className: "text-center" },
               { key: "testResult", label: t.does.colTestResult, className: "text-center", sortable: false },
               { key: "palpation", label: t.does.colPalpation, className: "text-center", sortable: false },
-              { key: "kindlingDate", label: t.does.colKindlingDate, type: "date", className: "text-center" },
               { key: "kindle", label: t.does.colKindle, className: "text-center", sortable: false },
               { key: "bornAlive", label: t.does.colBornAlive, type: "number", className: "text-center" },
               { key: "bornDead", label: t.does.colBornDead, type: "number", className: "text-center" },
+              { key: "kindlingDate", label: t.does.colKindlingDate, type: "date", className: "text-center" },
               { key: "wean", label: t.does.colWean, className: "text-center", sortable: false },
               { key: "weanedCount", label: t.does.colWeanedCount, type: "number", className: "text-center" },
-              { key: "weaningDate", label: t.does.colWeaningDate, type: "date", className: "text-center" },
               { key: "weaningWeight", label: t.does.colWeaningWeight, type: "number", className: "text-center" },
-              { key: "clear", label: t.does.colClear, className: "text-center", sortable: false },
+              { key: "weaningDate", label: t.does.colWeaningDate, type: "date", className: "text-center" },
             ]}
             rows={does.map((doe, i) => {
                 // `b` is undefined for a doe with no breeding row yet (just
@@ -232,9 +230,6 @@ export default async function DoesPage() {
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <LocalDate date={kindlingDate} locale={locale} />
-                    </TableCell>
                     <KindleCell
                       breedingId={b?.id ?? ""}
                       doeId={doe.id}
@@ -245,6 +240,9 @@ export default async function DoesPage() {
                       locale={locale}
                       variant="cells"
                     />
+                    <TableCell>
+                      <LocalDate date={kindlingDate} locale={locale} />
+                    </TableCell>
                     <TableCell>
                       <WeanButton
                         breedingId={litterRow?.id ?? ""}
@@ -270,13 +268,6 @@ export default async function DoesPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {countsRow?.litter?.weaningDate ? (
-                        <LocalDate date={countsRow.litter.weaningDate} locale={locale} />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
                       <LitterWeightInput
                         breedingId={countsRow?.id ?? ""}
                         valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
@@ -285,9 +276,11 @@ export default async function DoesPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {b ? (
-                        <ClearDoeButton breedingId={b.id} doeId={doe.id} text={t.does.clearButton} locale={locale} />
-                      ) : null}
+                      {countsRow?.litter?.weaningDate ? (
+                        <LocalDate date={countsRow.litter.weaningDate} locale={locale} />
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                   </TableRow>
                   ),
