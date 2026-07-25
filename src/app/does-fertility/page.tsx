@@ -34,10 +34,6 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
         breed: true,
         status: true,
         doeState: true,
-        // Only used to spot a currently-open (unresolved) mating so it's kept
-        // out of the fertility-rate denominator — the counts themselves come
-        // from the permanent logs below, never from this reusable row.
-        breedingsAsDoe: { select: { matingDate: true, actualKindlingDate: true } },
       },
     }),
     // Lifetime counts come from the append-only archive logs, NOT the live
@@ -76,7 +72,6 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
   // Aggregate stats across all does
   let overallBreedings = 0;
   let overallKindlings = 0;
-  let overallResolved = 0;
   let overallBornAlive = 0;
   let overallWeaned = 0;
   let overallWeanings = 0;
@@ -93,15 +88,13 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     const weaned = w?.weaned ?? 0;
     const bornAliveForWeaned = w?.bornAlive ?? 0;
 
-    // A mating with no outcome yet (bred/pregnant, not kindled or failed)
-    // shouldn't drag the fertility rate down before its result is known: the
-    // live Breeding row still carries matingDate until the cycle resolves.
-    const openMatings = doe.breedingsAsDoe.filter(
-      (b) => b.matingDate !== null && b.actualKindlingDate === null
-    ).length;
-    const resolved = Math.max(0, totalBreedings - openMatings);
-
-    const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
+    // Plain kindlings ÷ matings, both straight off the archive logs. An
+    // earlier version subtracted still-open matings from the denominator so a
+    // pending result wouldn't read as a failure, but the two sides came from
+    // different sources — the numerator from the whole archive, the open count
+    // from the single live Breeding row per doe — and could disagree badly
+    // enough to print rates above 100%. One source, one denominator.
+    const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
     const avgBornAtKindling = totalKindlings > 0 ? bornAtKindling / totalKindlings : null;
     const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
     const avgWeaned = weanings > 0 ? weaned / weanings : null;
@@ -110,7 +103,6 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     // Add to aggregate counts
     overallBreedings += totalBreedings;
     overallKindlings += totalKindlings;
-    overallResolved += resolved;
     overallBornAlive += bornAlive;
     overallWeaned += weaned;
     overallWeanings += weanings;
@@ -133,7 +125,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     };
   });
 
-  const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
+  const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
   const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
   const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
   const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;

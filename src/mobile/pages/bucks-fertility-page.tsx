@@ -26,7 +26,7 @@ type FertilityRow = {
   totalKindlings: number;
   fertilityRate: number | null;
   avgBorn: number | null;
-  totalBornAlive: number;
+  totalBornAtKindling: number;
 };
 
 export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
@@ -36,7 +36,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     overallFertility: number;
     overallKindlings: number;
     overallBreedings: number;
-    overallBornAlive: number;
+    overallBornAtKindling: number;
     overallAvgBorn: number;
   } | null>(null);
 
@@ -57,8 +57,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     const rows: FertilityRow[] = [];
     let overallBreedings = 0;
     let overallKindlings = 0;
-    let overallResolved = 0;
-    let overallBornAlive = 0;
+    let overallBornAtKindling = 0;
 
     for (const buck of bucks) {
       // Lifetime counts come from the append-only archive logs, NOT the live
@@ -71,34 +70,33 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
         "SELECT COUNT(*) AS c FROM mating_log WHERE buckId = ?",
         [buck.id]
       );
+      // bornAliveAtKindling, not bornAlive: a buck's litter size is what he
+      // sired, and fostering kits away from the doe afterwards doesn't change
+      // that. Using the nursing count here would also disagree with the same
+      // figure on his own page (rabbit-detail-page).
       const kindlingRow = await queryOne<{ c: number; born: number }>(
         db,
-        "SELECT COUNT(*) AS c, COALESCE(SUM(bornAlive), 0) AS born FROM kindling_log WHERE buckId = ?",
+        "SELECT COUNT(*) AS c, COALESCE(SUM(bornAliveAtKindling), 0) AS born FROM kindling_log WHERE buckId = ?",
         [buck.id]
       );
-      // A mating with no outcome yet shouldn't drag the fertility rate down
-      // before its result is known: the live breeding row still carries
-      // matingDate until the cycle resolves.
-      const openRow = await queryOne<{ c: number }>(
-        db,
-        "SELECT COUNT(*) AS c FROM breeding WHERE buckId = ? AND matingDate IS NOT NULL AND actualKindlingDate IS NULL",
-        [buck.id]
-      );
-
       const totalBreedings = matingRow?.c ?? 0;
       const totalKindlings = kindlingRow?.c ?? 0;
-      const totalBornAlive = kindlingRow?.born ?? 0;
-      const openMatings = openRow?.c ?? 0;
-      const resolved = Math.max(0, totalBreedings - openMatings);
+      const totalBornAtKindling = kindlingRow?.born ?? 0;
 
-      const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
-      const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
+      // Plain kindlings ÷ matings, both straight off the archive logs. An
+      // earlier version subtracted still-open matings from the denominator so
+      // a pending result wouldn't read as a failure, but the two sides came
+      // from different sources — the numerator from the whole archive, the
+      // open count from the single live breeding row per doe — and could
+      // disagree badly enough to print rates above 100%. One source, one
+      // denominator.
+      const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
+      const avgBorn = totalKindlings > 0 ? totalBornAtKindling / totalKindlings : null;
 
       // Add to aggregate counts
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
-      overallResolved += resolved;
-      overallBornAlive += totalBornAlive;
+      overallBornAtKindling += totalBornAtKindling;
 
       rows.push({
         id: buck.id,
@@ -109,19 +107,19 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
         totalKindlings,
         fertilityRate,
         avgBorn,
-        totalBornAlive,
+        totalBornAtKindling,
       });
     }
 
-    const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
-    const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
+    const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+    const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
 
     setData({
       rows,
       overallFertility,
       overallKindlings,
       overallBreedings,
-      overallBornAlive,
+      overallBornAtKindling,
       overallAvgBorn,
     });
   }, []);
@@ -139,7 +137,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     kindlings: { type: "number", value: (r) => r.totalKindlings },
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
-    totalBorn: { type: "number", value: (r) => r.totalBornAlive },
+    totalBorn: { type: "number", value: (r) => r.totalBornAtKindling },
   }, { key: "buckTag" });
 
   if (!data) {
@@ -185,7 +183,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
               <StatCard
                 icon={Layers}
                 label={t.statTotalBorn}
-                value={data.overallBornAlive.toString()}
+                value={data.overallBornAtKindling.toString()}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
@@ -301,7 +299,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
                     {r.avgBorn != null ? r.avgBorn.toFixed(1) : "—"}
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-rose-600 dark:text-rose-400">
-                    {r.totalBornAlive}
+                    {r.totalBornAtKindling}
                   </td>
                 </tr>
               ))}

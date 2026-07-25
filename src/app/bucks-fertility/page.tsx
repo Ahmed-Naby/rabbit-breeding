@@ -32,9 +32,6 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
         tagId: true,
         breed: true,
         status: true,
-        // Only used to spot a currently-open (unresolved) mating so it's kept
-        // out of the fertility-rate denominator — counts come from the logs.
-        breedingsAsBuck: { select: { matingDate: true, actualKindlingDate: true } },
       },
     }),
     // Lifetime counts come from the append-only archive logs, NOT the live
@@ -43,43 +40,50 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
     // moment she kindles. These logs only reset when an operations/data reset
     // clears them.
     prisma.matingLog.groupBy({ by: ["buckId"], _count: { _all: true } }),
-    prisma.kindlingLog.groupBy({ by: ["buckId"], _count: { _all: true }, _sum: { bornAlive: true } }),
+    // bornAliveAtKindling, not bornAlive: a buck's litter size is what he
+    // sired, and fostering kits away from the doe afterwards doesn't change
+    // that. Using the nursing count here would also disagree with the same
+    // figure on his own page (buck-breeding-history).
+    prisma.kindlingLog.groupBy({
+      by: ["buckId"],
+      _count: { _all: true },
+      _sum: { bornAliveAtKindling: true },
+    }),
     getDictionary(),
   ]);
 
   const matingByBuck = new Map(matingGroups.map((g) => [g.buckId, g._count._all]));
   const kindlingByBuck = new Map(
-    kindlingGroups.map((g) => [g.buckId, { count: g._count._all, bornAlive: g._sum.bornAlive ?? 0 }])
+    kindlingGroups.map((g) => [
+      g.buckId,
+      { count: g._count._all, bornAtKindling: g._sum.bornAliveAtKindling ?? 0 },
+    ])
   );
 
   // Aggregate stats across all bucks
   let overallBreedings = 0;
   let overallKindlings = 0;
-  let overallResolved = 0;
-  let overallBornAlive = 0;
+  let overallBornAtKindling = 0;
 
   const rowData = bucks.map((buck) => {
     const totalBreedings = matingByBuck.get(buck.id) ?? 0;
     const k = kindlingByBuck.get(buck.id);
     const totalKindlings = k?.count ?? 0;
-    const totalBornAlive = k?.bornAlive ?? 0;
+    const totalBornAtKindling = k?.bornAtKindling ?? 0;
 
-    // A mating with no outcome yet shouldn't drag the fertility rate down
-    // before its result is known: the live Breeding row still carries
-    // matingDate until the cycle resolves.
-    const openMatings = buck.breedingsAsBuck.filter(
-      (b) => b.matingDate !== null && b.actualKindlingDate === null
-    ).length;
-    const resolved = Math.max(0, totalBreedings - openMatings);
-
-    const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
-    const avgBorn = totalKindlings > 0 ? totalBornAlive / totalKindlings : null;
+    // Plain kindlings ÷ matings, both straight off the archive logs. An
+    // earlier version subtracted still-open matings from the denominator so a
+    // pending result wouldn't read as a failure, but the two sides came from
+    // different sources — the numerator from the whole archive, the open count
+    // from the single live Breeding row per doe — and could disagree badly
+    // enough to print rates above 100%. One source, one denominator.
+    const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
+    const avgBorn = totalKindlings > 0 ? totalBornAtKindling / totalKindlings : null;
 
     // Add to aggregate counts
     overallBreedings += totalBreedings;
     overallKindlings += totalKindlings;
-    overallResolved += resolved;
-    overallBornAlive += totalBornAlive;
+    overallBornAtKindling += totalBornAtKindling;
 
     return {
       buck,
@@ -87,12 +91,12 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
       totalKindlings,
       fertilityRate,
       avgBorn,
-      totalBornAlive,
+      totalBornAtKindling,
     };
   });
 
-  const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
-  const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
+  const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+  const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -134,7 +138,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
               <StatCard
                 icon={Layers}
                 label={t.bucksFertility.statTotalBorn}
-                value={overallBornAlive.toString()}
+                value={overallBornAtKindling.toString()}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
@@ -169,7 +173,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
               { key: "avgBorn", label: t.bucksFertility.colAvgBorn, type: "number", className: "text-center" },
               { key: "totalBorn", label: t.bucksFertility.colTotalBorn, type: "number", className: "text-center" },
             ]}
-            rows={rowData.map(({ buck, totalBreedings, totalKindlings, fertilityRate, avgBorn, totalBornAlive }) => ({
+            rows={rowData.map(({ buck, totalBreedings, totalKindlings, fertilityRate, avgBorn, totalBornAtKindling }) => ({
               key: buck.id,
               sortValues: {
                 buckTag: buck.tagId,
@@ -179,7 +183,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
                 kindlings: totalKindlings,
                 fertilityRate: fertilityRate ?? -1,
                 avgBorn: avgBorn ?? -1,
-                totalBorn: totalBornAlive,
+                totalBorn: totalBornAtKindling,
               },
               node: (
                 <TableRow key={buck.id} className="[&>td]:border-x [&>td]:text-center">
@@ -201,7 +205,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
                     {avgBorn != null ? avgBorn.toFixed(1) : "—"}
                   </TableCell>
                   <TableCell className="font-medium tabular-nums text-rose-600 dark:text-rose-400">
-                    {totalBornAlive}
+                    {totalBornAtKindling}
                   </TableCell>
                 </TableRow>
               ),

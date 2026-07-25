@@ -66,7 +66,6 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     const rows: FertilityRow[] = [];
     let overallBreedings = 0;
     let overallKindlings = 0;
-    let overallResolved = 0;
     let overallBornAlive = 0;
     let overallWeaned = 0;
     let overallWeanings = 0;
@@ -97,15 +96,6 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned, COALESCE(SUM(bornAlive), 0) AS born FROM weaning_log WHERE doeId = ?",
         [doe.id]
       );
-      // A mating with no outcome yet (bred/pregnant, not kindled or failed)
-      // shouldn't drag the fertility rate down before its result is known: the
-      // live breeding row still carries matingDate until the cycle resolves.
-      const openRow = await queryOne<{ c: number }>(
-        db,
-        "SELECT COUNT(*) AS c FROM breeding WHERE doeId = ? AND matingDate IS NOT NULL AND actualKindlingDate IS NULL",
-        [doe.id]
-      );
-
       const totalBreedings = matingRow?.c ?? 0;
       const totalKindlings = kindlingRow?.c ?? 0;
       const bornAlive = kindlingRow?.born ?? 0;
@@ -113,10 +103,15 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       const weanings = weaningRow?.c ?? 0;
       const weaned = weaningRow?.weaned ?? 0;
       const bornAliveForWeaned = weaningRow?.born ?? 0;
-      const openMatings = openRow?.c ?? 0;
-      const resolved = Math.max(0, totalBreedings - openMatings);
 
-      const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
+      // Plain kindlings ÷ matings, both straight off the archive logs. An
+      // earlier version subtracted still-open matings from the denominator so
+      // a pending result wouldn't read as a failure, but the two sides came
+      // from different sources — the numerator from the whole archive, the
+      // open count from the single live breeding row per doe — and could
+      // disagree badly enough to print rates above 100%. One source, one
+      // denominator.
+      const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
       const avgBornAtKindling = totalKindlings > 0 ? bornAtKindling / totalKindlings : null;
       const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
       const avgWeaned = weanings > 0 ? weaned / weanings : null;
@@ -125,7 +120,6 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       // Add to aggregate counts
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
-      overallResolved += resolved;
       overallBornAlive += bornAlive;
       overallWeaned += weaned;
       overallWeanings += weanings;
@@ -147,7 +141,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       });
     }
 
-    const overallFertility = overallResolved > 0 ? Math.round((overallKindlings / overallResolved) * 100) : 0;
+    const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
     const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
     const overallSurvival = overallBornAliveForWeaned > 0 ? Math.round((overallWeaned / overallBornAliveForWeaned) * 100) : 0;
