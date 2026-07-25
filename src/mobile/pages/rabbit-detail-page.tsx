@@ -27,6 +27,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { toDateInputValue, fromDateInputValue } from "@/lib/dates";
 import { computeDoeFertilityStats } from "@/lib/doe-stats";
+import { computeBuckFertilityStats } from "@/lib/buck-stats";
 import { getDb } from "../db/client";
 import { enqueue } from "../sync/outbox";
 import {
@@ -82,7 +83,7 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
     doeTag: { type: "tag", value: (r) => r.doeTagId },
     doeBreed: { type: "string", value: (r) => r.doeBreed },
     doeState: { type: "string", value: (r) => r.testResult },
-    bornCount: { type: "number", value: (r) => r.bornAlive },
+    bornCount: { type: "number", value: (r) => r.bornAliveAtKindling ?? r.bornAlive },
   });
 
   if (rabbit === undefined) {
@@ -205,6 +206,25 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                {/* Banner over أحياء + نافق marking them as nursing counts. The
+                    filler cells are one per column, not a single colSpan, so
+                    every vertical rule below runs to the top of the table; the
+                    تاريخ الجس filler carries that column's md breakpoint so the
+                    banner can't slide off its pair on a phone. */}
+                <tr className="[&>th]:border-x border-b">
+                  <th />
+                  <th />
+                  <th />
+                  <th className="hidden md:table-cell" />
+                  <th />
+                  <th />
+                  <th />
+                  <th colSpan={2} className="px-4 py-2 text-center font-semibold">
+                    {t.groupNursing}
+                  </th>
+                  <th />
+                  <th />
+                </tr>
                 <tr className="[&>th]:border-x">
                   <th className="px-4 py-3 text-center">{t.colIndex}</th>
                   <SortableTh
@@ -373,8 +393,20 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
                     <td className="px-4 py-3.5">{c.doeTagId ?? "—"}</td>
                     <td className="px-4 py-3.5">{c.doeBreed ?? "—"}</td>
                     <td className="px-4 py-3.5">{c.testResult ? label(c.testResult, locale) : "—"}</td>
+                    {/* The frozen count first: bornAlive/bornDead come from the
+                        best-effort litter join in fetchBuckBreedingHistory, which
+                        misses whenever the doe's reusable breeding row has moved
+                        on to another buck — that left this column showing "—" for
+                        litters his own متوسط عدد الخلفة was already counting.
+                        bornAliveAtKindling is on kindling_log itself, so it is
+                        there for every kindling. */}
                     <td className="px-4 py-3.5">
-                      {c.bornAlive != null ? (c.bornDead ? t.bornWithDead(c.bornAlive, c.bornDead) : c.bornAlive) : "—"}
+                      {c.bornAliveAtKindling ??
+                        (c.bornAlive != null
+                          ? c.bornDead
+                            ? t.bornWithDead(c.bornAlive, c.bornDead)
+                            : c.bornAlive
+                          : "—")}
                     </td>
                   </tr>
                 ))}
@@ -452,12 +484,12 @@ function BuckFertilityCards({
   locale: Locale;
 }) {
   const t = getClientDictionary(locale).rabbits;
-  const stats = computeDoeFertilityStats(
+  const stats = computeBuckFertilityStats(
     history.map((c) => ({
+      testResult: c.testResult,
       kindlingDate: c.kindlingDate,
       bornAliveAtKindling: c.bornAliveAtKindling,
       bornAlive: c.bornAlive,
-      weaned: null,
     }))
   );
 

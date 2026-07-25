@@ -176,6 +176,13 @@ export function BreedingHistoryPanel({
     <div className="rounded-xl border bg-card">
       <SortableTable
         headerRowClassName="[&>th]:border-x"
+        // Spans must stay in step with `columns` below: 7 blank (index →
+        // عدد الخلفة), the banner over أحياء + نافق, then 2 blank (weaning).
+        columnGroups={[
+          { span: 7 },
+          { label: t.groupNursing, span: 2, className: "font-semibold" },
+          { span: 2 },
+        ]}
         columns={[
           { key: "index", label: t.colIndex, className: "text-center", sortable: false },
           { key: "matingDate", label: t.colMatingDate, type: "date", className: "text-center" },

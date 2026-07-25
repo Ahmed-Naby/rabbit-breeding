@@ -23,7 +23,7 @@ export async function generateMetadata() {
 }
 
 export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: boolean } = {}) {
-  const [bucks, matingGroups, kindlingGroups, { locale, t }] = await Promise.all([
+  const [bucks, matingGroups, positiveTests, kindlingGroups, { locale, t }] = await Promise.all([
     prisma.rabbit.findMany({
       where: { sex: "buck", tagId: { not: null }, status: { notIn: ["deceased", "culled"] } },
       orderBy: { tagId: "asc" },
@@ -40,6 +40,17 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
     // moment she kindles. These logs only reset when an operations/data reset
     // clears them.
     prisma.matingLog.groupBy({ by: ["buckId"], _count: { _all: true } }),
+    // A buck's rate is settling rate, so the numerator is confirmed
+    // pregnancies, not kindlings — losing a confirmed pregnancy afterwards is
+    // the doe's outcome, not his. Fetched rather than grouped because two
+    // positives can exist for one mating (the palpation and the تأكيد الجس
+    // re-check), and their matingDate timestamps can drift by a fraction; the
+    // doe+day key below collapses both, exactly as buildBuckCycles does on his
+    // own page, so the two never disagree.
+    prisma.pregnancyTestLog.findMany({
+      where: { result: "positive" },
+      select: { buckId: true, doeId: true, matingDate: true },
+    }),
     // bornAliveAtKindling, not bornAlive: a buck's litter size is what he
     // sired, and fostering kits away from the doe afterwards doesn't change
     // that. Using the nursing count here would also disagree with the same
@@ -53,6 +64,13 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
   ]);
 
   const matingByBuck = new Map(matingGroups.map((g) => [g.buckId, g._count._all]));
+  const pregnanciesByBuck = new Map<string, Set<string>>();
+  for (const p of positiveTests) {
+    if (!p.buckId) continue;
+    const seen = pregnanciesByBuck.get(p.buckId) ?? new Set<string>();
+    seen.add(`${p.doeId}_${p.matingDate.toISOString().slice(0, 10)}`);
+    pregnanciesByBuck.set(p.buckId, seen);
+  }
   const kindlingByBuck = new Map(
     kindlingGroups.map((g) => [
       g.buckId,
@@ -62,6 +80,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
 
   // Aggregate stats across all bucks
   let overallBreedings = 0;
+  let overallPregnancies = 0;
   let overallKindlings = 0;
   let overallBornAtKindling = 0;
 
@@ -70,32 +89,32 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
     const k = kindlingByBuck.get(buck.id);
     const totalKindlings = k?.count ?? 0;
     const totalBornAtKindling = k?.bornAtKindling ?? 0;
+    const totalPregnancies = pregnanciesByBuck.get(buck.id)?.size ?? 0;
 
-    // Plain kindlings ÷ matings, both straight off the archive logs. An
-    // earlier version subtracted still-open matings from the denominator so a
-    // pending result wouldn't read as a failure, but the two sides came from
-    // different sources — the numerator from the whole archive, the open count
-    // from the single live Breeding row per doe — and could disagree badly
-    // enough to print rates above 100%. One source, one denominator.
-    const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
+    // Confirmed pregnancies ÷ matings. A buck's only job is settling the doe;
+    // whether she then carries the litter to term is her outcome, so kindlings
+    // stay out of the rate (they still drive avgBorn below). Same definition as
+    // computeBuckFertilityStats on his own page.
+    const fertilityRate = totalBreedings > 0 ? (totalPregnancies / totalBreedings) * 100 : null;
     const avgBorn = totalKindlings > 0 ? totalBornAtKindling / totalKindlings : null;
 
     // Add to aggregate counts
     overallBreedings += totalBreedings;
+    overallPregnancies += totalPregnancies;
     overallKindlings += totalKindlings;
     overallBornAtKindling += totalBornAtKindling;
 
     return {
       buck,
       totalBreedings,
-      totalKindlings,
+      totalPregnancies,
       fertilityRate,
       avgBorn,
       totalBornAtKindling,
     };
   });
 
-  const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+  const overallFertility = overallBreedings > 0 ? Math.round((overallPregnancies / overallBreedings) * 100) : 0;
   const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
 
   return (
@@ -125,8 +144,8 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
               />
               <StatCard
                 icon={HeartPulse}
-                label={t.bucksFertility.statTotalKindlings}
-                value={overallKindlings.toString()}
+                label={t.bucksFertility.statPregnancies}
+                value={overallPregnancies.toString()}
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
               />
               <StatCard
@@ -168,19 +187,19 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
               { key: "breed", label: t.bucksFertility.colBreed, type: "string", className: "text-center" },
               { key: "status", label: t.bucksFertility.colStatus, type: "string", className: "text-center" },
               { key: "breedings", label: t.bucksFertility.colBreedings, type: "number", className: "text-center" },
-              { key: "kindlings", label: t.bucksFertility.colKindlings, type: "number", className: "text-center" },
+              { key: "pregnancies", label: t.bucksFertility.colPregnancies, type: "number", className: "text-center" },
               { key: "fertilityRate", label: t.bucksFertility.colFertilityRate, type: "number", className: "text-center" },
               { key: "avgBorn", label: t.bucksFertility.colAvgBorn, type: "number", className: "text-center" },
               { key: "totalBorn", label: t.bucksFertility.colTotalBorn, type: "number", className: "text-center" },
             ]}
-            rows={rowData.map(({ buck, totalBreedings, totalKindlings, fertilityRate, avgBorn, totalBornAtKindling }) => ({
+            rows={rowData.map(({ buck, totalBreedings, totalPregnancies, fertilityRate, avgBorn, totalBornAtKindling }) => ({
               key: buck.id,
               sortValues: {
                 buckTag: buck.tagId,
                 breed: buck.breed,
                 status: buck.status,
                 breedings: totalBreedings,
-                kindlings: totalKindlings,
+                pregnancies: totalPregnancies,
                 fertilityRate: fertilityRate ?? -1,
                 avgBorn: avgBorn ?? -1,
                 totalBorn: totalBornAtKindling,
@@ -197,7 +216,7 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
                     <StatusBadge value={buck.status} locale={locale} />
                   </TableCell>
                   <TableCell className="font-medium tabular-nums">{totalBreedings}</TableCell>
-                  <TableCell className="font-medium tabular-nums">{totalKindlings}</TableCell>
+                  <TableCell className="font-medium tabular-nums">{totalPregnancies}</TableCell>
                   <TableCell className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                     {fertilityRate != null ? `${Math.round(fertilityRate)}%` : "—"}
                   </TableCell>

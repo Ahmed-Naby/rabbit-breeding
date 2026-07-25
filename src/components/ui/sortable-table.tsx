@@ -22,6 +22,19 @@ export interface SortableRowItem {
 }
 
 /**
+ * One cell of an optional banner row rendered above the column headers, for
+ * labelling a run of related columns (e.g. «الرعاية» over أحياء + نافق).
+ * Spans are positional and must cover every column, so a group with no label
+ * is how you leave the columns before/after a banner blank.
+ */
+export interface SortableColumnGroup {
+  label?: React.ReactNode;
+  /** How many columns this cell spans. */
+  span: number;
+  className?: string;
+}
+
+/**
  * A sortable variant of the shared `Table` primitives. Server Components
  * fetch and shape `rows` as usual (each row pre-rendered into `node`, since
  * a Server Component can pass rendered children across the client boundary
@@ -30,12 +43,15 @@ export interface SortableRowItem {
  */
 export function SortableTable({
   columns,
+  columnGroups,
   rows,
   headerRowClassName,
   initialSortKey,
   initialSortDirection = "asc",
 }: {
   columns: SortableColumn[];
+  /** Optional banner row above the headers; spans must add up to columns.length. */
+  columnGroups?: SortableColumnGroup[];
   rows: SortableRowItem[];
   headerRowClassName?: string;
   /** Seeds the default sort (e.g. natural tag order) instead of raw row order. */
@@ -67,6 +83,25 @@ export function SortableTable({
   return (
     <Table>
       <TableHeader>
+        {columnGroups && (
+          // Index keys: the groups are a fixed positional layout declared
+          // alongside `columns`, never reordered by the sort below.
+          <TableRow className={headerRowClassName}>
+            {columnGroups.map((g, i) =>
+              g.label == null ? (
+                // An unlabelled group is filler, so it draws one empty cell per
+                // column instead of a single spanning one — that keeps every
+                // vertical rule of the header row running to the top of the
+                // table rather than stopping under the banner.
+                Array.from({ length: g.span }, (_, j) => <TableHead key={`${i}-${j}`} />)
+              ) : (
+                <TableHead key={i} colSpan={g.span} className={cn("text-center", g.className)}>
+                  {g.label}
+                </TableHead>
+              )
+            )}
+          </TableRow>
+        )}
         <TableRow className={headerRowClassName}>
           {columns.map((col) =>
             col.sortable === false ? (

@@ -934,6 +934,8 @@ export const en: Dictionary = {
     // Born = alive at the kindling moment, frozen. The Alive/Dead pair after it
     // is the nursing count, i.e. after fostering and kit deaths.
     colBornAtKindling: "Born",
+    // Banner cell spanning Alive + Dead, so the pair reads as nursing counts.
+    groupNursing: "Nursing",
     colBornAlive: "Alive",
     colBornDead: "Dead",
     colWeaningDate: "Weaning date",
@@ -1082,7 +1084,9 @@ export const en: Dictionary = {
     colBreed: "Breed",
     colStatus: "Status",
     colBreedings: "Total Breedings",
-    colKindlings: "Successful Matings",
+    // Numerator of a buck's fertility rate: positive palpations, not kindlings —
+    // a pregnancy lost after confirmation is the doe's outcome, not his.
+    colPregnancies: "Confirmed Pregnancies",
     colFertilityRate: "Fertility Rate",
     colAvgBorn: "Avg Litter Size",
     colTotalBorn: "Total Offspring",
@@ -1090,7 +1094,7 @@ export const en: Dictionary = {
     emptyDescription: "Register active bucks with a tag number to see them here.",
     statsHeading: "Average Farm Fertility",
     statFertilityRate: "Fertility Rate",
-    statTotalKindlings: "Successful Matings",
+    statPregnancies: "Confirmed Pregnancies",
     statTotalBreedings: "Total Breedings",
     statTotalBorn: "Total Offspring",
     statAvgBorn: "Avg Litter Size",

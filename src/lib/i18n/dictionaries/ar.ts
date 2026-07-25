@@ -928,6 +928,8 @@ export const ar = {
     // عدد الخلفة = اللي اتولدوا أحياء لحظة الولادة، رقم ثابت مايتغيرش.
     // أحياء/نافق بعده = الرعاية، يعني العدد بعد التبني والنفوق.
     colBornAtKindling: "عدد الخلفة",
+    // خلية عريضة فوق «أحياء» و«نافق» توضّح إن الرقمين دول رعاية مش ولادة.
+    groupNursing: "الرعاية",
     colBornAlive: "أحياء",
     colBornDead: "نافق",
     colWeaningDate: "تاريخ الفطام",
@@ -1076,7 +1078,9 @@ export const ar = {
     colBreed: "النوع",
     colStatus: "حالة الذكر",
     colBreedings: "عدد التلقيحات",
-    colKindlings: "التلقيحات الناجحة",
+    // بسط معدل خصوبة الذكر: عدد الجسّات الإيجابية، مش عدد الولادات — لو الأم
+    // فقدت الحمل بعد ما اتأكد، ده حسابها هي مش حسابه.
+    colPregnancies: "عدد العشار",
     colFertilityRate: "معدل الخصوبة",
     colAvgBorn: "متوسط عدد الخلفة",
     colTotalBorn: "إجمالي المواليد",
@@ -1084,7 +1088,7 @@ export const ar = {
     emptyDescription: "سجل ذكور نشطة برقم وشم في المزرعة لتظهر هنا.",
     statsHeading: "متوسط خصوبة المزرعة",
     statFertilityRate: "معدل الخصوبة",
-    statTotalKindlings: "التلقيحات الناجحة",
+    statPregnancies: "عدد العشار",
     statTotalBreedings: "عدد التلقيحات",
     statTotalBorn: "إجمالي المواليد",
     statAvgBorn: "متوسط عدد الخلفة",

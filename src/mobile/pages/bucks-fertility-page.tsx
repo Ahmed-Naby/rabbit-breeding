@@ -23,7 +23,7 @@ type FertilityRow = {
   breed: string | null;
   status: string;
   totalBreedings: number;
-  totalKindlings: number;
+  totalPregnancies: number;
   fertilityRate: number | null;
   avgBorn: number | null;
   totalBornAtKindling: number;
@@ -34,7 +34,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
   const [data, setData] = useState<{
     rows: FertilityRow[];
     overallFertility: number;
-    overallKindlings: number;
+    overallPregnancies: number;
     overallBreedings: number;
     overallBornAtKindling: number;
     overallAvgBorn: number;
@@ -56,6 +56,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
 
     const rows: FertilityRow[] = [];
     let overallBreedings = 0;
+    let overallPregnancies = 0;
     let overallKindlings = 0;
     let overallBornAtKindling = 0;
 
@@ -70,6 +71,17 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
         "SELECT COUNT(*) AS c FROM mating_log WHERE buckId = ?",
         [buck.id]
       );
+      // A buck's rate is settling rate, so the numerator is confirmed
+      // pregnancies, not kindlings — losing a confirmed pregnancy afterwards is
+      // the doe's outcome, not his. DISTINCT doe+day because two positives can
+      // exist for one mating (the palpation and the تأكيد الجس re-check) and
+      // their matingDate timestamps can drift by a fraction; the same key that
+      // fetchBuckBreedingHistory stitches cycles on, so the two never disagree.
+      const pregnancyRow = await queryOne<{ c: number }>(
+        db,
+        "SELECT COUNT(DISTINCT doeId || '_' || substr(matingDate, 1, 10)) AS c FROM pregnancy_test_log WHERE buckId = ? AND result = 'positive'",
+        [buck.id]
+      );
       // bornAliveAtKindling, not bornAlive: a buck's litter size is what he
       // sired, and fostering kits away from the doe afterwards doesn't change
       // that. Using the nursing count here would also disagree with the same
@@ -80,21 +92,20 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
         [buck.id]
       );
       const totalBreedings = matingRow?.c ?? 0;
+      const totalPregnancies = pregnancyRow?.c ?? 0;
       const totalKindlings = kindlingRow?.c ?? 0;
       const totalBornAtKindling = kindlingRow?.born ?? 0;
 
-      // Plain kindlings ÷ matings, both straight off the archive logs. An
-      // earlier version subtracted still-open matings from the denominator so
-      // a pending result wouldn't read as a failure, but the two sides came
-      // from different sources — the numerator from the whole archive, the
-      // open count from the single live breeding row per doe — and could
-      // disagree badly enough to print rates above 100%. One source, one
-      // denominator.
-      const fertilityRate = totalBreedings > 0 ? (totalKindlings / totalBreedings) * 100 : null;
+      // Confirmed pregnancies ÷ matings. A buck's only job is settling the doe;
+      // whether she then carries the litter to term is her outcome, so
+      // kindlings stay out of the rate (they still drive avgBorn below). Same
+      // definition as computeBuckFertilityStats on his own page.
+      const fertilityRate = totalBreedings > 0 ? (totalPregnancies / totalBreedings) * 100 : null;
       const avgBorn = totalKindlings > 0 ? totalBornAtKindling / totalKindlings : null;
 
       // Add to aggregate counts
       overallBreedings += totalBreedings;
+      overallPregnancies += totalPregnancies;
       overallKindlings += totalKindlings;
       overallBornAtKindling += totalBornAtKindling;
 
@@ -104,20 +115,20 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
         breed: buck.breed,
         status: buck.status,
         totalBreedings,
-        totalKindlings,
+        totalPregnancies,
         fertilityRate,
         avgBorn,
         totalBornAtKindling,
       });
     }
 
-    const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
+    const overallFertility = overallBreedings > 0 ? Math.round((overallPregnancies / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
 
     setData({
       rows,
       overallFertility,
-      overallKindlings,
+      overallPregnancies,
       overallBreedings,
       overallBornAtKindling,
       overallAvgBorn,
@@ -134,7 +145,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
     breed: { type: "string", value: (r) => r.breed },
     status: { type: "string", value: (r) => r.status },
     breedings: { type: "number", value: (r) => r.totalBreedings },
-    kindlings: { type: "number", value: (r) => r.totalKindlings },
+    pregnancies: { type: "number", value: (r) => r.totalPregnancies },
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
     totalBorn: { type: "number", value: (r) => r.totalBornAtKindling },
@@ -170,8 +181,8 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
               />
               <StatCard
                 icon={HeartPulse}
-                label={t.statTotalKindlings}
-                value={data.overallKindlings.toString()}
+                label={t.statPregnancies}
+                value={data.overallPregnancies.toString()}
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
               />
               <StatCard
@@ -242,8 +253,8 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
-                  label={t.colKindlings}
-                  sortKey="kindlings"
+                  label={t.colPregnancies}
+                  sortKey="pregnancies"
                   activeSortKey={bucksSort.sortKey}
                   direction={bucksSort.direction}
                   onSort={bucksSort.toggleSort}
@@ -291,7 +302,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
                     <StatusBadge value={r.status} locale={locale} />
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalBreedings}</td>
-                  <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalKindlings}</td>
+                  <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalPregnancies}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                     {r.fertilityRate != null ? `${Math.round(r.fertilityRate)}%` : "—"}
                   </td>

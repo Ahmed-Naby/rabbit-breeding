@@ -22,6 +22,7 @@ import { MetricBadge } from "@/components/metric-badge";
 import { MetricCard } from "@/components/metric-card";
 import { LocalDate } from "@/components/local-date";
 import { computeDoeFertilityStats } from "@/lib/doe-stats";
+import { computeBuckFertilityStats } from "@/lib/buck-stats";
 
 export const metadata = { title: "Rabbit · RabbitTrack" };
 
@@ -135,12 +136,12 @@ export default async function RabbitDetailPage({
       })
     : [];
   const buckStats = isBuck
-    ? computeDoeFertilityStats(
+    ? computeBuckFertilityStats(
         buckCycles.map((c) => ({
+          testResult: c.testResult,
           kindlingDate: c.kindlingDate,
           bornAliveAtKindling: c.bornAliveAtKindling,
           bornAlive: c.bornAlive,
-          weaned: null,
         }))
       )
     : null;

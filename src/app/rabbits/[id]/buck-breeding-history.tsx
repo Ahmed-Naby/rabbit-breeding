@@ -21,9 +21,9 @@ export type BuckCycle = {
   testResult: string | null;
   kindlingDate: Date | null;
   /**
-   * «عدد الخلفة» at birth, frozen. Not shown as its own column here — the buck
-   * table displays the live counts — but it's what feeds his متوسط عدد الخلفة,
-   * so his figure and the doe's mean the same thing. See breeding-history.tsx.
+   * «عدد الخلفة» at birth, frozen — what the عدد المواليد column shows and what
+   * feeds his متوسط عدد الخلفة, so the two always agree. Read straight off
+   * KindlingLog, unlike bornAlive below. See breeding-history.tsx.
    */
   bornAliveAtKindling: number | null;
   bornAlive: number | null;
@@ -170,7 +170,7 @@ export function BuckBreedingHistoryPanel({
             doeTag: c.doeTagId,
             doeBreed: c.doeBreed,
             doeState: c.testResult,
-            bornAlive: c.bornAlive,
+            bornAlive: c.bornAliveAtKindling ?? c.bornAlive,
           },
           node: (
             <TableRow
@@ -188,12 +188,19 @@ export function BuckBreedingHistoryPanel({
               </TableCell>
               <TableCell>{c.doeBreed ?? "—"}</TableCell>
               <TableCell>{c.testResult ? label(c.testResult, locale) : "—"}</TableCell>
+              {/* The frozen count first: bornAlive/bornDead come from the
+                  best-effort Litter join above, which misses whenever the doe's
+                  reusable Breeding row has moved on to another buck — that left
+                  this column showing "—" for litters his own متوسط عدد الخلفة
+                  was already counting. bornAliveAtKindling is on KindlingLog
+                  itself, so it is there for every kindling. */}
               <TableCell>
-                {c.bornAlive != null
-                  ? c.bornDead
-                    ? t.bornWithDead(c.bornAlive, c.bornDead)
-                    : c.bornAlive
-                  : "—"}
+                {c.bornAliveAtKindling ??
+                  (c.bornAlive != null
+                    ? c.bornDead
+                      ? t.bornWithDead(c.bornAlive, c.bornDead)
+                      : c.bornAlive
+                    : "—")}
               </TableCell>
             </TableRow>
           ),
