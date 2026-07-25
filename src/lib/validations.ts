@@ -326,6 +326,9 @@ export function settingsSchema(t: Dictionary["validation"]) {
       (v) => [0, 15, 30].includes(v),
       t.invalidValue
     ),
+    fosterWindowDays: z.coerce.number().int().min(0).max(14),
+    fosterHighKits: z.coerce.number().int().min(1).max(20),
+    fosterLowKits: z.coerce.number().int().min(0).max(20),
     currency: z
       .string()
       .trim()

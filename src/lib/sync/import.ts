@@ -122,7 +122,14 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
     .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
   const kindlingLogs = dedupeById(data.kindlingLogs)
     .filter((log) => rabbitIds.has(log.doeId as string))
-    .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
+    .map((log) => ({
+      ...log,
+      buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null,
+      // Backups taken before «عدد الخلفة» existed carry no birth count; fall
+      // back to bornAlive rather than the column default, or every restored
+      // litter would read as zero-born. Same best-effort as the migration.
+      bornAliveAtKindling: log.bornAliveAtKindling ?? log.bornAlive ?? 0,
+    }));
   // weaningLogs is absent from backups taken before the سجل الفطام archive
   // existed, so tolerate its absence rather than requiring it (see
   // REQUIRED_KEYS) — an old restore simply carries no weaning archive.
@@ -184,6 +191,9 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         nestBoxDays: s?.nestBoxDays ?? 27,
         matingWeightGrams: s?.matingWeightGrams ?? 3000,
         rebreedAfterKindlingDays: s?.rebreedAfterKindlingDays ?? 0,
+        fosterWindowDays: s?.fosterWindowDays ?? 2,
+        fosterHighKits: s?.fosterHighKits ?? 8,
+        fosterLowKits: s?.fosterLowKits ?? 4,
         currency: s?.currency ?? "USD",
         dataResetAt,
       };

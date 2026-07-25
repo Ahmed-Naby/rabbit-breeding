@@ -20,6 +20,12 @@ export type BuckCycle = {
   matingDate: Date;
   testResult: string | null;
   kindlingDate: Date | null;
+  /**
+   * «عدد الخلفة» at birth, frozen. Not shown as its own column here — the buck
+   * table displays the live counts — but it's what feeds his متوسط عدد الخلفة,
+   * so his figure and the doe's mean the same thing. See breeding-history.tsx.
+   */
+  bornAliveAtKindling: number | null;
   bornAlive: number | null;
   bornDead: number | null;
 };
@@ -45,6 +51,7 @@ export function buildBuckCycles({
   kindlings: {
     matingDate: Date | null;
     kindlingDate: Date;
+    bornAliveAtKindling: number;
     doe: { id: string; tagId: string | null; breed: string | null };
   }[];
   litters: {
@@ -78,6 +85,7 @@ export function buildBuckCycles({
         matingDate,
         testResult: null,
         kindlingDate: null,
+        bornAliveAtKindling: null,
         bornAlive: null,
         bornDead: null,
       };
@@ -97,6 +105,7 @@ export function buildBuckCycles({
   for (const k of kindlings) {
     const c = k.matingDate ? ensure(k.doe, k.matingDate) : ensure(k.doe, k.kindlingDate);
     c.kindlingDate = k.kindlingDate;
+    c.bornAliveAtKindling = k.bornAliveAtKindling;
   }
 
   // doeId + kindlingDate (day-level) -> litter counts, same best-effort join

@@ -127,6 +127,36 @@ export function SettingsForm({
             hint={t.rebreedHint}
             error={e.rebreedAfterKindlingDays}
           />
+          <TextField
+            name="fosterWindowDays"
+            type="number"
+            min={0}
+            max={14}
+            label={t.fosterWindowDaysLabel}
+            defaultValue={settings.fosterWindowDays.toString()}
+            hint={t.fosterWindowDaysHint}
+            error={e.fosterWindowDays}
+          />
+          <TextField
+            name="fosterHighKits"
+            type="number"
+            min={1}
+            max={20}
+            label={t.fosterHighKitsLabel}
+            defaultValue={settings.fosterHighKits.toString()}
+            hint={t.fosterHighKitsHint}
+            error={e.fosterHighKits}
+          />
+          <TextField
+            name="fosterLowKits"
+            type="number"
+            min={0}
+            max={20}
+            label={t.fosterLowKitsLabel}
+            defaultValue={settings.fosterLowKits.toString()}
+            hint={t.fosterLowKitsHint}
+            error={e.fosterLowKits}
+          />
         </CardContent>
       </Card>
       <SubmitButton>{t.saveButton}</SubmitButton>

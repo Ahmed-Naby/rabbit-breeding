@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS settings_cache (
   nestBoxDays               INTEGER NOT NULL DEFAULT 27,
   matingWeightGrams         INTEGER NOT NULL DEFAULT 3000,
   rebreedAfterKindlingDays  INTEGER NOT NULL DEFAULT 0,
+  fosterWindowDays          INTEGER NOT NULL DEFAULT 2,
+  fosterHighKits            INTEGER NOT NULL DEFAULT 8,
+  fosterLowKits             INTEGER NOT NULL DEFAULT 4,
   currency                  TEXT NOT NULL DEFAULT 'EGP'
 );
 
@@ -233,8 +236,12 @@ CREATE TABLE IF NOT EXISTS kindling_log (
   breedingId   TEXT,
   matingDate   TEXT,
   kindlingDate TEXT NOT NULL,
+  -- bornAlive/bornDead are the *nursing* counts (fostering and kit deaths
+  -- mirror into them); bornAliveAtKindling is the litter size at birth, written
+  -- once and never mirrored — it's what متوسط عدد الخلفة averages.
   bornAlive    INTEGER NOT NULL DEFAULT 0,
   bornDead     INTEGER NOT NULL DEFAULT 0,
+  bornAliveAtKindling INTEGER NOT NULL DEFAULT 0,
   createdAt    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kindling_log_doeId ON kindling_log(doeId);

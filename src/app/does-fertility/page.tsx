@@ -47,14 +47,27 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     // logs only grow — they reset to zero solely when an operations/data reset
     // clears them.
     prisma.matingLog.groupBy({ by: ["doeId"], _count: { _all: true } }),
-    prisma.kindlingLog.groupBy({ by: ["doeId"], _count: { _all: true }, _sum: { bornAlive: true } }),
+    // Both born counts: bornAliveAtKindling is frozen at birth («متوسط الخلفة»),
+    // bornAlive is what she ended up nursing after fostering/deaths («متوسط الرعاية»).
+    prisma.kindlingLog.groupBy({
+      by: ["doeId"],
+      _count: { _all: true },
+      _sum: { bornAlive: true, bornAliveAtKindling: true },
+    }),
     prisma.weaningLog.groupBy({ by: ["doeId"], _count: { _all: true }, _sum: { weaned: true, bornAlive: true } }),
     getDictionary(),
   ]);
 
   const matingByDoe = new Map(matingGroups.map((g) => [g.doeId, g._count._all]));
   const kindlingByDoe = new Map(
-    kindlingGroups.map((g) => [g.doeId, { count: g._count._all, bornAlive: g._sum.bornAlive ?? 0 }])
+    kindlingGroups.map((g) => [
+      g.doeId,
+      {
+        count: g._count._all,
+        bornAlive: g._sum.bornAlive ?? 0,
+        bornAtKindling: g._sum.bornAliveAtKindling ?? 0,
+      },
+    ])
   );
   const weaningByDoe = new Map(
     weaningGroups.map((g) => [g.doeId, { count: g._count._all, weaned: g._sum.weaned ?? 0, bornAlive: g._sum.bornAlive ?? 0 }])
@@ -74,6 +87,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     const k = kindlingByDoe.get(doe.id);
     const totalKindlings = k?.count ?? 0;
     const bornAlive = k?.bornAlive ?? 0;
+    const bornAtKindling = k?.bornAtKindling ?? 0;
     const w = weaningByDoe.get(doe.id);
     const weanings = w?.count ?? 0;
     const weaned = w?.weaned ?? 0;
@@ -88,6 +102,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     const resolved = Math.max(0, totalBreedings - openMatings);
 
     const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
+    const avgBornAtKindling = totalKindlings > 0 ? bornAtKindling / totalKindlings : null;
     const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
     const avgWeaned = weanings > 0 ? weaned / weanings : null;
     const weaningSurvivalRate = bornAliveForWeaned > 0 ? (weaned / bornAliveForWeaned) * 100 : null;
@@ -111,6 +126,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
       totalBreedings,
       totalKindlings,
       fertilityRate,
+      avgBornAtKindling,
       avgBorn,
       avgWeaned,
       weaningSurvivalRate,
@@ -201,11 +217,12 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
               { key: "breedings", label: t.doesFertility.colBreedings, type: "number", className: "text-center" },
               { key: "kindlings", label: t.doesFertility.colKindlings, type: "number", className: "text-center" },
               { key: "fertilityRate", label: t.doesFertility.colFertilityRate, type: "number", className: "text-center" },
+              { key: "avgBornAtKindling", label: t.doesFertility.colAvgBornAtKindling, type: "number", className: "text-center" },
               { key: "avgBorn", label: t.doesFertility.colAvgBorn, type: "number", className: "text-center" },
               { key: "avgWeaned", label: t.doesFertility.colAvgWeaned, type: "number", className: "text-center" },
               { key: "weaningSurvival", label: t.doesFertility.colWeaningSurvivalRate, type: "number", className: "text-center" },
             ]}
-            rows={rowData.map(({ doe, totalBreedings, totalKindlings, fertilityRate, avgBorn, avgWeaned, weaningSurvivalRate }) => ({
+            rows={rowData.map(({ doe, totalBreedings, totalKindlings, fertilityRate, avgBornAtKindling, avgBorn, avgWeaned, weaningSurvivalRate }) => ({
               key: doe.id,
               sortValues: {
                 doeTag: doe.tagId,
@@ -215,6 +232,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
                 breedings: totalBreedings,
                 kindlings: totalKindlings,
                 fertilityRate: fertilityRate ?? -1,
+                avgBornAtKindling: avgBornAtKindling ?? -1,
                 avgBorn: avgBorn ?? -1,
                 avgWeaned: avgWeaned ?? -1,
                 weaningSurvival: weaningSurvivalRate ?? -1,
@@ -237,6 +255,9 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
                   <TableCell className="font-medium tabular-nums">{totalKindlings}</TableCell>
                   <TableCell className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                     {fertilityRate != null ? `${Math.round(fertilityRate)}%` : "—"}
+                  </TableCell>
+                  <TableCell className="font-medium tabular-nums text-indigo-600 dark:text-indigo-400">
+                    {avgBornAtKindling != null ? avgBornAtKindling.toFixed(1) : "—"}
                   </TableCell>
                   <TableCell className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
                     {avgBorn != null ? avgBorn.toFixed(1) : "—"}

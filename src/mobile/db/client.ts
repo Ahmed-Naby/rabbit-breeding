@@ -105,6 +105,16 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     `ALTER TABLE kindling_log ADD COLUMN breedingId TEXT`,
     `ALTER TABLE kindling_log ADD COLUMN bornAlive INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE kindling_log ADD COLUMN bornDead INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN fosterWindowDays INTEGER NOT NULL DEFAULT 2`,
+    `ALTER TABLE settings_cache ADD COLUMN fosterHighKits INTEGER NOT NULL DEFAULT 8`,
+    `ALTER TABLE settings_cache ADD COLUMN fosterLowKits INTEGER NOT NULL DEFAULT 4`,
+    `ALTER TABLE kindling_log ADD COLUMN bornAliveAtKindling INTEGER NOT NULL DEFAULT 0`,
+    // Backfill for rows that predate the column, matching the server
+    // migration: bornAlive is the closest surviving value, exact for any litter
+    // that never lost or fostered a kit. This one re-runs on every startup
+    // (each statement is independently try/caught), which is harmless — the
+    // WHERE skips every row the server has since sent a real value for.
+    `UPDATE kindling_log SET bornAliveAtKindling = bornAlive WHERE bornAliveAtKindling = 0`,
   ];
   for (const sql of migrations) {
     try {

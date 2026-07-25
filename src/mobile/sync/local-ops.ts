@@ -64,6 +64,9 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
       nestBoxDays: 27,
       matingWeightGrams: 3000,
       rebreedAfterKindlingDays: 0,
+      fosterWindowDays: 2,
+      fosterHighKits: 8,
+      fosterLowKits: 4,
       currency: "EGP",
     }
   );
@@ -119,6 +122,8 @@ async function insertPregnancyTestLog(
  * The log is an append-only archive: bornAlive/bornDead live on the row and
  * are mirrored one-way from the live litter (see mirrorKindlingLogCounts) so
  * a re-mate that reuses this breeding never rewrites a prior cycle's row.
+ * bornAliveAtKindling is the same number captured here and then left alone
+ * forever — the mirror deliberately never touches it (see «عدد الخلفة»).
  */
 async function insertKindlingLog(
   db: SQLiteDBConnection,
@@ -134,8 +139,8 @@ async function insertKindlingLog(
 ): Promise<void> {
   await run(
     db,
-    `INSERT INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       `local-${createId()}`,
       args.doeId,
@@ -145,6 +150,7 @@ async function insertKindlingLog(
       args.kindlingDate,
       args.bornAlive ?? 0,
       args.bornDead ?? 0,
+      args.bornAlive ?? 0,
       nowIso(),
     ]
   );
@@ -1385,14 +1391,16 @@ export async function updateSettings(
 ): Promise<LocalOpOutcome> {
   await run(
     db,
-    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
        gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
        palpationCheckDays = excluded.palpationCheckDays,
        weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
        matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
+       fosterWindowDays = excluded.fosterWindowDays, fosterHighKits = excluded.fosterHighKits,
+       fosterLowKits = excluded.fosterLowKits,
        currency = excluded.currency`,
     [
       payload.weightUnit ?? 'kg',
@@ -1404,6 +1412,9 @@ export async function updateSettings(
       payload.nestBoxDays ?? 27,
       payload.matingWeightGrams ?? 3000,
       payload.rebreedAfterKindlingDays ?? 0,
+      payload.fosterWindowDays ?? 2,
+      payload.fosterHighKits ?? 8,
+      payload.fosterLowKits ?? 4,
       payload.currency ?? 'USD'
     ]
   );

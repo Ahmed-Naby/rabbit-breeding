@@ -12,7 +12,7 @@ export const ar = {
     weaning: "عمليات الفطام",
     weaningSales: "البيع",
     does: "عمليات المزرعة",
-    dailyRounds: "المتابعة اليومية",
+    dailyRounds: "متابعة الأمهات والذكور",
     health: "الصحة",
     reports: "التقارير",
     records: "السجلات",
@@ -71,6 +71,15 @@ export const ar = {
     rebreedIntensive: "مكثف — تلقيح يوم الولادة",
     rebreedSemiIntensive: "نصف مكثف — 15 يومًا بعد الولادة",
     rebreedNatural: "طبيعي — 30 يومًا بعد الولادة",
+    fosterWindowDaysLabel: "مدة البحث عن أمهات للتبني (أيام)",
+    fosterWindowDaysHint:
+      "الأمهات اللي ولدت خلال هذه المدة بس هي اللي تظهر في قائمتي مساعدة التبني (الافتراضي 2).",
+    fosterHighKitsLabel: "حد الخلفة الكبيرة (عدد الرضاعة)",
+    fosterHighKitsHint:
+      "الأم اللي عندها هذا العدد أو أكثر تظهر في قائمة «انقل منها» (الافتراضي 8).",
+    fosterLowKitsLabel: "حد الخلفة الصغيرة (عدد الرضاعة)",
+    fosterLowKitsHint:
+      "الأم اللي عندها هذا العدد أو أقل تظهر في قائمة «انقل إليها» (الافتراضي 4).",
     saveButton: "حفظ الإعدادات",
     savedToast: "تم الحفظ",
     breedAlreadyExists: "هذا النوع مسجل بالفعل",
@@ -88,7 +97,7 @@ export const ar = {
     resetOpsKeepNote:
       "يبقى: الأرانب الحية والذكور والأنواع المسجلة. تُحذف الأرانب المسجَّلة نافقة أو مستبعدة، وتُصفَّر حالة كل الأمهات إلى «فارغة».",
     resetOpsConfirmWord: "حذف العمليات",
-    resetOpsConfirmLabel: (word: string) => `اكتب «${word}» للتأكيد`,
+    resetOpsConfirmLabel: "اكتب «{word}» للتأكيد",
     resetOpsButton: "حذف كل العمليات",
     resettingOpsLabel: "جارِ الحذف…",
     resetOpsSuccessToast: "تم حذف كل العمليات",
@@ -646,6 +655,19 @@ export const ar = {
     toLabel: "إلى (رقم الأم المنقول إليها)",
     countLabel: "العدد",
     submitButton: "حفظ",
+    // مساعدة قرار التبني: قائمتين بس — أمهات ينقل منها وأمهات ينقل إليها.
+    // النقل نفسه يفضل يدوي من النموذج فوق.
+    highTitle: "أمهات خلفتها كبيرة — انقل منها",
+    highDescription: "ولدت خلال آخر {days} يوم وعندها {n} رضيع أو أكثر.",
+    highEmpty: "لا توجد أمهات بخلفة كبيرة في هذه المدة",
+    lowTitle: "أمهات خلفتها صغيرة — انقل إليها",
+    lowDescription: "ولدت خلال آخر {days} يوم وعندها {n} رضيع أو أقل.",
+    lowEmpty: "لا توجد أمهات بخلفة صغيرة في هذه المدة",
+    colIndex: "م",
+    colDoe: "رقم الأم",
+    colCage: "القفص",
+    colKindlingDate: "تاريخ الولادة",
+    colKits: "عدد الرضاعة",
   },
   mortality: {
     title: "حصر النافق",
@@ -661,16 +683,25 @@ export const ar = {
     colRecordDeath: "تسجيل وفاة",
     mothersSectionTitle: "نافق الأمهات",
     mothersEmptyTitle: "لا توجد أمهات مسجلة",
+    mothersFormHint: "اكتب رقم الأم النافقة ثم اضغط «تسجيل نافق».",
+    motherTagPlaceholder: "اكتب رقم الأم",
+    motherNotFound: "لا توجد أم بهذا الرقم في القطيع",
     colRecordDeceased: "تسجيل نافق",
     motherDeathConfirm: (tag: string) =>
       `هل تريد تسجيل وفاة الأم رقم ${tag}؟ سيتم نقلها إلى جدول الأمهات النافقة.`,
     bucksSectionTitle: "نافق الذكور",
     bucksEmptyTitle: "لا يوجد ذكور مسجلون",
+    bucksFormHint: "اكتب رقم الذكر النافق ثم اضغط «تسجيل نافق».",
+    buckTagPlaceholder: "اكتب رقم الذكر",
+    buckNotFound: "لا يوجد ذكر بهذا الرقم في القطيع",
     colBuckTag: "رقم الذكر",
     buckDeathConfirm: (tag: string) =>
       `هل تريد تسجيل وفاة الذكر رقم ${tag}؟ سيتم نقله إلى جدول الذكور النافقة.`,
     strainsSectionTitle: "نافق السلالات",
     strainsEmptyTitle: "لا توجد سلالات مسجلة",
+    strainsFormHint: "اكتب رقم القفص لعرض السلالات اللي فيه.",
+    cagePlaceholder: "اكتب رقم القفص",
+    cageNotFound: "لا توجد سلالات في هذا القفص",
     colSex: "النوع",
     colStrainBreed: "السلالة",
     colCage: "رقم القفص",
@@ -792,7 +823,7 @@ export const ar = {
     tabMortality: "حصر النافق",
   },
   dailyRounds: {
-    title: "المتابعة اليومية",
+    title: "متابعة الأمهات والذكور",
     description: "المرور اليومي واللف السريع على الأمهات والذكور وتسجيل الملاحظات مباشرة.",
     tabDoesRounds: "اللف على الأمهات",
     tabBucksRounds: "اللف على الذكور",
@@ -860,7 +891,7 @@ export const ar = {
     damPlaceholder: "اختر أنثى…",
     acquiredDateLabel: "تاريخ الاقتناء",
     acquiredFromLabel: "مصدر الاقتناء",
-    acquiredFromPlaceholder: "مثال: مزرعة مابل ريدج",
+    acquiredFromPlaceholder: "مثال: مزرعة أسامة البيلي",
     photoUrlLabel: "رابط الصورة",
     notesLabel: "ملاحظات",
     cancelButton: "إلغاء",
@@ -894,6 +925,9 @@ export const ar = {
     colTestDate: "تاريخ الجس",
     colTestResult: "نتيجة الجس",
     colKindlingDate: "تاريخ الولادة",
+    // عدد الخلفة = اللي اتولدوا أحياء لحظة الولادة، رقم ثابت مايتغيرش.
+    // أحياء/نافق بعده = الرعاية، يعني العدد بعد التبني والنفوق.
+    colBornAtKindling: "عدد الخلفة",
     colBornAlive: "أحياء",
     colBornDead: "نافق",
     colWeaningDate: "تاريخ الفطام",
@@ -1016,7 +1050,12 @@ export const ar = {
     colBreedings: "عدد التلقيحات",
     colKindlings: "عدد الولادات",
     colFertilityRate: "معدل الخصوبة",
-    colAvgBorn: "متوسط عدد الخلفات",
+    // متوسط البطون الحقيقي: بيتحسب من KindlingLog.bornAliveAtKindling الثابت
+    // لحظة الولادة، فالتبني والنفوق مابيأثروش عليه.
+    colAvgBornAtKindling: "متوسط الخلفة",
+    // «الرعاية» مش «الخلفة»: التقرير ده بيجمع KindlingLog.bornAlive وهو العدد
+    // بعد التبني والنفوق. «عدد الخلفة» الثابت لحظة الولادة في صفحة الأم.
+    colAvgBorn: "متوسط الرعاية",
     colAvgWeaned: "متوسط عدد الفطام",
     colWeaningSurvivalRate: "نسبة بقاء الفطام",
     emptyTitle: "لا توجد أمهات مسجلة",
@@ -1027,7 +1066,8 @@ export const ar = {
     statTotalBreedings: "عدد مرات التلقيح",
     statWeaningSurvival: "نسبة الحفاظ على الفطام",
     statAvgWeaned: "متوسط عدد الفطام",
-    statAvgBorn: "متوسط عدد الخلفات",
+    // نفس رقم العمود بس على مستوى المزرعة — لازم يفضل بنفس الاسم.
+    statAvgBorn: "متوسط الرعاية",
   },
   bucksFertility: {
     title: "تقرير خصوبة الذكور",

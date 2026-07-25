@@ -131,7 +131,8 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     queryOne<Row>(
       db,
       `SELECT weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays,
-              nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency
+              nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays,
+              fosterWindowDays, fosterHighKits, fosterLowKits, currency
        FROM settings_cache WHERE id = 1`
     ),
     queryAll<Row>(
@@ -178,7 +179,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     ),
     queryAll<Row>(
       db,
-      "SELECT id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt FROM kindling_log"
+      "SELECT id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt FROM kindling_log"
     ),
     queryAll<Row>(
       db,

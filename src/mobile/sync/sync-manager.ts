@@ -274,14 +274,16 @@ export async function pull(): Promise<boolean> {
   if (data.settings) {
     const s = data.settings;
     set.push({
-      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, currency)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
          gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
          palpationCheckDays = excluded.palpationCheckDays,
          weaningDays = excluded.weaningDays, nestBoxDays = excluded.nestBoxDays,
          matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
+         fosterWindowDays = excluded.fosterWindowDays, fosterHighKits = excluded.fosterHighKits,
+         fosterLowKits = excluded.fosterLowKits,
          currency = excluded.currency`,
       values: [
         s.weightUnit,
@@ -293,6 +295,13 @@ export async function pull(): Promise<boolean> {
         s.nestBoxDays,
         s.matingWeightGrams,
         s.rebreedAfterKindlingDays,
+        // Coalesced: a device can run ahead of the server (app updated before
+        // the server migration lands), and the missing columns would otherwise
+        // bind as NULL and blow up the NOT NULL settings_cache insert — taking
+        // the whole pull down with it. Defaults mirror the Prisma schema.
+        s.fosterWindowDays ?? 2,
+        s.fosterHighKits ?? 8,
+        s.fosterLowKits ?? 4,
         s.currency,
       ],
     });
@@ -480,19 +489,26 @@ export async function pull(): Promise<boolean> {
 
   if (data.kindlingLogs) {
     for (const log of data.kindlingLogs) {
-      // Drop this device's optimistic placeholder (local-ops' insertKindlingLog)
-      // before the server's authoritative row lands, or the same birth shows
-      // twice in سجل الولادة. Keyed on doeId + kindlingDate, NOT matingDate:
-      // that column is nullable, and SQL '= NULL' matches nothing — while a
-      // doe kindles at most once on a given date anyway.
+      // Insert BEFORE dropping the placeholder (below), so the subquery in the
+      // bornAliveAtKindling slot can still read the value this device froze at
+      // kindling time. A server that hasn't run the add_born_alive_at_kindling
+      // migration sends no such column at all, and blindly writing bornAlive
+      // there would replace a correct birth count with the nursing count —
+      // silently, on every pull. Preference order: the server's value, else the
+      // best value already on this device for that birth, else bornAlive. The
+      // ORDER BY picks the largest local candidate because kits only ever
+      // *leave* a litter, so the birth count is never below a later count.
       set.push({
-        statement:
-          "DELETE FROM kindling_log WHERE id LIKE 'local-%' AND doeId = ? AND kindlingDate = ?",
-        values: [log.doeId, log.kindlingDate],
-      });
-      set.push({
-        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+           COALESCE(
+             ?,
+             (SELECT bornAliveAtKindling FROM kindling_log
+               WHERE doeId = ? AND kindlingDate = ?
+               ORDER BY bornAliveAtKindling DESC LIMIT 1),
+             ?
+           ),
+           ?)`,
         values: [
           log.id,
           log.doeId,
@@ -502,8 +518,22 @@ export async function pull(): Promise<boolean> {
           log.kindlingDate,
           log.bornAlive ?? 0,
           log.bornDead ?? 0,
+          log.bornAliveAtKindling ?? null,
+          log.doeId,
+          log.kindlingDate,
+          log.bornAlive ?? 0,
           log.createdAt,
         ],
+      });
+      // Drop this device's optimistic placeholder (local-ops' insertKindlingLog)
+      // now that the server's authoritative row has landed, or the same birth
+      // shows twice in سجل الولادة. Keyed on doeId + kindlingDate, NOT
+      // matingDate: that column is nullable, and SQL '= NULL' matches nothing —
+      // while a doe kindles at most once on a given date anyway.
+      set.push({
+        statement:
+          "DELETE FROM kindling_log WHERE id LIKE 'local-%' AND doeId = ? AND kindlingDate = ?",
+        values: [log.doeId, log.kindlingDate],
       });
     }
   }

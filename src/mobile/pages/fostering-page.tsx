@@ -4,6 +4,8 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchFosteringPageData, type LocalFosterLogEntry } from "../db/queries";
+import type { FosterCandidate } from "@/lib/fostering";
+import { FosterCandidates } from "./foster-candidates";
 import { enqueue } from "../sync/outbox";
 import { isToday } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,13 @@ import { FosteringLog } from "./fostering-log";
 export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
   const [logs, setLogs] = useState<LocalFosterLogEntry[] | null>(null);
+  const [candidates, setCandidates] = useState<{
+    large: FosterCandidate[];
+    small: FosterCandidate[];
+    windowDays: number;
+    highKits: number;
+    lowKits: number;
+  } | null>(null);
   const [fromTagId, setFromTagId] = useState("");
   const [toTagId, setToTagId] = useState("");
   const [count, setCount] = useState("");
@@ -24,6 +33,13 @@ export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHead
     const db = await getDb();
     const res = await fetchFosteringPageData(db);
     setLogs(res.logs);
+    setCandidates({
+      large: res.large,
+      small: res.small,
+      windowDays: res.settings.fosterWindowDays,
+      highKits: res.settings.fosterHighKits,
+      lowKits: res.settings.fosterLowKits,
+    });
   }, []);
 
   useEffect(() => {
@@ -79,6 +95,18 @@ export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHead
           <h1 className="text-2xl font-bold tracking-tight">{t.fostering.pageTitle}</h1>
           <p className="text-sm text-muted-foreground">{t.fostering.description}</p>
         </div>
+      )}
+
+      {candidates && (
+        <FosterCandidates
+          large={candidates.large}
+          small={candidates.small}
+          windowDays={candidates.windowDays}
+          highKits={candidates.highKits}
+          lowKits={candidates.lowKits}
+          locale={locale}
+          t={t.fostering}
+        />
       )}
 
       <Card>

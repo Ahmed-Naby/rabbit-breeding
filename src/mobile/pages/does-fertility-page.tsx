@@ -28,6 +28,9 @@ type FertilityRow = {
   totalBreedings: number;
   totalKindlings: number;
   fertilityRate: number | null;
+  /** «متوسط الخلفة» — from the frozen birth count, unmoved by fostering/deaths. */
+  avgBornAtKindling: number | null;
+  /** «متوسط الرعاية» — from the live nursing count. */
   avgBorn: number | null;
   avgWeaned: number | null;
   weaningSurvivalRate: number | null;
@@ -81,9 +84,12 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         "SELECT COUNT(*) AS c FROM mating_log WHERE doeId = ?",
         [doe.id]
       );
-      const kindlingRow = await queryOne<{ c: number; born: number }>(
+      const kindlingRow = await queryOne<{ c: number; born: number; bornAtKindling: number }>(
         db,
-        "SELECT COUNT(*) AS c, COALESCE(SUM(bornAlive), 0) AS born FROM kindling_log WHERE doeId = ?",
+        `SELECT COUNT(*) AS c,
+                COALESCE(SUM(bornAlive), 0) AS born,
+                COALESCE(SUM(bornAliveAtKindling), 0) AS bornAtKindling
+           FROM kindling_log WHERE doeId = ?`,
         [doe.id]
       );
       const weaningRow = await queryOne<{ c: number; weaned: number; born: number }>(
@@ -103,6 +109,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       const totalBreedings = matingRow?.c ?? 0;
       const totalKindlings = kindlingRow?.c ?? 0;
       const bornAlive = kindlingRow?.born ?? 0;
+      const bornAtKindling = kindlingRow?.bornAtKindling ?? 0;
       const weanings = weaningRow?.c ?? 0;
       const weaned = weaningRow?.weaned ?? 0;
       const bornAliveForWeaned = weaningRow?.born ?? 0;
@@ -110,6 +117,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       const resolved = Math.max(0, totalBreedings - openMatings);
 
       const fertilityRate = resolved > 0 ? (totalKindlings / resolved) * 100 : null;
+      const avgBornAtKindling = totalKindlings > 0 ? bornAtKindling / totalKindlings : null;
       const avgBorn = totalKindlings > 0 ? bornAlive / totalKindlings : null;
       const avgWeaned = weanings > 0 ? weaned / weanings : null;
       const weaningSurvivalRate = bornAliveForWeaned > 0 ? (weaned / bornAliveForWeaned) * 100 : null;
@@ -132,6 +140,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         totalBreedings,
         totalKindlings,
         fertilityRate,
+        avgBornAtKindling,
         avgBorn,
         avgWeaned,
         weaningSurvivalRate,
@@ -167,6 +176,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     breedings: { type: "number", value: (r) => r.totalBreedings },
     kindlings: { type: "number", value: (r) => r.totalKindlings },
     fertilityRate: { type: "number", value: (r) => r.fertilityRate ?? -1 },
+    avgBornAtKindling: { type: "number", value: (r) => r.avgBornAtKindling ?? -1 },
     avgBorn: { type: "number", value: (r) => r.avgBorn ?? -1 },
     avgWeaned: { type: "number", value: (r) => r.avgWeaned ?? -1 },
     weaningSurvival: { type: "number", value: (r) => r.weaningSurvivalRate ?? -1 },
@@ -304,6 +314,14 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                 />
                 <SortableTh
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={t.colAvgBornAtKindling}
+                  sortKey="avgBornAtKindling"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colAvgBorn}
                   sortKey="avgBorn"
                   activeSortKey={doesSort.sortKey}
@@ -351,6 +369,9 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums">{r.totalKindlings}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
                     {r.fertilityRate != null ? `${Math.round(r.fertilityRate)}%` : "—"}
+                  </td>
+                  <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-indigo-600 dark:text-indigo-400">
+                    {r.avgBornAtKindling != null ? r.avgBornAtKindling.toFixed(1) : "—"}
                   </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5 font-medium tabular-nums text-sky-600 dark:text-sky-400">
                     {r.avgBorn != null ? r.avgBorn.toFixed(1) : "—"}

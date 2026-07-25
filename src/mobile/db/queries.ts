@@ -19,6 +19,7 @@ import {
   isNursingKitDeathCandidate,
   type BaseBreeding
 } from "@/lib/breeding-filters";
+import { fosterWindowStart, splitFosterCandidates, type FosterCandidate } from "@/lib/fostering";
 
 export type DoeRow = {
   id: string;
@@ -41,6 +42,9 @@ const DEFAULT_SETTINGS: LocalSettings = {
   nestBoxDays: 27,
   matingWeightGrams: 3000,
   rebreedAfterKindlingDays: 0,
+  fosterWindowDays: 2,
+  fosterHighKits: 8,
+  fosterLowKits: 4,
   currency: "EGP",
 };
 
@@ -955,8 +959,41 @@ export type LocalFosterLogEntry = {
 export async function fetchFosteringPageData(db: SQLiteDBConnection): Promise<{
   logs: LocalFosterLogEntry[];
   settings: LocalSettings;
+  large: FosterCandidate[];
+  small: FosterCandidate[];
 }> {
   const settings = await getLocalSettings(db);
+
+  // Fresh, still-nursing litters — same rule as the web page (see lib/fostering).
+  const candidateRows = await queryAll<{
+    doeId: string;
+    tagId: string | null;
+    cage: string | null;
+    kindlingDate: string;
+    bornAlive: number;
+  }>(
+    db,
+    `SELECT r.id AS doeId, r.tagId AS tagId, r.cage AS cage,
+            l.kindlingDate AS kindlingDate, l.bornAlive AS bornAlive
+       FROM litter l
+       JOIN breeding b ON b.id = l.breedingId
+       JOIN rabbit r ON r.id = b.doeId
+      WHERE l.weaningDate IS NULL
+        AND l.kindlingDate >= ?
+        AND r.status = 'active'`,
+    [fosterWindowStart(settings.fosterWindowDays).toISOString()]
+  );
+  const { large, small } = splitFosterCandidates(
+    candidateRows.map((row) => ({
+      doeId: row.doeId,
+      tagId: row.tagId,
+      cage: row.cage,
+      kindlingDate: new Date(row.kindlingDate),
+      kits: row.bornAlive,
+    })),
+    settings.fosterHighKits,
+    settings.fosterLowKits
+  );
   const rows = await queryAll<{
     id: string;
     fromDoeId: string;
@@ -980,7 +1017,7 @@ export async function fetchFosteringPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  return { logs, settings };
+  return { logs, settings, large, small };
 }
 
 export type LocalKitLedgerEntry = {
@@ -1751,6 +1788,8 @@ export type DoeBreedingHistoryRow = {
   testDate: string | null;
   testResult: string | null;
   kindlingDate: string | null;
+  /** «عدد الخلفة» — born alive at the kindling moment, frozen (see the web twin). */
+  bornAliveAtKindling: number | null;
   bornAlive: number | null;
   bornDead: number | null;
   weaningDate: string | null;
@@ -1783,6 +1822,7 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
         testDate: null,
         testResult: null,
         kindlingDate: null,
+        bornAliveAtKindling: null,
         bornAlive: null,
         bornDead: null,
         weaningDate: null,
@@ -1822,15 +1862,23 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
     c.testResult = row.result;
   }
 
-  const kindlings = await queryAll<{ matingDate: string | null; kindlingDate: string; buckId: string | null }>(
+  const kindlings = await queryAll<{
+    matingDate: string | null;
+    kindlingDate: string;
+    buckId: string | null;
+    bornAliveAtKindling: number;
+  }>(
     db,
-    "SELECT matingDate, kindlingDate, buckId FROM kindling_log WHERE doeId = ?",
+    "SELECT matingDate, kindlingDate, buckId, bornAliveAtKindling FROM kindling_log WHERE doeId = ?",
     [doeId]
   );
   for (const row of kindlings) {
     const tag = await buckTag(row.buckId);
     const c = row.matingDate ? ensure(row.matingDate, tag) : ensure(row.kindlingDate, tag);
     c.kindlingDate = row.kindlingDate;
+    // Straight off the log row — the litter join below only feeds the live
+    // «الرعاية» counts, which fostering and deaths keep moving.
+    c.bornAliveAtKindling = row.bornAliveAtKindling;
   }
 
   const litters = await queryAll<{
@@ -1876,6 +1924,8 @@ export type BuckBreedingHistoryRow = {
   matingDate: string;
   testResult: string | null;
   kindlingDate: string | null;
+  /** Frozen birth count — not displayed here, but it's what his متوسط عدد الخلفة averages. */
+  bornAliveAtKindling: number | null;
   bornAlive: number | null;
   bornDead: number | null;
 };
@@ -1914,6 +1964,7 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
         matingDate,
         testResult: null,
         kindlingDate: null,
+        bornAliveAtKindling: null,
         bornAlive: null,
         bornDead: null,
       };
@@ -1942,9 +1993,14 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
     c.testResult = row.result;
   }
 
-  const kindlings = await queryAll<{ matingDate: string | null; kindlingDate: string; doeId: string }>(
+  const kindlings = await queryAll<{
+    matingDate: string | null;
+    kindlingDate: string;
+    doeId: string;
+    bornAliveAtKindling: number;
+  }>(
     db,
-    "SELECT matingDate, kindlingDate, doeId FROM kindling_log WHERE buckId = ?",
+    "SELECT matingDate, kindlingDate, doeId, bornAliveAtKindling FROM kindling_log WHERE buckId = ?",
     [buckId]
   );
   const kindlingKeyByDoeDay = new Map<string, string>();
@@ -1952,6 +2008,7 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
     const matingKey = row.matingDate ?? row.kindlingDate;
     const c = await ensure(row.doeId, matingKey);
     c.kindlingDate = row.kindlingDate;
+    c.bornAliveAtKindling = row.bornAliveAtKindling;
     kindlingKeyByDoeDay.set(`${row.doeId}_${dayKey(row.kindlingDate)}`, `${row.doeId}_${matingKey}`);
   }
 

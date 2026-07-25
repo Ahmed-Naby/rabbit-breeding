@@ -14,7 +14,7 @@ export const en: Dictionary = {
     weaning: "Weaning",
     weaningSales: "Sales",
     does: "Farm Operations",
-    dailyRounds: "Daily Inspection",
+    dailyRounds: "Doe & Buck Rounds",
     health: "Health",
     reports: "Reports",
     records: "Records",
@@ -73,6 +73,15 @@ export const en: Dictionary = {
     rebreedIntensive: "Intensive — mate on kindling day",
     rebreedSemiIntensive: "Semi-intensive — 15 days after kindling",
     rebreedNatural: "Natural — 30 days after kindling",
+    fosterWindowDaysLabel: "Fostering lookback (days)",
+    fosterWindowDaysHint:
+      "Only does that kindled within this many days show up in the two fostering lists (default 2).",
+    fosterHighKitsLabel: "Large litter threshold (kits)",
+    fosterHighKitsHint:
+      "A doe nursing this many kits or more is listed as a donor (default 8).",
+    fosterLowKitsLabel: "Small litter threshold (kits)",
+    fosterLowKitsHint:
+      "A doe nursing this many kits or fewer is listed as a recipient (default 4).",
     saveButton: "Save settings",
     savedToast: "Saved",
     breedAlreadyExists: "This breed is already registered",
@@ -90,7 +99,7 @@ export const en: Dictionary = {
     resetOpsKeepNote:
       "Kept: living rabbits, bucks, and registered breeds. Rabbits recorded as deceased or culled are deleted, and every doe's state is reset to “empty”.",
     resetOpsConfirmWord: "RESET OPERATIONS",
-    resetOpsConfirmLabel: (word: string) => `Type “${word}” to confirm`,
+    resetOpsConfirmLabel: "Type “{word}” to confirm",
     resetOpsButton: "Delete all operations",
     resettingOpsLabel: "Deleting…",
     resetOpsSuccessToast: "All operations deleted",
@@ -655,6 +664,17 @@ export const en: Dictionary = {
     toLabel: "To (doe # transferred to)",
     countLabel: "Count",
     submitButton: "Save",
+    highTitle: "Large litters — move kits out",
+    highDescription: "Kindled in the last {days} day(s) and nursing {n} kits or more.",
+    highEmpty: "No does with a large litter in this window",
+    lowTitle: "Small litters — move kits in",
+    lowDescription: "Kindled in the last {days} day(s) and nursing {n} kits or fewer.",
+    lowEmpty: "No does with a small litter in this window",
+    colIndex: "#",
+    colDoe: "Doe #",
+    colCage: "Cage",
+    colKindlingDate: "Kindling date",
+    colKits: "Nursing kits",
   },
   mortality: {
     title: "Mortality",
@@ -670,16 +690,25 @@ export const en: Dictionary = {
     colRecordDeath: "Record death",
     mothersSectionTitle: "Doe deaths",
     mothersEmptyTitle: "No does registered",
+    mothersFormHint: "Enter the deceased doe's number, then press “Record deceased”.",
+    motherTagPlaceholder: "Enter doe #",
+    motherNotFound: "No doe with this number in the herd",
     colRecordDeceased: "Record deceased",
     motherDeathConfirm: (tag: string) =>
       `Record death of doe #${tag}? She'll be moved to the deceased does table.`,
     bucksSectionTitle: "Buck deaths",
     bucksEmptyTitle: "No bucks registered",
+    bucksFormHint: "Enter the deceased buck's number, then press “Record deceased”.",
+    buckTagPlaceholder: "Enter buck #",
+    buckNotFound: "No buck with this number in the herd",
     colBuckTag: "Buck #",
     buckDeathConfirm: (tag: string) =>
       `Record death of buck #${tag}? He'll be moved to the deceased bucks table.`,
     strainsSectionTitle: "Juvenile deaths",
     strainsEmptyTitle: "No juveniles registered",
+    strainsFormHint: "Enter a cage number to list the juveniles in it.",
+    cagePlaceholder: "Enter cage #",
+    cageNotFound: "No juveniles in this cage",
     colSex: "Sex",
     colStrainBreed: "Breed",
     colCage: "Cage #",
@@ -802,7 +831,7 @@ export const en: Dictionary = {
     tabMortality: "Mortality Tracking",
   },
   dailyRounds: {
-    title: "Daily Inspection",
+    title: "Doe & Buck Rounds",
     description: "Daily farm rounds for does and bucks to record actions in real-time.",
     tabDoesRounds: "Does Rounds",
     tabBucksRounds: "Bucks Rounds",
@@ -902,6 +931,9 @@ export const en: Dictionary = {
     colTestDate: "Test date",
     colTestResult: "Test result",
     colKindlingDate: "Kindling date",
+    // Born = alive at the kindling moment, frozen. The Alive/Dead pair after it
+    // is the nursing count, i.e. after fostering and kit deaths.
+    colBornAtKindling: "Born",
     colBornAlive: "Alive",
     colBornDead: "Dead",
     colWeaningDate: "Weaning date",
@@ -1024,7 +1056,12 @@ export const en: Dictionary = {
     colBreedings: "Total Breedings",
     colKindlings: "Total Births",
     colFertilityRate: "Fertility Rate",
-    colAvgBorn: "Avg Born Kits",
+    // True litter size: averaged from the frozen KindlingLog.bornAliveAtKindling,
+    // so fostering and kit deaths can't move it.
+    colAvgBornAtKindling: "Avg Born",
+    // "Nursed", not "born": this report sums KindlingLog.bornAlive, the count
+    // after fostering and kit deaths. The frozen birth count lives on the doe page.
+    colAvgBorn: "Avg Nursed",
     colAvgWeaned: "Avg Weaned Kits",
     colWeaningSurvivalRate: "Weaning Survival",
     emptyTitle: "No does registered",
@@ -1035,7 +1072,8 @@ export const en: Dictionary = {
     statTotalBreedings: "Total Breedings",
     statWeaningSurvival: "Weaning Survival",
     statAvgWeaned: "Avg Weaned Kits",
-    statAvgBorn: "Avg Born Kits",
+    // Same number as the column, farm-wide — must keep the same name.
+    statAvgBorn: "Avg Nursed",
   },
   bucksFertility: {
     title: "Bucks Fertility Report",

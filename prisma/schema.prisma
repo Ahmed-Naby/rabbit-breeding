@@ -31,6 +31,15 @@ model Settings {
   nestBoxDays              Int       @default(27) // mating -> earliest nest-box installation offset
   matingWeightGrams        Int       @default(3000) // minimum weight to count as ready-to-breed vs. still "سلالة"
   rebreedAfterKindlingDays Int       @default(0) // kindling -> earliest rebreed offset (0=مكثف, 15=نصف مكثف, 30=طبيعي)
+  // Fostering (التبني) decision aid on the fostering page: two lists of does
+  // that kindled within the last `fosterWindowDays` days — one with big
+  // litters (bornAlive >= fosterHighKits), one with small ones
+  // (bornAlive <= fosterLowKits) — so the farm can move kits from the first
+  // group to the second. Only affects what's *listed*; the transfer itself is
+  // still typed in by hand (transferKitsOp).
+  fosterWindowDays         Int       @default(2) // how many days back to look for fresh kindlings
+  fosterHighKits           Int       @default(8) // "خلفة كبيرة" threshold (inclusive)
+  fosterLowKits            Int       @default(4) // "خلفة صغيرة" threshold (inclusive)
   currency                 String    @default("USD")
   // Set (to now()) whenever the "wipe online database" danger-zone action
   // runs. Returned to every client on every pull/bootstrap (Settings is
@@ -331,8 +340,17 @@ model KindlingLog {
   kindlingDate DateTime
   // Snapshot of the litter's born counts, mirrored one-way from Litter while
   // the litter is the doe's current cycle; frozen once she starts a new cycle.
+  // These are the *nursing* ("الرعاية") numbers: fostering and kit deaths move
+  // them, so they answer "how many is she raising", not "how many she had".
   bornAlive    Int       @default(0)
   bornDead     Int       @default(0)
+  // How many kits were born alive at the kindling moment ("عدد الخلفة").
+  // Written once, at create, and NEVER mirrored — it is the doe's real litter
+  // size, which is what متوسط عدد الخلفة must average. Rows created before this
+  // column existed were backfilled from the (already-mutated) bornAlive, so
+  // historical values can be off by any fostering/mortality that happened
+  // before the backfill.
+  bornAliveAtKindling Int @default(0)
   createdAt    DateTime  @default(now())
 
   @@index([doeId])

@@ -553,6 +553,9 @@ export async function markKindledOp(
         kindlingDate: actualKindlingDate,
         bornAlive,
         bornDead,
+        // Frozen at birth — the mirrors below (deaths, fostering) only ever
+        // touch bornAlive/bornDead, never this.
+        bornAliveAtKindling: bornAlive,
       },
     }),
     prisma.breeding.update({
@@ -1174,6 +1177,8 @@ export async function recordKindlingOp(
         kindlingDate: data.kindlingDate,
         bornAlive: data.bornAlive,
         bornDead: data.bornDead,
+        // Frozen at birth — see the sibling create in recordKindling.
+        bornAliveAtKindling: data.bornAlive,
       },
     }),
     // If this form records an already-weaned litter in one shot, the weaning

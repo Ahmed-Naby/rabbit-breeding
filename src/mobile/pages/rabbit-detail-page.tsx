@@ -70,6 +70,7 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
     testDate: { type: "date", value: (r) => r.testDate },
     testResult: { type: "string", value: (r) => r.testResult },
     kindlingDate: { type: "date", value: (r) => r.kindlingDate },
+    bornAliveAtKindling: { type: "number", value: (r) => r.bornAliveAtKindling },
     bornAlive: { type: "number", value: (r) => r.bornAlive },
     bornDead: { type: "number", value: (r) => r.bornDead },
     weaningDate: { type: "date", value: (r) => r.weaningDate },
@@ -248,6 +249,14 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
                   />
                   <SortableTh
                     className="px-4 py-3 text-center"
+                    label={t.colBornAtKindling}
+                    sortKey="bornAliveAtKindling"
+                    activeSortKey={doeHistorySort.sortKey}
+                    direction={doeHistorySort.direction}
+                    onSort={doeHistorySort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
                     label={t.colBornAlive}
                     sortKey="bornAlive"
                     activeSortKey={doeHistorySort.sortKey}
@@ -291,6 +300,7 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
                     <td className="hidden md:table-cell px-4 py-3.5">{c.testDate ? <LocalDate date={c.testDate} locale={locale} /> : "—"}</td>
                     <td className="px-4 py-3.5">{c.testResult ? label(c.testResult, locale) : "—"}</td>
                     <td className="px-4 py-3.5">{c.kindlingDate ? <LocalDate date={c.kindlingDate} locale={locale} /> : "—"}</td>
+                    <td className="px-4 py-3.5 font-medium">{c.bornAliveAtKindling ?? "—"}</td>
                     <td className="px-4 py-3.5">{c.bornAlive ?? "—"}</td>
                     <td className="px-4 py-3.5">{c.bornDead ?? "—"}</td>
                     <td className="px-4 py-3.5">{c.weaningDate ? <LocalDate date={c.weaningDate} locale={locale} /> : "—"}</td>
@@ -446,6 +456,7 @@ function BuckFertilityCards({
     history.map((c) => ({
       testResult: c.testResult,
       kindlingDate: c.kindlingDate,
+      bornAliveAtKindling: c.bornAliveAtKindling,
       bornAlive: c.bornAlive,
       weaned: null,
     }))

@@ -78,6 +78,9 @@ export type LocalSettings = {
   nestBoxDays: number;
   matingWeightGrams: number;
   rebreedAfterKindlingDays: number;
+  fosterWindowDays: number;
+  fosterHighKits: number;
+  fosterLowKits: number;
   currency: string;
 };
 

@@ -18,6 +18,12 @@ export type DoeCycle = {
   testDate: Date | null;
   testResult: string | null;
   kindlingDate: Date | null;
+  /**
+   * «عدد الخلفة» — how many were born alive, frozen at the kindling moment.
+   * Comes straight off KindlingLog and never moves again, unlike the two
+   * «الرعاية» counts below which follow fostering and kit deaths.
+   */
+  bornAliveAtKindling: number | null;
   bornAlive: number | null;
   bornDead: number | null;
   weaningDate: Date | null;
@@ -52,6 +58,7 @@ export function buildDoeCycles({
   kindlings: {
     matingDate: Date | null;
     kindlingDate: Date;
+    bornAliveAtKindling: number;
     buck: { tagId: string | null } | null;
   }[];
   litters: {
@@ -80,6 +87,7 @@ export function buildDoeCycles({
         testDate: null,
         testResult: null,
         kindlingDate: null,
+        bornAliveAtKindling: null,
         bornAlive: null,
         bornDead: null,
         weaningDate: null,
@@ -109,6 +117,9 @@ export function buildDoeCycles({
       ? ensure(k.matingDate, k.buck?.tagId ?? null)
       : ensure(k.kindlingDate, k.buck?.tagId ?? null);
     c.kindlingDate = k.kindlingDate;
+    // Read off the log row itself, not the litter join below: this is the one
+    // number no later event is allowed to move.
+    c.bornAliveAtKindling = k.bornAliveAtKindling;
   }
 
   // kindlingDate + doe (day-level) -> litter counts, same best-effort join
@@ -172,6 +183,7 @@ export function BreedingHistoryPanel({
           { key: "testDate", label: t.colTestDate, type: "date", className: "text-center" },
           { key: "testResult", label: t.colTestResult, type: "string", className: "text-center" },
           { key: "kindlingDate", label: t.colKindlingDate, type: "date", className: "text-center" },
+          { key: "bornAliveAtKindling", label: t.colBornAtKindling, type: "number", className: "text-center" },
           { key: "bornAlive", label: t.colBornAlive, type: "number", className: "text-center" },
           { key: "bornDead", label: t.colBornDead, type: "number", className: "text-center" },
           { key: "weaningDate", label: t.colWeaningDate, type: "date", className: "text-center" },
@@ -185,6 +197,7 @@ export function BreedingHistoryPanel({
             testDate: c.testDate,
             testResult: c.testResult,
             kindlingDate: c.kindlingDate,
+            bornAliveAtKindling: c.bornAliveAtKindling,
             bornAlive: c.bornAlive,
             bornDead: c.bornDead,
             weaningDate: c.weaningDate,
@@ -205,6 +218,7 @@ export function BreedingHistoryPanel({
               <TableCell>
                 {c.kindlingDate ? <LocalDate date={c.kindlingDate} locale={locale} /> : "—"}
               </TableCell>
+              <TableCell className="font-medium">{c.bornAliveAtKindling ?? "—"}</TableCell>
               <TableCell>{c.bornAlive ?? "—"}</TableCell>
               <TableCell>{c.bornDead ?? "—"}</TableCell>
               <TableCell>

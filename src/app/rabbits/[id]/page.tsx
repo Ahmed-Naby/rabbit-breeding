@@ -57,6 +57,7 @@ export default async function RabbitDetailPage({
           select: {
             matingDate: true,
             kindlingDate: true,
+            bornAliveAtKindling: true,
             buck: { select: { tagId: true } },
           },
         }),
@@ -92,6 +93,7 @@ export default async function RabbitDetailPage({
           select: {
             matingDate: true,
             kindlingDate: true,
+            bornAliveAtKindling: true,
             doe: { select: { id: true, tagId: true, breed: true } },
           },
         }),
@@ -137,6 +139,7 @@ export default async function RabbitDetailPage({
         buckCycles.map((c) => ({
           testResult: c.testResult,
           kindlingDate: c.kindlingDate,
+          bornAliveAtKindling: c.bornAliveAtKindling,
           bornAlive: c.bornAlive,
           weaned: null,
         }))

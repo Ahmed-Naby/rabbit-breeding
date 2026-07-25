@@ -76,6 +76,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [nestBoxDays, setNestBoxDays] = useState("");
   const [matingWeightGrams, setMatingWeightGrams] = useState("");
   const [rebreedAfterKindlingDays, setRebreedAfterKindlingDays] = useState("0");
+  const [fosterWindowDays, setFosterWindowDays] = useState("");
+  const [fosterHighKits, setFosterHighKits] = useState("");
+  const [fosterLowKits, setFosterLowKits] = useState("");
   const [currency, setCurrency] = useState("EGP");
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -108,6 +111,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         nestBoxDays: 27,
         matingWeightGrams: 3000,
         rebreedAfterKindlingDays: 0,
+        fosterWindowDays: 2,
+        fosterHighKits: 8,
+        fosterLowKits: 4,
         currency: "EGP",
       };
       setSettings(s);
@@ -123,6 +129,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       setNestBoxDays(String(s.nestBoxDays ?? 27));
       setMatingWeightGrams(String(s.matingWeightGrams ?? 3000));
       setRebreedAfterKindlingDays(String(s.rebreedAfterKindlingDays ?? 0));
+      setFosterWindowDays(String(s.fosterWindowDays ?? 2));
+      setFosterHighKits(String(s.fosterHighKits ?? 8));
+      setFosterLowKits(String(s.fosterLowKits ?? 4));
       setCurrency(s.currency ?? "EGP");
     } catch (err) {
       console.error("[SettingsPage] Error loading settings:", err);
@@ -138,6 +147,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         nestBoxDays: 27,
         matingWeightGrams: 3000,
         rebreedAfterKindlingDays: 0,
+        fosterWindowDays: 2,
+        fosterHighKits: 8,
+        fosterLowKits: 4,
         currency: "EGP",
       });
     }
@@ -161,6 +173,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         nestBoxDays: parseInt(nestBoxDays, 10),
         matingWeightGrams: parseInt(matingWeightGrams, 10),
         rebreedAfterKindlingDays: parseInt(rebreedAfterKindlingDays, 10),
+        fosterWindowDays: parseInt(fosterWindowDays, 10),
+        fosterHighKits: parseInt(fosterHighKits, 10),
+        fosterLowKits: parseInt(fosterLowKits, 10),
         currency,
       };
 
@@ -438,6 +453,42 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                   ))}
                 </SelectContent>
               </Select>
+            </FieldLayout>
+
+            <FieldLayout label={t.settings.fosterWindowDaysLabel} hint={t.settings.fosterWindowDaysHint}>
+              <Input
+                id="fosterWindowDays"
+                type="number"
+                min={0}
+                max={14}
+                value={fosterWindowDays}
+                onChange={(e) => setFosterWindowDays(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            <FieldLayout label={t.settings.fosterHighKitsLabel} hint={t.settings.fosterHighKitsHint}>
+              <Input
+                id="fosterHighKits"
+                type="number"
+                min={1}
+                max={20}
+                value={fosterHighKits}
+                onChange={(e) => setFosterHighKits(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            <FieldLayout label={t.settings.fosterLowKitsLabel} hint={t.settings.fosterLowKitsHint}>
+              <Input
+                id="fosterLowKits"
+                type="number"
+                min={0}
+                max={20}
+                value={fosterLowKits}
+                onChange={(e) => setFosterLowKits(e.target.value)}
+                disabled={savingSettings}
+              />
             </FieldLayout>
           </CardContent>
         </Card>
