@@ -495,11 +495,13 @@ export async function installNestBoxOp(breedingId: string): Promise<Breeding> {
  * "ولادة" from the does board: confirms today as the actual kindling date
  * (frozen independently of matingDate, so تاريخ الولادة keeps showing while
  * nursing) and clears تاريخ التلقيح, since that mating cycle is now complete.
- * Also clears any leftover weaningDate on this row's litter from a
- * *previous* cycle (a re-mated doe reuses the same breeding row) — needed so
- * this fresh, not-yet-weaned nursing cycle doesn't read as already weaned.
- * "عدد الفطام" itself is left untouched here; it's only ever reset by
- * "فطام" (a fresh weaning event) or "مسح", never by a new kindling.
+ * On a re-mated doe the same breeding row — and so the same litter row — is
+ * reused (see markMated's else branch), so everything the PREVIOUS cycle left
+ * on it is wiped here: kindlingDate is moved to today's birth, and
+ * weaningDate/weaned/weaningWeightGrams all go back to null. This row now
+ * describes a brand-new, not-yet-weaned litter, and «عدد الفطام»/«وزن الفطام»
+ * must start empty waiting for it — the old cycle's numbers are not lost,
+ * markWeaned already froze them into a permanent WeaningLog row.
  *
  * Also snapshots this breeding row's matingDate/buckId into a permanent
  * KindlingLog entry — needed because the row's actualKindlingDate/matingDate
@@ -537,12 +539,21 @@ export async function markKindledOp(
   await prisma.$transaction([
     // Upsert, not updateMany: at a first kindling there's normally no litter
     // row yet, so it's created here carrying the confirmed counts; on a reused
-    // breeding row (re-mated doe) it's updated in place. weaningDate is cleared
-    // either way so this fresh nursing cycle doesn't read as already weaned.
+    // breeding row (re-mated doe) it's reset in place to describe this new
+    // litter and nothing of the previous one — including kindlingDate, which
+    // is what /fostering and the breeding-history day-join match litters on,
+    // so leaving it stale attached this cycle's counts to the old cycle's row.
     prisma.litter.upsert({
       where: { breedingId },
       create: { breedingId, kindlingDate: actualKindlingDate, bornAlive, bornDead, weaningDate: null },
-      update: { bornAlive, bornDead, weaningDate: null },
+      update: {
+        kindlingDate: actualKindlingDate,
+        bornAlive,
+        bornDead,
+        weaningDate: null,
+        weaned: null,
+        weaningWeightGrams: null,
+      },
     }),
     prisma.kindlingLog.create({
       data: {
@@ -598,7 +609,13 @@ export async function markKindledOp(
 async function currentBornDeadAtKindling(breedingId: string): Promise<number> {
   const log = await prisma.kindlingLog.findFirst({
     where: { breedingId },
-    orderBy: { kindlingDate: "desc" },
+    // createdAt breaks the tie, and it is not optional: kindlingDate is a
+    // date, not a timestamp, so two cycles of a reused breeding row that were
+    // both recorded on the same day compare equal and the database is free to
+    // return either. It returned the older one, whose bornDeadAtKindling was
+    // the -1 sentinel, and «نسبة النجاح» rendered «—» for a weaning that had
+    // every number it needed.
+    orderBy: [{ kindlingDate: "desc" }, { createdAt: "desc" }],
     select: { bornDeadAtKindling: true },
   });
   return log?.bornDeadAtKindling ?? -1;

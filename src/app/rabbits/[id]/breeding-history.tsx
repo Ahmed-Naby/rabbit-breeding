@@ -47,6 +47,7 @@ export function buildDoeCycles({
   pregnancyTests,
   kindlings,
   litters,
+  weanings,
   ongoing,
 }: {
   pregnancyTests: {
@@ -66,6 +67,13 @@ export function buildDoeCycles({
     bornAlive: number;
     bornDead: number;
     weaningDate: Date | null;
+    weaned: number | null;
+  }[];
+  weanings: {
+    kindlingDate: Date | null;
+    weaningDate: Date;
+    bornAlive: number;
+    bornDead: number;
     weaned: number | null;
   }[];
   ongoing: { matingDate: Date | null; buck: { tagId: string | null } | null }[];
@@ -137,6 +145,19 @@ export function buildDoeCycles({
       weaned: l.weaned,
     });
   }
+  // Same day-level key, off the permanent archive. A Litter row only ever
+  // describes the doe's CURRENT cycle — her next kindling resets it (see
+  // markKindled) — so for every earlier cycle this is the only record of what
+  // was weaned, and the join above finds nothing.
+  const weaningByDay = new Map<
+    string,
+    { weaningDate: Date; bornAlive: number; bornDead: number; weaned: number | null }
+  >();
+  for (const w of weanings) {
+    if (!w.kindlingDate) continue;
+    weaningByDay.set(dayKey(w.kindlingDate), w);
+  }
+
   for (const c of cycles.values()) {
     if (!c.kindlingDate) continue;
     const m = litterByDay.get(dayKey(c.kindlingDate));
@@ -145,6 +166,15 @@ export function buildDoeCycles({
       c.bornDead = m.bornDead;
       c.weaningDate = m.weaningDate;
       c.weaned = m.weaned;
+    }
+    // Only where the live row had nothing to say: a matched litter is this
+    // cycle's own row and stays authoritative.
+    const w = weaningByDay.get(dayKey(c.kindlingDate));
+    if (w && !c.weaningDate) {
+      c.weaningDate = w.weaningDate;
+      c.weaned = w.weaned;
+      if (c.bornAlive === null) c.bornAlive = w.bornAlive;
+      if (c.bornDead === null) c.bornDead = w.bornDead;
     }
   }
 

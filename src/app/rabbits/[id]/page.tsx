@@ -41,7 +41,7 @@ export default async function RabbitDetailPage({
   const isDoe = rabbit.sex === "doe";
   const isBuck = rabbit.sex === "buck";
 
-  const [doePregnancyTests, doeKindlings, doeLitters, doeOngoing] = isDoe
+  const [doePregnancyTests, doeKindlings, doeLitters, doeOngoing, doeWeanings] = isDoe
     ? await Promise.all([
         prisma.pregnancyTestLog.findMany({
           where: { doeId: id },
@@ -75,8 +75,20 @@ export default async function RabbitDetailPage({
           where: { doeId: id, matingDate: { not: null } },
           select: { matingDate: true, buck: { select: { tagId: true } } },
         }),
+        // Permanent weaning archive — carries the cycles whose Litter row has
+        // since been recycled by a later kindling (see buildDoeCycles).
+        prisma.weaningLog.findMany({
+          where: { doeId: id },
+          select: {
+            kindlingDate: true,
+            weaningDate: true,
+            bornAlive: true,
+            bornDead: true,
+            weaned: true,
+          },
+        }),
       ])
-    : [[], [], [], []];
+    : [[], [], [], [], []];
 
   const [buckPregnancyTests, buckKindlings, buckLitters, buckOngoing] = isBuck
     ? await Promise.all([
@@ -121,6 +133,7 @@ export default async function RabbitDetailPage({
         pregnancyTests: doePregnancyTests,
         kindlings: doeKindlings,
         litters: doeLitters,
+        weanings: doeWeanings,
         ongoing: doeOngoing,
       })
     : [];

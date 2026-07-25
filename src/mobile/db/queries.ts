@@ -1927,6 +1927,27 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
       weaned: l.weaned,
     });
   }
+  // Same day-level key, off the permanent archive. A litter row only ever
+  // describes the doe's CURRENT cycle — her next kindling resets it (see
+  // markKindled) — so for every earlier cycle this is the only surviving
+  // record of what was weaned, and the join above finds nothing.
+  const weanings = await queryAll<{
+    kindlingDate: string | null;
+    weaningDate: string;
+    bornAlive: number;
+    bornDead: number;
+    weaned: number | null;
+  }>(
+    db,
+    "SELECT kindlingDate, weaningDate, bornAlive, bornDead, weaned FROM weaning_log WHERE doeId = ?",
+    [doeId]
+  );
+  const weaningByDay = new Map<string, { weaningDate: string; bornAlive: number; bornDead: number; weaned: number | null }>();
+  for (const w of weanings) {
+    if (!w.kindlingDate) continue;
+    weaningByDay.set(dayKey(w.kindlingDate), w);
+  }
+
   for (const c of cycles.values()) {
     if (!c.kindlingDate) continue;
     const m = litterByDay.get(dayKey(c.kindlingDate));
@@ -1935,6 +1956,15 @@ export async function fetchDoeBreedingHistory(db: SQLiteDBConnection, doeId: str
       c.bornDead = m.bornDead;
       c.weaningDate = m.weaningDate;
       c.weaned = m.weaned;
+    }
+    // Only where the live row had nothing to say: a matched litter is this
+    // cycle's own row and stays authoritative.
+    const w = weaningByDay.get(dayKey(c.kindlingDate));
+    if (w && !c.weaningDate) {
+      c.weaningDate = w.weaningDate;
+      c.weaned = w.weaned;
+      if (c.bornAlive === null) c.bornAlive = w.bornAlive;
+      if (c.bornDead === null) c.bornDead = w.bornDead;
     }
   }
 

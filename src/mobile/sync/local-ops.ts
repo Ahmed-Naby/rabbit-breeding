@@ -187,9 +187,12 @@ async function insertWeaningLog(
   // Newest kindling row for this breeding is the cycle being weaned — a
   // Breeding is reused, so its logs are chronological. No row at all (a litter
   // that predates the archive) leaves the -1 "survival unknown" sentinel.
+  // createdAt breaks the tie when two cycles share a kindlingDate; without it
+  // the older row can win and drag its sentinel onto a perfectly good weaning
+  // (mirrors currentBornDeadAtKindling).
   const kindling = await queryOne<{ bornDeadAtKindling: number }>(
     db,
-    "SELECT bornDeadAtKindling FROM kindling_log WHERE breedingId = ? ORDER BY kindlingDate DESC LIMIT 1",
+    "SELECT bornDeadAtKindling FROM kindling_log WHERE breedingId = ? ORDER BY kindlingDate DESC, createdAt DESC LIMIT 1",
     [args.breedingId]
   );
   await run(
@@ -572,13 +575,22 @@ export async function markKindled(
   });
   await updateBreeding(db, payload.breedingId, { matingDate: null, actualKindlingDate });
   // Create/refresh the litter carrying the confirmed counts (upsert: a first
-  // kindling has no litter row yet), clearing any stale weaningDate from a
-  // previous cycle on a reused breeding row.
+  // kindling has no litter row yet). On a reused breeding row every trace of
+  // the previous cycle is cleared — kindlingDate, weaningDate and both
+  // weaning figures — so this fresh litter starts blank (mirrors
+  // markKindledOp).
   await upsertLitterByBreedingId(
     db,
     payload.breedingId,
     { kindlingDate: actualKindlingDate, bornAlive, bornDead, weaningDate: null },
-    { bornAlive, bornDead, weaningDate: null }
+    {
+      kindlingDate: actualKindlingDate,
+      bornAlive,
+      bornDead,
+      weaningDate: null,
+      weaned: null,
+      weaningWeightGrams: null,
+    }
   );
   await updateRabbit(db, payload.doeId, { doeState: "nursing" });
   return applied;
