@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronDown,
   Loader2,
-  Pencil,
   Percent,
   Baby,
   Repeat2,
@@ -40,13 +39,22 @@ import {
   type BuckBreedingHistoryRow,
 } from "../db/queries";
 
-export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitId: string }) {
+export function RabbitDetailPage({
+  locale,
+  rabbitId,
+  startEditing = false,
+}: {
+  locale: Locale;
+  rabbitId: string;
+  // Set by the "?edit=1" route the أمهات table's تعديل button links to, so the
+  // card lands with its edit form already unfolded instead of one tap short.
+  startEditing?: boolean;
+}) {
   const t = getClientDictionary(locale).rabbits;
   const [rabbit, setRabbit] = useState<LocalRabbitBasic | null | undefined>(undefined);
   const [doeHistory, setDoeHistory] = useState<DoeBreedingHistoryRow[]>([]);
   const [buckHistory, setBuckHistory] = useState<BuckBreedingHistoryRow[]>([]);
   const [breedOptions, setBreedOptions] = useState<string[]>([]);
-  const [editing, setEditing] = useState(false);
 
   const load = useCallback(async () => {
     const db = await getDb();
@@ -54,12 +62,15 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
     setRabbit(r);
     setBreedOptions(await fetchBreedOptions(db));
     if (!r) return;
+    // The "?edit=1" screen renders neither إحصائيات الخصوبة nor سجل التزاوج,
+    // so there's nothing for these two to feed.
+    if (startEditing) return;
     if (r.sex === "doe") {
       setDoeHistory(await fetchDoeBreedingHistory(db, rabbitId));
     } else if (r.sex === "buck") {
       setBuckHistory(await fetchBuckBreedingHistory(db, rabbitId));
     }
-  }, [rabbitId]);
+  }, [rabbitId, startEditing]);
 
   useEffect(() => {
     void load();
@@ -100,21 +111,37 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
 
   const BackIcon = locale === "ar" ? ChevronRight : ChevronLeft;
   const displayTag = rabbit.tagId ?? rabbit.retiredTagId;
-  const backHref =
-    displayTag == null
-      ? "#/stock"
-      : rabbit.sex === "buck"
+  // A tagged rabbit goes back to its fertility report, not to the أمهات/ذكور
+  // board: that report is now the only place its card is linked from, so it's
+  // the only place "back" can land without stranding the user somewhere they
+  // can't return from.
+  // …except on the "?edit=1" screen, which is only ever reached from the
+  // تعديل button in the أمهات/ذكور table — so back goes to that table.
+  const backHref = startEditing
+    ? rabbit.sex === "buck"
       ? "#/bucks"
-      : "#/mothers";
-  const backLabel =
-    displayTag == null
-      ? t.detailBackToStock
-      : rabbit.sex === "buck"
+      : "#/mothers"
+    : displayTag == null
+    ? "#/stock"
+    : rabbit.sex === "buck"
+    ? "#/bucks-fertility"
+    : "#/does-fertility";
+  const backLabel = startEditing
+    ? rabbit.sex === "buck"
       ? t.detailBackToBucks
-      : t.detailBackToMothers;
+      : t.detailBackToMothers
+    : displayTag == null
+    ? t.detailBackToStock
+    : rabbit.sex === "buck"
+    ? t.detailBackToBucksFertility
+    : t.detailBackToDoesFertility;
   const title = displayTag ? t.taggedTitle(displayTag) : t.untaggedTitle;
 
   const isHerdRabbit = displayTag != null;
+  // Arriving through "?edit=1" (the تعديل button in the أمهات table) makes this
+  // a plain edit screen: the card on its own, without إحصائيات الخصوبة or
+  // سجل التزاوج underneath it.
+  const cardOnly = startEditing;
 
   return (
     <div className="space-y-6">
@@ -143,26 +170,29 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
             <MetricBadge label={isHerdRabbit ? (t.joinedHerdLabelHerd ?? t.joinedHerdLabel) : t.joinedHerdLabel} value={<LocalDate date={rabbit.acquiredDate} locale={locale} />} />
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} onDone={load} />
-          {isHerdRabbit && (
-            <Button size="sm" onClick={() => setEditing((v) => !v)}>
-              <Pencil className="size-4" />
-              {rabbit.sex === "doe" ? t.editDoeCardButton : rabbit.sex === "buck" ? t.editBuckCardButton : t.editRabbitCardButton}
-            </Button>
-          )}
-        </div>
-        {editing && (
+        {/* No تعديل الكارت button anywhere on this card: editing is reached
+            through the تعديل column in the أمهات/ذكور tables, which lands on
+            "?edit=1" with the form already open.
+            تغيير الحالة belongs to صفحة القطيع, so it shows on both screens
+            reached from there — the "?edit=1" form and a سلالة's card — and
+            only comes off the tagged card, which is linked from the fertility
+            report and nowhere else. */}
+        {(cardOnly || !isHerdRabbit) && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} onDone={load} />
+          </div>
+        )}
+        {cardOnly && (
           <EditRabbitForm
             rabbit={rabbit}
             breedOptions={breedOptions}
             locale={locale}
             isHerdRabbit={isHerdRabbit}
-            onDone={() => {
-              setEditing(false);
-              void load();
-            }}
-            onCancel={() => setEditing(false)}
+            // The form is the whole page here, so closing it would leave
+            // nothing but the header — both حفظ and إلغاء go back to the
+            // أمهات/ذكور table instead of collapsing in place.
+            onDone={() => { window.location.hash = backHref; }}
+            onCancel={() => { window.location.hash = backHref; }}
           />
         )}
       </div>
@@ -181,21 +211,21 @@ export function RabbitDetailPage({ locale, rabbitId }: { locale: Locale; rabbitI
         </div>
       )}
 
-      {isHerdRabbit && rabbit.sex === "doe" && (
+      {isHerdRabbit && !cardOnly && rabbit.sex === "doe" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.fertilityStatsHeading}</h2>
           <DoeFertilityCards history={doeHistory} locale={locale} />
         </div>
       )}
 
-      {isHerdRabbit && rabbit.sex === "buck" && (
+      {isHerdRabbit && !cardOnly && rabbit.sex === "buck" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.fertilityStatsHeading}</h2>
           <BuckFertilityCards history={buckHistory} locale={locale} />
         </div>
       )}
 
-      {isHerdRabbit && (
+      {isHerdRabbit && !cardOnly && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold tracking-tight">{t.breedingHistoryHeading}</h2>
 

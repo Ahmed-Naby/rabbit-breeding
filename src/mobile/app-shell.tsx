@@ -43,6 +43,7 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
+import { matchesRoute } from "./routes";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
 import { loadSession, getSession, logout, type AuthSession } from "./auth";
@@ -106,11 +107,11 @@ function isKnownRoute(hash: string): boolean {
   return (
     Boolean(ROUTES[hash]) ||
     hash.startsWith(RABBIT_DETAIL_PREFIX) ||
-    LEGACY_HERD_ROUTES.some((r) => hash.startsWith(r)) ||
-    LEGACY_ROUNDS_ROUTES.some((r) => hash.startsWith(r)) ||
-    LEGACY_OPS_ROUTES.some((r) => hash.startsWith(r)) ||
-    LEGACY_SUPPORT_OPS_ROUTES.some((r) => hash.startsWith(r)) ||
-    LEGACY_REPORTS_ROUTES.some((r) => hash.startsWith(r))
+    LEGACY_HERD_ROUTES.some((r) => matchesRoute(hash, r)) ||
+    LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(hash, r)) ||
+    LEGACY_OPS_ROUTES.some((r) => matchesRoute(hash, r)) ||
+    LEGACY_SUPPORT_OPS_ROUTES.some((r) => matchesRoute(hash, r)) ||
+    LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(hash, r))
   );
 }
 
@@ -287,6 +288,20 @@ export function AppShell() {
   // Dashboard is always allowed, so a disallowed route can simply fall back
   // to it rather than hunting for the member's "first" allowed page.
   const route = routeAllowed ? rawRoute : DEFAULT_ROUTE;
+  // "#/rabbits/<id>" can carry "?edit=1" — the تعديل button in the أمهات table
+  // links straight into the card with its edit form already open — so the id
+  // has to be split off the query before it's used as a lookup key.
+  const rabbitDetail = route.startsWith(RABBIT_DETAIL_PREFIX)
+    ? (() => {
+        const rest = route.slice(RABBIT_DETAIL_PREFIX.length);
+        const q = rest.indexOf("?");
+        if (q === -1) return { id: rest, startEditing: false };
+        return {
+          id: rest.slice(0, q),
+          startEditing: new URLSearchParams(rest.slice(q + 1)).get("edit") === "1",
+        };
+      })()
+    : null;
   const showSignOut = pageFilter !== null && !pageFilter.has(SETTINGS_PAGE);
 
   const handleSignOut = async () => {
@@ -491,30 +506,37 @@ export function AppShell() {
         <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
           {route === "#/daily" && <DailyPage locale={locale} />}
-          {(route === "#/daily-rounds" || LEGACY_ROUNDS_ROUTES.some((r) => route.startsWith(r))) && (
+          {(route === "#/daily-rounds" || LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(route, r))) && (
             <DailyRoundsPage locale={locale} />
           )}
           {route === "#/does" && <DoesPage locale={locale} />}
-          {(route === "#/operations" || LEGACY_OPS_ROUTES.some((r) => route.startsWith(r))) && (
+          {(route === "#/operations" || LEGACY_OPS_ROUTES.some((r) => matchesRoute(route, r))) && (
             <DailyOperationsPage locale={locale} />
           )}
 
           {/* Roster lists */}
-          {(route === "#/herd-and-stock" || LEGACY_HERD_ROUTES.some((r) => route.startsWith(r))) && (
+          {(route === "#/herd-and-stock" || LEGACY_HERD_ROUTES.some((r) => matchesRoute(route, r))) && (
             <HerdAndStockPage locale={locale} />
           )}
-          {route.startsWith(RABBIT_DETAIL_PREFIX) && (
-            <RabbitDetailPage locale={locale} rabbitId={route.slice(RABBIT_DETAIL_PREFIX.length)} />
+          {rabbitDetail && (
+            // Keyed by route so moving between two cards remounts rather than
+            // carrying the previous one's open/closed edit form over.
+            <RabbitDetailPage
+              key={route}
+              locale={locale}
+              rabbitId={rabbitDetail.id}
+              startEditing={rabbitDetail.startEditing}
+            />
           )}
 
           {/* Weaning Sales offline page */}
           {route === "#/weaning-sales" && <WeaningSalesPage locale={locale} />}
 
-          {(route === "#/support-operations" || LEGACY_SUPPORT_OPS_ROUTES.some((r) => route.startsWith(r))) && (
+          {(route === "#/support-operations" || LEGACY_SUPPORT_OPS_ROUTES.some((r) => matchesRoute(route, r))) && (
             <SupportOperationsPage locale={locale} />
           )}
           {route === "#/health" && <HealthPage locale={locale} />}
-          {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => route.startsWith(r))) && (
+          {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(route, r))) && (
             <ReportsPage locale={locale} />
           )}
           {route === "#/records" && <RecordsPage locale={locale} />}

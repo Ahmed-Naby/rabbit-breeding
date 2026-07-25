@@ -381,7 +381,12 @@ export const en: Dictionary = {
     promoteToBuckLine: "Move to bucks line",
     movedToast: "Moved",
     moveFailedFallback: "Could not move",
-    deletedToast: "Juvenile deleted",
+    // A warning, not a bare "are you sure?": the delete puts the animal back
+    // into the weaned-kit balance, so it has to be physically moved to the
+    // weaning cages or the balance and the pens stop matching.
+    deleteConfirm:
+      "⚠️ Warning: deleting this juvenile returns it to the weaned-kit balance as \"Returned from juveniles\".\n\nYou must physically move the rabbit to the weaning cages, otherwise the balance will not match what is in the pens.\n\nContinue?",
+    deletedToast: "Juvenile deleted and returned to the weaned-kit balance",
     deleteFailedFallback: "Could not delete juvenile",
   },
   bucks: {
@@ -397,6 +402,8 @@ export const en: Dictionary = {
     colAddedDate: "Date added to herd",
     colWeight: "Weight",
     colStatus: "Status",
+    colEdit: "Edit",
+    editCardAria: (tag: string) => `Edit buck #${tag} card`,
     addedToast: (tag: string) => `Buck #${tag} added`,
     addFormTitle: "Add Buck (Purchased External — No Weaning Deduction)",
     tagLabel: "Buck #",
@@ -429,6 +436,8 @@ export const en: Dictionary = {
     colWeight: "Weight",
     colStatus: "Status",
     colDoeState: "Reproductive state",
+    colEdit: "Edit",
+    editCardAria: (tag: string) => `Edit doe #${tag} card`,
     addedToast: (tag: string) => `Doe #${tag} added`,
     addFormTitle: "Add Doe (Purchased External — No Weaning Deduction)",
     tagLabel: "Doe #",
@@ -647,6 +656,9 @@ export const en: Dictionary = {
     typeDeath: "Died",
     typeRetained: "Kept for breeding",
     typeAdjustment: "Adjustment",
+    // A deleted juvenile going back to the weaning cages — adds to the
+    // balance instead of withdrawing from it.
+    typeReturned: "Returned from juveniles",
     emptyTitle: "No movements recorded yet",
     emptyDescription:
       "Weaned counts show up here automatically. Record a sale with the form above, record deaths from the mortality census page, and kits kept for breeding are deducted automatically when a juvenile is added to the herd.",
@@ -910,6 +922,12 @@ export const en: Dictionary = {
     editPageDescription: "Update this rabbit's details.",
     saveChangesButton: "Save changes",
     detailBackToStock: "Back to juveniles",
+    // A rabbit's card is linked from its fertility report only, so back lands
+    // there rather than on the does/bucks board.
+    detailBackToDoesFertility: "Back to does fertility",
+    detailBackToBucksFertility: "Back to bucks fertility",
+    // Except on the edit screen: its only entry point is the تعديل button in
+    // the does/bucks table, so back lands on the table it came from.
     detailBackToMothers: "Back to does",
     detailBackToBucks: "Back to bucks",
     untaggedAlt: "Unnumbered juvenile",

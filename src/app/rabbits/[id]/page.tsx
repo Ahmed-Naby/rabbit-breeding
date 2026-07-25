@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
-  Pencil,
   Rabbit as RabbitIcon,
   Percent,
   Baby,
@@ -150,13 +149,17 @@ export default async function RabbitDetailPage({
   // setRabbitStatusOp) — retiredTagId is what's left to tell "was tagged"
   // from "still an untagged سلالة" apart once tagId itself is null.
   const displayTag = rabbit.tagId ?? rabbit.retiredTagId;
+  // A tagged rabbit goes back to its fertility report, not to the أمهات/ذكور
+  // board: that report is now the only place its card is linked from, so it's
+  // the only place "back" can land without stranding the user somewhere they
+  // can't return from.
   const back =
     displayTag == null
       ? { href: "/stock", label: t.rabbits.detailBackToStock }
       : rabbit.sex === "doe"
-        ? { href: "/mothers", label: t.rabbits.detailBackToMothers }
+        ? { href: "/does-fertility", label: t.rabbits.detailBackToDoesFertility }
         : rabbit.sex === "buck"
-          ? { href: "/bucks", label: t.rabbits.detailBackToBucks }
+          ? { href: "/bucks-fertility", label: t.rabbits.detailBackToBucksFertility }
           : { href: "/stock", label: t.rabbits.detailBackToStock };
 
   return (
@@ -203,14 +206,17 @@ export default async function RabbitDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} />
-          <Button size="sm" asChild>
-            <Link href={`/rabbits/${rabbit.id}/edit`}>
-              <Pencil className="size-4" /> {t.rabbits.editButton}
-            </Link>
-          </Button>
-        </div>
+        {/* No تعديل الكارت button anywhere on this card: editing is reached
+            through the تعديل column in /mothers and /bucks, which links
+            straight to /rabbits/[id]/edit.
+            تغيير الحالة stays for a juvenile — its card is reached from /stock
+            and this is the only place to retire it — but not for a tagged
+            rabbit, whose card is only linked from its fertility report. */}
+        {displayTag == null ? (
+          <div className="flex items-center gap-2">
+            <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} />
+          </div>
+        ) : null}
       </div>
 
       {isDoe && doeStats ? (

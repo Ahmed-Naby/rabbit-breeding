@@ -15,6 +15,7 @@ import { queryAll, queryOne, run, nowIso } from "../db/helpers";
 import { SYNC_API_BASE_URL, SYNC_SHARED_SECRET } from "../config";
 import { getSession } from "../auth";
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
+import { localReturnedMovementId } from "./local-ops";
 import { createId } from "@paralleldrive/cuid2";
 
 const PUSH_BATCH_SIZE = 25;
@@ -220,7 +221,10 @@ const TOMBSTONE_CLEANUP: Record<string, (recordId: string) => { statement: strin
   rabbit: (id) => [
     { statement: "DELETE FROM health_record WHERE rabbitId = ?", values: [id] },
     { statement: "DELETE FROM weight_record WHERE rabbitId = ?", values: [id] },
-    { statement: "DELETE FROM kit_stock_movement WHERE rabbitId = ?", values: [id] },
+    // Not a DELETE: the FK is onDelete: SetNull, so the "retained" row outlives
+    // the سلالة and stays in the ledger — the server books a separate
+    // "returned" row instead (see deleteRabbitOp).
+    { statement: "UPDATE kit_stock_movement SET rabbitId = NULL WHERE rabbitId = ?", values: [id] },
     { statement: "DELETE FROM rabbit WHERE id = ?", values: [id] },
   ],
   breeding: (id) => [
@@ -629,6 +633,13 @@ const REJECTABLE_CREATE_CLEANUP: Record<string, (db: SQLiteDBConnection, id: str
     await run(db, "DELETE FROM kit_stock_movement WHERE rabbitId = ?", [id]);
     await run(db, "DELETE FROM weight_record WHERE rabbitId = ?", [id]);
     await run(db, "DELETE FROM rabbit WHERE id = ?", [id]);
+  },
+  // Same shape in reverse: the local delete optimistically books a "returned"
+  // movement, but the server's block-check is wider than the offline one (seven
+  // Restrict FKs against a single breeding lookup), so it can still say no. The
+  // rabbit row heals itself on the next pull — the phantom movement wouldn't.
+  deleteRabbit: async (db, id) => {
+    await run(db, "DELETE FROM kit_stock_movement WHERE id = ?", [localReturnedMovementId(id)]);
   },
 };
 

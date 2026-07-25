@@ -1023,7 +1023,7 @@ export async function fetchFosteringPageData(db: SQLiteDBConnection): Promise<{
 export type LocalKitLedgerEntry = {
   key: string;
   date: string;
-  kind: "wean" | "sale" | "death" | "retained" | "adjustment";
+  kind: "wean" | "sale" | "death" | "retained" | "adjustment" | "returned";
   count: number;
   weightGrams?: number | null;
   pricePerKgCents?: number | null;
@@ -1034,9 +1034,10 @@ export type LocalKitLedgerEntry = {
 
 /**
  * The available weaned-kit balance: kits weaned in, minus those sold, died,
- * or retained to breeding, plus signed manual adjustments. Shared by every
- * page that gates on it (weaning-sales, mortality, stock intake) so the number
- * and its "never negative" guard stay consistent everywhere.
+ * or retained to breeding, plus signed manual adjustments and any سلالة sent
+ * back here by being deleted. Shared by every page that gates on it
+ * (weaning-sales, mortality, stock intake) so the number and its "never
+ * negative" guard stay consistent everywhere.
  */
 export async function computeAvailableWeanedStock(db: SQLiteDBConnection): Promise<number> {
   const weanedSum = await queryOne<{ total: number }>(
@@ -1047,14 +1048,15 @@ export async function computeAvailableWeanedStock(db: SQLiteDBConnection): Promi
     db,
     "SELECT type, SUM(count) as total FROM kit_stock_movement GROUP BY type"
   );
-  let sold = 0, died = 0, retained = 0, adjustment = 0;
+  let sold = 0, died = 0, retained = 0, adjustment = 0, returned = 0;
   for (const m of movementsSum) {
     if (m.type === "sale") sold = m.total;
     else if (m.type === "death") died = m.total;
     else if (m.type === "retained") retained = m.total;
     else if (m.type === "adjustment") adjustment = m.total;
+    else if (m.type === "returned") returned = m.total;
   }
-  return (weanedSum?.total ?? 0) - sold - died - retained + adjustment;
+  return (weanedSum?.total ?? 0) - sold - died - retained + adjustment + returned;
 }
 
 export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise<{
@@ -1063,6 +1065,7 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
   totalSold: number;
   totalDied: number;
   totalRetained: number;
+  totalReturned: number;
   totalRevenueCents: number;
   availableStock: number;
   settings: LocalSettings;
@@ -1103,10 +1106,11 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
     ...movements.map((m) => ({
       key: `move-${m.id}`,
       date: m.date,
-      kind: m.type as "sale" | "death" | "retained" | "adjustment",
-      // Sale/death/retained withdraw from the pool (shown negative); an
-      // adjustment carries its own sign and is shown as stored.
-      count: m.type === "adjustment" ? m.count : -m.count,
+      kind: m.type as "sale" | "death" | "retained" | "adjustment" | "returned",
+      // Sale/death/retained withdraw from the pool (shown negative); a
+      // "returned" سلالة adds back; an adjustment carries its own sign and is
+      // shown as stored.
+      count: m.type === "adjustment" ? m.count : m.type === "returned" ? m.count : -m.count,
       weightGrams: m.weightGrams,
       pricePerKgCents: m.pricePerKgCents,
       amountCents: m.amountCents,
@@ -1132,7 +1136,12 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
   const totalAdjustment = movements
     .filter((m) => m.type === "adjustment")
     .reduce((s, m) => s + m.count, 0);
-  const availableStock = totalWeaned - totalSold - totalDied - totalRetained + totalAdjustment;
+  // سلالات deleted back into the weaning cages — see computeAvailableWeanedStock.
+  const totalReturned = movements
+    .filter((m) => m.type === "returned")
+    .reduce((s, m) => s + m.count, 0);
+  const availableStock =
+    totalWeaned - totalSold - totalDied - totalRetained + totalAdjustment + totalReturned;
 
   return {
     ledger,
@@ -1140,6 +1149,7 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
     totalSold,
     totalDied,
     totalRetained,
+    totalReturned,
     totalRevenueCents,
     availableStock,
     settings,
@@ -2070,13 +2080,17 @@ async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string
     "SELECT type, SUM(count) as total FROM kit_stock_movement WHERE date < ? GROUP BY type",
     [toIso]
   );
-  let sold = 0, died = 0, retained = 0;
+  let sold = 0, died = 0, retained = 0, returned = 0, adjustment = 0;
   for (const m of movements) {
     if (m.type === "sale") sold = m.total;
     else if (m.type === "death") died = m.total;
     else if (m.type === "retained") retained = m.total;
+    else if (m.type === "returned") returned = m.total;
+    else if (m.type === "adjustment") adjustment = m.total;
   }
-  return (weanedSum?.total ?? 0) - sold - died - retained;
+  // Same formula as computeAvailableWeanedStock, just bounded to `toIso` —
+  // mirrors the server's getKitStockBalanceAsOf.
+  return (weanedSum?.total ?? 0) - sold - died - retained + returned + adjustment;
 }
 
 /**

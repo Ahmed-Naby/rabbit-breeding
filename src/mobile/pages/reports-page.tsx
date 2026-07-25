@@ -28,9 +28,13 @@ export function ReportsPage({ locale }: { locale: Locale }) {
 
   const [activeTab, setActiveTab] = useState<"follow-up" | "does-fertility" | "bucks-fertility">(() => {
     if (typeof window !== "undefined") {
+      // Both spellings: the legacy standalone routes (#/does-fertility,
+      // #/bucks-fertility — still live in app-shell's LEGACY_REPORTS_ROUTES and
+      // where كارت الأم's back link points) as well as the ?tab= form. Matching
+      // only the latter left the legacy routes opening on متابعة يومية instead.
       const hash = window.location.hash;
-      if (hash.includes("tab=does-fertility")) return "does-fertility";
-      if (hash.includes("tab=bucks-fertility")) return "bucks-fertility";
+      if (hash.includes("does-fertility")) return "does-fertility";
+      if (hash.includes("bucks-fertility")) return "bucks-fertility";
     }
     return "follow-up";
   });

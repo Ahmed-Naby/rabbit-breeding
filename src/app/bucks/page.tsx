@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Rabbit as RabbitIcon } from "lucide-react";
+import { Pencil, Rabbit as RabbitIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
@@ -96,6 +97,7 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
               { key: "addedDate", label: t.bucks.colAddedDate, type: "date", className: "text-center" },
               { key: "weight", label: t.bucks.colWeight, type: "number", className: "text-center" },
               { key: "status", label: t.bucks.colStatus, type: "string", className: "text-center" },
+              { key: "edit", label: t.bucks.colEdit, className: "text-center", sortable: false },
             ]}
             rows={bucks.map((buck, i) => ({
               key: buck.id,
@@ -110,7 +112,10 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
                 <TableRow key={buck.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
-                    <RabbitTagBadge tagId={buck.tagId} rabbitId={buck.id} sex="buck" />
+                    {/* No rabbitId on purpose: كارت الذكر is reached from the
+                        bucks fertility report only, so this board shows the tag
+                        without linking. */}
+                    <RabbitTagBadge tagId={buck.tagId} sex="buck" />
                   </TableCell>
                   <TableCell>{buck.breed ?? "—"}</TableCell>
                   <TableCell>
@@ -127,6 +132,19 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
                   </TableCell>
                   <TableCell>
                     <StatusBadge value={buck.status} locale={locale} />
+                  </TableCell>
+                  <TableCell>
+                    {/* The tag itself no longer links anywhere from this board,
+                        so this is the one way in — straight to the buck's edit
+                        form rather than to his card. */}
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link
+                        href={`/rabbits/${buck.id}/edit`}
+                        aria-label={t.bucks.editCardAria(buck.tagId ?? "")}
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ),

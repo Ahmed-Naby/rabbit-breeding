@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
+import { StatusMenu } from "../status-menu";
 import { RabbitForm } from "../../rabbit-form";
 import { updateRabbit } from "../../actions";
 import { getParentOptions } from "../../data";
@@ -38,14 +39,20 @@ export default async function EditRabbitPage({
           <ArrowLeft className="size-4 rtl:rotate-180" /> {t.rabbits.editPageBack}
         </Link>
       </Button>
-      <PageHeader
-        title={
-          rabbit.tagId
-            ? t.rabbits.editPageTitleTagged(rabbit.tagId)
-            : t.rabbits.editPageTitleUntagged
-        }
-        description={t.rabbits.editPageDescription}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title={
+            rabbit.tagId
+              ? t.rabbits.editPageTitleTagged(rabbit.tagId)
+              : t.rabbits.editPageTitleUntagged
+          }
+          description={t.rabbits.editPageDescription}
+        />
+        {/* This screen is reached from the تعديل column in /mothers and
+            /bucks, so it carries تغيير الحالة for them — the rabbit's own card
+            dropped it, being linked from the fertility report only. */}
+        <StatusMenu id={rabbit.id} current={rabbit.status} locale={locale} />
+      </div>
       <RabbitForm
         action={updateWithId}
         rabbit={rabbit}

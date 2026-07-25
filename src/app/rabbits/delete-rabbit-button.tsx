@@ -17,7 +17,11 @@ export function DeleteRabbitButton({ id, t }: { id: string; t: Dictionary["stock
       variant="ghost"
       size="icon-sm"
       disabled={pending}
-      onClick={() =>
+      onClick={() => {
+        // Not a plain "are you sure": the delete puts the animal back into
+        // رصيد الفطام, so the farmer has to physically move it to the weaning
+        // cages or the balance and the pens stop matching.
+        if (!window.confirm(t.deleteConfirm)) return;
         start(async () => {
           const result = await deleteRabbit(id);
           if (result.ok) {
@@ -26,8 +30,8 @@ export function DeleteRabbitButton({ id, t }: { id: string; t: Dictionary["stock
           } else {
             toast.error(result.message ?? t.deleteFailedFallback);
           }
-        })
-      }
+        });
+      }}
     >
       <Trash2 className="size-4 text-muted-foreground" />
     </Button>

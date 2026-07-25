@@ -8,7 +8,6 @@ import { formatMoney, formatWeight } from "@/lib/units";
 import { getSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { SaleForm } from "./sale-form";
-import { DeleteMovementButton } from "./delete-button";
 import { getKitStockSummary } from "./stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
@@ -89,7 +88,6 @@ export default async function WeaningSalesPage() {
                 },
                 { key: "amount", label: t.weaningSales.colAmount, type: "number", className: "text-center" },
                 { key: "notes", label: t.weaningSales.colNotes, type: "string", className: "text-center" },
-                { key: "action", label: "", className: "text-center", sortable: false },
               ]}
               rows={ledger.map((entry) => ({
                 key: entry.key,
@@ -120,7 +118,11 @@ export default async function WeaningSalesPage() {
                           entry.kind === "retained" &&
                             "bg-violet-500/10 text-violet-600 dark:text-violet-400",
                           entry.kind === "adjustment" &&
-                            "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                          // The mirror image of "retained", so the same violet
+                          // family — teal keeps the two apart at a glance.
+                          entry.kind === "returned" &&
+                            "bg-teal-500/10 text-teal-600 dark:text-teal-400"
                         )}
                       >
                         {entry.kind === "wean"
@@ -131,7 +133,9 @@ export default async function WeaningSalesPage() {
                               ? t.weaningSales.typeDeath
                               : entry.kind === "adjustment"
                                 ? t.weaningSales.typeAdjustment
-                                : t.weaningSales.typeRetained}
+                                : entry.kind === "returned"
+                                  ? t.weaningSales.typeReturned
+                                  : t.weaningSales.typeRetained}
                       </span>
                     </TableCell>
                     <TableCell
@@ -161,9 +165,6 @@ export default async function WeaningSalesPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {entry.notes ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      {entry.id ? <DeleteMovementButton id={entry.id} locale={locale} /> : null}
                     </TableCell>
                   </TableRow>
                 ),

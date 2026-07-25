@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export type LedgerEntry = {
   key: string;
   date: Date;
-  kind: "wean" | "sale" | "death" | "retained" | "adjustment";
+  kind: "wean" | "sale" | "death" | "retained" | "adjustment" | "returned";
   count: number; // signed: positive for wean, negative for sale/death
   weightGrams?: number | null;
   pricePerKgCents?: number | null;
@@ -48,10 +48,10 @@ export async function getKitStockSummary() {
     ...movements.map((m) => ({
       key: `move-${m.id}`,
       date: m.date,
-      kind: m.type as "sale" | "death" | "retained" | "adjustment",
-      // Sale/death/retained withdraw (shown negative); an adjustment carries
-      // its own sign and is shown as stored.
-      count: m.type === "adjustment" ? m.count : -m.count,
+      kind: m.type as "sale" | "death" | "retained" | "adjustment" | "returned",
+      // Sale/death/retained withdraw (shown negative); a "returned" سلالة adds
+      // back; an adjustment carries its own sign and is shown as stored.
+      count: m.type === "adjustment" ? m.count : m.type === "returned" ? m.count : -m.count,
       weightGrams: m.weightGrams,
       pricePerKgCents: m.pricePerKgCents,
       amountCents: m.amountCents,
@@ -77,7 +77,14 @@ export async function getKitStockSummary() {
   const totalAdjustment = movements
     .filter((m) => m.type === "adjustment")
     .reduce((s, m) => s + m.count, 0);
-  const availableStock = totalWeaned - totalSold - totalDied - totalRetained + totalAdjustment;
+  // سلالات that were deleted and sent back to the weaning cages. Counted for
+  // purchased سلالات too, even though those were never weaned here — they're
+  // physically in the pen now, and the balance follows the pen.
+  const totalReturned = movements
+    .filter((m) => m.type === "returned")
+    .reduce((s, m) => s + m.count, 0);
+  const availableStock =
+    totalWeaned - totalSold - totalDied - totalRetained + totalAdjustment + totalReturned;
 
   return {
     ledger,
@@ -85,6 +92,7 @@ export async function getKitStockSummary() {
     totalSold,
     totalDied,
     totalRetained,
+    totalReturned,
     totalRevenueCents,
     availableStock,
   };

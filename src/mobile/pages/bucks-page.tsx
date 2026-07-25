@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Rabbit as RabbitIcon, Clock } from "lucide-react";
+import { Rabbit as RabbitIcon, Clock, Pencil } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -336,6 +336,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                     direction={bucksSort.direction}
                     onSort={bucksSort.toggleSort}
                   />
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colEdit}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -343,13 +344,10 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   <tr key={buck.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
-                      <RabbitTagBadge
-                        tagId={buck.tagId}
-                        sex="buck"
-                        onClick={() => {
-                          window.location.hash = `#/rabbits/${buck.id}`;
-                        }}
-                      />
+                      {/* No onClick on purpose: كارت الذكر is reached from the
+                          bucks fertility report only, so this board shows the
+                          tag without linking. */}
+                      <RabbitTagBadge tagId={buck.tagId} sex="buck" />
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">{buck.breed ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">
@@ -366,6 +364,19 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <StatusBadge value={buck.status} locale={locale} />
+                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
+                      {/* The tag itself no longer links anywhere from this
+                          board, so this is the one way in. "?edit=1" makes
+                          كارت الذكر open with its edit form already unfolded —
+                          see app-shell's rabbit-detail route parsing. */}
+                      <a
+                        href={`#/rabbits/${buck.id}?edit=1`}
+                        aria-label={t.editCardAria(buck.tagId ?? "")}
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </a>
                     </td>
                   </tr>
                 ))}

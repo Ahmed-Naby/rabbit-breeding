@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Rabbit as RabbitIcon } from "lucide-react";
+import { Pencil, Rabbit as RabbitIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { Button } from "@/components/ui/button";
 import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
@@ -99,6 +100,7 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
               { key: "weight", label: t.mothers.colWeight, type: "number", className: "text-center" },
               { key: "status", label: t.mothers.colStatus, type: "string", className: "text-center" },
               { key: "doeState", label: t.mothers.colDoeState, type: "string", className: "text-center" },
+              { key: "edit", label: t.mothers.colEdit, className: "text-center", sortable: false },
             ]}
             rows={does.map((doe, i) => ({
               key: doe.id,
@@ -114,7 +116,10 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
                 <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">
-                    <RabbitTagBadge tagId={doe.tagId} rabbitId={doe.id} sex="doe" />
+                    {/* No rabbitId on purpose: كارت الأم is reached from the
+                        does fertility report only, so this board shows the tag
+                        without linking. */}
+                    <RabbitTagBadge tagId={doe.tagId} sex="doe" />
                   </TableCell>
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>
@@ -134,6 +139,19 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
                   </TableCell>
                   <TableCell>
                     <DoeStateBadge current={doe.doeState} locale={locale} />
+                  </TableCell>
+                  <TableCell>
+                    {/* The tag itself no longer links anywhere from this board,
+                        so this is the one way in — straight to the doe's edit
+                        form rather than to her card. */}
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link
+                        href={`/rabbits/${doe.id}/edit`}
+                        aria-label={t.mothers.editCardAria(doe.tagId ?? "")}
+                      >
+                        <Pencil className="size-4" />
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ),

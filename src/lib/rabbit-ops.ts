@@ -377,11 +377,26 @@ export async function updateRabbitOp(
  * rabbit has any breeding history, to protect pedigree data; use the status
  * menu (excluded/deceased) for that case instead. Sire/dam refs on other
  * rabbits are SetNull'd automatically, so this never orphans a pedigree FK.
+ *
+ * The سلالة doesn't evaporate — it goes back into رصيد الفطام, so a positive
+ * "returned" movement is booked on `date`. This happens whatever the rabbit's
+ * origin: a farm-bred kit rejoins the pool it was pulled out of, and a
+ * purchased one joins it for the first time. The original "retained" row is
+ * deliberately left standing (the FK is SetNull, not Cascade) so the ledger
+ * shows the deduction and the return as two separate facts.
  */
-export async function deleteRabbitOp(id: string): Promise<OpResult<void, "DELETE_BLOCKED_BY_BREEDING">> {
+export async function deleteRabbitOp(
+  id: string,
+  date: Date = new Date()
+): Promise<OpResult<void, "DELETE_BLOCKED_BY_BREEDING">> {
+  // UTC midnight like every other movement date, so the offline mirror's own
+  // "returned" row lines up with this one when the pull reconciles them.
+  const returnedOn = new Date(date);
+  returnedOn.setUTCHours(0, 0, 0, 0);
   try {
     await prisma.$transaction([
       prisma.rabbit.delete({ where: { id } }),
+      prisma.kitStockMovement.create({ data: { date: returnedOn, type: "returned", count: 1 } }),
       prisma.syncTombstone.create({ data: { model: "rabbit", recordId: id } }),
     ]);
   } catch (e) {

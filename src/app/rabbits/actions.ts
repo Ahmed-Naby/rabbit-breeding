@@ -375,8 +375,8 @@ export async function deleteRabbit(
   revalidatePath("/does");
   revalidatePath("/rounds");
   revalidatePath("/bucks-rounds");
-  // If this rabbit had a "retained" KitStockMovement, the DB cascade-deleted
-  // it along with the rabbit, so the weaned-kit pool needs a refresh too.
+  // Deleting a سلالة books a "returned" KitStockMovement that puts it back
+  // into رصيد الفطام, so the weaned-kit pool needs a refresh too.
   revalidatePath("/weaning-sales");
   revalidatePath("/mortality");
   return { ok: true };

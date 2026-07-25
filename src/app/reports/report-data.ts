@@ -82,7 +82,17 @@ async function getKitStockBalanceAsOf(to: Date): Promise<number> {
   const totalRetained = movements
     .filter((m) => m.type === "retained")
     .reduce((s, m) => s + m.count, 0);
-  return totalWeaned - totalSold - totalDied - totalRetained;
+  // Deleted سلالات going back to the weaning cages — see getKitStockSummary.
+  const totalReturned = movements
+    .filter((m) => m.type === "returned")
+    .reduce((s, m) => s + m.count, 0);
+  // Signed manual corrections. This used to be left out, which made the رصيد
+  // printed on the follow-up report disagree with /weaning-sales by exactly
+  // the adjustments — same formula as getKitStockSummary now, just as-of `to`.
+  const totalAdjustment = movements
+    .filter((m) => m.type === "adjustment")
+    .reduce((s, m) => s + m.count, 0);
+  return totalWeaned - totalSold - totalDied - totalRetained + totalReturned + totalAdjustment;
 }
 
 /**

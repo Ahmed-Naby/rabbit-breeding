@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { ShoppingCart, Skull, Layers, Rabbit, PawPrint, Trash2 } from "lucide-react";
+import { ShoppingCart, Skull, Layers, Rabbit, PawPrint } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -124,18 +124,11 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(locale === "ar" ? "هل أنت متأكد من الحذف؟" : "Are you sure you want to delete this?")) {
-      return;
-    }
-    try {
-      await enqueue("deleteKitStockMovement", { id });
-      toast.success(locale === "ar" ? "تم الحذف بنجاح" : "Deleted successfully");
-      void load();
-    } catch (err: any) {
-      toast.error(err.message || "Error");
-    }
-  };
+  // No delete button on this ledger: the rows mirror events recorded
+  // elsewhere (فطام, بيع, نافق, احتفاظ للتربية, مرتجع من السلالات), so removing
+  // one here would silently desync the balance from those pages. The
+  // deleteKitStockMovement op itself stays registered for ops already queued
+  // by older builds. Use a تسوية to correct the balance instead.
 
   const ledgerSort = useSortableRows(data?.ledger ?? [], {
     date: { type: "date", value: (r) => r.date },
@@ -175,6 +168,8 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     death: locale === "ar" ? "نافق" : "Death",
     retained: locale === "ar" ? "احتفاظ للتربية" : "Kept for breeding",
     adjustment: locale === "ar" ? "تسوية" : "Adjustment",
+    // A سلالة that was deleted and sent back to the weaning cages.
+    returned: locale === "ar" ? "مرتجع من السلالات" : "Returned from juveniles",
   };
 
   return (
@@ -405,7 +400,6 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                       direction={ledgerSort.direction}
                       onSort={ledgerSort.toggleSort}
                     />
-                    <th className="px-4 py-3 w-12 text-center" />
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -428,18 +422,6 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                         {entry.amountCents ? formatMoney(entry.amountCents, currency) : "—"}
                       </td>
                       <td className="px-4 py-3.5 max-w-[200px] truncate">{entry.notes ?? "—"}</td>
-                      <td className="px-4 py-3.5 text-center">
-                        {entry.id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDelete(entry.id!)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </td>
                     </tr>
                   ))}
                 </tbody>

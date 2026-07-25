@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Trash2, Shuffle } from "lucide-react";
+import { Trash2, Shuffle, Pencil } from "lucide-react";
 import { createId } from "@paralleldrive/cuid2";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchStockPageData } from "../db/queries";
+import { todayIso } from "../db/helpers";
 import { enqueue } from "../sync/outbox";
 import { LocalDate } from "@/components/local-date";
 import { label } from "@/lib/enums";
@@ -132,13 +133,15 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(locale === "ar" ? "هل أنت متأكد من الحذف؟" : "Are you sure you want to delete?")) return;
+    if (!window.confirm(t.deleteConfirm)) return;
     try {
-      const res = await enqueue("deleteRabbit", { id });
+      // The date the "مرتجع من السلالات" movement lands on, sent so the local
+      // row and the server's agree and the pull reconciler folds them into one.
+      const res = await enqueue("deleteRabbit", { id, date: todayIso() });
       if (res.outcome.status === "rejected") {
         toast.error(res.outcome.resultMessage === "DELETE_BLOCKED_BY_BREEDING" ? (locale === "ar" ? "لا يمكن حذف هذا الأرنب لارتباطه بعمليات تلقيح" : "Cannot delete: rabbit has mating records") : res.outcome.resultMessage);
       } else {
-        toast.success(locale === "ar" ? "تم حذف الأرنب بنجاح" : "Rabbit deleted successfully");
+        toast.success(t.deletedToast);
         await load();
       }
     } catch (err) {
@@ -478,9 +481,9 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                   direction={rabbitsSort.direction}
                   onSort={rabbitsSort.toggleSort}
                 />
+                <th className="px-4 py-3 text-center"></th>
                 <th className="px-4 py-3 text-center">{locale === "ar" ? "تعديل" : "Edit"}</th>
-                <th className="px-4 py-3 text-center"></th>
-                <th className="px-4 py-3 text-center"></th>
+                <th className="px-4 py-3 text-center">{locale === "ar" ? "حذف" : "Delete"}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -506,15 +509,6 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                     <td className="px-4 py-3.5">
                       <button
                         type="button"
-                        onClick={() => { window.location.hash = `#/rabbits/${r.id}`; }}
-                        className="h-7 whitespace-nowrap rounded-md border border-sky-400 bg-sky-500 px-3 text-xs font-semibold text-white hover:bg-sky-600 dark:border-sky-600 dark:bg-sky-700 dark:hover:bg-sky-600 transition-colors"
-                      >
-                        {locale === "ar" ? "تعديل" : "Edit"}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <button
-                        type="button"
                         onClick={() => void handlePromote(r.id, r.sex)}
                         className="h-7 whitespace-nowrap rounded-md border border-emerald-300 bg-emerald-50 px-2 text-xs text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
                       >
@@ -522,9 +516,31 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                       </button>
                     </td>
                     <td className="px-4 py-3.5">
+                      {/* Same quiet pencil as the تعديل column in the أمهات and
+                          ذكور tables — a filled blue button here read louder
+                          than نقل إلى العنبر, which is the row's real action. */}
+                      <button
+                        type="button"
+                        onClick={() => { window.location.hash = `#/rabbits/${r.id}`; }}
+                        aria-label={
+                          locale === "ar"
+                            ? `تعديل كارت السلالة${r.cage ? ` في القفص ${r.cage}` : ""}`
+                            : `Edit juvenile card${r.cage ? ` in cage ${r.cage}` : ""}`
+                        }
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </td>
+                    <td className="px-4 py-3.5">
                       <button
                         type="button"
                         onClick={() => void handleDelete(r.id)}
+                        aria-label={
+                          locale === "ar"
+                            ? `حذف السلالة${r.cage ? ` في القفص ${r.cage}` : ""}`
+                            : `Delete juvenile${r.cage ? ` in cage ${r.cage}` : ""}`
+                        }
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-destructive/20 text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

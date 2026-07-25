@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Rabbit as RabbitIcon, Clock } from "lucide-react";
+import { Rabbit as RabbitIcon, Clock, Pencil } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -346,6 +346,7 @@ export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader
                     direction={doesSort.direction}
                     onSort={doesSort.toggleSort}
                   />
+                  <th className="px-2 py-2 md:px-4 md:py-3 text-center">{t.colEdit}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -353,13 +354,10 @@ export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader
                   <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-muted-foreground">{i + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">
-                      <RabbitTagBadge
-                        tagId={doe.tagId}
-                        sex="doe"
-                        onClick={() => {
-                          window.location.hash = `#/rabbits/${doe.id}`;
-                        }}
-                      />
+                      {/* No onClick on purpose: كارت الأم is reached from the
+                          does fertility report only, so this board shows the
+                          tag without linking. */}
+                      <RabbitTagBadge tagId={doe.tagId} sex="doe" />
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 truncate max-w-20 md:max-w-none">{doe.breed ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">
@@ -379,6 +377,19 @@ export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5">
                       <DoeStateBadge current={doe.doeState} locale={locale} />
+                    </td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5">
+                      {/* The tag itself no longer links anywhere from this
+                          board, so this is the one way in. "?edit=1" makes
+                          كارت الأم open with its edit form already unfolded —
+                          see app-shell's rabbit-detail route parsing. */}
+                      <a
+                        href={`#/rabbits/${doe.id}?edit=1`}
+                        aria-label={t.editCardAria(doe.tagId ?? "")}
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </a>
                     </td>
                   </tr>
                 ))}

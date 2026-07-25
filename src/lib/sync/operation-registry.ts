@@ -429,7 +429,9 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   deleteRabbit: async (p, clientAt) => {
-    return fromOpResult(await deleteRabbitOp(p.id as string));
+    // The date the "returned" movement lands on. Devices running a build from
+    // before that row existed send no date; today is the best guess for them.
+    return fromOpResult(await deleteRabbitOp(p.id as string, p.date ? toDate(p.date) : new Date()));
   },
 
   recordKitSale: async (p, clientAt) => {

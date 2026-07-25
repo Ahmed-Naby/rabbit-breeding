@@ -557,7 +557,7 @@ model KitStockMovement {
 
   id              String   @id @default(cuid())
   date            DateTime
-  type            String // "sale" | "death" | "retained"
+  type            String // "sale" | "death" | "retained" | "adjustment" | "returned"
   count           Int // always a positive quantity; sign is a display-only concern
   weightGrams     Int? // total weight sold — "sale" only
   pricePerKgCents Int? // price/kg on the sale day — "sale" only
@@ -566,10 +566,12 @@ model KitStockMovement {
   transactionId String?      @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
-  // "retained" only — the specific سلالة this kit became. Cascades so
-  // deleting the rabbit (e.g. a mistaken entry) also undoes the deduction.
+  // "retained" only — the specific سلالة this kit became. SetNull, not
+  // Cascade: deleting the سلالة does NOT erase the original deduction, it
+  // books a separate "returned" row that adds the kit back to رصيد الفطام,
+  // so the ledger keeps both halves of the story (see deleteRabbitOp).
   rabbitId String? @unique
-  rabbit   Rabbit? @relation(fields: [rabbitId], references: [id], onDelete: Cascade)
+  rabbit   Rabbit? @relation(fields: [rabbitId], references: [id], onDelete: SetNull)
 
   notes     String?
   createdAt DateTime @default(now())

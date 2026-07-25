@@ -5,6 +5,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { StockPage } from "./stock-page";
 import { MothersPage } from "./mothers-page";
 import { BucksPage } from "./bucks-page";
+import { matchesRoute } from "../routes";
 import { cn } from "@/lib/utils";
 
 type HerdTab = "stock" | "mothers" | "bucks";
@@ -16,9 +17,11 @@ export function HerdAndStockPage({ locale }: { locale: Locale }) {
   const [activeTab, setActiveTab] = useState<HerdTab>(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash;
-      if (hash.includes("tab=mothers") || hash.startsWith("#/mothers")) return "mothers";
-      if (hash.includes("tab=bucks") || hash.startsWith("#/bucks")) return "bucks";
-      if (hash.includes("tab=stock") || hash.startsWith("#/stock")) return "stock";
+      // matchesRoute, not startsWith: "#/bucks" would otherwise also claim
+      // "#/bucks-fertility" and "#/bucks-rounds".
+      if (hash.includes("tab=mothers") || matchesRoute(hash, "#/mothers")) return "mothers";
+      if (hash.includes("tab=bucks") || matchesRoute(hash, "#/bucks")) return "bucks";
+      if (hash.includes("tab=stock") || matchesRoute(hash, "#/stock")) return "stock";
     }
     return "mothers";
   });

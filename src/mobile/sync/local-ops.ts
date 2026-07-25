@@ -1441,9 +1441,19 @@ export async function deleteBreed(
   return applied;
 }
 
+/**
+ * The offline "مرتجع من السلالات" row deleteRabbit books for a سلالة. Keyed to
+ * the rabbit so sync-manager can delete it again if the server rejects the
+ * delete, and still `local-`-prefixed so the pull reconciler folds it into the
+ * server's real row.
+ */
+export function localReturnedMovementId(rabbitId: string): string {
+  return `local-returned-${rabbitId}`;
+}
+
 export async function deleteRabbit(
   db: SQLiteDBConnection,
-  payload: { id: string }
+  payload: { id: string; date?: string }
 ): Promise<LocalOpOutcome> {
   const doeRef = await queryOne<{ n: number }>(db, "SELECT COUNT(*) as n FROM breeding WHERE doeId = ?", [payload.id]);
   const buckRef = await queryOne<{ n: number }>(db, "SELECT COUNT(*) as n FROM breeding WHERE buckId = ?", [payload.id]);
@@ -1451,7 +1461,25 @@ export async function deleteRabbit(
     return rejected("DELETE_BLOCKED_BY_BREEDING");
   }
 
+  const now = nowIso();
+  const date = payload.date ?? todayIso();
   await run(db, "DELETE FROM weight_record WHERE rabbitId = ?", [payload.id]);
+  await run(db, "DELETE FROM health_record WHERE rabbitId = ?", [payload.id]);
+  // Mirrors the server's onDelete: SetNull — the "احتفاظ للتربية" deduction
+  // stays in the ledger, it just stops pointing at a rabbit that's gone.
+  await run(db, "UPDATE kit_stock_movement SET rabbitId = NULL, updatedAt = ? WHERE rabbitId = ?", [now, payload.id]);
   await run(db, "DELETE FROM rabbit WHERE id = ?", [payload.id]);
+  // The سلالة goes back to the weaning cages, so it goes back into رصيد الفطام
+  // too — for purchased ones as well, which never had a "retained" row. The id
+  // is local-* and the date is the same one the server will stamp, so the pull
+  // reconciler replaces this row with the server's instead of double-counting.
+  // Derived from the rabbit id rather than random so a server-rejected delete
+  // can find and undo it — see REJECTABLE_CREATE_CLEANUP in sync-manager.
+  await run(
+    db,
+    `INSERT OR REPLACE INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
+     VALUES (?, ?, 'returned', 1, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)`,
+    [localReturnedMovementId(payload.id), date, now, now]
+  );
   return applied;
 }
