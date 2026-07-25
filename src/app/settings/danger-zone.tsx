@@ -53,7 +53,7 @@ export function DangerZone({ t }: { t: Dictionary["settings"] }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-1.5">
             <label className="text-sm font-semibold" htmlFor="reset-ops-confirm">
-              {t.resetOpsConfirmLabel(t.resetOpsConfirmWord)}
+              {t.resetOpsConfirmLabel.replace("{word}", t.resetOpsConfirmWord)}
             </label>
             <Input
               id="reset-ops-confirm"

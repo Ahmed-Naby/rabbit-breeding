@@ -81,10 +81,11 @@ import { RecordsPage } from "./pages/records-page";
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
   "#/herd-and-stock": { path: "#/herd-and-stock", labelKey: "herdAndStock", icon: Sprout },
-  "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/daily-rounds": { path: "#/daily-rounds", labelKey: "dailyRounds", icon: ListChecks },
   "#/operations": { path: "#/operations", labelKey: "operations", icon: HeartHandshake },
   "#/support-operations": { path: "#/support-operations", labelKey: "supportOps", icon: Box },
+  // Nav order follows this object's key order — اليومية sits below عمليات مساعدة.
+  "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
   "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },

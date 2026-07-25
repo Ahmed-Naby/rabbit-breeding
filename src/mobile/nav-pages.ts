@@ -13,13 +13,14 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 // member regardless of allowedPages, so it isn't offered as a toggle here.
 export const SELECTABLE_PAGES: { hash: string; labelKey: keyof Dictionary["nav"] }[] = [
   { hash: "#/herd-and-stock", labelKey: "herdAndStock" },
-  { hash: "#/daily", labelKey: "daily" },
   { hash: "#/daily-rounds", labelKey: "dailyRounds" },
   { hash: "#/operations", labelKey: "operations" },
   { hash: "#/support-operations", labelKey: "supportOps" },
+  { hash: "#/daily", labelKey: "daily" },
   { hash: "#/does", labelKey: "does" },
   { hash: "#/health", labelKey: "health" },
   { hash: "#/reports", labelKey: "reports" },
+  { hash: "#/records", labelKey: "records" },
   { hash: "#/weaning-sales", labelKey: "weaningSales" },
   { hash: "#/finance", labelKey: "finance" },
   { hash: "#/settings", labelKey: "settings" },

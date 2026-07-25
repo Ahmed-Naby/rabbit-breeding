@@ -33,10 +33,10 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "dashboard", icon: LayoutDashboard },
   { href: "/herd-and-stock", labelKey: "herdAndStock", icon: Sprout },
-  { href: "/daily", labelKey: "daily", icon: CalendarDays },
   { href: "/daily-rounds", labelKey: "dailyRounds", icon: ListChecks },
   { href: "/operations", labelKey: "operations", icon: HeartHandshake },
   { href: "/support-operations", labelKey: "supportOps", icon: Box },
+  { href: "/daily", labelKey: "daily", icon: CalendarDays },
   { href: "/does", labelKey: "does", icon: ClipboardList },
   { href: "/health", labelKey: "health", icon: Stethoscope },
   { href: "/reports", labelKey: "reports", icon: FileText },
