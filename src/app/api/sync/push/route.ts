@@ -43,17 +43,32 @@ export async function POST(request: Request) {
   const auth = await authenticateSync(request);
   if (auth instanceof Response) return auth;
 
-  let body: { deviceId?: string; operations?: IncomingOperation[] };
+  let body: { deviceId?: string; operations?: IncomingOperation[]; clientNow?: string };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { deviceId, operations } = body;
+  const { deviceId, operations, clientNow } = body;
   if (!deviceId || !Array.isArray(operations)) {
     return Response.json({ error: "deviceId and operations[] are required" }, { status: 400 });
   }
+
+  // How far this device's clock trails the server's. Every clientAt in the
+  // batch comes off that clock, while the conflict guard weighs them against
+  // server-stamped `updatedAt` values — so without this correction a phone
+  // running slow makes each of its own ops look like the loser of a conflict
+  // that never happened, and shouldSkipUpdate drops them (reporting them
+  // "applied", so the device clears them from the outbox for good).
+  //
+  // Older clients don't send clientNow; 0 leaves them exactly as before.
+  // Never negative: a device running FAST would otherwise have its ops
+  // back-dated into the past, which only invents conflicts.
+  const skewMs =
+    clientNow && !Number.isNaN(Date.parse(clientNow))
+      ? Math.max(0, Date.now() - Date.parse(clientNow))
+      : 0;
 
   await prisma.syncDevice.upsert({
     where: { id: deviceId },
@@ -91,7 +106,10 @@ export async function POST(request: Request) {
       try {
         // Every op replays inside the authenticated farm's context — the
         // Prisma extension scopes all its queries to auth.farmId.
-        outcome = await runWithFarm(auth.farmId, () => handler(op.payload ?? {}, new Date(op.clientAt)));
+        // Skew-corrected for the guard's benefit; the raw clientAt is what
+        // gets persisted below, so the audit trail stays the device's truth.
+        const effectiveClientAt = new Date(Date.parse(op.clientAt) + skewMs);
+        outcome = await runWithFarm(auth.farmId, () => handler(op.payload ?? {}, effectiveClientAt));
       } catch (e) {
         // A thrown error here is NOT the same thing as a deliberate business-
         // rule rejection (those come back as a normal {ok:false,code} return

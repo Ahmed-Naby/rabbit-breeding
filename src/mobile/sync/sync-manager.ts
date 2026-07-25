@@ -502,14 +502,29 @@ export async function pull(): Promise<boolean> {
       // best value already on this device for that birth, else bornAlive. The
       // ORDER BY picks the largest local candidate because kits only ever
       // *leave* a litter, so the birth count is never below a later count.
+      // bornDeadAtKindling gets the same three-way preference, with two
+      // differences forced by stillborns behaving the opposite way to live
+      // kits: deaths only ever *accumulate*, so the birth value is never
+      // *above* a later count and the local candidate is the SMALLEST one
+      // (ASC, not DESC). And 0 is a normal birth value here rather than a
+      // "missing" marker, so legacy rows carry -1 instead and the subquery
+      // filters them out — otherwise an unmigrated row would win the COALESCE
+      // with a sentinel.
       set.push({
-        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, createdAt)
+        statement: `INSERT OR REPLACE INTO kindling_log (id, doeId, buckId, breedingId, matingDate, kindlingDate, bornAlive, bornDead, bornAliveAtKindling, bornDeadAtKindling, createdAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?,
            COALESCE(
              ?,
              (SELECT bornAliveAtKindling FROM kindling_log
                WHERE doeId = ? AND kindlingDate = ?
                ORDER BY bornAliveAtKindling DESC LIMIT 1),
+             ?
+           ),
+           COALESCE(
+             ?,
+             (SELECT bornDeadAtKindling FROM kindling_log
+               WHERE doeId = ? AND kindlingDate = ? AND bornDeadAtKindling >= 0
+               ORDER BY bornDeadAtKindling ASC LIMIT 1),
              ?
            ),
            ?)`,
@@ -526,6 +541,10 @@ export async function pull(): Promise<boolean> {
           log.doeId,
           log.kindlingDate,
           log.bornAlive ?? 0,
+          log.bornDeadAtKindling ?? null,
+          log.doeId,
+          log.kindlingDate,
+          log.bornDead ?? 0,
           log.createdAt,
         ],
       });
@@ -554,8 +573,8 @@ export async function pull(): Promise<boolean> {
         values: [log.doeId, log.weaningDate],
       });
       set.push({
-        statement: `INSERT OR REPLACE INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, weaned, weaningWeightGrams, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        statement: `INSERT OR REPLACE INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling, weaned, weaningWeightGrams, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         values: [
           log.id,
           log.doeId,
@@ -565,6 +584,13 @@ export async function pull(): Promise<boolean> {
           log.weaningDate,
           log.bornAlive ?? 0,
           log.bornDead ?? 0,
+          // No local-value preservation here, unlike the kindling row above:
+          // the server froze this from its own kindling log when it processed
+          // the weaning, so its value is the same one this device computed
+          // optimistically. A server that hasn't run the migration sends
+          // nothing, and -1 correctly reports «نسبة بقاء الفطام» as unknown
+          // until it has.
+          log.bornDeadAtKindling ?? -1,
           log.weaned ?? null,
           log.weaningWeightGrams ?? null,
           log.createdAt,
@@ -700,6 +726,13 @@ export async function push(): Promise<boolean> {
       method: "POST",
       body: JSON.stringify({
         deviceId: cursor.deviceId,
+        // This device's clock at send time. Every clientAt below is stamped
+        // from the same clock, so the server can subtract the two to get the
+        // skew and compare like with like — its conflict guard weighs an op's
+        // clientAt against a row's server-stamped updatedAt, and a device
+        // running even a minute slow otherwise loses that comparison and has
+        // its edits silently dropped (see shouldSkipUpdate).
+        clientNow: new Date().toISOString(),
         operations: pending.map((p) => ({
           clientOpId: p.clientOpId,
           opType: p.opType,

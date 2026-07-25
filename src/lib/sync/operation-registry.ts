@@ -99,8 +99,16 @@ type SyncOpHandler = (payload: Record<string, unknown>, clientAt: Date) => Promi
 
 const applied: SyncOpOutcome = { status: "applied" };
 
+/**
+ * EVERY conflict guard in this file must go through here — never hand-roll
+ * `existing.updatedAt > clientAt` at a call site. The batch escape below is
+ * what keeps a push from cannibalising itself, and a copy of the comparison
+ * that omits it silently eats writes (see runWithSyncBatch). Four litter ops
+ * used to hand-roll it, which is how «عدد الفطام» and «وزن الفطام» could be
+ * typed in, pushed, reported applied, and still never reach the server.
+ */
 async function shouldSkipUpdate(
-  modelName: "rabbit" | "breeding" | "litter" | "settings",
+  modelName: "rabbit" | "breeding" | "litter" | "litterByBreeding" | "settings",
   id: string | number,
   clientAt: Date
 ): Promise<boolean> {
@@ -110,8 +118,19 @@ async function shouldSkipUpdate(
   // push/route.ts can't recognise as deterministic, so it reports the op as
   // a transient "error" and lets the client retry the same clientOpId
   // forever — a permanently stuck "1 pending" that never drains.
-  const where = modelName === "settings" ? { farmId: currentFarmId() } : { id };
-  const existing = await (prisma[modelName] as any).findUnique({
+  //
+  // litterByBreeding is the same Litter model reached by its OTHER unique key:
+  // the ops that write a litter are all addressed by breedingId (the board
+  // never learns the litter's own id), so without this they had no way to use
+  // this helper at all.
+  const model = modelName === "litterByBreeding" ? "litter" : modelName;
+  const where =
+    modelName === "settings"
+      ? { farmId: currentFarmId() }
+      : modelName === "litterByBreeding"
+        ? { breedingId: id as string }
+        : { id };
+  const existing = await (prisma[model] as any).findUnique({
     where,
     select: { updatedAt: true }
   });
@@ -238,14 +257,8 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   setLitterCount: async (p, clientAt) => {
-    if (p.breedingId) {
-      const existingLitter = await prisma.litter.findUnique({
-        where: { breedingId: p.breedingId as string },
-        select: { updatedAt: true }
-      });
-      if (existingLitter && existingLitter.updatedAt > clientAt) {
-        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
-      }
+    if (p.breedingId && await shouldSkipUpdate("litterByBreeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
     }
     return fromOpResult(
       await setLitterCountOp(
@@ -257,27 +270,15 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   setLitterWeaningWeight: async (p, clientAt) => {
-    if (p.breedingId) {
-      const existingLitter = await prisma.litter.findUnique({
-        where: { breedingId: p.breedingId as string },
-        select: { updatedAt: true }
-      });
-      if (existingLitter && existingLitter.updatedAt > clientAt) {
-        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
-      }
+    if (p.breedingId && await shouldSkipUpdate("litterByBreeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
     }
     return fromOpResult(await setLitterWeaningWeightOp(p.breedingId as string, p.weaningWeightGrams as number | null));
   },
 
   recordNursingKitDeath: async (p, clientAt) => {
-    if (p.breedingId) {
-      const existingLitter = await prisma.litter.findUnique({
-        where: { breedingId: p.breedingId as string },
-        select: { updatedAt: true }
-      });
-      if (existingLitter && existingLitter.updatedAt > clientAt) {
-        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
-      }
+    if (p.breedingId && await shouldSkipUpdate("litterByBreeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
     }
     return fromOpResult(await recordNursingKitDeathOp(p.breedingId as string, (p.count as number | undefined) ?? 1));
   },
@@ -309,14 +310,8 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   recordKindling: async (p, clientAt) => {
-    if (p.breedingId) {
-      const existingLitter = await prisma.litter.findUnique({
-        where: { breedingId: p.breedingId as string },
-        select: { updatedAt: true }
-      });
-      if (existingLitter && existingLitter.updatedAt > clientAt) {
-        return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
-      }
+    if (p.breedingId && await shouldSkipUpdate("litterByBreeding", p.breedingId as string, clientAt)) {
+      return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
     }
     return fromOpResult(
       await recordKindlingOp(p.breedingId as string, {
@@ -324,6 +319,7 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
         bornAlive: p.bornAlive as number,
         bornDead: p.bornDead as number,
         weaned: (p.weaned as number | null) ?? null,
+        weaningWeightGrams: (p.weaningWeightGrams as number | null) ?? null,
         weaningDate: toDateOrNull(p.weaningDate),
         notes: (p.notes as string | null) ?? null,
       })
