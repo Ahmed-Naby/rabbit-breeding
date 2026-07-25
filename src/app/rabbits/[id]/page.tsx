@@ -137,7 +137,6 @@ export default async function RabbitDetailPage({
   const buckStats = isBuck
     ? computeDoeFertilityStats(
         buckCycles.map((c) => ({
-          testResult: c.testResult,
           kindlingDate: c.kindlingDate,
           bornAliveAtKindling: c.bornAliveAtKindling,
           bornAlive: c.bornAlive,

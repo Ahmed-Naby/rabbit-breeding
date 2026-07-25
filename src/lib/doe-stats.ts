@@ -6,7 +6,6 @@
  * and the offline mobile detail page compute identical numbers.
  */
 export type DoeCycleInput = {
-  testResult: string | null;
   kindlingDate: unknown;
   /**
    * «عدد الخلفة» — born alive at the kindling moment, frozen. This is the
@@ -23,7 +22,7 @@ export type DoeFertilityStats = {
   totalMatings: number;
   /** Number of cycles that actually kindled. */
   totalKindlings: number;
-  /** % of matings with a known outcome that ended in a kindling. Null if no cycle has resolved yet. */
+  /** % of all matings that ended in a kindling. Null if she has never been mated. */
   fertilityRatePct: number | null;
   /**
    * Average litter size at birth across cycles that actually kindled — built
@@ -40,12 +39,13 @@ export function computeDoeFertilityStats(cycles: DoeCycleInput[]): DoeFertilityS
   const totalMatings = cycles.length;
 
   const kindled = cycles.filter((c) => c.kindlingDate != null);
-  // A cycle with no test result yet and no kindling is still in progress —
-  // excluded from the denominator so an open mating doesn't drag the rate
-  // down before its outcome is even known.
-  const pending = cycles.filter((c) => c.testResult == null && c.kindlingDate == null);
-  const resolved = totalMatings - pending.length;
-  const fertilityRatePct = resolved > 0 ? (kindled.length / resolved) * 100 : null;
+  // Every mating counts, including one still waiting on its outcome. An
+  // earlier version dropped pending cycles from the denominator so an open
+  // mating wouldn't read as a failure, but that made the rate answer a
+  // different question than the two matings printed right next to it — a doe
+  // mated twice with one kindling and one cycle still open showed 100%. The
+  // fertility reports use the same plain ratio.
+  const fertilityRatePct = totalMatings > 0 ? (kindled.length / totalMatings) * 100 : null;
 
   // Deliberately the birth count, not the nursing one: a doe who kindled 12
   // and gave 4 away raised 8 but *had* 12, and it's her productivity being

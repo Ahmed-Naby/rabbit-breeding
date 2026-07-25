@@ -454,7 +454,6 @@ function BuckFertilityCards({
   const t = getClientDictionary(locale).rabbits;
   const stats = computeDoeFertilityStats(
     history.map((c) => ({
-      testResult: c.testResult,
       kindlingDate: c.kindlingDate,
       bornAliveAtKindling: c.bornAliveAtKindling,
       bornAlive: c.bornAlive,
