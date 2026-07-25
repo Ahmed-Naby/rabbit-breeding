@@ -5,18 +5,15 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
-import { StatusBadge } from "@/components/status-badge";
-import {
-  NursingKitDeathButton,
-  WeaningStockDeathButton,
-  MarkDeceasedButton,
-} from "./mortality-actions";
+import { NursingKitDeathButton, WeaningStockDeathButton } from "./mortality-actions";
 import { getKitStockSummary } from "../weaning-sales/stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isNursingKitDeathCandidate } from "@/lib/breeding-filters";
 import { isToday } from "@/lib/dates";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
+import { RabbitDeathForm } from "./rabbit-death-form";
+import { StockDeathForm } from "./stock-death-form";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -215,134 +212,33 @@ export default async function MortalityPage({
         </Card>
       </div>
 
-      {/* نافق الأمهات */}
+      {/* نافق الأمهات — رقم الأم + زرار، بدل جدول بكل أمهات المزرعة */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.mothersSectionTitle}</h2>
         {activeMothers.length === 0 ? (
           <EmptyState icon={Skull} title={t.mortality.mothersEmptyTitle} />
         ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              initialSortKey="tag"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
-              ]}
-              rows={activeMothers.map((r, i) => ({
-                key: r.id,
-                sortValues: { tag: r.tagId, breed: r.breed },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <MarkDeceasedButton
-                        id={r.id}
-                        confirmText={t.mortality.motherDeathConfirm(r.tagId ?? "")}
-                        locale={locale}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
+          <RabbitDeathForm rabbits={activeMothers} locale={locale} kind="doe" />
         )}
       </div>
 
-      {/* نافق الذكور */}
+      {/* نافق الذكور — رقم الذكر + زرار، بدل جدول بكل ذكور المزرعة */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.bucksSectionTitle}</h2>
         {activeBucks.length === 0 ? (
           <EmptyState icon={Skull} title={t.mortality.bucksEmptyTitle} />
         ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              initialSortKey="tag"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mortality.colBuckTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
-              ]}
-              rows={activeBucks.map((r, i) => ({
-                key: r.id,
-                sortValues: { tag: r.tagId, breed: r.breed },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        {r.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>
-                      <MarkDeceasedButton
-                        id={r.id}
-                        confirmText={t.mortality.buckDeathConfirm(r.tagId ?? "")}
-                        locale={locale}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
+          <RabbitDeathForm rabbits={activeBucks} locale={locale} kind="buck" />
         )}
       </div>
 
-      {/* نافق السلالات */}
+      {/* نافق السلالات — رقم القفص يعرض سلالات القفص، بدل جدول بكل السلالات */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.strainsSectionTitle}</h2>
         {activeStock.length === 0 ? (
           <EmptyState icon={Skull} title={t.mortality.strainsEmptyTitle} />
         ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              initialSortKey="cage"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },
-                { key: "breed", label: t.mortality.colStrainBreed, type: "string", className: "text-center" },
-                { key: "cage", label: t.mortality.colCage, type: "tag", className: "text-center" },
-                { key: "action", label: t.mortality.colRecordDeceased, className: "text-center", sortable: false },
-              ]}
-              rows={activeStock.map((r, i) => ({
-                key: r.id,
-                sortValues: { sex: r.sex, breed: r.breed, cage: r.cage },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${r.id}`} className="hover:underline">
-                        <StatusBadge value={r.sex} locale={locale} />
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.breed ?? "—"}</TableCell>
-                    <TableCell>{r.cage ?? "—"}</TableCell>
-                    <TableCell>
-                      <MarkDeceasedButton
-                        id={r.id}
-                        confirmText={t.mortality.strainDeathConfirm}
-                        locale={locale}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
+          <StockDeathForm stock={activeStock} locale={locale} />
         )}
       </div>
 

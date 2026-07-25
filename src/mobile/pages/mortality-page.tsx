@@ -30,6 +30,9 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
 
   const [nursingCounts, setNursingCounts] = useState<Record<string, number>>({});
   const [weanedCount, setWeanedCount] = useState(1);
+  const [motherTag, setMotherTag] = useState("");
+  const [buckTag, setBuckTag] = useState("");
+  const [stockCage, setStockCage] = useState("");
   const [pending, startTransition] = useState(false);
 
   const load = useCallback(async () => {
@@ -48,21 +51,6 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   useEffect(() => {
     void load();
   }, [load]);
-
-  const handleMarkDeceased = async (id: string, name: string) => {
-    const confirmed = window.confirm(
-      locale === "ar" ? `هل أنت متأكد من تسجيل الأرنب "${name}" كـ نافق؟` : `Are you sure you want to mark "${name}" as deceased?`
-    );
-    if (!confirmed) return;
-
-    try {
-      await enqueue("setRabbitStatus", { id, status: "deceased" });
-      toast.success(t.mortality.deceasedToast);
-      void load();
-    } catch (err: any) {
-      toast.error(err.message || "Error");
-    }
-  };
 
   const handleNursingDeath = async (breedingId: string, available: number) => {
     const count = nursingCounts[breedingId] || 1;
@@ -116,19 +104,43 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
     alive: { type: "number", value: (r) => r.litter.bornAlive },
     dead: { type: "number", value: (r) => r.litter.bornDead },
   });
-  const mothersSort = useSortableRows(activeMothers, {
-    tag: { type: "tag", value: (r) => r.tagId },
-    breed: { type: "string", value: (r) => r.breed },
-  }, { key: "tag" });
-  const bucksSort = useSortableRows(activeBucks, {
-    tag: { type: "tag", value: (r) => r.tagId },
-    breed: { type: "string", value: (r) => r.breed },
-  }, { key: "tag" });
-  const stockSort = useSortableRows(activeStock, {
-    sex: { type: "string", value: (r) => r.sex },
-    breed: { type: "string", value: (r) => r.breed },
-    cage: { type: "tag", value: (r) => r.cage },
-  }, { key: "cage" });
+  // نافق الأمهات/الذكور are entered by tag number rather than picked out of a
+  // table of the whole herd, so the match resolves locally off the already-
+  // loaded list — no query, and the feedback lands as the farmer types.
+  const motherQuery = motherTag.trim();
+  const motherMatch = motherQuery
+    ? (activeMothers.find((d) => (d.tagId ?? "").trim() === motherQuery) ?? null)
+    : null;
+  const buckQuery = buckTag.trim();
+  const buckMatch = buckQuery
+    ? (activeBucks.find((b) => (b.tagId ?? "").trim() === buckQuery) ?? null)
+    : null;
+
+  const recordTaggedDeath = async (
+    match: LocalRabbit | null,
+    confirmText: string,
+    clear: () => void,
+  ) => {
+    if (!match) return;
+    if (!window.confirm(confirmText)) return;
+    try {
+      await enqueue("setRabbitStatus", { id: match.id, status: "deceased" });
+      toast.success(t.mortality.deceasedToast);
+      clear();
+      void load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  };
+
+  // Untagged stock has no number of its own, so the cage is the handle — and a
+  // cage routinely holds several rabbits, so this filters to a list rather than
+  // resolving to one match like the doe/buck forms above.
+  const stockQuery = stockCage.trim();
+  const stockMatches = stockQuery
+    ? activeStock.filter((r) => (r.cage ?? "").trim() === stockQuery)
+    : [];
+
   if (!data) {
     return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
   }
@@ -258,7 +270,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
         </Card>
       </div>
 
-      {/* 3. نافق الأمهات (Active Does Mortality) */}
+      {/* 3. نافق الأمهات — رقم الأم + زرار، بدل جدول بكل أمهات المزرعة */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.mothersSectionTitle}</h2>
         {activeMothers.length === 0 ? (
@@ -267,55 +279,29 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
             <p className="font-medium">{t.mortality.mothersEmptyTitle}</p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right border-collapse">
-              <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colMotherTag}
-                    sortKey="tag"
-                    activeSortKey={mothersSort.sortKey}
-                    direction={mothersSort.direction}
-                    onSort={mothersSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colBreed}
-                    sortKey="breed"
-                    activeSortKey={mothersSort.sortKey}
-                    direction={mothersSort.direction}
-                    onSort={mothersSort.toggleSort}
-                  />
-                  <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {mothersSort.sorted.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
-                    <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-3 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-                        onClick={() => handleMarkDeceased(r.id, r.tagId!)}
-                      >
-                        {t.mortality.recordDeceasedButton}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DeathByTagForm
+            idPrefix="mother"
+            tagLabel={t.mortality.colMotherTag}
+            breedLabel={t.mortality.colBreed}
+            placeholder={t.mortality.motherTagPlaceholder}
+            notFoundLabel={t.mortality.motherNotFound}
+            hint={t.mortality.mothersFormHint}
+            buttonLabel={t.mortality.recordDeceasedButton}
+            value={motherTag}
+            onChange={setMotherTag}
+            match={motherMatch}
+            onSubmit={() =>
+              void recordTaggedDeath(
+                motherMatch,
+                t.mortality.motherDeathConfirm(motherMatch?.tagId ?? ""),
+                () => setMotherTag(""),
+              )
+            }
+          />
         )}
       </div>
 
-      {/* 4. نافق الذكور (Active Bucks Mortality) */}
+      {/* 4. نافق الذكور — رقم الذكر + زرار، بدل جدول بكل ذكور المزرعة */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.bucksSectionTitle}</h2>
         {activeBucks.length === 0 ? (
@@ -324,51 +310,25 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
             <p className="font-medium">{t.mortality.bucksEmptyTitle}</p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right border-collapse">
-              <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colBuckTag}
-                    sortKey="tag"
-                    activeSortKey={bucksSort.sortKey}
-                    direction={bucksSort.direction}
-                    onSort={bucksSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colBreed}
-                    sortKey="breed"
-                    activeSortKey={bucksSort.sortKey}
-                    direction={bucksSort.direction}
-                    onSort={bucksSort.toggleSort}
-                  />
-                  <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {bucksSort.sorted.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3 text-center font-bold">{r.tagId}</td>
-                    <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-3 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-                        onClick={() => handleMarkDeceased(r.id, r.tagId!)}
-                      >
-                        {t.mortality.recordDeceasedButton}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DeathByTagForm
+            idPrefix="buck"
+            tagLabel={t.mortality.colBuckTag}
+            breedLabel={t.mortality.colBreed}
+            placeholder={t.mortality.buckTagPlaceholder}
+            notFoundLabel={t.mortality.buckNotFound}
+            hint={t.mortality.bucksFormHint}
+            buttonLabel={t.mortality.recordDeceasedButton}
+            value={buckTag}
+            onChange={setBuckTag}
+            match={buckMatch}
+            onSubmit={() =>
+              void recordTaggedDeath(
+                buckMatch,
+                t.mortality.buckDeathConfirm(buckMatch?.tagId ?? ""),
+                () => setBuckTag(""),
+              )
+            }
+          />
         )}
       </div>
 
@@ -381,62 +341,80 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
             <p className="font-medium">{t.mortality.strainsEmptyTitle}</p>
           </div>
         ) : (
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right border-collapse">
-              <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colSex}
-                    sortKey="sex"
-                    activeSortKey={stockSort.sortKey}
-                    direction={stockSort.direction}
-                    onSort={stockSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colStrainBreed}
-                    sortKey="breed"
-                    activeSortKey={stockSort.sortKey}
-                    direction={stockSort.direction}
-                    onSort={stockSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colCage}
-                    sortKey="cage"
-                    activeSortKey={stockSort.sortKey}
-                    direction={stockSort.direction}
-                    onSort={stockSort.toggleSort}
-                  />
-                  <th className="px-4 py-3 text-center w-36">{t.mortality.colRecordDeceased}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {stockSort.sorted.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3 text-center">
-                      {r.sex === "doe" ? (locale === "ar" ? "أنثى" : "Doe") : (locale === "ar" ? "ذكر" : "Buck")}
-                    </td>
-                    <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
-                    <td className="px-4 py-3 text-center">{r.cage ?? "—"}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-3 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-                        onClick={() => handleMarkDeceased(r.id, `${r.breed ?? "—"} (قفس ${r.cage ?? "—"})`)}
-                      >
-                        {t.mortality.recordDeceasedButton}
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardContent className="space-y-4 py-5">
+              <div className="space-y-1.5 sm:max-w-xs">
+                <label className="text-sm font-semibold" htmlFor="stock-death-cage">
+                  {t.mortality.colCage}
+                </label>
+                <Input
+                  id="stock-death-cage"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={stockCage}
+                  placeholder={t.mortality.cagePlaceholder}
+                  onChange={(e) => setStockCage(e.target.value)}
+                />
+              </div>
+
+              {stockMatches.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border">
+                  <table className="w-full border-collapse text-sm text-left rtl:text-right">
+                    <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                      <tr className="[&>th]:border-x">
+                        <th className="px-4 py-3 text-center w-16">{t.mortality.colIndex}</th>
+                        <th className="px-4 py-3 text-center">{t.mortality.colSex}</th>
+                        <th className="px-4 py-3 text-center">{t.mortality.colStrainBreed}</th>
+                        <th className="px-4 py-3 text-center w-36">
+                          {t.mortality.colRecordDeceased}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {stockMatches.map((r, i) => (
+                        <tr
+                          key={r.id}
+                          className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center"
+                        >
+                          <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
+                          <td className="px-4 py-3">
+                            {r.sex === "doe"
+                              ? locale === "ar"
+                                ? "أنثى"
+                                : "Doe"
+                              : locale === "ar"
+                                ? "ذكر"
+                                : "Buck"}
+                          </td>
+                          <td className="px-4 py-3">{r.breed ?? "—"}</td>
+                          <td className="px-4 py-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-3 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                              onClick={() =>
+                                void recordTaggedDeath(
+                                  r,
+                                  t.mortality.strainDeathConfirm,
+                                  () => undefined,
+                                )
+                              }
+                            >
+                              {t.mortality.recordDeceasedButton}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : stockCage.trim().length > 0 ? (
+                <p className="text-sm font-medium text-destructive">{t.mortality.cageNotFound}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t.mortality.strainsFormHint}</p>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -444,5 +422,90 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
 
       <CullingLog culledRabbits={culledRabbits} locale={locale} todayOnly />
     </div>
+  );
+}
+
+/**
+ * رقم الأم/الذكر + النوع + زرار تسجيل نافق — the same card serves both tagged
+ * sections. النوع is filled in from the matched rabbit as confirmation that the
+ * typed number is the right animal, so it's read-only, and the button stays
+ * disabled until a number actually matches something in the herd.
+ */
+function DeathByTagForm({
+  idPrefix,
+  tagLabel,
+  breedLabel,
+  placeholder,
+  notFoundLabel,
+  hint,
+  buttonLabel,
+  value,
+  onChange,
+  match,
+  onSubmit,
+}: {
+  idPrefix: string;
+  tagLabel: string;
+  breedLabel: string;
+  placeholder: string;
+  notFoundLabel: string;
+  hint: string;
+  buttonLabel: string;
+  value: string;
+  onChange: (next: string) => void;
+  match: LocalRabbit | null;
+  onSubmit: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="space-y-3 py-5">
+        <form
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className="flex-1 space-y-1.5">
+            <label className="text-sm font-semibold" htmlFor={`${idPrefix}-death-tag`}>
+              {tagLabel}
+            </label>
+            <Input
+              id={`${idPrefix}-death-tag`}
+              inputMode="numeric"
+              autoComplete="off"
+              value={value}
+              placeholder={placeholder}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <label className="text-sm font-semibold" htmlFor={`${idPrefix}-death-breed`}>
+              {breedLabel}
+            </label>
+            <Input
+              id={`${idPrefix}-death-breed`}
+              readOnly
+              tabIndex={-1}
+              value={match ? (match.breed ?? "—") : ""}
+              className="bg-muted/50 font-medium"
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="outline"
+            disabled={!match}
+            className="h-9 px-4 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+          >
+            {buttonLabel}
+          </Button>
+        </form>
+        {!match && value.trim().length > 0 ? (
+          <p className="text-sm font-medium text-destructive">{notFoundLabel}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">{hint}</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
