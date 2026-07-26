@@ -475,20 +475,47 @@ export async function confirmResorptionOp(
 /**
  * "تركيب بيت الولادة" from the /nest-box board: stamps today as the date the
  * nest box was installed for this cycle so the doe can start preparing it a
- * few days before she's due to kindle. Per-cycle checklist item, not
- * permanent breeding/pedigree history (unlike PregnancyTestLog/KindlingLog),
- * so it lives directly on the Breeding row and is reset back to null
- * wherever matingDate itself is reset/overwritten for a new cycle (see
- * markMated's reuse branch, markMatingFailed, clearDoeRow).
+ * few days before she's due to kindle.
+ *
+ * Breeding.nestBoxDate stays what the board reads — it is a per-cycle checklist
+ * flag, reset to null wherever matingDate is reset for a new cycle (see
+ * markMated's reuse branch, markMatingFailed, clearDoeRow). But that reset also
+ * erased the event from the اليومية of the day it happened, so the press now
+ * additionally appends a permanent NestBoxLog row, like every other recordable
+ * event. Deduped on (doe, day) exactly like matingAlreadyLogged, so a replayed
+ * offline op can't append a phantom.
  */
-export async function installNestBoxOp(breedingId: string): Promise<Breeding> {
+export async function installNestBoxOp(
+  breedingId: string,
+  opts?: { nestBoxLogId?: string }
+): Promise<Breeding> {
   const nestBoxDate = new Date();
   nestBoxDate.setUTCHours(0, 0, 0, 0);
 
-  return prisma.breeding.update({
+  const breeding = await prisma.breeding.findUniqueOrThrow({
     where: { id: breedingId },
-    data: { nestBoxDate },
+    select: { doeId: true },
   });
+  const alreadyLogged = await prisma.nestBoxLog.findFirst({
+    where: { doeId: breeding.doeId, nestBoxDate },
+    select: { id: true },
+  });
+
+  const [updated] = await prisma.$transaction([
+    prisma.breeding.update({
+      where: { id: breedingId },
+      data: { nestBoxDate },
+    }),
+    ...(alreadyLogged
+      ? []
+      : [
+          prisma.nestBoxLog.create({
+            data: { id: opts?.nestBoxLogId, doeId: breeding.doeId, breedingId, nestBoxDate },
+          }),
+        ]),
+  ]);
+
+  return updated;
 }
 
 /**

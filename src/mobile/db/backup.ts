@@ -126,7 +126,8 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
 
   const [
     settings, rabbits, breedings, litters, weightRecords, healthRecords,
-    transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs, fosterLogs,
+    transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs,
+    nestBoxLogs, fosterLogs,
   ] = await Promise.all([
     queryOne<Row>(
       db,
@@ -189,6 +190,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
               bornDeadAtKindling, weaned, weaningWeightGrams, createdAt
        FROM weaning_log`
     ),
+    queryAll<Row>(db, "SELECT id, doeId, breedingId, nestBoxDate, createdAt FROM nest_box_log"),
     queryAll<Row>(db, "SELECT id, fromDoeId, toDoeId, count, date, createdAt FROM foster_log"),
   ]);
 
@@ -238,6 +240,9 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     pregnancyTestLogs,
     kindlingLogs,
     weaningLogs,
+    // No column anywhere references a nest-box row, so remapping a "local-" id
+    // here needs no patching pass — unlike litters/transactions above.
+    nestBoxLogs: nestBoxLogs.map(withPermanentId()),
     fosterLogs: fosterLogs.map(withPermanentId()),
   };
 }

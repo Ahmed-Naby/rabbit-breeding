@@ -69,21 +69,19 @@ export type DailyLog = {
 /**
  * Row-level "what happened today" log across every recordable farm event.
  * `day` is UTC midnight for the selected date; the range's exclusive upper
- * bound covers the full 24h window. The log tables' date columns and
- * Breeding.nestBoxDate are always stamped at UTC midnight (see breeding-ops.ts),
+ * bound covers the full 24h window. The log tables' date columns are always
+ * stamped at UTC midnight (see breeding-ops.ts),
  * while PregnancyTestLog.testDate and Rabbit.updatedAt are real timestamps — a
  * [day, day+1) range correctly captures both.
  *
- * Sourced from the append-only archives (MatingLog/KindlingLog/WeaningLog), NOT
- * from Breeding/Litter. A Breeding row and its 1:1 Litter are reused every
- * cycle: markKindled nulls matingDate and overwrites the litter's
- * kindlingDate/weaningDate/weaned, so reading the live rows made a past day's
- * page silently lose the events it was supposed to be a record of — and a doe
- * bred several times contributed at most one row no matter how many cycles she
- * had actually run. A day already gone by must never change.
- *
- * نصب العش is the one section still on a live column (Breeding.nestBoxDate,
- * cleared on the next cycle) because no NestBoxLog archive exists to read.
+ * Sourced entirely from the append-only archives (MatingLog/KindlingLog/
+ * WeaningLog/NestBoxLog), NOT from Breeding/Litter. A Breeding row and its 1:1
+ * Litter are reused every cycle: markKindled nulls matingDate and overwrites the
+ * litter's kindlingDate/weaningDate/weaned, and markMated clears nestBoxDate —
+ * so reading the live rows made a past day's page silently lose the events it
+ * was supposed to be a record of, and a doe bred several times contributed at
+ * most one row no matter how many cycles she had actually run. A day already
+ * gone by must never change.
  */
 export async function getDailyLog(day: Date): Promise<DailyLog> {
   const dayEnd = addDays(day, 1);
@@ -110,7 +108,7 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
         },
         orderBy: { testDate: "desc" },
       }),
-      prisma.breeding.findMany({
+      prisma.nestBoxLog.findMany({
         where: { nestBoxDate: range },
         select: {
           id: true,

@@ -1335,11 +1335,11 @@ export type DailyLog = {
 /**
  * dayIso is a plain "YYYY-MM-DD" string — local dates are stored as ISO TEXT, so a substr(...,1,10) match is a calendar-day filter with no timezone math.
  *
- * Reads the append-only archives (mating_log/kindling_log/weaning_log), not
- * breeding/litter: those two rows are reused every cycle and markKindled nulls
- * matingDate and overwrites the litter's dates, so a past day's page used to
- * lose the very events it records. Mirrors the server's getDailyLog. نصب العش
- * stays on breeding.nestBoxDate — there's no archive table for it.
+ * Reads the append-only archives (mating_log/kindling_log/weaning_log/
+ * nest_box_log), not breeding/litter: those two rows are reused every cycle,
+ * markKindled nulls matingDate and overwrites the litter's dates, and markMated
+ * clears nestBoxDate — so a past day's page used to lose the very events it
+ * records. Mirrors the server's getDailyLog.
  */
 export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string): Promise<DailyLog> {
   const matingRows = await queryAll<{ id: string; doeId: string; buckId: string | null }>(
@@ -1400,7 +1400,7 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
 
   const nestBoxRows = await queryAll<{ id: string; doeId: string }>(
     db,
-    "SELECT id, doeId FROM breeding WHERE nestBoxDate IS NOT NULL AND substr(nestBoxDate, 1, 10) = ? ORDER BY nestBoxDate DESC",
+    "SELECT id, doeId FROM nest_box_log WHERE substr(nestBoxDate, 1, 10) = ? ORDER BY nestBoxDate DESC",
     [dayIso]
   );
   const nestBoxes: DailyNestBoxRow[] = [];

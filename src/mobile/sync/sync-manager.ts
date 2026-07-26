@@ -207,6 +207,7 @@ type PullResponse = {
   kindlingLogs?: Record<string, unknown>[];
   weaningLogs?: Record<string, unknown>[];
   matingLogs?: Record<string, unknown>[];
+  nestBoxLogs?: Record<string, unknown>[];
   tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
 };
 
@@ -615,6 +616,23 @@ export async function pull(): Promise<boolean> {
         statement: `INSERT OR REPLACE INTO mating_log (id, doeId, buckId, matingDate, wasNursingAtMating, createdAt)
          VALUES (?, ?, ?, ?, ?, ?)`,
         values: [log.id, log.doeId, log.buckId, log.matingDate, log.wasNursingAtMating ? 1 : 0, log.createdAt],
+      });
+    }
+  }
+
+  if (data.nestBoxLogs) {
+    for (const log of data.nestBoxLogs) {
+      // Same id-sharing contract as matingLogs: the local-% delete only catches
+      // a row written before outbox started injecting nestBoxLogId, keyed on
+      // doeId + nestBoxDate (one installation per doe per day).
+      set.push({
+        statement: "DELETE FROM nest_box_log WHERE id LIKE 'local-%' AND doeId = ? AND nestBoxDate = ?",
+        values: [log.doeId, log.nestBoxDate],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO nest_box_log (id, doeId, breedingId, nestBoxDate, createdAt)
+         VALUES (?, ?, ?, ?, ?)`,
+        values: [log.id, log.doeId, log.breedingId ?? null, log.nestBoxDate, log.createdAt],
       });
     }
   }

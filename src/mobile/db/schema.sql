@@ -291,3 +291,18 @@ CREATE TABLE IF NOT EXISTS mating_log (
   createdAt          TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_mating_log_doeId ON mating_log(doeId);
+
+-- Permanent nest-box archive. breeding.nestBoxDate is a per-cycle checklist
+-- flag that the next mating clears, so اليومية of the day the box went in used
+-- to lose the event as soon as the doe moved on. Written optimistically by
+-- local-ops.ts's installNestBox with the outbox-injected nestBoxLogId, so the
+-- pull reconciles it against the server's row by id.
+CREATE TABLE IF NOT EXISTS nest_box_log (
+  id          TEXT PRIMARY KEY,
+  doeId       TEXT NOT NULL,
+  breedingId  TEXT,
+  nestBoxDate TEXT NOT NULL,
+  createdAt   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nest_box_log_doeId ON nest_box_log(doeId);
+CREATE INDEX IF NOT EXISTS idx_nest_box_log_date ON nest_box_log(nestBoxDate);

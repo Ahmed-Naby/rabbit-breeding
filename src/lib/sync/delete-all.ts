@@ -5,7 +5,7 @@ type Tx = {
   [M in
     | "kitStockMovement" | "transaction" | "healthRecord" | "weightRecord"
     | "fosterLog" | "kindlingLog" | "weaningLog" | "pregnancyTestLog"
-    | "matingLog" | "resorptionLog" | "litter" | "breeding" | "breed"]: {
+    | "matingLog" | "nestBoxLog" | "resorptionLog" | "litter" | "breeding" | "breed"]: {
     deleteMany(): Promise<unknown>;
   };
 } & {
@@ -74,6 +74,7 @@ export async function deleteAllFarmOperations(tx: Tx): Promise<void> {
   await tx.pregnancyTestLog.deleteMany();
   await tx.resorptionLog.deleteMany();
   await tx.matingLog.deleteMany();
+  await tx.nestBoxLog.deleteMany();
   await tx.litter.deleteMany();
   await tx.breeding.deleteMany();
   await tx.rabbit.deleteMany({ where: { status: { in: OPERATION_OUTCOME_STATUSES } } });

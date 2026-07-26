@@ -230,7 +230,9 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("breeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer breeding edit exists on server" };
     }
-    await installNestBoxOp(p.breedingId as string);
+    await installNestBoxOp(p.breedingId as string, {
+      nestBoxLogId: p.nestBoxLogId as string | undefined,
+    });
     return applied;
   },
 

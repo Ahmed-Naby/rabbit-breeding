@@ -160,6 +160,8 @@ model Rabbit {
   matingLogsAsBuck MatingLog[] @relation("MatingLogBuck")
   matingLogsAsDoe  MatingLog[] @relation("MatingLogDoe")
 
+  nestBoxLogs NestBoxLog[] @relation("NestBoxLogDoe")
+
   // Logs
   weightRecords WeightRecord[]
   healthRecords HealthRecord[]
@@ -285,6 +287,35 @@ model PregnancyTestLog {
 
   @@index([doeId])
   @@index([testDate])
+  @@index([farmId])
+}
+
+/// A permanent nest-box (تركيب بيت الولادة) record. Written once, when the
+/// button is pressed, and never updated — Breeding.nestBoxDate is a per-cycle
+/// checklist flag that markMated/markMatingFailed/clearDoeRow all reset to
+/// null, so without this row the installation vanished from the اليومية of the
+/// day it happened as soon as the doe started her next cycle.
+model NestBoxLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id String @id @default(cuid())
+
+  doeId String
+  doe   Rabbit @relation("NestBoxLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  // The cycle this installation belonged to. Nullable and NOT unique, like
+  // KindlingLog's: a Breeding row is reused across cycles, so one breeding can
+  // accumulate several nest-box rows and nestBoxDate tells them apart.
+  breedingId String?
+
+  nestBoxDate DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([doeId])
+  @@index([nestBoxDate])
   @@index([farmId])
 }
 
@@ -653,6 +684,7 @@ model Farm {
   breeds            Breed[]
   matingLogs        MatingLog[]
   pregnancyTestLogs PregnancyTestLog[]
+  nestBoxLogs       NestBoxLog[]
   resorptionLogs    ResorptionLog[]
   kindlingLogs      KindlingLog[]
   weaningLogs       WeaningLog[]

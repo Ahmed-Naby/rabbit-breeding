@@ -45,6 +45,11 @@ const CREATING_OP_TYPES = new Set([
 // correcting or clearing an existing date).
 const MATING_LOG_OP_TYPES = new Set(["startBreeding", "markMated", "setMatingDate"]);
 
+// Same contract for the نصب العش archive: breeding.nestBoxDate is cleared by the
+// next cycle, so NestBoxLog is what the اليومية of a past day reads, and the
+// local row must carry the server's id to survive the pull's INSERT OR REPLACE.
+const NEST_BOX_LOG_OP_TYPES = new Set(["installNestBox"]);
+
 export type EnqueueResult = {
   clientOpId: string;
   outcome: LocalOpOutcome;
@@ -65,6 +70,9 @@ export async function enqueue(
   }
   if (MATING_LOG_OP_TYPES.has(opType) && !finalPayload.matingLogId) {
     finalPayload = { ...finalPayload, matingLogId: createId() };
+  }
+  if (NEST_BOX_LOG_OP_TYPES.has(opType) && !finalPayload.nestBoxLogId) {
+    finalPayload = { ...finalPayload, nestBoxLogId: createId() };
   }
 
   const outcome = await withTransaction<LocalOpOutcome>(async (db) => {

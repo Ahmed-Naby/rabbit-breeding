@@ -17,6 +17,7 @@ export type FullExportData = {
   pregnancyTestLogs: Prisma.PregnancyTestLogCreateManyInput[];
   kindlingLogs: Prisma.KindlingLogCreateManyInput[];
   weaningLogs: Prisma.WeaningLogCreateManyInput[];
+  nestBoxLogs: Prisma.NestBoxLogCreateManyInput[];
   fosterLogs: Prisma.FosterLogCreateManyInput[];
 };
 
@@ -147,6 +148,14 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       // the column restores as "survival unknown", never as a guess.
       bornDeadAtKindling: log.bornDeadAtKindling ?? -1,
     }));
+  // Absent from backups taken before the نصب العش archive existed — tolerated
+  // the same way weaningLogs is, so an old restore simply carries none.
+  const nestBoxLogs = dedupeById(data.nestBoxLogs ?? [])
+    .filter((log) => rabbitIds.has(log.doeId as string))
+    .map((log) => ({
+      ...log,
+      breedingId: breedingIds.has(log.breedingId as string) ? log.breedingId : null,
+    }));
   const fosterLogs = dedupeById(data.fosterLogs).filter(
     (f) => rabbitIds.has(f.fromDoeId as string) && rabbitIds.has(f.toDoeId as string)
   );
@@ -189,6 +198,7 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       if (pregnancyTestLogs.length) await tx.pregnancyTestLog.createMany({ data: pregnancyTestLogs });
       if (kindlingLogs.length) await tx.kindlingLog.createMany({ data: kindlingLogs });
       if (weaningLogs.length) await tx.weaningLog.createMany({ data: weaningLogs });
+      if (nestBoxLogs.length) await tx.nestBoxLog.createMany({ data: nestBoxLogs });
       if (fosterLogs.length) await tx.fosterLog.createMany({ data: fosterLogs });
 
       const s = data.settings;

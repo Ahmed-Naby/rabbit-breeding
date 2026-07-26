@@ -542,12 +542,44 @@ export async function confirmResorption(
   return applied;
 }
 
+/**
+ * breeding.nestBoxDate is a per-cycle checklist flag the next mating clears, so
+ * the archive row is what keeps نصب العش in the اليومية of the day it happened.
+ * Shares the outbox-injected nestBoxLogId with the server's row (see outbox.ts)
+ * so the pull reconciles by id. Mirrors installNestBoxOp.
+ */
 export async function installNestBox(
   db: SQLiteDBConnection,
-  payload: { breedingId: string }
+  payload: { breedingId: string; nestBoxLogId?: string }
 ): Promise<LocalOpOutcome> {
-  await updateBreeding(db, payload.breedingId, { nestBoxDate: todayIso() });
+  const nestBoxDate = todayIso();
+  const breeding = await getBreeding(db, payload.breedingId);
+  await updateBreeding(db, payload.breedingId, { nestBoxDate });
+  if (breeding && !(await nestBoxLoggedLocally(db, breeding.doeId, nestBoxDate))) {
+    await run(
+      db,
+      `INSERT INTO nest_box_log (id, doeId, breedingId, nestBoxDate, createdAt)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        payload.nestBoxLogId ?? `local-${createId()}`,
+        breeding.doeId,
+        payload.breedingId,
+        nestBoxDate,
+        nowIso(),
+      ]
+    );
+  }
   return applied;
+}
+
+/** Local mirror of installNestBoxOp's guard: one nest-box row per doe+day. */
+async function nestBoxLoggedLocally(db: SQLiteDBConnection, doeId: string, nestBoxDate: string): Promise<boolean> {
+  const existing = await queryOne<{ id: string }>(
+    db,
+    "SELECT id FROM nest_box_log WHERE doeId = ? AND nestBoxDate = ? LIMIT 1",
+    [doeId, nestBoxDate]
+  );
+  return existing != null;
 }
 
 export async function markKindled(

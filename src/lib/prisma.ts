@@ -14,7 +14,12 @@ if (!connectionString) throw new Error("DATABASE_URL is not set");
 const TENANT_MODELS = new Set([
   "Rabbit", "Breeding", "Litter", "WeightRecord", "HealthRecord",
   "Transaction", "KitStockMovement", "Breed", "PregnancyTestLog",
-  "KindlingLog", "WeaningLog", "MatingLog", "FosterLog", "SyncTombstone",
+  "KindlingLog", "WeaningLog", "MatingLog", "NestBoxLog", "FosterLog",
+  // ResorptionLog carries a farmId with an FK to Farm but was never listed
+  // here, so no farmId was injected on create: every «اختفاء الأجنة» press
+  // tried to insert farmId "" and died on the foreign key (the table is
+  // empty). Reads were farm-blind for the same reason.
+  "ResorptionLog", "SyncTombstone",
 ]);
 
 // Operations whose `where` receives the farm filter. findUnique/update/
