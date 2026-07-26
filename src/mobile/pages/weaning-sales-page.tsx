@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toDateInputValue } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -141,7 +142,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   const {

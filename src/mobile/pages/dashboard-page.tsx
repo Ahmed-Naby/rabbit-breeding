@@ -20,6 +20,7 @@ import { getSession, logout, type AuthSession } from "../auth";
 import { flushOutbox, hasUnsyncedOps } from "../sync/sync-manager";
 import { Network } from "@capacitor/network";
 import { toast } from "sonner";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function DashboardPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -63,7 +64,7 @@ export function DashboardPage({ locale }: { locale: Locale }) {
   }, []);
 
   if (!stats) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   const activeFarm = session?.farms.find((f) => f.farmId === session.activeFarmId);
@@ -129,14 +130,17 @@ export function DashboardPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Hero */}
-      <div className="relative isolate overflow-hidden rounded-2xl shadow-md border border-white/10">
+      <div className="hero-pattern relative isolate overflow-hidden rounded-2xl border border-white/10 shadow-lg">
         <div className="relative h-44 w-full sm:h-52">
           <img
             src="/images/hero-dashboard.jpg"
             alt=""
-            className="absolute inset-0 size-full object-cover transition-transform duration-10000 ease-out hover:scale-105"
+            className="absolute inset-0 size-full object-cover"
           />
-          <div className="absolute inset-0 bg-linear-to-l from-black/75 via-black/45 to-transparent" />
+          {/* Matches the web dashboard: a flat wash for text contrast plus a
+              brand-green tint so the photo belongs to the app. */}
+          <div className="absolute inset-0 bg-linear-to-l from-black/80 via-black/50 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-tr from-primary/45 via-transparent to-transparent mix-blend-multiply" />
         </div>
         <div className="absolute inset-0 flex flex-col justify-center gap-2 px-6 sm:px-8">
           <div className="flex items-start justify-between gap-4">
@@ -172,7 +176,7 @@ export function DashboardPage({ locale }: { locale: Locale }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item, idx) => {
           const Icon = item.icon;
           const body = (
@@ -190,7 +194,7 @@ export function DashboardPage({ locale }: { locale: Locale }) {
             <a
               key={idx}
               href={item.href}
-              className="group flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md hover:border-primary/30"
+              className="group card-lift flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs"
             >
               {body}
             </a>
@@ -202,14 +206,14 @@ export function DashboardPage({ locale }: { locale: Locale }) {
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {readyItems.map((item, idx) => {
           const Icon = item.icon;
           return (
             <a
               key={idx}
               href={item.href}
-              className="group flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md hover:border-primary/30"
+              className="group card-lift flex items-center gap-4 rounded-xl border glass-card p-4 shadow-xs"
             >
               <div className={`rounded-xl p-3 transition-transform duration-300 group-hover:scale-110 ${item.color}`}>
                 <Icon className="h-6 w-6" />

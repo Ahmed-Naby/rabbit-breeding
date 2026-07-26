@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Menu, X, Rabbit as RabbitIcon } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { RabbitSearch } from "@/components/rabbit-search";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandMark } from "@/components/brand-mark";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
@@ -30,15 +31,28 @@ function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
             key={item.href}
             href={item.href}
             onClick={onNavigate}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-300 origin-left",
-              "hover:scale-[1.02] active:scale-[0.98]",
+              // No scale on the row itself: `translate-x-1` on the active item
+              // shifted it left even in RTL, and scaling text at this size
+              // makes it shimmer as the browser re-hints the glyphs.
+              "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
               active
-                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md font-semibold translate-x-1"
+                ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-md"
                 : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
           >
-            <Icon className="size-4 shrink-0 transition-transform duration-300 group-hover:scale-115 group-hover:rotate-6" />
+            {/* Marker on the inline-start edge, so the active row is findable
+                at a glance down a long list. */}
+            {active ? (
+              <span className="absolute inset-y-1.5 start-0 w-1 rounded-full bg-sidebar-primary-foreground/70" />
+            ) : null}
+            <Icon
+              className={cn(
+                "size-4 shrink-0 transition-transform duration-200",
+                !active && "group-hover:scale-110"
+              )}
+            />
             {t[item.labelKey]}
           </Link>
         );
@@ -47,13 +61,14 @@ function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
   );
 }
 
-function Brand() {
+function Brand({ id }: { id: string }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-1 py-1">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-        <RabbitIcon className="size-5" />
-      </span>
-      <span className="text-base font-semibold tracking-tight text-sidebar-foreground">
+    <Link href="/" className="group flex items-center gap-2.5 px-1 py-1">
+      <BrandMark
+        id={id}
+        className="size-9 shadow-sm transition-transform duration-300 group-hover:scale-105"
+      />
+      <span className="text-base font-bold tracking-tight text-sidebar-foreground">
         RabbitTrack
       </span>
     </Link>
@@ -65,7 +80,7 @@ export function Sidebar({ locale, t }: { locale: Locale; t: NavT }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-sidebar px-3 py-4 text-sidebar-foreground md:flex">
       <div className="mb-6">
-        <Brand />
+        <Brand id="sidebar" />
       </div>
       <RabbitSearch t={t} className="mb-4" />
       <NavLinks t={t} />
@@ -100,8 +115,8 @@ export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="md:hidden">
-      <div className="flex h-14 items-center justify-between gap-2 bg-sidebar px-4 text-sidebar-foreground">
-        <Brand />
+      <div className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-sidebar-border/60 bg-sidebar/95 px-4 text-sidebar-foreground shadow-sm backdrop-blur-md">
+        <Brand id="topbar" />
         <div className="flex items-center gap-2">
           <LocaleToggle
             locale={locale}
@@ -124,13 +139,13 @@ export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
       {open ? (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50"
+            className="animate-fade-in fixed inset-0 z-40 bg-black/50"
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          <div className="fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col overflow-y-auto border-s border-sidebar-border bg-sidebar px-3 py-3 text-sidebar-foreground shadow-2xl">
+          <div className="animate-drawer-in fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col overflow-y-auto border-s border-sidebar-border bg-sidebar px-3 py-3 text-sidebar-foreground shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
-              <Brand />
+              <Brand id="drawer" />
               <button
                 type="button"
                 aria-label={t.closeMenu}

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Rabbit as RabbitIcon } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
+import { BrandMark } from "@/components/brand-mark";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,11 +57,28 @@ export function LoginPage({ locale }: { locale: Locale }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4" dir={locale === "ar" ? "rtl" : "ltr"}>
-      <Card className="w-full max-w-sm">
+    <div
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4"
+      dir={locale === "ar" ? "rtl" : "ltr"}
+    >
+      {/* The farm photo behind the card, dimmed almost to a texture. This is
+          the first screen of the app and it was a grey box; the image is the
+          one already bundled for the dashboard, so it costs no extra download. */}
+      <img
+        src="/images/hero-dashboard.jpg"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 size-full object-cover opacity-25 dark:opacity-15"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/60 via-background/85 to-background"
+      />
+
+      <Card className="animate-scale-in glass-card relative w-full max-w-sm shadow-2xl">
         <CardContent className="space-y-5 p-6">
           <div className="flex flex-col items-center gap-2 text-center">
-            <RabbitIcon className="size-10 text-primary" />
+            <BrandMark id="login" className="size-14 shadow-lg" />
             <h1 className="text-xl font-bold tracking-tight">RabbitTrack</h1>
             <p className="text-sm text-muted-foreground">
               {mode === "login" ? t.loginSubtitle : t.registerSubtitle}

@@ -31,6 +31,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { SortIcon } from "@/components/sort-icon";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
+import { PageSkeleton } from "@/components/skeleton";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -144,7 +145,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
   }, { key: "tag" });
 
   if (does === null || settings === null) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   if (does.length === 0) {

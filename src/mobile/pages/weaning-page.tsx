@@ -16,6 +16,7 @@ import { weaningEntryComplete } from "@/lib/does-board";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { WeaningLog } from "./weaning-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -55,7 +56,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
   }, { key: "doeTag" });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

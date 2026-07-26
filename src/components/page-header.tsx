@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { EmptyNestArt } from "@/components/illustrations";
 
 export function PageHeader({
   title,
@@ -19,11 +20,17 @@ export function PageHeader({
       )}
     >
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight text-foreground">
+          {/* Accent rule on the inline-start edge — one repeated mark that ties
+              every board's header to the brand colour. */}
+          <span
+            aria-hidden
+            className="h-6 w-1.5 shrink-0 rounded-full bg-linear-to-b from-primary to-primary/40"
+          />
           {title}
         </h1>
         {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="ps-4 text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
@@ -43,11 +50,17 @@ export function EmptyState({
   icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-16 text-center">
+    <div className="animate-scale-in flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/40 py-14 text-center">
       {Icon ? (
-        <Icon className="mb-3 size-10 text-muted-foreground/60" />
-      ) : null}
-      <h3 className="text-base font-medium">{title}</h3>
+        <span className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground/70">
+          <Icon className="size-8" />
+        </span>
+      ) : (
+        // No icon supplied: draw the nest instead of leaving a bare sentence
+        // floating in a dashed box.
+        <EmptyNestArt className="mb-2 opacity-80" />
+      )}
+      <h3 className="text-base font-semibold">{title}</h3>
       {description ? (
         <p className="mt-1 max-w-sm text-sm text-muted-foreground">
           {description}

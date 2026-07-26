@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b3129" />
     <title>RabbitTrack</title>
+    <!-- The Arabic subset is on the critical path — every label on the first
+         screen needs it, so start it before the bundle parses. -->
+    <link rel="preload" href="/fonts/cairo-arabic.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- Paint the right background before React mounts. applyTheme() runs in
+         an effect, which on a cold start is late enough to flash a white
+         screen at a dark-mode user. -->
+    <script>
+      try {
+        var t = localStorage.getItem("rabbittrack-theme") || "system";
+        var dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

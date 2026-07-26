@@ -16,6 +16,7 @@ import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
+import { PageSkeleton } from "@/components/skeleton";
 
 type FertilityRow = {
   id: string;
@@ -152,7 +153,7 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
   }, { key: "buckTag" });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

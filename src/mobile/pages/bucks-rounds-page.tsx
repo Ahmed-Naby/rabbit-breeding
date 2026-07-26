@@ -20,6 +20,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageSkeleton } from "@/components/skeleton";
 
 const HEALTH_TYPE_KEYS = ["illness", "treatment", "vaccination", "deworming", "checkup"] as const;
 
@@ -89,7 +90,7 @@ export function BucksRoundsPage({ locale, hideHeader }: { locale: Locale; hideHe
   }, [sortedBucks, search]);
 
   if (bucks === null) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   if (bucks.length === 0) {

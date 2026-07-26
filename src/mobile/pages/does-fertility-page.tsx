@@ -18,6 +18,7 @@ import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
+import { PageSkeleton } from "@/components/skeleton";
 
 type FertilityRow = {
   id: string;
@@ -220,7 +221,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
   }, { key: "doeTag" });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

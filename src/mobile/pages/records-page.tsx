@@ -34,6 +34,7 @@ import { WeaningLog } from "./weaning-log";
 import { FosteringLog } from "./fostering-log";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 type RecordsTab =
   | "mating"
@@ -46,7 +47,9 @@ type RecordsTab =
   | "culling";
 
 function LoadingLine({ locale }: { locale: Locale }) {
-  return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+  // No stat cards: a records tab is a table and a date filter, nothing else,
+  // so blocking out cards here would promise a row that never arrives.
+  return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} cards={0} />;
 }
 
 type DateRange = { from: string; to: string };

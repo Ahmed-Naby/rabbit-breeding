@@ -16,6 +16,7 @@ import { useSortableRows } from "@/lib/use-sortable-rows";
 import type { LocalRabbit } from "../db/types";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -147,7 +148,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
     : [];
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

@@ -29,6 +29,7 @@ import { computeDoeFertilityStats } from "@/lib/doe-stats";
 import { computeBuckFertilityStats } from "@/lib/buck-stats";
 import { getDb } from "../db/client";
 import { enqueue } from "../sync/outbox";
+import { PageSkeleton } from "@/components/skeleton";
 import {
   fetchRabbitBasic,
   fetchDoeBreedingHistory,
@@ -98,7 +99,7 @@ export function RabbitDetailPage({
   });
 
   if (rabbit === undefined) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   if (rabbit === null) {

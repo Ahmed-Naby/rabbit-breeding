@@ -12,6 +12,7 @@ import type { LocalSettings } from "../db/types";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { MatingLog } from "./mating-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -45,7 +46,7 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
     doeState: { type: "string", value: (r) => r.doeState },
   }, { key: "tag" });
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

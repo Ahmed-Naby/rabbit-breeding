@@ -10,6 +10,7 @@ import { LABELS } from "@/lib/enums";
 import { SortableTh } from "@/components/sortable-th";
 import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; initialSex?: "doe" | "buck" | "all" }) {
   const t = getClientDictionary(locale);
@@ -37,7 +38,7 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
   });
 
   if (!rabbits) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   const titleMap = {

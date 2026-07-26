@@ -6,8 +6,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { PageWidth } from "@/components/page-width";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
+// Fallback only — Cairo (bundled in globals.css) is the face the app actually
+// renders in, because Geist has no Arabic glyphs at all.
 const geistSans = Geist({
-  variable: "--font-sans",
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
@@ -36,6 +38,15 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* The Arabic subset is on the critical path — every label on the
+            first screen needs it, so start it before the bundle parses. */}
+        <link
+          rel="preload"
+          href="/fonts/cairo-arabic.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <Script
           id="theme-init"
           strategy="beforeInteractive"

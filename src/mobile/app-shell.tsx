@@ -15,7 +15,6 @@ import {
   WifiOff,
   Menu,
   X,
-  Rabbit as RabbitIcon,
   LayoutDashboard,
   ClipboardList,
   Sprout,
@@ -43,6 +42,7 @@ import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
+import { BrandMark } from "@/components/brand-mark";
 import { matchesRoute } from "./routes";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
@@ -347,21 +347,26 @@ export function AppShell() {
       onlineOnly: [] as string[],
     }));
 
-  const brandEl = (
+  const brand = (id: string) => (
     <div className="flex items-center gap-2.5 px-1 py-1">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
-        <RabbitIcon className="size-5" />
-      </span>
-      <span className="text-base font-semibold tracking-tight text-sidebar-foreground">
+      <BrandMark id={id} className="size-9 shadow-sm" />
+      <span className="text-base font-bold tracking-tight text-sidebar-foreground">
         RabbitTrack
       </span>
     </div>
   );
 
+  // Cold-start splash. The session read hits Preferences (a native round trip
+  // on Android), so this is the first thing a user sees every launch — a bare
+  // line of grey text made the app feel like it had failed to start.
   if (authState === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-        {locale === "ar" ? "جارِ التحميل…" : "Loading…"}
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        <BrandMark id="splash" className="size-16 animate-scale-in shadow-lg" />
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <RefreshCw className="size-4 animate-spin" />
+          {locale === "ar" ? "جارِ التحميل…" : "Loading…"}
+        </div>
       </div>
     );
   }
@@ -374,7 +379,7 @@ export function AppShell() {
       <div className="flex flex-1 flex-col md:flex-row">
         {/* Desktop Sidebar (md+) */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-sidebar border-e border-sidebar-border px-3 py-4 text-sidebar-foreground md:flex">
-          <div className="mb-6">{brandEl}</div>
+          <div className="mb-6">{brand("sidebar")}</div>
           <RabbitSearch locale={locale} className="mb-4" />
           <nav className="flex flex-col gap-0.5 flex-1">
             {navItems.map((item) => {
@@ -384,14 +389,25 @@ export function AppShell() {
                 <a
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     active
                       ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
                       : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
                 >
-                  <Icon className="size-4 shrink-0" />
+                  {/* Marker on the inline-start edge — the fill alone doesn't
+                      survive a glance down a list of thirteen items. */}
+                  {active && (
+                    <span className="absolute inset-y-1.5 start-0 w-1 rounded-full bg-sidebar-primary-foreground/70" />
+                  )}
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0 transition-transform duration-200",
+                      !active && "group-hover:scale-110"
+                    )}
+                  />
                   <span>{item.label}</span>
                 </a>
               );
@@ -433,8 +449,8 @@ export function AppShell() {
         </aside>
 
         {/* Mobile Top Bar */}
-        <header className="flex h-14 items-center justify-between border-b bg-sidebar px-4 text-sidebar-foreground md:hidden">
-          {brandEl}
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-sidebar-border/60 bg-sidebar/95 px-4 text-sidebar-foreground shadow-sm backdrop-blur-md md:hidden">
+          {brand("topbar")}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -451,13 +467,13 @@ export function AppShell() {
         {mobileMenuOpen && (
           <>
             <div
-              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              className="animate-fade-in fixed inset-0 z-40 bg-black/50 md:hidden"
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden
             />
-            <div className="fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl md:hidden">
+            <div className="animate-drawer-in fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl md:hidden">
               <div className="flex items-center justify-between border-b border-sidebar-border/60 px-4 py-3">
-                {brandEl}
+                {brand("drawer")}
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}

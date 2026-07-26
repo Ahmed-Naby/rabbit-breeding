@@ -13,6 +13,7 @@ import { formatWeight } from "@/lib/units";
 import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).mothers;
@@ -118,7 +119,7 @@ export function MothersPage({ locale, hideHeader }: { locale: Locale; hideHeader
   });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

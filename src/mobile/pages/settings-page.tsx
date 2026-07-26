@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LocalSettings } from "../db/types";
+import { PageSkeleton } from "@/components/skeleton";
 
 function backupFilename(): string {
   const date = new Date().toISOString().split("T")[0];
@@ -309,7 +310,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   };
 
   if (!settings) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   const rebreedOptions = [

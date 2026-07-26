@@ -11,6 +11,7 @@ import { isToday } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { KindlingLog } from "./kindling-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -47,7 +48,7 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
     doeState: { type: "string", value: (r) => r.doeState },
   }, { key: "tag" });
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

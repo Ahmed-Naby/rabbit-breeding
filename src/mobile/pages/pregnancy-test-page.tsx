@@ -10,6 +10,7 @@ import { pregnancyTestDate, isToday } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PregnancyTestLog } from "./pregnancy-test-log";
+import { PageSkeleton } from "@/components/skeleton";
 
 export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -50,7 +51,7 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
   }, { key: "doeTag" });
 
   if (!data) {
-    return <p className="p-4 text-sm text-muted-foreground">{locale === "ar" ? "جارِ التحميل…" : "Loading…"}</p>;
+    return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
   return (

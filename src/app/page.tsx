@@ -17,6 +17,7 @@ import {
   Sprout,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { BrandMark } from "@/components/brand-mark";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
@@ -220,7 +221,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       {/* Hero */}
-      <div className="relative isolate overflow-hidden rounded-2xl shadow-md border border-white/10">
+      <div className="hero-pattern relative isolate overflow-hidden rounded-2xl border border-white/10 shadow-lg">
         <div className="relative h-44 w-full sm:h-52">
           <Image
             src="/images/hero-dashboard.jpg"
@@ -228,22 +229,31 @@ export default async function DashboardPage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover transition-transform duration-10000 ease-out hover:scale-105"
+            className="object-cover"
           />
-          <div className="absolute inset-0 bg-linear-to-l from-black/75 via-black/45 to-transparent" />
+          {/* Two layers, not one: the flat wash carries the text contrast, the
+              tinted one pulls the photo toward the brand green so it stops
+              looking like stock art dropped on top of the app. */}
+          <div className="absolute inset-0 bg-linear-to-l from-black/80 via-black/50 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-tr from-primary/45 via-transparent to-transparent mix-blend-multiply" />
         </div>
         <div className="absolute inset-0 flex flex-col justify-center gap-2 px-6 sm:px-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl drop-shadow-md">
-            {t.dashboard.heroTitle}
-          </h1>
-          <p className="max-w-md text-sm text-white/90 sm:text-base drop-shadow-sm font-medium">
-            {t.dashboard.heroDescription}
-          </p>
+          <div className="flex items-center gap-3">
+            <BrandMark id="hero" className="size-11 shadow-lg ring-1 ring-white/25" />
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white drop-shadow-md sm:text-3xl">
+                {t.dashboard.heroTitle}
+              </h1>
+              <p className="max-w-md text-sm font-medium text-white/90 drop-shadow-sm sm:text-base">
+                {t.dashboard.heroDescription}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Stat row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 animate-fade-in-up">
+      <div className="stagger grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={Venus}
           label={t.dashboard.activeDoes}
@@ -265,7 +275,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Breeding-cycle "ready now" row */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           icon={HeartHandshake}
           label={t.dashboard.readyForMating}
@@ -491,27 +501,37 @@ function StatCard({
   const body = (
     <Card
       className={cn(
-        "transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] origin-center hover:border-primary/40 shadow-xs",
-        href && "hover:shadow-lg cursor-pointer",
+        "group/stat relative overflow-hidden shadow-xs",
+        href && "card-lift cursor-pointer",
         warnActive
-          ? "border-amber-400 bg-amber-500/10 dark:border-amber-500/25 dark:bg-amber-500/10 animate-pulse"
+          ? // A slow ring rather than `animate-pulse`: fading the whole card in
+            // and out forever made an overdue count harder to read, not easier.
+            "animate-soft-pulse border-amber-400 bg-amber-500/10 dark:border-amber-500/25 dark:bg-amber-500/10"
           : "glass-card"
       )}
     >
-      <CardContent className="flex items-center justify-between py-4">
+      {/* Colour pooling in the corner behind the icon — gives the flat card a
+          light source without another asset. */}
+      <span
+        className={cn(
+          "pointer-events-none absolute -top-8 size-24 rounded-full blur-2xl transition-opacity duration-300 -end-8",
+          warnActive ? "bg-amber-400/25" : "bg-primary/15 opacity-70 group-hover/stat:opacity-100"
+        )}
+      />
+      <CardContent className="relative flex items-center justify-between py-4">
         <div>
-          <p className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">{label}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">{label}</p>
           <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">{value}</p>
         </div>
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl transition-all duration-300 shadow-xs",
+            "flex size-11 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-300 group-hover/stat:scale-110",
             warnActive
-              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 scale-105"
+              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
               : "bg-primary/10 text-primary dark:bg-primary/20"
           )}
         >
-          <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" />
+          <Icon className="size-5" />
         </span>
       </CardContent>
     </Card>
