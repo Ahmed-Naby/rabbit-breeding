@@ -11,6 +11,15 @@ import { currentFarmId } from "@/lib/tenant";
  * in full since it's one row, not filtered by `since`.
  */
 export async function runPull(since: Date) {
+  // CAREFUL: this is a positional tuple — the names below must line up 1:1 with
+  // the Promise.all entries, in order. Adding a query without adding its name
+  // silently shifts every later binding onto the wrong model, and nothing
+  // catches it: destructuring fewer elements than the tuple has is legal TS, and
+  // the vars are unannotated so each just infers the wrong Prisma type. That
+  // shipped once — resorptionLog went in above pregnancyTestLog with no name,
+  // so devices wrote PregnancyTestLog rows into kindling_log (NOT NULL
+  // constraint failed: kindling_log.kindlingDate) and read WeaningLog rows as
+  // tombstones, which silently stopped every hard delete from propagating.
   const [
     settings,
     rabbits,
@@ -24,6 +33,7 @@ export async function runPull(since: Date) {
     breeds,
     matingLogs,
     nestBoxLogs,
+    resorptionLogs,
     pregnancyTestLogs,
     kindlingLogs,
     weaningLogs,
@@ -69,6 +79,7 @@ export async function runPull(since: Date) {
     breeds,
     matingLogs,
     nestBoxLogs,
+    resorptionLogs,
     pregnancyTestLogs,
     kindlingLogs,
     weaningLogs,
