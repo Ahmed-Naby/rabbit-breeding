@@ -86,7 +86,7 @@ export function RoundsList({
       ) : (
         <div className="space-y-3">
           {visibleDoes.map((doe) => {
-            const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation } = computeDoeBoardRow(
+            const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation, palpationConfirmed } = computeDoeBoardRow(
               doe.doeState as DoeState,
               doe.status,
               doe.breedingsAsDoe.map((x) => ({
@@ -142,14 +142,14 @@ export function RoundsList({
                   {/* Palpation confirm (resorption check) */}
                   <div className="space-y-1.5">
                     <span className="block text-[11px] font-medium text-muted-foreground">{rt.palpationLabel}</span>
-                    {canConfirmPalpation || b?.palpationConfirmedDate ? (
+                    {canConfirmPalpation || palpationConfirmed ? (
                       <div className="flex flex-wrap items-center gap-1.5">
                         <ConfirmPalpationButton
                           id={doe.id}
                           breedingId={b?.id ?? ""}
                           text={t.does.confirmPregnantButton}
                           disabled={!canConfirmPalpation}
-                          checked={!!b?.palpationConfirmedDate}
+                          checked={palpationConfirmed}
                           locale={locale}
                         />
                         {b && canConfirmPalpation ? (

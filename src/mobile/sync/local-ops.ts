@@ -573,7 +573,14 @@ export async function markKindled(
     bornAlive,
     bornDead,
   });
-  await updateBreeding(db, payload.breedingId, { matingDate: null, actualKindlingDate });
+  // palpationConfirmedDate goes with matingDate: both describe the mating
+  // cycle this birth closes, and leaving it set kept «تأكيد الجس» showing its
+  // green check on an already-kindled doe (mirrors markKindledOp).
+  await updateBreeding(db, payload.breedingId, {
+    matingDate: null,
+    palpationConfirmedDate: null,
+    actualKindlingDate,
+  });
   // Create/refresh the litter carrying the confirmed counts (upsert: a first
   // kindling has no litter row yet). On a reused breeding row every trace of
   // the previous cycle is cleared — kindlingDate, weaningDate and both

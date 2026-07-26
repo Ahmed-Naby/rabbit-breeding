@@ -121,6 +121,7 @@ export default async function DoesPage() {
                   canMate,
                   canTestPregnancy,
                   canConfirmPalpation,
+                  palpationConfirmed,
                   kindleActive,
                   weanActive,
                   testDate,
@@ -216,7 +217,7 @@ export default async function DoesPage() {
                           breedingId={b?.id ?? ""}
                           text={t.does.confirmPregnantButton}
                           disabled={!canConfirmPalpation}
-                          checked={!!b?.palpationConfirmedDate}
+                          checked={palpationConfirmed}
                           locale={locale}
                         />
                         {b ? (
@@ -255,15 +256,18 @@ export default async function DoesPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      {/* Open from the moment she has a litter under care, not
-                          only after weaning: the press is now gated on these two
-                          being filled (see WeanButton's `ready`), so locking
-                          them until the press would deadlock the row. */}
+                      {/* Open only in the window between kindling and the «فطام»
+                          press: before it, because the press is gated on these
+                          two being filled (see WeanButton's `ready`) and locking
+                          them would deadlock the row; after it, never — markWeaned
+                          froze these numbers into the permanent WeaningLog, and a
+                          later edit here would move the litter row without
+                          touching the archive the reports and سجل الفطام read. */}
                       <LitterCountInput
                         breedingId={countsRow?.id ?? ""}
                         field="weaned"
                         value={countsRow?.litter?.weaned ?? null}
-                        disabled={!isWeaned && !weanActive}
+                        disabled={isWeaned || !weanActive}
                         locale={locale}
                       />
                     </TableCell>
@@ -271,7 +275,7 @@ export default async function DoesPage() {
                       <LitterWeightInput
                         breedingId={countsRow?.id ?? ""}
                         valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                        disabled={!isWeaned && !weanActive}
+                        disabled={isWeaned || !weanActive}
                         locale={locale}
                       />
                     </TableCell>

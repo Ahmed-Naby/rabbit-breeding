@@ -286,6 +286,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                 canMate,
                 canTestPregnancy,
                 canConfirmPalpation,
+                palpationConfirmed,
                 kindleActive,
                 weanActive,
                 testDate,
@@ -350,7 +351,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                         breedingId={b?.id ?? ""}
                         text={t.does.confirmPregnantButton}
                         disabled={!canConfirmPalpation}
-                        checked={!!b?.palpationConfirmedDate}
+                        checked={palpationConfirmed}
                         locale={locale}
                         onDone={refresh}
                       />
@@ -394,12 +395,15 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   </td>
                   <td className="px-3 py-2.5">
                     {/* Open while she's still nursing — the press is gated on
-                        these two now, so locking them until it would deadlock. */}
+                        these two now, so locking them until it would deadlock —
+                        and shut again the moment it lands: markWeaned froze them
+                        into the permanent weaning_log, so a later edit here would
+                        move the litter row and leave the archive behind. */}
                     <LitterCountInput
                       breedingId={countsRow?.id ?? ""}
                       field="weaned"
                       value={countsRow?.litter?.weaned ?? null}
-                      disabled={!isWeaned && !weanActive}
+                      disabled={isWeaned || !weanActive}
                       locale={locale}
                       onDone={refresh}
                     />
@@ -408,7 +412,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     <LitterWeightInput
                       breedingId={countsRow?.id ?? ""}
                       valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                      disabled={!isWeaned && !weanActive}
+                      disabled={isWeaned || !weanActive}
                       locale={locale}
                       onDone={refresh}
                     />
@@ -438,6 +442,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
             canMate,
             canTestPregnancy,
             canConfirmPalpation,
+            palpationConfirmed,
             kindleActive,
             weanActive,
             testDate,
@@ -508,7 +513,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                       breedingId={b?.id ?? ""}
                       text={t.does.confirmPregnantButton}
                       disabled={!canConfirmPalpation}
-                      checked={!!b?.palpationConfirmedDate}
+                      checked={palpationConfirmed}
                       locale={locale}
                       onDone={refresh}
                     />
@@ -559,7 +564,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                     breedingId={countsRow?.id ?? ""}
                     field="weaned"
                     value={countsRow?.litter?.weaned ?? null}
-                    disabled={!isWeaned && !weanActive}
+                    disabled={isWeaned || !weanActive}
                     locale={locale}
                     onDone={refresh}
                   />
@@ -569,7 +574,7 @@ export function DoesPage({ locale }: { locale: Locale }) {
                   <LitterWeightInput
                     breedingId={countsRow?.id ?? ""}
                     valueGrams={countsRow?.litter?.weaningWeightGrams ?? null}
-                    disabled={!isWeaned && !weanActive}
+                    disabled={isWeaned || !weanActive}
                     locale={locale}
                     onDone={refresh}
                   />

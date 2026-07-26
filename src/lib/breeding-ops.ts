@@ -572,7 +572,15 @@ export async function markKindledOp(
     }),
     prisma.breeding.update({
       where: { id: breedingId },
-      data: { matingDate: null, actualKindlingDate },
+      // palpationConfirmedDate belongs to the mating cycle being closed here,
+      // exactly like matingDate — it exists only to stop «تأكيد الجس» from
+      // re-prompting during that pregnancy. Left set, the board kept drawing
+      // its green check on a doe who had already kindled, next to a «تاريخ
+      // الجس» that had correctly gone blank with matingDate. Nulling it here
+      // matches markMated/markResorbed/clearDoeRow, which all clear it too.
+      // The button cannot come back as a result: canConfirmPalpation needs
+      // doeState pregnant AND a matingDate, and both are gone by now.
+      data: { matingDate: null, palpationConfirmedDate: null, actualKindlingDate },
     }),
     prisma.rabbit.update({
       where: { id: doeId },

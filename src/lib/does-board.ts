@@ -41,6 +41,8 @@ export type DoeBoardRow = {
   canMate: boolean;
   canTestPregnancy: boolean;
   canConfirmPalpation: boolean;
+  /** Whether «تأكيد الجس» should still show its green check for this cycle. */
+  palpationConfirmed: boolean;
   kindleActive: boolean;
   weanActive: boolean;
   testDate: Date | null;
@@ -130,6 +132,13 @@ export function computeDoeBoardRow(
     daysPregnant !== null &&
     daysPregnant >= settings.palpationCheckDays;
 
+  // The check belongs to the pregnancy it confirmed, so it goes away once that
+  // pregnancy ends in a birth — same moment «تاريخ الجس» blanks out, since both
+  // hang off the mating cycle markKindled closes. markKindled nulls the column
+  // itself now, but the extra actualKindlingDate guard also cleans up rows
+  // kindled before that fix, which would otherwise keep the check forever.
+  const palpationConfirmed = !!b?.palpationConfirmedDate && !b?.actualKindlingDate;
+
   const kindleActive =
     doeState === "pregnant" ||
     doeState === "nursing" ||
@@ -160,6 +169,7 @@ export function computeDoeBoardRow(
     canMate,
     canTestPregnancy,
     canConfirmPalpation,
+    palpationConfirmed,
     kindleActive,
     weanActive,
     testDate,

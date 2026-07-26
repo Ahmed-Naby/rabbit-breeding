@@ -164,7 +164,7 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
       ) : (
       <div className="space-y-3">
         {visibleDoes.map((doe) => {
-          const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation } = computeDoeBoardRow(
+          const { current: b, litterRow, countsRow, kindleActive, canConfirmPalpation, palpationConfirmed } = computeDoeBoardRow(
             doe.doeState as DoeState,
             doe.status,
             doe.breedings,
@@ -245,14 +245,14 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
                 {/* Palpation confirm (resorption check) */}
                 <div className="space-y-1.5">
                   <span className="block text-[11px] font-medium text-muted-foreground">{rt.palpationLabel}</span>
-                  {canConfirmPalpation || b?.palpationConfirmedDate ? (
+                  {canConfirmPalpation || palpationConfirmed ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <ConfirmPalpationButton
                         id={doe.id}
                         breedingId={b?.id ?? ""}
                         text={t.does.confirmPregnantButton}
                         disabled={!canConfirmPalpation}
-                        checked={!!b?.palpationConfirmedDate}
+                        checked={palpationConfirmed}
                         locale={locale}
                         onDone={refresh}
                       />
