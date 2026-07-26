@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { addDays } from "date-fns";
-import { FileText, Venus, Mars, Rabbit, Layers } from "lucide-react";
+import { FileText, Venus, Mars, Rabbit, Layers, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -97,6 +97,13 @@ export default async function ReportsPage({
               current balances, not period totals, so the range inputs below
               have no effect on them. */}
           <BalanceCards report={report} rt={rt} />
+
+          {/* The averages, unlike the two cards above, ARE bounded by the date
+              filter below — they sit here because they're the headline of the
+              report, not because the range doesn't reach them. Each group
+              prints its own denominator, which is what ties it back to the
+              selected period. */}
+          <AveragesSection averages={report.averages} rt={rt} />
 
           <Card>
             <CardContent className="py-4">
@@ -282,6 +289,76 @@ function StatTile({
         {label}
       </div>
       <div className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString()}</div>
+    </div>
+  );
+}
+
+/**
+ * The five averages, split into the two groups that share a denominator.
+ * Grouping is the whole point of the layout: these numbers are only comparable
+ * within a group, and printing all five in one flat list invites reading
+ * «متوسط الفطام ÷ عدد مرات الفطام» against «متوسط البطن الحي ÷ عدد الولادات»
+ * as if one minus the other were the losses.
+ */
+function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"]; rt: RT }) {
+  // One decimal: these are litter-sized quantities, so 7.3 says something 7
+  // doesn't, while a second decimal is false precision on a handful of does.
+  const avg = (v: number | null) =>
+    v == null ? "—" : v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+            <TrendingUp className="size-5" />
+          </span>
+          {rt.sectionAverages}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
+          <AveragesTile label={rt.avgBornAliveLabel} value={avg(averages.bornAlive)} />
+          <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
+        </AveragesGroup>
+
+        <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
+          <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
+          <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
+          <AveragesTile label={rt.avgRemainingStockLabel} value={avg(averages.remainingStock)} />
+        </AveragesGroup>
+
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>{rt.avgRemainingStockNote}</p>
+          {/* Only when history is actually missing — a permanent caveat that is
+              usually inapplicable teaches people to ignore the whole block. */}
+          {averages.unknownNursingLitters > 0 && (
+            <p className="text-amber-600 dark:text-amber-400">
+              {rt.avgUnknownNursingNote(averages.unknownNursingLitters)}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AveragesGroup({ basis, children }: { basis: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-background/60 p-3">
+      <div className="mb-2 border-b border-border/50 pb-2 text-xs font-semibold text-muted-foreground">
+        {basis}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+    </div>
+  );
+}
+
+function AveragesTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-card p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
     </div>
   );
 }

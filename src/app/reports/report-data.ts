@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { computeBreedingAverages, type BreedingAverages } from "@/lib/breeding-averages";
 
 /**
  * السلالات split by how long they have been IN السلالات, not by weight.
@@ -59,6 +60,7 @@ export type FollowUpReport = {
     pregnancyPositive: number;
     kindlings: number;
   };
+  averages: BreedingAverages;
 };
 
 /** A "month" here is 30 days — calendar months would make the buckets uneven. */
@@ -170,7 +172,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     remainingStock,
     matings,
     pregnancyPositive,
-    kindlings,
+    kindlingRows,
   ] = await Promise.all([
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.count({ where: { sex: "buck", tagId: { not: null }, status: "active" } }),
@@ -200,6 +202,8 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     prisma.rabbit.count({ where: { status: "culled", updatedAt: dateRange } }),
     // WeaningLog, not Litter — same reason as getKitStockBalanceAsOf: a doe who
     // kindled again since would have dropped her weaning out of the period.
+    // Rows, not an aggregate: the averages divide by the number of weaning
+    // events, so their denominator is just this array's length.
     prisma.weaningLog.findMany({
       where: { weaningDate: dateRange, weaned: { not: null } },
       select: { weaned: true },
@@ -215,7 +219,17 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     getKitStockBalanceAsOf(to),
     prisma.breeding.count({ where: { matingDate: dateRange } }),
     prisma.pregnancyTestLog.count({ where: { result: "positive", testDate: dateRange } }),
-    prisma.kindlingLog.count({ where: { kindlingDate: dateRange } }),
+    // findMany, not count: the averages need the per-litter counts anyway, and
+    // `kindlings` below is just this array's length — so this stays one round
+    // trip rather than two.
+    prisma.kindlingLog.findMany({
+      where: { kindlingDate: dateRange },
+      select: {
+        bornAliveAtKindling: true,
+        bornDead: true,
+        bornDeadAtKindling: true,
+      },
+    }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -256,6 +270,12 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       uterineInfection: null,
       mastitis: null,
     },
-    breeding: { matings, pregnancyPositive, kindlings },
+    breeding: { matings, pregnancyPositive, kindlings: kindlingRows.length },
+    averages: computeBreedingAverages(
+      kindlingRows,
+      weaningsInRange,
+      weanedStockDeaths,
+      remainingStock
+    ),
   };
 }

@@ -827,6 +827,18 @@ export const ar = {
     matingsLabel: "التلقيح",
     pregnancyPositiveLabel: "عشار",
     kindlingsLabel: "الولادات",
+    sectionAverages: "متوسطات الأداء",
+    avgBornAliveLabel: "متوسط عدد البطن الحي",
+    avgNursingDeathsLabel: "متوسط نافق النتاج أثناء الرعاية",
+    avgWeanedLabel: "متوسط عدد الفطام",
+    avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
+    avgRemainingStockLabel: "متوسط رصيد الفطام المتاح للبيع",
+    avgKindlingBasis: (count: number) => `÷ ${count} ولادة في الفترة`,
+    avgWeaningBasis: (count: number) => `÷ ${count} فطام في الفترة`,
+    avgUnknownNursingNote: (count: number) =>
+      `${count} ولادة في الفترة لا يمكن حساب نافق الرعاية فيها (سجلات أُنشئت قبل إضافة هذا الحقل)، واستُبعدت من المتوسط بدلًا من احتسابها صفرًا.`,
+    avgRemainingStockNote:
+      "رصيد الفطام المتاح للبيع رصيد تراكمي حتى نهاية الفترة وليس إنتاج الفترة وحدها، فهو يتغير عند بيع مخزون قديم حتى لو لم يحدث فطام.",
   },
   records: {
     title: "السجلات",

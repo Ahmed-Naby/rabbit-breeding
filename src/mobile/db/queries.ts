@@ -11,6 +11,12 @@ import type { DoeBoardBreeding } from "@/lib/does-board";
 import { weaningDueDate, nestBoxDueDate } from "@/lib/dates";
 import { naturalCompare } from "@/lib/sortable";
 import {
+  computeBreedingAverages,
+  type BreedingAverages,
+  type AverageKindlingRow,
+  type AverageWeaningRow,
+} from "@/lib/breeding-averages";
+import {
   resolveNursingLitterRow,
   isWeaningCandidate,
   isNestBoxCandidate,
@@ -2246,6 +2252,7 @@ export type FollowUpReport = {
     uterineInfection: null; mastitis: null;
   };
   breeding: { matings: number; pregnancyPositive: number; kindlings: number };
+  averages: BreedingAverages;
 };
 
 /** A "month" is 30 days here — calendar months would make the buckets uneven. */
@@ -2256,7 +2263,12 @@ const MONTH_DAYS = 30;
 async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string): Promise<number> {
   const weanedSum = await queryOne<{ total: number | null }>(
     db,
-    "SELECT SUM(weaned) as total FROM litter WHERE weaningDate IS NOT NULL AND weaningDate < ? AND weaned IS NOT NULL",
+    // weaning_log, not litter — the litter row is recycled by the next
+    // kindling, so summing it drops past weanings out of the running balance
+    // and made باقي الفطام read 15 here against 36 on الفطام والبيع. Same
+    // source as computeAvailableWeanedStock and the server's
+    // getKitStockBalanceAsOf.
+    "SELECT SUM(weaned) as total FROM weaning_log WHERE weaningDate < ? AND weaned IS NOT NULL",
     [toIso]
   );
   const movements = await queryAll<{ type: string; total: number }>(
@@ -2329,13 +2341,13 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     doeDeaths,
     buckDeaths,
     culls,
-    weanedLittersInRange,
+    weaningsInRange,
     soldAgg,
     retainedAgg,
     remainingStock,
     matings,
     pregnancyPositive,
-    kindlings,
+    kindlingRows,
   ] = await Promise.all([
     queryOne<{ total: number | null }>(
       db,
@@ -2362,9 +2374,15 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       "SELECT COUNT(*) as count FROM rabbit WHERE status = 'culled' AND updatedAt >= ? AND updatedAt < ?",
       [fromIso, toIso]
     ),
-    queryAll<{ weaned: number }>(
+    // weaning_log, NOT litter: the litter row is recycled by the doe's next
+    // kindling, so a weaning whose doe has already re-kindled would vanish from
+    // this total. That is exactly what made إجمالي الفطام read 20 here while
+    // the الفطام والبيع page — which has always read weaning_log — read 41 off
+    // the same database. Same query as the server's weaningsInRange, and it
+    // feeds the averages below as well.
+    queryAll<AverageWeaningRow>(
       db,
-      "SELECT weaned FROM litter WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL",
+      "SELECT weaned FROM weaning_log WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL",
       [fromIso, toIso]
     ),
     queryOne<{ total: number | null }>(
@@ -2388,14 +2406,17 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       "SELECT COUNT(*) as count FROM pregnancy_test_log WHERE result = 'positive' AND testDate >= ? AND testDate < ?",
       [fromIso, toIso]
     ),
-    queryOne<{ count: number }>(
+    // Rows, not COUNT(*): the averages need the per-litter counts anyway, and
+    // `kindlings` below is just their length.
+    queryAll<AverageKindlingRow>(
       db,
-      "SELECT COUNT(*) as count FROM kindling_log WHERE kindlingDate >= ? AND kindlingDate < ?",
+      `SELECT bornAliveAtKindling, bornDead, bornDeadAtKindling
+       FROM kindling_log WHERE kindlingDate >= ? AND kindlingDate < ?`,
       [fromIso, toIso]
     ),
   ]);
 
-  const totalWeaned = weanedLittersInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
+  const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
@@ -2426,8 +2447,14 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     breeding: {
       matings: matings?.count ?? 0,
       pregnancyPositive: pregnancyPositive?.count ?? 0,
-      kindlings: kindlings?.count ?? 0,
+      kindlings: kindlingRows.length,
     },
+    averages: computeBreedingAverages(
+      kindlingRows,
+      weaningsInRange,
+      weanedStockDeathAgg?.total ?? 0,
+      remainingStock
+    ),
   };
 }
 
