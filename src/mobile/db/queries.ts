@@ -1054,9 +1054,14 @@ export type LocalKitLedgerEntry = {
  * negative" guard stay consistent everywhere.
  */
 export async function computeAvailableWeanedStock(db: SQLiteDBConnection): Promise<number> {
+  // weaning_log, NOT litter: a breeding row and its litter are reused every
+  // cycle, and markKindled nulls weaningDate/weaned on the next birth — so
+  // counting litter dropped a weaning as soon as the doe kindled again, and
+  // collapsed her repeated weanings into the one surviving row. The archive is
+  // append-only, one row per «فطام» press. Mirrors getKitStockSummary.
   const weanedSum = await queryOne<{ total: number }>(
     db,
-    "SELECT SUM(weaned) as total FROM litter WHERE weaningDate IS NOT NULL AND weaned IS NOT NULL"
+    "SELECT SUM(weaned) as total FROM weaning_log WHERE weaned IS NOT NULL"
   );
   const movementsSum = await queryAll<{ type: string; total: number }>(
     db,
@@ -1086,9 +1091,10 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
 }> {
   const settings = await getLocalSettings(db);
 
-  const weanedLitters = await queryAll<{ weaningDate: string; weaned: number }>(
+  // weaning_log, not litter — see computeAvailableWeanedStock.
+  const weanings = await queryAll<{ weaningDate: string; weaned: number }>(
     db,
-    "SELECT weaningDate, weaned FROM litter WHERE weaningDate IS NOT NULL AND weaned IS NOT NULL"
+    "SELECT weaningDate, weaned FROM weaning_log WHERE weaned IS NOT NULL"
   );
 
   const movements = await queryAll<{
@@ -1103,7 +1109,7 @@ export async function fetchWeaningSalesPageData(db: SQLiteDBConnection): Promise
   }>(db, "SELECT id, date, type, count, weightGrams, pricePerKgCents, amountCents, notes FROM kit_stock_movement ORDER BY date DESC, createdAt DESC");
 
   const weanedByDay = new Map<string, { date: string; count: number }>();
-  for (const l of weanedLitters) {
+  for (const l of weanings) {
     const key = l.weaningDate.slice(0, 10);
     const existing = weanedByDay.get(key);
     if (existing) existing.count += l.weaned;

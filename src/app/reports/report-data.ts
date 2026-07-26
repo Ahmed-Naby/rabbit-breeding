@@ -66,9 +66,11 @@ function bucketWeights(
 
 /** Weaned-stock ledger balance as of (exclusive) a point in time (running total, not period-bound). */
 async function getKitStockBalanceAsOf(to: Date): Promise<number> {
-  const [weanedLitters, movements] = await Promise.all([
-    prisma.litter.findMany({
-      where: { weaningDate: { not: null, lt: to }, weaned: { not: null } },
+  const [weanings, movements] = await Promise.all([
+    // WeaningLog, not Litter — the Litter row is recycled by the next kindling,
+    // so counting it made this balance drop past weanings. See getKitStockSummary.
+    prisma.weaningLog.findMany({
+      where: { weaningDate: { lt: to }, weaned: { not: null } },
       select: { weaned: true },
     }),
     prisma.kitStockMovement.findMany({
@@ -76,7 +78,7 @@ async function getKitStockBalanceAsOf(to: Date): Promise<number> {
       select: { type: true, count: true },
     }),
   ]);
-  const totalWeaned = weanedLitters.reduce((s, l) => s + (l.weaned ?? 0), 0);
+  const totalWeaned = weanings.reduce((s, l) => s + (l.weaned ?? 0), 0);
   const totalSold = movements.filter((m) => m.type === "sale").reduce((s, m) => s + m.count, 0);
   const totalDied = movements.filter((m) => m.type === "death").reduce((s, m) => s + m.count, 0);
   const totalRetained = movements
@@ -116,7 +118,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     doeDeaths,
     buckDeaths,
     culls,
-    weanedLittersInRange,
+    weaningsInRange,
     soldAgg,
     retainedAgg,
     remainingStock,
@@ -147,7 +149,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       where: { sex: "buck", tagId: { not: null }, status: "deceased", updatedAt: dateRange },
     }),
     prisma.rabbit.count({ where: { status: "culled", updatedAt: dateRange } }),
-    prisma.litter.findMany({
+    // WeaningLog, not Litter — same reason as getKitStockBalanceAsOf: a doe who
+    // kindled again since would have dropped her weaning out of the period.
+    prisma.weaningLog.findMany({
       where: { weaningDate: dateRange, weaned: { not: null } },
       select: { weaned: true },
     }),
@@ -166,7 +170,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
-  const totalWeaned = weanedLittersInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
+  const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
   return {
     from,

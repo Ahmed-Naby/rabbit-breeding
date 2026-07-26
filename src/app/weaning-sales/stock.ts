@@ -18,20 +18,29 @@ export type LedgerEntry = {
  * same weaned/sold/died math from a single source of truth.
  */
 export async function getKitStockSummary() {
-  const [weanedLitters, movements] = await Promise.all([
-    prisma.litter.findMany({
-      where: { weaningDate: { not: null }, weaned: { not: null } },
+  const [weanings, movements] = await Promise.all([
+    prisma.weaningLog.findMany({
+      where: { weaned: { not: null } },
       select: { weaningDate: true, weaned: true },
     }),
     prisma.kitStockMovement.findMany({ orderBy: { date: "desc" } }),
   ]);
 
-  // Weaned counts aren't stored on KitStockMovement — they're derived from
-  // Litter rows grouped by weaning day, so the ledger always reflects
-  // /weaning without a second source of truth.
+  // Weaned counts aren't stored on KitStockMovement — they're derived from the
+  // weaning archive grouped by weaning day, so the ledger always reflects
+  // سجل الفطام without a second source of truth.
+  //
+  // WeaningLog, NOT Litter: a Breeding row (and its 1:1 Litter) is reused every
+  // cycle, and markKindled nulls weaningDate/weaned on the next birth. Counting
+  // Litter therefore lost a weaning the moment the doe kindled again, and
+  // collapsed a doe's repeated weanings into the one surviving row — the real
+  // farm's 9 weanings / 29 kits read as 2 rows / 8 kits, which then gated
+  // sales through availableStock below. WeaningLog is append-only (written at
+  // the «فطام» press, later عدد/وزن edits mirrored into it via updateMany), so
+  // one row per weaning event survives every later cycle.
   const weanedByDay = new Map<string, { date: Date; count: number }>();
-  for (const l of weanedLitters) {
-    if (!l.weaningDate || l.weaned == null) continue;
+  for (const l of weanings) {
+    if (l.weaned == null) continue;
     const key = l.weaningDate.toISOString().slice(0, 10);
     const existing = weanedByDay.get(key);
     if (existing) existing.count += l.weaned;
