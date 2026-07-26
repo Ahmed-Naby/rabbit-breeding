@@ -84,6 +84,54 @@ describe("runFullImport", () => {
     expect(await prisma.breed.count()).toBe(1);
   });
 
+  // runFullImport wipes first (deleteAllFarmData clears every archive), so an
+  // archive missing from FullExportData is destroyed rather than merely not
+  // restored — which is how matingLogs and resorptionLogs were silently lost
+  // for a while. Assert every archive survives a round-trip, so the next one
+  // added to the schema fails here if it's left out of the snapshot shape.
+  test("carries every append-only archive through a restore", async () => {
+    const snapshot = emptySnapshot();
+    snapshot.rabbits = [rabbit("doe1", "1", "doe"), rabbit("buck1", "2", "buck")];
+    snapshot.breedings = [
+      { id: "b1", buckId: "buck1", doeId: "doe1", matingDate: now, expectedKindlingDate: now,
+        actualKindlingDate: null, nestBoxDate: null, outcome: "pending", pregnancyTestResult: "pending",
+        notes: null, createdAt: now, updatedAt: now },
+    ];
+    snapshot.matingLogs = [
+      { id: "ml1", doeId: "doe1", buckId: "buck1", matingDate: now, wasNursingAtMating: false, createdAt: now },
+    ];
+    snapshot.resorptionLogs = [
+      { id: "rl1", doeId: "doe1", buckId: "buck1", matingDate: now, resorptionDate: now, createdAt: now },
+    ];
+    snapshot.nestBoxLogs = [
+      { id: "nb1", doeId: "doe1", breedingId: "b1", nestBoxDate: now, createdAt: now },
+    ];
+    snapshot.pregnancyTestLogs = [
+      { id: "pt1", doeId: "doe1", buckId: "buck1", matingDate: now, testDate: now, result: "positive", createdAt: now },
+    ];
+    snapshot.kindlingLogs = [
+      { id: "kl1", doeId: "doe1", buckId: "buck1", breedingId: "b1", matingDate: now, kindlingDate: now,
+        bornAlive: 8, bornDead: 1, bornAliveAtKindling: 8, bornDeadAtKindling: 1, createdAt: now },
+    ];
+    snapshot.weaningLogs = [
+      { id: "wl1", doeId: "doe1", buckId: "buck1", breedingId: "b1", kindlingDate: now, weaningDate: now,
+        bornAlive: 8, bornDead: 1, bornDeadAtKindling: 1, weaned: 7, weaningWeightGrams: 700, createdAt: now },
+    ];
+    snapshot.fosterLogs = [
+      { id: "fl1", fromDoeId: "doe1", toDoeId: "doe1", count: 2, date: now, createdAt: now },
+    ];
+
+    await runFullImport(snapshot);
+
+    expect(await prisma.matingLog.count()).toBe(1);
+    expect(await prisma.resorptionLog.count()).toBe(1);
+    expect(await prisma.nestBoxLog.count()).toBe(1);
+    expect(await prisma.pregnancyTestLog.count()).toBe(1);
+    expect(await prisma.kindlingLog.count()).toBe(1);
+    expect(await prisma.weaningLog.count()).toBe(1);
+    expect(await prisma.fosterLog.count()).toBe(1);
+  });
+
   test("restores pedigree references between imported rabbits", async () => {
     const snapshot = emptySnapshot();
     const dam = rabbit("dam", "1", "doe");
