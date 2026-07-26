@@ -41,6 +41,10 @@ export async function runPull(since: Date) {
     prisma.breed.findMany({}),
     prisma.matingLog.findMany({ orderBy: { matingDate: "desc" }, take: 100 }),
     prisma.nestBoxLog.findMany({ orderBy: { nestBoxDate: "desc" }, take: 100 }),
+    // Never sent before, so a device that lost its resorption_log (a restore
+    // stamps a fresh dataResetAt, and the re-bootstrap empties every table)
+    // had no way to get the rows back.
+    prisma.resorptionLog.findMany({ orderBy: { resorptionDate: "desc" }, take: 100 }),
     prisma.pregnancyTestLog.findMany({ orderBy: { testDate: "desc" }, take: 100 }),
     prisma.kindlingLog.findMany({ orderBy: { kindlingDate: "desc" }, take: 100 }),
     prisma.weaningLog.findMany({ orderBy: { weaningDate: "desc" }, take: 100 }),

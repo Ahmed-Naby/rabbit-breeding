@@ -127,7 +127,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   const [
     settings, rabbits, breedings, litters, weightRecords, healthRecords,
     transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs,
-    nestBoxLogs, fosterLogs,
+    nestBoxLogs, matingLogs, resorptionLogs, fosterLogs,
   ] = await Promise.all([
     queryOne<Row>(
       db,
@@ -191,6 +191,11 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
        FROM weaning_log`
     ),
     queryAll<Row>(db, "SELECT id, doeId, breedingId, nestBoxDate, createdAt FROM nest_box_log"),
+    queryAll<Row>(db, "SELECT id, doeId, buckId, matingDate, wasNursingAtMating, createdAt FROM mating_log"),
+    queryAll<Row>(
+      db,
+      "SELECT id, doeId, buckId, matingDate, resorptionDate, createdAt FROM resorption_log"
+    ),
     queryAll<Row>(db, "SELECT id, fromDoeId, toDoeId, count, date, createdAt FROM foster_log"),
   ]);
 
@@ -243,6 +248,13 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     // No column anywhere references a nest-box row, so remapping a "local-" id
     // here needs no patching pass — unlike litters/transactions above.
     nestBoxLogs: nestBoxLogs.map(withPermanentId()),
+    // Nothing references a mating/resorption row either, so the same
+    // remap-without-patching applies. SQLite stores the boolean as 0/1.
+    matingLogs: matingLogs.map(withPermanentId()).map((m) => ({
+      ...m,
+      wasNursingAtMating: !!m.wasNursingAtMating,
+    })),
+    resorptionLogs: resorptionLogs.map(withPermanentId()),
     fosterLogs: fosterLogs.map(withPermanentId()),
   };
 }

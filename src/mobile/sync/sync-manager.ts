@@ -208,6 +208,7 @@ type PullResponse = {
   weaningLogs?: Record<string, unknown>[];
   matingLogs?: Record<string, unknown>[];
   nestBoxLogs?: Record<string, unknown>[];
+  resorptionLogs?: Record<string, unknown>[];
   tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
 };
 
@@ -633,6 +634,24 @@ export async function pull(): Promise<boolean> {
         statement: `INSERT OR REPLACE INTO nest_box_log (id, doeId, breedingId, nestBoxDate, createdAt)
          VALUES (?, ?, ?, ?, ?)`,
         values: [log.id, log.doeId, log.breedingId ?? null, log.nestBoxDate, log.createdAt],
+      });
+    }
+  }
+
+  if (data.resorptionLogs) {
+    for (const log of data.resorptionLogs) {
+      // local-ops writes its optimistic row with a "local-" id (no client id is
+      // injected for resorption), so unlike the archives above the id-keyed
+      // INSERT OR REPLACE can't reconcile it — the (doeId, matingDate) delete is
+      // the primary path here, not a fallback.
+      set.push({
+        statement: "DELETE FROM resorption_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ?",
+        values: [log.doeId, log.matingDate],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO resorption_log (id, doeId, buckId, matingDate, resorptionDate, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        values: [log.id, log.doeId, log.buckId ?? null, log.matingDate, log.resorptionDate, log.createdAt],
       });
     }
   }
