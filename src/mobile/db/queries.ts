@@ -1332,11 +1332,19 @@ export type DailyLog = {
   mortality: DailyMortalityRow[];
 };
 
-/** dayIso is a plain "YYYY-MM-DD" string — local dates are stored as ISO TEXT, so a substr(...,1,10) match is a calendar-day filter with no timezone math. */
+/**
+ * dayIso is a plain "YYYY-MM-DD" string — local dates are stored as ISO TEXT, so a substr(...,1,10) match is a calendar-day filter with no timezone math.
+ *
+ * Reads the append-only archives (mating_log/kindling_log/weaning_log), not
+ * breeding/litter: those two rows are reused every cycle and markKindled nulls
+ * matingDate and overwrites the litter's dates, so a past day's page used to
+ * lose the very events it records. Mirrors the server's getDailyLog. نصب العش
+ * stays on breeding.nestBoxDate — there's no archive table for it.
+ */
 export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string): Promise<DailyLog> {
   const matingRows = await queryAll<{ id: string; doeId: string; buckId: string | null }>(
     db,
-    "SELECT id, doeId, buckId FROM breeding WHERE matingDate IS NOT NULL AND substr(matingDate, 1, 10) = ? ORDER BY matingDate DESC",
+    "SELECT id, doeId, buckId FROM mating_log WHERE substr(matingDate, 1, 10) = ? ORDER BY matingDate DESC",
     [dayIso]
   );
   const matings: DailyMatingRow[] = [];
@@ -1418,11 +1426,12 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
     bornDead: number | null;
   }>(
     db,
-    `SELECT b.id, b.doeId, b.buckId, l.bornAlive, l.bornDead
-     FROM breeding b
-     LEFT JOIN litter l ON l.breedingId = b.id
-     WHERE b.actualKindlingDate IS NOT NULL AND substr(b.actualKindlingDate, 1, 10) = ?
-     ORDER BY b.actualKindlingDate DESC`,
+    // bornAlive/bornDead here are the mirrored «الرعاية» counts — the same
+    // numbers the litter row carried, so the columns keep their meaning.
+    `SELECT id, doeId, buckId, bornAlive, bornDead
+     FROM kindling_log
+     WHERE substr(kindlingDate, 1, 10) = ?
+     ORDER BY kindlingDate DESC`,
     [dayIso]
   );
   const kindlings: DailyKindlingRow[] = [];
@@ -1454,11 +1463,10 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
     weaningWeightGrams: number | null;
   }>(
     db,
-    `SELECT l.id, b.doeId, l.weaned, l.weaningWeightGrams
-     FROM litter l
-     JOIN breeding b ON l.breedingId = b.id
-     WHERE l.weaningDate IS NOT NULL AND substr(l.weaningDate, 1, 10) = ?
-     ORDER BY l.weaningDate DESC`,
+    `SELECT id, doeId, weaned, weaningWeightGrams
+     FROM weaning_log
+     WHERE substr(weaningDate, 1, 10) = ?
+     ORDER BY weaningDate DESC`,
     [dayIso]
   );
   const weanings: DailyWeaningRow[] = [];

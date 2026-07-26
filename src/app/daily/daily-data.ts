@@ -69,18 +69,29 @@ export type DailyLog = {
 /**
  * Row-level "what happened today" log across every recordable farm event.
  * `day` is UTC midnight for the selected date; the range's exclusive upper
- * bound covers the full 24h window. matingDate/nestBoxDate/Litter.kindlingDate/
- * weaningDate are always stamped at UTC midnight (see breeding-ops.ts), while
- * PregnancyTestLog.testDate and Rabbit.updatedAt are real timestamps — a
+ * bound covers the full 24h window. The log tables' date columns and
+ * Breeding.nestBoxDate are always stamped at UTC midnight (see breeding-ops.ts),
+ * while PregnancyTestLog.testDate and Rabbit.updatedAt are real timestamps — a
  * [day, day+1) range correctly captures both.
+ *
+ * Sourced from the append-only archives (MatingLog/KindlingLog/WeaningLog), NOT
+ * from Breeding/Litter. A Breeding row and its 1:1 Litter are reused every
+ * cycle: markKindled nulls matingDate and overwrites the litter's
+ * kindlingDate/weaningDate/weaned, so reading the live rows made a past day's
+ * page silently lose the events it was supposed to be a record of — and a doe
+ * bred several times contributed at most one row no matter how many cycles she
+ * had actually run. A day already gone by must never change.
+ *
+ * نصب العش is the one section still on a live column (Breeding.nestBoxDate,
+ * cleared on the next cycle) because no NestBoxLog archive exists to read.
  */
 export async function getDailyLog(day: Date): Promise<DailyLog> {
   const dayEnd = addDays(day, 1);
   const range = { gte: day, lt: dayEnd };
 
-  const [matings, pregnancyTests, nestBoxes, kindlingLitters, weaningLitters, mortality] =
+  const [matings, pregnancyTests, nestBoxes, kindlings, weanings, mortality] =
     await Promise.all([
-      prisma.breeding.findMany({
+      prisma.matingLog.findMany({
         where: { matingDate: range },
         select: {
           id: true,
@@ -107,30 +118,24 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
         },
         orderBy: { nestBoxDate: "desc" },
       }),
-      prisma.litter.findMany({
+      prisma.kindlingLog.findMany({
         where: { kindlingDate: range },
         select: {
           id: true,
           bornAlive: true,
           bornDead: true,
-          breeding: {
-            select: {
-              doe: { select: { id: true, tagId: true, breed: true } },
-              buck: { select: { id: true, tagId: true } },
-            },
-          },
+          doe: { select: { id: true, tagId: true, breed: true } },
+          buck: { select: { id: true, tagId: true } },
         },
         orderBy: { kindlingDate: "desc" },
       }),
-      prisma.litter.findMany({
+      prisma.weaningLog.findMany({
         where: { weaningDate: range },
         select: {
           id: true,
           weaned: true,
           weaningWeightGrams: true,
-          breeding: {
-            select: { doe: { select: { id: true, tagId: true, breed: true } } },
-          },
+          doe: { select: { id: true, tagId: true, breed: true } },
         },
         orderBy: { weaningDate: "desc" },
       }),
@@ -173,23 +178,25 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
       doeTag: n.doe.tagId,
       doeBreed: n.doe.breed,
     })),
-    kindlings: kindlingLitters.map((l) => ({
-      id: l.id,
-      doeId: l.breeding.doe.id,
-      doeTag: l.breeding.doe.tagId,
-      doeBreed: l.breeding.doe.breed,
-      buckId: l.breeding.buck?.id ?? null,
-      buckTag: l.breeding.buck?.tagId ?? null,
-      bornAlive: l.bornAlive,
-      bornDead: l.bornDead,
+    kindlings: kindlings.map((k) => ({
+      id: k.id,
+      doeId: k.doe.id,
+      doeTag: k.doe.tagId,
+      doeBreed: k.doe.breed,
+      buckId: k.buck?.id ?? null,
+      buckTag: k.buck?.tagId ?? null,
+      // The mirrored «الرعاية» counts, same numbers the Litter row carried —
+      // not bornAliveAtKindling, so the columns keep meaning what they did.
+      bornAlive: k.bornAlive,
+      bornDead: k.bornDead,
     })),
-    weanings: weaningLitters.map((l) => ({
-      id: l.id,
-      doeId: l.breeding.doe.id,
-      doeTag: l.breeding.doe.tagId,
-      doeBreed: l.breeding.doe.breed,
-      weaned: l.weaned,
-      weaningWeightGrams: l.weaningWeightGrams,
+    weanings: weanings.map((w) => ({
+      id: w.id,
+      doeId: w.doe.id,
+      doeTag: w.doe.tagId,
+      doeBreed: w.doe.breed,
+      weaned: w.weaned,
+      weaningWeightGrams: w.weaningWeightGrams,
     })),
     mortality: mortality.map((r) => ({
       id: r.id,
