@@ -10,6 +10,7 @@ import { DoeStateBadge, InstallNestBoxButton } from "../components/doe-state-men
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -62,26 +63,18 @@ export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "تركيب بيوت الولادة" : "Nest Box Installation"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `أمهات بحاجة لتركيب بيت الولادة بعد مرور ${nestBoxDays} أيام من التلقيح (${does.length} أمهات)`
-              : `Does requiring nest box installation after ${nestBoxDays} days (${does.length} does)`}
-          </p>
-        </div>
+        <PageHeader
+          title={locale === "ar" ? "تركيب بيوت الولادة" : "Nest Box Installation"}
+          description={locale === "ar" ? `أمهات بحاجة لتركيب بيت الولادة بعد مرور ${nestBoxDays} أيام من التلقيح (${does.length} أمهات)` : `Does requiring nest box installation after ${nestBoxDays} days (${does.length} does)`}
+        />
       )}
 
       {does.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Box className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "كل بيوت الولادة مركبة" : "All nest boxes installed"}</p>
-          <p className="text-sm">
-            {locale === "ar"
-              ? "لا توجد أمهات تحتاج إلى تركيب بيت الولادة حاليًا."
-              : "No does currently require nest box installation."}
-          </p>
-        </div>
+        <EmptyState
+          icon={Box}
+          title={locale === "ar" ? "كل بيوت الولادة مركبة" : "All nest boxes installed"}
+          description={locale === "ar" ? "لا توجد أمهات تحتاج إلى تركيب بيت الولادة حاليًا." : "No does currently require nest box installation."}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">

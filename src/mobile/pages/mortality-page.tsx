@@ -17,6 +17,7 @@ import type { LocalRabbit } from "../db/types";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -154,21 +155,21 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   return (
     <div className="space-y-8">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{t.mortality.title}</h1>
-          <p className="text-sm text-muted-foreground">{t.mortality.description}</p>
-        </div>
+        <PageHeader
+          title={t.mortality.title}
+          description={t.mortality.description}
+        />
       )}
 
       {/* 1. رضيع الرضاعة (Nursing Kit Mortality) */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.nursingSectionTitle}</h2>
         {nursingDoes.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <Skull className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.mortality.nursingEmptyTitle}</p>
-            <p className="text-sm">{t.mortality.nursingEmptyDescription}</p>
-          </div>
+          <EmptyState
+            icon={Skull}
+            title={t.mortality.nursingEmptyTitle}
+            description={t.mortality.nursingEmptyDescription}
+          />
         ) : (
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
@@ -280,10 +281,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.mothersSectionTitle}</h2>
         {activeMothers.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <Skull className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.mortality.mothersEmptyTitle}</p>
-          </div>
+          <EmptyState icon={Skull} title={t.mortality.mothersEmptyTitle} />
         ) : (
           <DeathByTagForm
             idPrefix="mother"
@@ -311,10 +309,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.bucksSectionTitle}</h2>
         {activeBucks.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <Skull className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.mortality.bucksEmptyTitle}</p>
-          </div>
+          <EmptyState icon={Skull} title={t.mortality.bucksEmptyTitle} />
         ) : (
           <DeathByTagForm
             idPrefix="buck"
@@ -342,10 +337,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">{t.mortality.strainsSectionTitle}</h2>
         {activeStock.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <Skull className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.mortality.strainsEmptyTitle}</p>
-          </div>
+          <EmptyState icon={Skull} title={t.mortality.strainsEmptyTitle} />
         ) : (
           <Card>
             <CardContent className="space-y-4 py-5">

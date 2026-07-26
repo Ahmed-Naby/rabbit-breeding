@@ -4,6 +4,7 @@ import type { LocalDeceasedRabbit, LocalKitDeath } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { EmptyState } from "@/components/page-header";
 
 export function MortalityLog({
   deceasedRabbits,
@@ -53,12 +54,10 @@ export function MortalityLog({
         )}
       </h2>
       {nursingKitDeaths.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Layers className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">
-            {locale === "ar" ? "لا يوجد نافق نتاج مسجل" : "No nursing kit deaths recorded"}
-          </p>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title={locale === "ar" ? "لا يوجد نافق نتاج مسجل" : "No nursing kit deaths recorded"}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
@@ -118,12 +117,10 @@ export function MortalityLog({
         )}
       </h2>
       {weanedKitDeaths.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Layers className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">
-            {locale === "ar" ? "لا يوجد نافق فطام مسجل" : "No weaned kit deaths recorded"}
-          </p>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title={locale === "ar" ? "لا يوجد نافق فطام مسجل" : "No weaned kit deaths recorded"}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
@@ -168,10 +165,10 @@ export function MortalityLog({
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
       </h2>
       {deceasedRabbits.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Layers className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "لا توجد حالات نفوق مسجلة" : "No deceased records logged"}</p>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title={locale === "ar" ? "لا توجد حالات نفوق مسجلة" : "No deceased records logged"}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">

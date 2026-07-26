@@ -17,6 +17,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { WeaningLog } from "./weaning-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -62,14 +63,10 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الفطام" : "Weaning Operations"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `بطون ولدت وجاهزة للفطام بعد مرور ${weaningDays} يومًا (${litters.length} بطون)`
-              : `Litters ready for weaning after ${weaningDays} days (${litters.length} litters)`}
-          </p>
-        </div>
+        <PageHeader
+          title={locale === "ar" ? "عمليات الفطام" : "Weaning Operations"}
+          description={locale === "ar" ? `بطون ولدت وجاهزة للفطام بعد مرور ${weaningDays} يومًا (${litters.length} بطون)` : `Litters ready for weaning after ${weaningDays} days (${litters.length} litters)`}
+        />
       )}
 
       <div className="space-y-3">
@@ -77,15 +74,11 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
         {locale === "ar" ? "أرانب محتاجة تتفطم" : "Rabbits due for weaning"}
       </h2>
       {litters.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Milk className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "لا توجد بطون للفطام حاليًا" : "No litters for weaning"}</p>
-          <p className="text-sm">
-            {locale === "ar"
-              ? "كل الولادات المسجلة لم تبلغ سن الفطام المحدد بالإعدادات بعد."
-              : "All registered litters are below the weaning age threshold."}
-          </p>
-        </div>
+        <EmptyState
+          icon={Milk}
+          title={locale === "ar" ? "لا توجد بطون للفطام حاليًا" : "No litters for weaning"}
+          description={locale === "ar" ? "كل الولادات المسجلة لم تبلغ سن الفطام المحدد بالإعدادات بعد." : "All registered litters are below the weaning age threshold."}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">

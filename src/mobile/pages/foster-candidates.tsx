@@ -5,6 +5,7 @@ import type { FosterCandidate } from "@/lib/fostering";
 import { LocalDate } from "@/components/local-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/page-header";
 
 /**
  * Mobile twin of src/app/fostering/foster-candidates.tsx — same two read-only
@@ -34,10 +35,7 @@ function CandidateList({
       </CardHeader>
       <CardContent className="p-0">
         {candidates.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground">
-            <HeartHandshake className="h-8 w-8" />
-            <p className="font-medium">{emptyTitle}</p>
-          </div>
+          <EmptyState icon={HeartHandshake} title={emptyTitle} />
         ) : (
           <Table>
             <TableHeader>

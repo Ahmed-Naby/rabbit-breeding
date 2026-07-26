@@ -5,6 +5,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { NestBoxPage } from "./nest-box-page";
 import { MortalityPage } from "./mortality-page";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type SupportTab = "nest-box" | "mortality";
 
@@ -24,10 +25,10 @@ export function SupportOperationsPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{sops.title}</h1>
-        <p className="text-sm text-muted-foreground">{sops.description}</p>
-      </div>
+      <PageHeader
+        title={sops.title}
+        description={sops.description}
+      />
 
       {/* 2 Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">

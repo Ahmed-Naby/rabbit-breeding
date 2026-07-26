@@ -12,6 +12,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { KindlingLog } from "./kindling-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -54,14 +55,10 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{locale === "ar" ? "عمليات الولادة" : "Kindling Operations"}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `أمهات عشار مستحقة الولادة حاليًا (${does.length} أمهات)`
-              : `Pregnant does expected to kindle soon (${does.length} does)`}
-          </p>
-        </div>
+        <PageHeader
+          title={locale === "ar" ? "عمليات الولادة" : "Kindling Operations"}
+          description={locale === "ar" ? `أمهات عشار مستحقة الولادة حاليًا (${does.length} أمهات)` : `Pregnant does expected to kindle soon (${does.length} does)`}
+        />
       )}
 
       <div className="space-y-3">
@@ -69,15 +66,11 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
         {locale === "ar" ? "أمهات على وش ولادة" : "Does due to kindle"}
       </h2>
       {does.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <HeartPulse className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "لا توجد ولادات متوقعة حاليًا" : "No expected kindlings"}</p>
-          <p className="text-sm">
-            {locale === "ar"
-              ? "جميع الأمهات الملقحة بعيدة عن تاريخ الولادة المتوقع."
-              : "All bred/pregnant does are away from their expected kindling dates."}
-          </p>
-        </div>
+        <EmptyState
+          icon={HeartPulse}
+          title={locale === "ar" ? "لا توجد ولادات متوقعة حاليًا" : "No expected kindlings"}
+          description={locale === "ar" ? "جميع الأمهات الملقحة بعيدة عن تاريخ الولادة المتوقع." : "All bred/pregnant does are away from their expected kindling dates."}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">

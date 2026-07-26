@@ -7,6 +7,7 @@ import { MothersPage } from "./mothers-page";
 import { BucksPage } from "./bucks-page";
 import { matchesRoute } from "../routes";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type HerdTab = "stock" | "mothers" | "bucks";
 
@@ -29,10 +30,10 @@ export function HerdAndStockPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{hs.title}</h1>
-        <p className="text-sm text-muted-foreground">{hs.description}</p>
-      </div>
+      <PageHeader
+        title={hs.title}
+        description={hs.description}
+      />
 
       {/* 3 Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">

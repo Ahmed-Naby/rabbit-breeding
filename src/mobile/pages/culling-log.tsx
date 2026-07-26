@@ -5,6 +5,7 @@ import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { EmptyState } from "@/components/page-header";
 
 export function CullingLog({
   culledRabbits,
@@ -30,10 +31,7 @@ export function CullingLog({
         <LogCountBadge count={culledRabbits.length} />
       </h2>
       {culledRabbits.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Layers className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "لا يوجد حيوانات مستبعدة" : "No culled rabbits"}</p>
-        </div>
+        <EmptyState icon={Layers} title={locale === "ar" ? "لا يوجد حيوانات مستبعدة" : "No culled rabbits"} />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">

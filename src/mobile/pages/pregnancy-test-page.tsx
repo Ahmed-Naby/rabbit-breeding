@@ -11,6 +11,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PregnancyTestLog } from "./pregnancy-test-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -57,14 +58,10 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{t.pregnancyTest.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `أمهات حان موعد جسها بعد مرور ${pregnancyTestDays} أيام من التلقيح (${candidates.length} أمهات)`
-              : `Does ready for testing after ${pregnancyTestDays} days (${candidates.length} does)`}
-          </p>
-        </div>
+        <PageHeader
+          title={t.pregnancyTest.title}
+          description={locale === "ar" ? `أمهات حان موعد جسها بعد مرور ${pregnancyTestDays} أيام من التلقيح (${candidates.length} أمهات)` : `Does ready for testing after ${pregnancyTestDays} days (${candidates.length} does)`}
+        />
       )}
 
       <div className="space-y-3">
@@ -72,11 +69,11 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
         {locale === "ar" ? "أمهات مستعدة للجس" : "Does ready for pregnancy test"}
       </h2>
       {candidates.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Microscope className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{t.pregnancyTest.emptyTitle}</p>
-          <p className="text-sm">{t.pregnancyTest.emptyDescription}</p>
-        </div>
+        <EmptyState
+          icon={Microscope}
+          title={t.pregnancyTest.emptyTitle}
+          description={t.pregnancyTest.emptyDescription}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">

@@ -5,6 +5,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { RoundsPage } from "./rounds-page";
 import { BucksRoundsPage } from "./bucks-rounds-page";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type RoundsTab = "does-rounds" | "bucks-rounds";
 
@@ -24,10 +25,10 @@ export function DailyRoundsPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{dr.title}</h1>
-        <p className="text-sm text-muted-foreground">{dr.description}</p>
-      </div>
+      <PageHeader
+        title={dr.title}
+        description={dr.description}
+      />
 
       {/* 2 Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">

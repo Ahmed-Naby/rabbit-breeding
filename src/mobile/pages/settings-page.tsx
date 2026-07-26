@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LocalSettings } from "../db/types";
 import { PageSkeleton } from "@/components/skeleton";
+import { PageHeader } from "@/components/page-header";
 
 function backupFilename(): string {
   const date = new Date().toISOString().split("T")[0];
@@ -321,10 +322,10 @@ export function SettingsPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.settings.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.settings.description}</p>
-      </div>
+      <PageHeader
+        title={t.settings.title}
+        description={t.settings.description}
+      />
 
       <AccountCard locale={locale} />
 

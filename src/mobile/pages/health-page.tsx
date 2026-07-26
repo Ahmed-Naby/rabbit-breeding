@@ -17,6 +17,7 @@ import { toDateInputValue } from "@/lib/dates";
 import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { PageHeader } from "@/components/page-header";
 
 export function HealthPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -109,12 +110,10 @@ export function HealthPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.nav.health}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar" ? "متابعة التطعيمات والتحصينات والعلاجات البيطرية للأرانب" : "Log vaccines, treatments, and checkups"}
-        </p>
-      </div>
+      <PageHeader
+        title={t.nav.health}
+        description={locale === "ar" ? "متابعة التطعيمات والتحصينات والعلاجات البيطرية للأرانب" : "Log vaccines, treatments, and checkups"}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form Card */}

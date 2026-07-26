@@ -32,6 +32,7 @@ import { SortIcon } from "@/components/sort-icon";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -150,20 +151,16 @@ export function DoesPage({ locale }: { locale: Locale }) {
 
   if (does.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground">
-        <RabbitIcon className="h-8 w-8" />
-        <p className="font-medium">{t.does.emptyTitle}</p>
-        <p className="text-sm">{t.does.emptyDescription}</p>
-      </div>
+      <EmptyState icon={RabbitIcon} title={t.does.emptyTitle} description={t.does.emptyDescription} />
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.does.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.does.description}</p>
-      </div>
+      <PageHeader
+        title={t.does.title}
+        description={t.does.description}
+      />
 
       {/* Desktop Table View */}
       <div className="hidden xl:block rounded-xl border bg-card overflow-x-auto">

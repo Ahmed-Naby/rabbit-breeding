@@ -13,6 +13,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 function todayIso(): string {
   return toDateInputValue(new Date());
@@ -33,10 +34,7 @@ const RESULT_CLS: Record<string, string> = {
 
 function EmptyBlock({ title }: { title: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-      <CalendarDays className="h-8 w-8 text-muted-foreground" />
-      <p className="font-medium">{title}</p>
-    </div>
+    <EmptyState icon={CalendarDays} title={title} />
   );
 }
 
@@ -120,10 +118,10 @@ export function DailyPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{dt.title}</h1>
-        <p className="text-sm text-muted-foreground">{dt.description}</p>
-      </div>
+      <PageHeader
+        title={dt.title}
+        description={dt.description}
+      />
 
       <Card>
         <CardContent className="flex flex-wrap items-end gap-3 py-4">

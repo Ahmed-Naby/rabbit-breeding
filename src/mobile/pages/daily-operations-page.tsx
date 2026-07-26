@@ -14,6 +14,7 @@ import { KindlingPage } from "./kindling-page";
 import { WeaningPage } from "./weaning-page";
 import { FosteringPage } from "./fostering-page";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type OperationTab = "mating" | "pregnancy-test" | "kindling" | "weaning" | "fostering";
 
@@ -36,10 +37,10 @@ export function DailyOperationsPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{ops.title}</h1>
-        <p className="text-sm text-muted-foreground">{ops.description}</p>
-      </div>
+      <PageHeader
+        title={ops.title}
+        description={ops.description}
+      />
 
       {/* Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">

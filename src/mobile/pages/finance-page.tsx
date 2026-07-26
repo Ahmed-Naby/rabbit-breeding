@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toDateInputValue } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { PageHeader } from "@/components/page-header";
 
 export function FinancePage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -125,12 +126,10 @@ export function FinancePage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.nav.finance}</h1>
-        <p className="text-sm text-muted-foreground">
-          {locale === "ar" ? "متابعة الحسابات والإيرادات والمصروفات المالية للمزرعة" : "Manage revenues and expenses"}
-        </p>
-      </div>
+      <PageHeader
+        title={t.nav.finance}
+        description={locale === "ar" ? "متابعة الحسابات والإيرادات والمصروفات المالية للمزرعة" : "Manage revenues and expenses"}
+      />
 
       {/* Financial Summaries Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

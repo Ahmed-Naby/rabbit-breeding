@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).bucks;
@@ -124,10 +125,10 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
     <div className="space-y-6">
       {/* Page Header */}
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-          <p className="text-sm text-muted-foreground">{t.description(bucks.length)}</p>
-        </div>
+        <PageHeader
+          title={t.title}
+          description={t.description(bucks.length)}
+        />
       )}
 
       {/* Add Buck Form Card */}
@@ -194,11 +195,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
           {t.pendingHeading(pendingBucks.length)}
         </h2>
         {pendingBucks.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <Clock className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.pendingEmptyTitle}</p>
-            <p className="text-sm">{t.pendingEmptyDescription}</p>
-          </div>
+          <EmptyState icon={Clock} title={t.pendingEmptyTitle} description={t.pendingEmptyDescription} />
         ) : (
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
@@ -286,11 +283,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
       {/* Bucks Roster Section */}
       <div className="space-y-3">
         {bucks.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-            <RabbitIcon className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">{t.emptyTitle}</p>
-            <p className="text-sm">{t.emptyDescription}</p>
-          </div>
+          <EmptyState icon={RabbitIcon} title={t.emptyTitle} description={t.emptyDescription} />
         ) : (
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">

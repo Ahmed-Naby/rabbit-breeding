@@ -17,6 +17,7 @@ import { toDateInputValue } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -175,10 +176,10 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{t.weaningSales.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.weaningSales.description}</p>
-      </div>
+      <PageHeader
+        title={t.weaningSales.title}
+        description={t.weaningSales.description}
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card className={toneCls.neutral}>
@@ -334,11 +335,11 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
         <CardContent className="p-0">
           {ledger.length === 0 ? (
             <div className="p-6">
-              <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-                <Layers className="h-8 w-8 text-muted-foreground" />
-                <p className="font-medium">{t.weaningSales.emptyTitle}</p>
-                <p className="text-sm">{t.weaningSales.emptyDescription}</p>
-              </div>
+              <EmptyState
+                icon={Layers}
+                title={t.weaningSales.emptyTitle}
+                description={t.weaningSales.emptyDescription}
+              />
             </div>
           ) : (
             <div className="rounded-xl border bg-card overflow-x-auto">

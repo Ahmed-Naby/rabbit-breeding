@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
+import { PageHeader } from "@/components/page-header";
 
 export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).stock;
@@ -202,15 +203,17 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
     <div className="space-y-6">
       {/* Page Header */}
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-            <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
-              {rabbits.length}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">{t.description}</p>
-        </div>
+        <PageHeader
+          title={
+            <>
+              {t.title}
+              <span className="inline-flex items-center justify-center rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-semibold text-primary">
+                {rabbits.length}
+              </span>
+            </>
+          }
+          description={t.description}
+        />
       )}
 
       {/* Forms grid: Card 1 (Farm Offspring) & Card 2 (External Purchased Stock) */}

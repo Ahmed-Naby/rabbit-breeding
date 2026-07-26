@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 const HEALTH_TYPE_KEYS = ["illness", "treatment", "vaccination", "deworming", "checkup"] as const;
 
@@ -95,21 +96,17 @@ export function BucksRoundsPage({ locale, hideHeader }: { locale: Locale; hideHe
 
   if (bucks.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground">
-        <ClipboardCheck className="h-8 w-8" />
-        <p className="font-medium">{rt.emptyTitle}</p>
-        <p className="text-sm">{rt.emptyDescription}</p>
-      </div>
+      <EmptyState icon={ClipboardCheck} title={rt.emptyTitle} description={rt.emptyDescription} />
     );
   }
 
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
-          <p className="text-sm text-muted-foreground">{rt.description}</p>
-        </div>
+        <PageHeader
+          title={rt.title}
+          description={rt.description}
+        />
       )}
 
       <div className="relative">

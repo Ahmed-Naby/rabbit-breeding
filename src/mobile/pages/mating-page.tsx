@@ -13,6 +13,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { MatingLog } from "./mating-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -52,14 +53,10 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{t.mating.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `${does.length} أم جاهزة للتلقيح الآن`
-              : `${does.length} does ready for mating now`}
-          </p>
-        </div>
+        <PageHeader
+          title={t.mating.title}
+          description={locale === "ar" ? `${does.length} أم جاهزة للتلقيح الآن` : `${does.length} does ready for mating now`}
+        />
       )}
 
       <div className="space-y-3">
@@ -67,11 +64,11 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
         {locale === "ar" ? "أمهات جاهزة للتلقيح" : "Does ready for mating"}
       </h2>
       {does.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <HeartHandshake className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{t.mating.emptyTitle}</p>
-          <p className="text-sm">{t.mating.emptyDescription}</p>
-        </div>
+        <EmptyState
+          icon={HeartHandshake}
+          title={t.mating.emptyTitle}
+          description={t.mating.emptyDescription}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full border-collapse text-sm text-left rtl:text-right [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border">

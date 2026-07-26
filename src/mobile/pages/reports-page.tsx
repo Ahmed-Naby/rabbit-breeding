@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { DoesFertilityPage } from "./does-fertility-page";
 import { BucksFertilityPage } from "./bucks-fertility-page";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 function defaultRange() {
   const to = new Date();
@@ -73,10 +74,10 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       {/* Page Main Header */}
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
-        <p className="text-sm text-muted-foreground">{rt.description}</p>
-      </div>
+      <PageHeader
+        title={rt.title}
+        description={rt.description}
+      />
 
       {/* 3 Tabs Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">

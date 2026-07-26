@@ -11,6 +11,7 @@ import { SortableTh } from "@/components/sortable-th";
 import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState, PageHeader } from "@/components/page-header";
 
 export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; initialSex?: "doe" | "buck" | "all" }) {
   const t = getClientDictionary(locale);
@@ -49,60 +50,55 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{titleMap[sex]}</h1>
-          <p className="text-sm text-muted-foreground">
-            {locale === "ar"
-              ? `عرض وتصفية الأرانب النشطة بالمزرعة (${rabbits.length} أرنب)`
-              : `View and filter active rabbits in the herd (${rabbits.length} rabbits)`}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1 rounded-lg border bg-muted p-1 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setSex("all")}
-            className={cn(
-              "rounded-md px-3 py-1.5 transition-colors",
-              sex === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {locale === "ar" ? "الكل" : "All"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSex("doe")}
-            className={cn(
-              "rounded-md px-3 py-1.5 transition-colors",
-              sex === "doe" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {locale === "ar" ? "الإناث" : "Does"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSex("buck")}
-            className={cn(
-              "rounded-md px-3 py-1.5 transition-colors",
-              sex === "buck" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {locale === "ar" ? "الذكور" : "Bucks"}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={titleMap[sex]}
+        description={
+          locale === "ar"
+            ? `عرض وتصفية الأرانب النشطة بالمزرعة (${rabbits.length} أرنب)`
+            : `View and filter active rabbits in the herd (${rabbits.length} rabbits)`
+        }
+        actions={
+          <div className="flex items-center gap-1 rounded-lg border bg-muted p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setSex("all")}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors",
+                sex === "all" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {locale === "ar" ? "الكل" : "All"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSex("doe")}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors",
+                sex === "doe" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {locale === "ar" ? "الإناث" : "Does"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSex("buck")}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors",
+                sex === "buck" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {locale === "ar" ? "الذكور" : "Bucks"}
+            </button>
+          </div>
+        }
+      />
 
       {rabbits.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-          <Users className="h-8 w-8 text-muted-foreground" />
-          <p className="font-medium">{locale === "ar" ? "لا توجد أرانب مسجلة" : "No rabbits registered"}</p>
-          <p className="text-sm">
-            {locale === "ar"
-              ? "لم يتم العثور على أرانب تطابق خيار التصفية الحالي."
-              : "No rabbits found matching the current filter."}
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title={locale === "ar" ? "لا توجد أرانب مسجلة" : "No rabbits registered"}
+          description={locale === "ar" ? "لم يتم العثور على أرانب تطابق خيار التصفية الحالي." : "No rabbits found matching the current filter."}
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">

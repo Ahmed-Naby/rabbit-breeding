@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FosteringLog } from "./fostering-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { PageHeader } from "@/components/page-header";
 
 export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale);
@@ -92,10 +93,10 @@ export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHead
   return (
     <div className="space-y-6">
       {!hideHeader && (
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight">{t.fostering.pageTitle}</h1>
-          <p className="text-sm text-muted-foreground">{t.fostering.description}</p>
-        </div>
+        <PageHeader
+          title={t.fostering.pageTitle}
+          description={t.fostering.description}
+        />
       )}
 
       {candidates && (

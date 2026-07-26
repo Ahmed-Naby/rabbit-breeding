@@ -35,6 +35,7 @@ import { FosteringLog } from "./fostering-log";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
 import { PageSkeleton } from "@/components/skeleton";
+import { PageHeader } from "@/components/page-header";
 
 type RecordsTab =
   | "mating"
@@ -216,10 +217,10 @@ export function RecordsPage({ locale }: { locale: Locale }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="text-2xl font-bold tracking-tight">{rt.title}</h1>
-        <p className="text-sm text-muted-foreground">{rt.description}</p>
-      </div>
+      <PageHeader
+        title={rt.title}
+        description={rt.description}
+      />
 
       {/* Tabs first, then the range filter: the filter applies to whichever
           log is open, so picking the log comes before narrowing its dates. */}

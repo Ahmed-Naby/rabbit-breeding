@@ -11,6 +11,7 @@ import {
   Egg,
   Users,
   ShieldCheck,
+  SearchX,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
@@ -30,6 +31,7 @@ import { computeBuckFertilityStats } from "@/lib/buck-stats";
 import { getDb } from "../db/client";
 import { enqueue } from "../sync/outbox";
 import { PageSkeleton } from "@/components/skeleton";
+import { EmptyState } from "@/components/page-header";
 import {
   fetchRabbitBasic,
   fetchDoeBreedingHistory,
@@ -103,10 +105,13 @@ export function RabbitDetailPage({
   }
 
   if (rabbit === null) {
+    // SearchX rather than the default nest art: this is a record that couldn't
+    // be found, not a list that happens to be empty.
     return (
-      <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-        <p className="font-medium">{locale === "ar" ? "الأرنب غير موجود محليًا" : "Rabbit not found locally"}</p>
-      </div>
+      <EmptyState
+        icon={SearchX}
+        title={locale === "ar" ? "الأرنب غير موجود محليًا" : "Rabbit not found locally"}
+      />
     );
   }
 
@@ -453,11 +458,7 @@ export function RabbitDetailPage({
 
 function EmptyHistory({ icon: Icon, title, description }: { icon: typeof History; title: string; description: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-      <Icon className="h-8 w-8 text-muted-foreground" />
-      <p className="font-medium">{title}</p>
-      <p className="text-sm">{description}</p>
-    </div>
+    <EmptyState icon={Icon} title={title} description={description} />
   );
 }
 

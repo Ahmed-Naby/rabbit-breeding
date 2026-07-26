@@ -4,6 +4,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import type { LocalFosterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/page-header";
 
 export function FosteringLog({
   logs,
@@ -27,11 +28,11 @@ export function FosteringLog({
       <CardContent className="p-0">
         {logs.length === 0 ? (
           <div className="p-6">
-            <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">
-              <HeartHandshake className="h-8 w-8 text-muted-foreground" />
-              <p className="font-medium">{t.fostering.emptyTitle}</p>
-              <p className="text-sm">{t.fostering.emptyDescription}</p>
-            </div>
+            <EmptyState
+              icon={HeartHandshake}
+              title={t.fostering.emptyTitle}
+              description={t.fostering.emptyDescription}
+            />
           </div>
         ) : (
           <div className="divide-y max-h-[400px] overflow-y-auto">
