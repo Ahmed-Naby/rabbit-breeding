@@ -27,6 +27,7 @@ import { KindlingLog } from "../kindling/kindling-log";
 import { WeaningLog } from "../weaning/weaning-log";
 import { FosteringLog } from "../fostering/fostering-log";
 import { MortalityLog } from "../mortality/mortality-log";
+import { getKitDeathRows } from "../mortality/kit-deaths";
 import { CullingLog } from "../mortality/culling-log";
 
 export async function generateMetadata() {
@@ -100,8 +101,10 @@ async function KindlingLogTab({ locale, t, range }: { locale: Locale; t: Diction
       id: true,
       matingDate: true,
       kindlingDate: true,
-      bornAlive: true,
-      bornDead: true,
+      // The frozen pair — سجل الولادة is the birth archive, so it must not move
+      // when fostering or a nursing death later edits bornAlive/bornDead.
+      bornAliveAtKindling: true,
+      bornDeadAtKindling: true,
       doe: { select: { id: true, tagId: true, breed: true } },
       buck: { select: { tagId: true } },
     },
@@ -146,7 +149,7 @@ async function FosteringLogTab({ locale, t, range }: { locale: Locale; t: Dictio
 
 async function MortalityLogTab({ locale, t, range }: { locale: Locale; t: Dictionary; range: DateRange }) {
   const updatedAtWhere = dateRangeWhere(range);
-  const [deceasedMothers, deceasedBucks, deceasedStock] = await Promise.all([
+  const [deceasedMothers, deceasedBucks, deceasedStock, kitDeaths] = await Promise.all([
     // See mortality/page.tsx for why retiredTagId must be checked alongside
     // tagId — a deceased rabbit's tagId is cleared so the number can be reused.
     prisma.rabbit.findMany({
@@ -179,12 +182,16 @@ async function MortalityLogTab({ locale, t, range }: { locale: Locale; t: Dictio
       select: { id: true, sex: true, breed: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
+    // Kit deaths carry their own event date, so they filter on that rather
+    // than on updatedAt like the deceased-rabbit rows above.
+    getKitDeathRows(updatedAtWhere),
   ]);
   return (
     <MortalityLog
       deceasedMothers={deceasedMothers}
       deceasedBucks={deceasedBucks}
       deceasedStock={deceasedStock}
+      kitDeaths={kitDeaths}
       locale={locale}
       t={t}
     />
@@ -226,30 +233,8 @@ export default async function RecordsPage({
     <div className="space-y-6">
       <PageHeader title={rt.title} description={rt.description} />
 
-      <Card>
-        <CardContent className="py-4">
-          <form method="get" className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="tab" value={activeTab} />
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
-              <Input type="date" name="from" defaultValue={sp.from ?? ""} className="w-40" />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
-              <Input type="date" name="to" defaultValue={sp.to ?? ""} className="w-40" />
-            </label>
-            <Button type="submit" size="sm">
-              {rt.applyButton}
-            </Button>
-            {(sp.from || sp.to) && (
-              <Button asChild type="button" variant="outline" size="sm">
-                <Link href={clearHref}>{rt.clearButton}</Link>
-              </Button>
-            )}
-          </form>
-        </CardContent>
-      </Card>
-
+      {/* Tabs first, then the range filter: the filter applies to whichever
+          log is open, so picking the log comes before narrowing its dates. */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <Link
           href={`/records?tab=mating${dateQS}`}
@@ -355,6 +340,30 @@ export default async function RecordsPage({
           {rt.tabCulling}
         </Link>
       </div>
+
+      <Card>
+        <CardContent className="py-4">
+          <form method="get" className="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="tab" value={activeTab} />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
+              <Input type="date" name="from" defaultValue={sp.from ?? ""} className="w-40" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
+              <Input type="date" name="to" defaultValue={sp.to ?? ""} className="w-40" />
+            </label>
+            <Button type="submit" size="sm">
+              {rt.applyButton}
+            </Button>
+            {(sp.from || sp.to) && (
+              <Button asChild type="button" variant="outline" size="sm">
+                <Link href={clearHref}>{rt.clearButton}</Link>
+              </Button>
+            )}
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} t={t} range={range} />}

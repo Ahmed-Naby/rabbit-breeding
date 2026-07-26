@@ -920,7 +920,13 @@ export async function setLitterWeaningWeightOp(
  */
 export async function recordNursingKitDeathOp(
   breedingId: string,
-  count: number = 1
+  count: number = 1,
+  // Client-generated id shared with the mobile optimistic KitDeathLog row so
+  // sync dedups by id (same reasoning as markMatingFailedOp's logId), and the
+  // date the press actually happened — a phone that recorded the death offline
+  // on Tuesday must not have it filed under the Thursday the sync ran.
+  // Both undefined from the web app: @default(cuid()) and "today" apply.
+  opts: { logId?: string; deathDate?: Date } = {}
 ): Promise<OpResult<void, "NO_NURSING_KITS">> {
   const [breeding, bornDeadAtKindling] = await Promise.all([
     prisma.breeding.findUnique({
@@ -968,7 +974,25 @@ export async function recordNursingKitDeathOp(
   const newBornAlive = litter.bornAlive - count;
   const newBornDead = litter.bornDead + count;
 
+  // Stamped at UTC midnight like every other log date, so the [day, day+1)
+  // ranges the اليومية and the السجلات filter use catch it.
+  const deathDate = new Date(opts.deathDate ?? Date.now());
+  deathDate.setUTCHours(0, 0, 0, 0);
+
   await prisma.$transaction([
+    // The event itself. Everything else in this transaction only moves counts
+    // around on rows the next cycle reuses — this is the row that keeps the
+    // death in سجل النفوق and in the اليومية of the day it happened.
+    prisma.kitDeathLog.create({
+      data: {
+        id: opts.logId,
+        doeId: breeding.doeId,
+        breedingId,
+        kindlingDate: breeding.actualKindlingDate,
+        deathDate,
+        count,
+      },
+    }),
     prisma.litter.update({
       where: { breedingId },
       data: {

@@ -127,7 +127,7 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   const [
     settings, rabbits, breedings, litters, weightRecords, healthRecords,
     transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs,
-    nestBoxLogs, matingLogs, resorptionLogs, fosterLogs,
+    nestBoxLogs, matingLogs, resorptionLogs, fosterLogs, kitDeathLogs,
   ] = await Promise.all([
     queryOne<Row>(
       db,
@@ -197,6 +197,10 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
       "SELECT id, doeId, buckId, matingDate, resorptionDate, createdAt FROM resorption_log"
     ),
     queryAll<Row>(db, "SELECT id, fromDoeId, toDoeId, count, date, createdAt FROM foster_log"),
+    queryAll<Row>(
+      db,
+      "SELECT id, doeId, breedingId, kindlingDate, deathDate, count, createdAt FROM kit_death_log"
+    ),
   ]);
 
   // local-ops creates some rows under "local-"-prefixed placeholder ids (see
@@ -256,6 +260,8 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
     })),
     resorptionLogs: resorptionLogs.map(withPermanentId()),
     fosterLogs: fosterLogs.map(withPermanentId()),
+    // Same story: nothing references a kit-death row, so remap without patching.
+    kitDeathLogs: kitDeathLogs.map(withPermanentId()),
   };
 }
 

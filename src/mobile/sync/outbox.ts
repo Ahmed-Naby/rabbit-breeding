@@ -33,6 +33,10 @@ const CREATING_OP_TYPES = new Set([
   "confirmPregnant",
   "markMatingFailed",
   "confirmResorption",
+  // Mints a KitStockMovement row. Without a shared id the phone kept its own
+  // "local-" row while the server minted a different one, so the next pull
+  // brought the same نافق back a second time and رصيد الفطام lost a kit twice.
+  "recordWeanedKitDeath",
 ]);
 
 // Ops that record a NEW mating also append a permanent MatingLog row. That row
@@ -49,6 +53,11 @@ const MATING_LOG_OP_TYPES = new Set(["startBreeding", "markMated", "setMatingDat
 // next cycle, so NestBoxLog is what the اليومية of a past day reads, and the
 // local row must carry the server's id to survive the pull's INSERT OR REPLACE.
 const NEST_BOX_LOG_OP_TYPES = new Set(["installNestBox"]);
+
+// And for نفوق النتاج: recordNursingKitDeath appends a KitDeathLog row, which
+// is the only trace the death leaves (the litter counts it moves are recycled
+// by the next cycle), so it needs the same shared id as the archives above.
+const KIT_DEATH_LOG_OP_TYPES = new Set(["recordNursingKitDeath"]);
 
 export type EnqueueResult = {
   clientOpId: string;
@@ -73,6 +82,9 @@ export async function enqueue(
   }
   if (NEST_BOX_LOG_OP_TYPES.has(opType) && !finalPayload.nestBoxLogId) {
     finalPayload = { ...finalPayload, nestBoxLogId: createId() };
+  }
+  if (KIT_DEATH_LOG_OP_TYPES.has(opType) && !finalPayload.kitDeathLogId) {
+    finalPayload = { ...finalPayload, kitDeathLogId: createId() };
   }
 
   const outcome = await withTransaction<LocalOpOutcome>(async (db) => {

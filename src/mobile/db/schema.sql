@@ -306,3 +306,22 @@ CREATE TABLE IF NOT EXISTS nest_box_log (
 );
 CREATE INDEX IF NOT EXISTS idx_nest_box_log_doeId ON nest_box_log(doeId);
 CREATE INDEX IF NOT EXISTS idx_nest_box_log_date ON nest_box_log(nestBoxDate);
+
+-- Permanent نفوق النتاج archive, one row per «تسجيل نافق» press. The counts
+-- the press moves (litter.bornAlive down, litter.bornDead up) are recycled by
+-- the doe's next cycle, so this row is the only lasting trace of the death.
+-- Written optimistically by local-ops.ts's recordNursingKitDeath with the
+-- outbox-injected kitDeathLogId, so the pull reconciles it by id.
+-- Deaths after weaning are NOT here — they live in kit_stock_movement
+-- (type 'death'), the same ledger that drives رصيد الفطام.
+CREATE TABLE IF NOT EXISTS kit_death_log (
+  id           TEXT PRIMARY KEY,
+  doeId        TEXT NOT NULL,
+  breedingId   TEXT,
+  kindlingDate TEXT,
+  deathDate    TEXT NOT NULL,
+  count        INTEGER NOT NULL,
+  createdAt    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kit_death_log_doeId ON kit_death_log(doeId);
+CREATE INDEX IF NOT EXISTS idx_kit_death_log_date ON kit_death_log(deathDate);

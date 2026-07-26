@@ -19,7 +19,7 @@ const TENANT_MODELS = new Set([
   // here, so no farmId was injected on create: every «اختفاء الأجنة» press
   // tried to insert farmId "" and died on the foreign key (the table is
   // empty). Reads were farm-blind for the same reason.
-  "ResorptionLog", "SyncTombstone",
+  "ResorptionLog", "KitDeathLog", "SyncTombstone",
 ]);
 
 // Operations whose `where` receives the farm filter. findUnique/update/

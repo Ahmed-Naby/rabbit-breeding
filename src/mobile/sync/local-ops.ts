@@ -803,7 +803,10 @@ export async function setLitterWeaningWeight(
 
 export async function recordNursingKitDeath(
   db: SQLiteDBConnection,
-  payload: { breedingId: string; count?: number }
+  // kitDeathLogId is injected by the outbox and shared with the server's row,
+  // so the pull's INSERT OR REPLACE reconciles the optimistic row by id instead
+  // of leaving the same death listed twice in سجل النفوق.
+  payload: { breedingId: string; count?: number; kitDeathLogId?: string }
 ): Promise<LocalOpOutcome> {
   const count = payload.count ?? 1;
   const breeding = await getBreeding(db, payload.breedingId);
@@ -831,6 +834,23 @@ export async function recordNursingKitDeath(
   const newBornAlive = litter.bornAlive - count;
   const newBornDead = litter.bornDead + count;
   const closingWeaningDate = dropsNursing ? todayIso() : null;
+
+  // The event row — written first and unconditionally, since everything below
+  // only shifts counts on rows the next cycle reuses.
+  await run(
+    db,
+    `INSERT INTO kit_death_log (id, doeId, breedingId, kindlingDate, deathDate, count, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payload.kitDeathLogId ?? `local-${createId()}`,
+      breeding.doeId,
+      payload.breedingId,
+      breeding.actualKindlingDate ?? null,
+      todayIso(),
+      count,
+      nowIso(),
+    ]
+  );
 
   if (closingWeaningDate) {
     await run(

@@ -634,8 +634,10 @@ export type KindlingLogEntry = {
   breedingId: string;
   kindlingDate: string;
   matingDate: string | null;
-  bornAlive: number;
-  bornDead: number;
+  /** Live kits at the ولادة press, frozen — never touched by fostering. */
+  bornAliveAtKindling: number;
+  /** Stillborn at the ولادة press, frozen. `-1` = row predates the column. */
+  bornDeadAtKindling: number;
   doeId: string;
   doeTagId: string | null;
   doeBreed: string | null;
@@ -700,21 +702,22 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
   }
 
   // 2. Fetch kindling log from local kindling_log table. This is an
-  // append-only archive: bornAlive/bornDead are stored on the log row itself
-  // (mirrored one-way from the litter at write time, on server and locally),
-  // so a re-mate of the same doe never overwrites a prior cycle's history.
+  // append-only archive, so it reads the *AtKindling pair, written once at the
+  // ولادة press: the plain bornAlive/bornDead on the same row are mirrored
+  // «الرعاية» counts that fostering and pre-weaning deaths keep editing, which
+  // would silently rewrite what the doe is recorded as having produced.
   const logRows = await queryAll<{
     id: string;
     matingDate: string | null;
     kindlingDate: string;
     breedingId: string | null;
-    bornAlive: number | null;
-    bornDead: number | null;
+    bornAliveAtKindling: number | null;
+    bornDeadAtKindling: number | null;
     doeId: string;
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, kindlingDate, breedingId, bornAlive, bornDead, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
+    "SELECT id, matingDate, kindlingDate, breedingId, bornAliveAtKindling, bornDeadAtKindling, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
   );
 
   const kindlingLog: KindlingLogEntry[] = [];
@@ -733,8 +736,10 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
       breedingId: row.breedingId ?? "",
       kindlingDate: row.kindlingDate,
       matingDate: row.matingDate,
-      bornAlive: row.bornAlive ?? 0,
-      bornDead: row.bornDead ?? 0,
+      bornAliveAtKindling: row.bornAliveAtKindling ?? 0,
+      // -1 is the "row predates the column" sentinel and must survive the read:
+      // it renders «—», where a real 0 renders as a genuine zero stillborn.
+      bornDeadAtKindling: row.bornDeadAtKindling ?? -1,
       doeId: row.doeId,
       doeTagId: doe?.tagId ?? null,
       doeBreed: doe?.breed ?? null,
@@ -1185,12 +1190,71 @@ export type LocalDeceasedRabbit = {
   updatedAt: string;
 };
 
+/** One نافق نتاج event — see src/app/mortality/kit-deaths.ts for why the two
+ * stages come from two different tables and are only merged for display. */
+export type LocalKitDeath = {
+  id: string;
+  date: string;
+  stage: "nursing" | "weaned";
+  count: number;
+  doeId: string | null;
+  doeTag: string | null;
+  kindlingDate: string | null;
+};
+
+/** نافق النتاج (رضاعة + فطام), newest first. */
+export async function fetchKitDeaths(db: SQLiteDBConnection): Promise<LocalKitDeath[]> {
+  const nursing = await queryAll<{
+    id: string;
+    deathDate: string;
+    count: number;
+    kindlingDate: string | null;
+    doeId: string;
+    tagId: string | null;
+    retiredTagId: string | null;
+  }>(
+    db,
+    `SELECT k.id, k.deathDate, k.count, k.kindlingDate, k.doeId, r.tagId, r.retiredTagId
+       FROM kit_death_log k
+       LEFT JOIN rabbit r ON r.id = k.doeId
+      ORDER BY k.deathDate DESC LIMIT 100`
+  );
+  const weaned = await queryAll<{ id: string; date: string; count: number }>(
+    db,
+    "SELECT id, date, count FROM kit_stock_movement WHERE type = 'death' ORDER BY date DESC LIMIT 100"
+  );
+
+  return [
+    ...nursing.map((r) => ({
+      id: r.id,
+      date: r.deathDate,
+      stage: "nursing" as const,
+      count: r.count,
+      doeId: r.doeId,
+      // A doe that has since died had her tag retired so the number could be
+      // reused — show the number she carried when the kits were hers.
+      doeTag: r.tagId ?? r.retiredTagId,
+      kindlingDate: r.kindlingDate,
+    })),
+    ...weaned.map((r) => ({
+      id: r.id,
+      date: r.date,
+      stage: "weaned" as const,
+      count: r.count,
+      doeId: null,
+      doeTag: null,
+      kindlingDate: null,
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   activeMothers: LocalRabbit[];
   activeBucks: LocalRabbit[];
   activeStock: LocalRabbit[];
   deceasedRabbits: LocalDeceasedRabbit[];
   culledRabbits: LocalDeceasedRabbit[];
+  kitDeaths: LocalKitDeath[];
   nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[];
   availableWeanedStock: number;
 }> {
@@ -1266,7 +1330,10 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   // 6. Available stock (shared formula — includes manual adjustments).
   const availableWeanedStock = await computeAvailableWeanedStock(db);
 
-  return { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, nursingDoes, availableWeanedStock };
+  // 7. نافق النتاج log (both stages)
+  const kitDeaths = await fetchKitDeaths(db);
+
+  return { activeMothers, activeBucks, activeStock, deceasedRabbits, culledRabbits, kitDeaths, nursingDoes, availableWeanedStock };
 }
 
 export type DailyMatingRow = {
@@ -1302,8 +1369,10 @@ export type DailyKindlingRow = {
   doeBreed: string | null;
   buckId: string | null;
   buckTag: string | null;
-  bornAlive: number;
-  bornDead: number;
+  /** Live kits at the ولادة press, frozen — never touched by fostering. */
+  bornAliveAtKindling: number;
+  /** Stillborn at the ولادة press, frozen. `-1` = row predates the column. */
+  bornDeadAtKindling: number;
 };
 
 export type DailyWeaningRow = {
@@ -1323,6 +1392,14 @@ export type DailyMortalityRow = {
   status: string;
 };
 
+export type DailyKitDeathRow = {
+  id: string;
+  stage: "nursing" | "weaned";
+  count: number;
+  doeId: string | null;
+  doeTag: string | null;
+};
+
 export type DailyLog = {
   matings: DailyMatingRow[];
   pregnancyTests: DailyPregnancyTestRow[];
@@ -1330,6 +1407,7 @@ export type DailyLog = {
   kindlings: DailyKindlingRow[];
   weanings: DailyWeaningRow[];
   mortality: DailyMortalityRow[];
+  kitDeaths: DailyKitDeathRow[];
 };
 
 /**
@@ -1422,13 +1500,13 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
     id: string;
     doeId: string;
     buckId: string | null;
-    bornAlive: number | null;
-    bornDead: number | null;
+    bornAliveAtKindling: number | null;
+    bornDeadAtKindling: number | null;
   }>(
     db,
-    // bornAlive/bornDead here are the mirrored «الرعاية» counts — the same
-    // numbers the litter row carried, so the columns keep their meaning.
-    `SELECT id, doeId, buckId, bornAlive, bornDead
+    // The frozen pair, like سجل الولادة — see the web getDailyLog for why the
+    // mirrored «الرعاية» counts must not drive a past day's record.
+    `SELECT id, doeId, buckId, bornAliveAtKindling, bornDeadAtKindling
      FROM kindling_log
      WHERE substr(kindlingDate, 1, 10) = ?
      ORDER BY kindlingDate DESC`,
@@ -1451,8 +1529,9 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
       doeBreed: doe?.breed ?? null,
       buckId: row.buckId,
       buckTag: buck?.tagId ?? null,
-      bornAlive: row.bornAlive ?? 0,
-      bornDead: row.bornDead ?? 0,
+      bornAliveAtKindling: row.bornAliveAtKindling ?? 0,
+      // -1 = "predates the column"; kept as-is so it renders «—», not a zero.
+      bornDeadAtKindling: row.bornDeadAtKindling ?? -1,
     });
   }
 
@@ -1495,12 +1574,51 @@ export async function fetchDailyPageData(db: SQLiteDBConnection, dayIso: string)
     [dayIso]
   );
 
+  // نافق النتاج — the nursing half is kit_death_log, the post-weaning half is
+  // the رصيد الفطام ledger itself (kit_stock_movement); see fetchKitDeaths.
+  const nursingKitDeaths = await queryAll<{
+    id: string;
+    count: number;
+    doeId: string;
+    tagId: string | null;
+    retiredTagId: string | null;
+  }>(
+    db,
+    `SELECT k.id, k.count, k.doeId, r.tagId, r.retiredTagId
+       FROM kit_death_log k
+       LEFT JOIN rabbit r ON r.id = k.doeId
+      WHERE substr(k.deathDate, 1, 10) = ?
+      ORDER BY k.deathDate DESC`,
+    [dayIso]
+  );
+  const weanedKitDeaths = await queryAll<{ id: string; count: number }>(
+    db,
+    "SELECT id, count FROM kit_stock_movement WHERE type = 'death' AND substr(date, 1, 10) = ? ORDER BY date DESC",
+    [dayIso]
+  );
+
   return {
     matings,
     pregnancyTests,
     nestBoxes,
     kindlings,
     weanings,
+    kitDeaths: [
+      ...nursingKitDeaths.map((r) => ({
+        id: r.id,
+        stage: "nursing" as const,
+        count: r.count,
+        doeId: r.doeId,
+        doeTag: r.tagId ?? r.retiredTagId,
+      })),
+      ...weanedKitDeaths.map((r) => ({
+        id: r.id,
+        stage: "weaned" as const,
+        count: r.count,
+        doeId: null,
+        doeTag: null,
+      })),
+    ],
     mortality: mortality.map((r) => ({
       id: r.id,
       sex: r.sex,
@@ -2100,11 +2218,18 @@ export async function fetchBuckBreedingHistory(db: SQLiteDBConnection, buckId: s
   return Array.from(cycles.values()).sort((a, b) => new Date(b.matingDate).getTime() - new Date(a.matingDate).getTime());
 }
 
-export type WeightBracket = { heavy: number; medium: number; light: number; total: number };
+/** Time in السلالات, not weight — mirrors the server's AgeBracket. */
+export type AgeBracket = {
+  under1m: number;
+  m1to2: number;
+  m2to3: number;
+  over3m: number;
+  total: number;
+};
 
 export type FollowUpReport = {
   herd: { does: number; bucks: number };
-  stock: { males: WeightBracket; females: WeightBracket };
+  stock: { males: AgeBracket; females: AgeBracket };
   deaths: {
     newborn: number | null;
     weanedStock: number;
@@ -2123,8 +2248,9 @@ export type FollowUpReport = {
   breeding: { matings: number; pregnancyPositive: number; kindlings: number };
 };
 
-const HEAVY_G = 2250;
-const MEDIUM_G = 2000;
+/** A "month" is 30 days here — calendar months would make the buckets uneven. */
+const DAY_MS = 86_400_000;
+const MONTH_DAYS = 30;
 
 /** Weaned-stock ledger balance as of (exclusive) a point in time — running total, not period-bound. */
 async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string): Promise<number> {
@@ -2165,25 +2291,36 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'active'"),
   ]);
 
-  const stockRabbits = await queryAll<{ id: string; sex: string }>(
+  // Entry date into السلالات, most truthful source first: the "retained" press
+  // that moved the kit out of رصيد الفطام, else acquiredDate for bought-in
+  // stock (which never passes through the weaning ledger), else createdAt so a
+  // row can never drop out. Mirrors the server's enteredStockAt.
+  //
+  // This replaced a weight-bracket split that could only ever print zeros —
+  // replacement stock lives in group cages and is never weighed individually
+  // (0 of 41 سلالات on the real farm had a weight row). It also drops the
+  // per-rabbit weight lookup that made this an N+1.
+  const stockRabbits = await queryAll<{ sex: string; enteredAt: string }>(
     db,
-    "SELECT id, sex FROM rabbit WHERE tagId IS NULL AND status = 'active'"
+    `SELECT r.sex AS sex,
+            COALESCE(m.date, r.acquiredDate, r.createdAt) AS enteredAt
+     FROM rabbit r
+     LEFT JOIN kit_stock_movement m
+       ON m.rabbitId = r.id AND m.type = 'retained'
+     WHERE r.tagId IS NULL AND r.status = 'active'`
   );
-  const males: WeightBracket = { heavy: 0, medium: 0, light: 0, total: 0 };
-  const females: WeightBracket = { heavy: 0, medium: 0, light: 0, total: 0 };
+  const males: AgeBracket = { under1m: 0, m1to2: 0, m2to3: 0, over3m: 0, total: 0 };
+  const females: AgeBracket = { under1m: 0, m1to2: 0, m2to3: 0, over3m: 0, total: 0 };
+  const now = Date.now();
   for (const r of stockRabbits) {
     const bracket = r.sex === "buck" ? males : r.sex === "doe" ? females : null;
     if (!bracket) continue;
     bracket.total++;
-    const w = await queryOne<{ weightGrams: number }>(
-      db,
-      "SELECT weightGrams FROM weight_record WHERE rabbitId = ? ORDER BY date DESC LIMIT 1",
-      [r.id]
-    );
-    if (!w) continue;
-    if (w.weightGrams >= HEAVY_G) bracket.heavy++;
-    else if (w.weightGrams >= MEDIUM_G) bracket.medium++;
-    else bracket.light++;
+    const days = Math.floor((now - new Date(r.enteredAt).getTime()) / DAY_MS);
+    if (days < MONTH_DAYS) bracket.under1m++;
+    else if (days < MONTH_DAYS * 2) bracket.m1to2++;
+    else if (days < MONTH_DAYS * 3) bracket.m2to3++;
+    else bracket.over3m++;
   }
 
   const [

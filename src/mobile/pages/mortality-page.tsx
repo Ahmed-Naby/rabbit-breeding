@@ -5,7 +5,8 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { isToday } from "@/lib/dates";
 import { getDb } from "../db/client";
-import { fetchMortalityPageData, type LocalDeceasedRabbit } from "../db/queries";
+import { todayIso } from "../db/helpers";
+import { fetchMortalityPageData, type LocalDeceasedRabbit, type LocalKitDeath } from "../db/queries";
 import { enqueue } from "../sync/outbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +25,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
     activeStock: LocalRabbit[];
     deceasedRabbits: LocalDeceasedRabbit[];
     culledRabbits: LocalDeceasedRabbit[];
+    kitDeaths: LocalKitDeath[];
     nursingDoes: { doe: { id: string; tagId: string; breed: string }; breedingId: string; litter: { bornAlive: number; bornDead: number } }[];
     availableWeanedStock: number;
   } | null>(null);
@@ -82,7 +84,9 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
     if (!confirmed) return;
 
     try {
-      await enqueue("recordWeanedKitDeath", { count: weanedCount });
+      // The date is sent explicitly: the server used to fall back to
+      // `new Date(undefined)` on this payload and reject the whole op.
+      await enqueue("recordWeanedKitDeath", { count: weanedCount, date: todayIso() });
       toast.success(t.mortality.weaningStockDeathToast(weanedCount));
       setWeanedCount(1);
       void load();
@@ -95,6 +99,7 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   const activeBucks = data?.activeBucks ?? [];
   const activeStock = data?.activeStock ?? [];
   const deceasedRabbits = (data?.deceasedRabbits ?? []).filter((r) => isToday(r.updatedAt));
+  const kitDeaths = (data?.kitDeaths ?? []).filter((r) => isToday(r.date));
   const culledRabbits = (data?.culledRabbits ?? []).filter((r) => isToday(r.updatedAt));
   const nursingDoes = data?.nursingDoes ?? [];
   const availableWeanedStock = data?.availableWeanedStock ?? 0;
@@ -418,7 +423,12 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
         )}
       </div>
 
-      <MortalityLog deceasedRabbits={deceasedRabbits} locale={locale} todayOnly />
+      <MortalityLog
+        deceasedRabbits={deceasedRabbits}
+        kitDeaths={kitDeaths}
+        locale={locale}
+        todayOnly
+      />
 
       <CullingLog culledRabbits={culledRabbits} locale={locale} todayOnly />
     </div>

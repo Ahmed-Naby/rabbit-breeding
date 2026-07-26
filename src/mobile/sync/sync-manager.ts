@@ -209,6 +209,7 @@ type PullResponse = {
   matingLogs?: Record<string, unknown>[];
   nestBoxLogs?: Record<string, unknown>[];
   resorptionLogs?: Record<string, unknown>[];
+  kitDeathLogs?: Record<string, unknown>[];
   tombstones?: { id: string; model: string; recordId: string; deletedAt: string }[];
 };
 
@@ -652,6 +653,35 @@ export async function pull(): Promise<boolean> {
         statement: `INSERT OR REPLACE INTO resorption_log (id, doeId, buckId, matingDate, resorptionDate, createdAt)
          VALUES (?, ?, ?, ?, ?, ?)`,
         values: [log.id, log.doeId, log.buckId ?? null, log.matingDate, log.resorptionDate, log.createdAt],
+      });
+    }
+  }
+
+  if (data.kitDeathLogs) {
+    for (const log of data.kitDeathLogs) {
+      // Same id-sharing contract as matingLogs/nestBoxLogs: the outbox injects
+      // kitDeathLogId, so the id-keyed INSERT OR REPLACE is the normal path and
+      // the local-% delete only catches rows written before that existed. Keyed
+      // on doeId + deathDate + count, since one doe can lose kits on two
+      // different days but never twice with the same count on the same day
+      // (a second press the same day merges into one row for the farmer's eye).
+      set.push({
+        statement:
+          "DELETE FROM kit_death_log WHERE id LIKE 'local-%' AND doeId = ? AND deathDate = ? AND count = ?",
+        values: [log.doeId, log.deathDate, log.count],
+      });
+      set.push({
+        statement: `INSERT OR REPLACE INTO kit_death_log (id, doeId, breedingId, kindlingDate, deathDate, count, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        values: [
+          log.id,
+          log.doeId,
+          log.breedingId ?? null,
+          log.kindlingDate ?? null,
+          log.deathDate,
+          log.count,
+          log.createdAt,
+        ],
       });
     }
   }

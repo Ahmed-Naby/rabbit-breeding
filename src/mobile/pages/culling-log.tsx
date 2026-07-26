@@ -3,6 +3,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { LocalDeceasedRabbit } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function CullingLog({
@@ -23,9 +24,10 @@ export function CullingLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الاستبعادات" : "Culling Record"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={culledRabbits.length} />
       </h2>
       {culledRabbits.length === 0 ? (
         <div className="flex flex-col items-center gap-2 p-8 text-center text-muted-foreground border rounded-xl bg-card">

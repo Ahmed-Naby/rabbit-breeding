@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Droplets } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
@@ -27,7 +28,10 @@ export function ResorptionLog({
 }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">{t.logHeading}</h2>
+      <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        {t.logHeading}
+        <LogCountBadge count={resorptionLog.length} />
+      </h2>
       {resorptionLog.length === 0 ? (
         <EmptyState icon={Droplets} title={t.logEmptyTitle} description={t.logEmptyDescription} />
       ) : (

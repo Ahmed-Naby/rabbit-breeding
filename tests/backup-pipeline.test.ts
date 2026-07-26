@@ -22,7 +22,7 @@ function emptySnapshot(): FullExportData {
     settings: null, rabbits: [], breedings: [], litters: [], weightRecords: [],
     healthRecords: [], transactions: [], kitStockMovements: [], breeds: [],
     pregnancyTestLogs: [], kindlingLogs: [], weaningLogs: [], nestBoxLogs: [],
-    matingLogs: [], resorptionLogs: [], fosterLogs: [],
+    matingLogs: [], resorptionLogs: [], fosterLogs: [], kitDeathLogs: [],
   };
 }
 
@@ -120,6 +120,9 @@ describe("runFullImport", () => {
     snapshot.fosterLogs = [
       { id: "fl1", fromDoeId: "doe1", toDoeId: "doe1", count: 2, date: now, createdAt: now },
     ];
+    snapshot.kitDeathLogs = [
+      { id: "kd1", doeId: "doe1", breedingId: "b1", kindlingDate: now, deathDate: now, count: 2, createdAt: now },
+    ];
 
     await runFullImport(snapshot);
 
@@ -130,6 +133,7 @@ describe("runFullImport", () => {
     expect(await prisma.kindlingLog.count()).toBe(1);
     expect(await prisma.weaningLog.count()).toBe(1);
     expect(await prisma.fosterLog.count()).toBe(1);
+    expect(await prisma.kitDeathLog.count()).toBe(1);
   });
 
   test("restores pedigree references between imported rabbits", async () => {

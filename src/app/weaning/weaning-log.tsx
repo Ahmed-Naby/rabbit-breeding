@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Milk } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
@@ -38,11 +39,26 @@ export function WeaningLog({
   t: Dictionary["weaning"];
   todayOnly?: boolean;
 }) {
+  // weaned is null on rows where the count was never entered (they show «—» in
+  // the table); those contribute nothing rather than counting as zero.
+  const totalWeaned = weaningLog.reduce((sum, l) => sum + (l.weaned ?? 0), 0);
+  // Divided by the rows that actually carry a count, not by every row — the
+  // «—» rows would otherwise drag the average down as if they weaned zero.
+  const countedRows = weaningLog.filter((l) => l.weaned != null).length;
+  const avgWeaned = countedRows === 0 ? 0 : totalWeaned / countedRows;
+
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
         {t.logHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={weaningLog.length} />
+        {weaningLog.length > 0 && (
+          <>
+            <LogStatBadge label={t.totalWeanedBadge} value={totalWeaned.toLocaleString()} />
+            {countedRows > 0 && <LogStatBadge label={t.avgWeanedBadge} value={avgWeaned.toFixed(1)} />}
+          </>
+        )}
       </h2>
       {weaningLog.length === 0 ? (
         <EmptyState icon={Milk} title={t.logEmptyTitle} description={t.logEmptyDescription} />

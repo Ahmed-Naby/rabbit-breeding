@@ -21,6 +21,7 @@ export type FullExportData = {
   matingLogs: Prisma.MatingLogCreateManyInput[];
   resorptionLogs: Prisma.ResorptionLogCreateManyInput[];
   fosterLogs: Prisma.FosterLogCreateManyInput[];
+  kitDeathLogs: Prisma.KitDeathLogCreateManyInput[];
 };
 
 const REQUIRED_KEYS: (keyof FullExportData)[] = [
@@ -169,6 +170,14 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
   const resorptionLogs = dedupeById(data.resorptionLogs ?? [])
     .filter((log) => rabbitIds.has(log.doeId as string))
     .map((log) => ({ ...log, buckId: rabbitIds.has(log.buckId as string) ? log.buckId : null }));
+  // Optional-chained like nestBoxLogs: absent from every backup taken before
+  // the نفوق النتاج archive existed, and an old file must still restore.
+  const kitDeathLogs = dedupeById(data.kitDeathLogs ?? [])
+    .filter((log) => rabbitIds.has(log.doeId as string))
+    .map((log) => ({
+      ...log,
+      breedingId: breedingIds.has(log.breedingId as string) ? log.breedingId : null,
+    }));
   const fosterLogs = dedupeById(data.fosterLogs).filter(
     (f) => rabbitIds.has(f.fromDoeId as string) && rabbitIds.has(f.toDoeId as string)
   );
@@ -215,6 +224,7 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
       if (matingLogs.length) await tx.matingLog.createMany({ data: matingLogs });
       if (resorptionLogs.length) await tx.resorptionLog.createMany({ data: resorptionLogs });
       if (fosterLogs.length) await tx.fosterLog.createMany({ data: fosterLogs });
+      if (kitDeathLogs.length) await tx.kitDeathLog.createMany({ data: kitDeathLogs });
 
       const s = data.settings;
       const settingsData = {

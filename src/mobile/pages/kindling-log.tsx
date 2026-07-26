@@ -2,6 +2,8 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 // Read-only archive (سجل الولادة): counts are entered/adjusted on the daily
@@ -21,15 +23,28 @@ export function KindlingLog({
     buckTag: { type: "tag", value: (r) => r.buckTagId },
     matingDate: { type: "date", value: (r) => r.matingDate },
     kindlingDate: { type: "date", value: (r) => r.kindlingDate },
-    bornAlive: { type: "number", value: (r) => r.bornAlive },
-    bornDead: { type: "number", value: (r) => r.bornDead },
+    bornAlive: { type: "number", value: (r) => r.bornAliveAtKindling },
+    bornDead: { type: "number", value: (r) => (r.bornDeadAtKindling >= 0 ? r.bornDeadAtKindling : null) },
   });
+
+  const kt = getClientDictionary(locale).kindling;
+  // Live kits at birth only — see the web log for why النافق stays out of both
+  // badges and why this reads the frozen column.
+  const totalKits = kindlingLog.reduce((sum, r) => sum + r.bornAliveAtKindling, 0);
+  const avgLitter = kindlingLog.length === 0 ? 0 : totalKits / kindlingLog.length;
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الولادة" : "Kindling Log"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={kindlingLog.length} />
+        {kindlingLog.length > 0 && (
+          <>
+            <LogStatBadge label={kt.totalKitsBadge} value={totalKits.toLocaleString()} />
+            <LogStatBadge label={kt.avgLitterBadge} value={avgLitter.toFixed(1)} />
+          </>
+        )}
       </h2>
       {kindlingLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات ولادة بعد." : "No kindling logs yet."}</p>
@@ -110,8 +125,11 @@ export function KindlingLog({
                   <td className="px-4 py-3.5">
                     <LocalDate date={log.kindlingDate} />
                   </td>
-                  <td className="px-4 py-3.5 text-center font-bold">{log.bornAlive}</td>
-                  <td className="px-4 py-3.5 text-center">{log.bornDead || "—"}</td>
+                  <td className="px-4 py-3.5 text-center font-bold">{log.bornAliveAtKindling}</td>
+                  {/* «—» distinguishes "predates the column" from a real 0. */}
+                  <td className="px-4 py-3.5 text-center">
+                    {log.bornDeadAtKindling >= 0 ? log.bornDeadAtKindling || "—" : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

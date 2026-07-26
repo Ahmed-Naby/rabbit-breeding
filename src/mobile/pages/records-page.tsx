@@ -24,6 +24,7 @@ import {
   type WeanedLitterLogEntry,
   type LocalFosterLogEntry,
   type LocalDeceasedRabbit,
+  type LocalKitDeath,
 } from "../db/queries";
 import { MatingLog } from "./mating-log";
 import { PregnancyTestLog } from "./pregnancy-test-log";
@@ -152,19 +153,24 @@ function FosteringLogTab({ locale, range }: { locale: Locale; range: DateRange }
 }
 
 function MortalityLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
-  const [deceasedRabbits, setDeceasedRabbits] = useState<LocalDeceasedRabbit[] | null>(null);
+  const [data, setData] = useState<{
+    deceasedRabbits: LocalDeceasedRabbit[];
+    kitDeaths: LocalKitDeath[];
+  } | null>(null);
 
   useEffect(() => {
     void (async () => {
       const db = await getDb();
       const res = await fetchMortalityPageData(db);
-      setDeceasedRabbits(res.deceasedRabbits);
+      setData({ deceasedRabbits: res.deceasedRabbits, kitDeaths: res.kitDeaths });
     })();
   }, []);
 
-  if (deceasedRabbits === null) return <LoadingLine locale={locale} />;
-  const filtered = deceasedRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));
-  return <MortalityLog deceasedRabbits={filtered} locale={locale} />;
+  if (data === null) return <LoadingLine locale={locale} />;
+  const filtered = data.deceasedRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));
+  // Kit deaths carry their own event date, not updatedAt.
+  const filteredKitDeaths = data.kitDeaths.filter((row) => isWithinDateRange(row.date, range.from, range.to));
+  return <MortalityLog deceasedRabbits={filtered} kitDeaths={filteredKitDeaths} locale={locale} />;
 }
 
 function CullingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
@@ -212,40 +218,8 @@ export function RecordsPage({ locale }: { locale: Locale }) {
         <p className="text-sm text-muted-foreground">{rt.description}</p>
       </div>
 
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="records-from">{rt.fromLabel}</Label>
-              <Input
-                id="records-from"
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="records-to">{rt.toLabel}</Label>
-              <Input id="records-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
-            </div>
-            {(from || to) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFrom("");
-                  setTo("");
-                }}
-              >
-                {rt.clearButton}
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
+      {/* Tabs first, then the range filter: the filter applies to whichever
+          log is open, so picking the log comes before narrowing its dates. */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <button
           type="button"
@@ -359,6 +333,40 @@ export function RecordsPage({ locale }: { locale: Locale }) {
           {rt.tabCulling}
         </button>
       </div>
+
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="records-from">{rt.fromLabel}</Label>
+              <Input
+                id="records-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="records-to">{rt.toLabel}</Label>
+              <Input id="records-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+            </div>
+            {(from || to) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFrom("");
+                  setTo("");
+                }}
+              >
+                {rt.clearButton}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} range={range} />}

@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { addDays } from "date-fns";
+import { getKitDeathRows } from "../mortality/kit-deaths";
 
 export type DailyMatingRow = {
   id: string;
@@ -35,8 +36,10 @@ export type DailyKindlingRow = {
   doeBreed: string | null;
   buckId: string | null;
   buckTag: string | null;
-  bornAlive: number;
-  bornDead: number;
+  /** Live kits at the ولادة press, frozen — never touched by fostering. */
+  bornAliveAtKindling: number;
+  /** Stillborn at the ولادة press, frozen. `-1` = row predates the column. */
+  bornDeadAtKindling: number;
 };
 
 export type DailyWeaningRow = {
@@ -56,6 +59,15 @@ export type DailyMortalityRow = {
   status: string;
 };
 
+/** نافق النتاج — see mortality/kit-deaths.ts for the two-table split. */
+export type DailyKitDeathRow = {
+  id: string;
+  stage: "nursing" | "weaned";
+  count: number;
+  doeId: string | null;
+  doeTag: string | null;
+};
+
 export type DailyLog = {
   day: Date;
   matings: DailyMatingRow[];
@@ -64,6 +76,7 @@ export type DailyLog = {
   kindlings: DailyKindlingRow[];
   weanings: DailyWeaningRow[];
   mortality: DailyMortalityRow[];
+  kitDeaths: DailyKitDeathRow[];
 };
 
 /**
@@ -87,7 +100,7 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
   const dayEnd = addDays(day, 1);
   const range = { gte: day, lt: dayEnd };
 
-  const [matings, pregnancyTests, nestBoxes, kindlings, weanings, mortality] =
+  const [matings, pregnancyTests, nestBoxes, kindlings, weanings, mortality, kitDeaths] =
     await Promise.all([
       prisma.matingLog.findMany({
         where: { matingDate: range },
@@ -120,8 +133,11 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
         where: { kindlingDate: range },
         select: {
           id: true,
-          bornAlive: true,
-          bornDead: true,
+          // Frozen at the press, like سجل الولادة — the plain bornAlive/bornDead
+          // keep moving with fostering and nursing deaths, which would let a day
+          // already gone by change its own record of what was born on it.
+          bornAliveAtKindling: true,
+          bornDeadAtKindling: true,
           doe: { select: { id: true, tagId: true, breed: true } },
           buck: { select: { id: true, tagId: true } },
         },
@@ -149,6 +165,10 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
         },
         orderBy: { updatedAt: "desc" },
       }),
+      // نافق النتاج is the one event the day log can't read off a single
+      // archive: the nursing half is KitDeathLog, the post-weaning half is the
+      // رصيد الفطام ledger itself (KitStockMovement).
+      getKitDeathRows(range),
     ]);
 
   return {
@@ -183,10 +203,8 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
       doeBreed: k.doe.breed,
       buckId: k.buck?.id ?? null,
       buckTag: k.buck?.tagId ?? null,
-      // The mirrored «الرعاية» counts, same numbers the Litter row carried —
-      // not bornAliveAtKindling, so the columns keep meaning what they did.
-      bornAlive: k.bornAlive,
-      bornDead: k.bornDead,
+      bornAliveAtKindling: k.bornAliveAtKindling,
+      bornDeadAtKindling: k.bornDeadAtKindling,
     })),
     weanings: weanings.map((w) => ({
       id: w.id,
@@ -202,6 +220,13 @@ export async function getDailyLog(day: Date): Promise<DailyLog> {
       tag: r.retiredTagId ?? r.tagId,
       breed: r.breed,
       status: r.status,
+    })),
+    kitDeaths: kitDeaths.map((r) => ({
+      id: r.id,
+      stage: r.stage,
+      count: r.count,
+      doeId: r.doeId,
+      doeTag: r.doeTag,
     })),
   };
 }

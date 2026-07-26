@@ -2,6 +2,8 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 // Shared with the web table rather than redefined here — this file used to
 // carry its own copy of the survival formula, which meant every change to the
@@ -32,11 +34,25 @@ export function WeaningLog({
     survivalRate: { type: "number", value: (r) => weaningSurvivalRate(r) },
   });
 
+  const wt = getClientDictionary(locale).weaning;
+  // Rows with no weaned count yet («—») contribute nothing — see the web log.
+  const totalWeaned = weanedLog.reduce((sum, l) => sum + (l.weaned ?? 0), 0);
+  // Averaged over the rows that carry a count — see the web log.
+  const countedRows = weanedLog.filter((l) => l.weaned != null).length;
+  const avgWeaned = countedRows === 0 ? 0 : totalWeaned / countedRows;
+
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الفطام" : "Weaning Log"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={weanedLog.length} />
+        {weanedLog.length > 0 && (
+          <>
+            <LogStatBadge label={wt.totalWeanedBadge} value={totalWeaned.toLocaleString()} />
+            {countedRows > 0 && <LogStatBadge label={wt.avgWeanedBadge} value={avgWeaned.toFixed(1)} />}
+          </>
+        )}
       </h2>
       {weanedLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات فطام بعد." : "No weaning logs yet."}</p>

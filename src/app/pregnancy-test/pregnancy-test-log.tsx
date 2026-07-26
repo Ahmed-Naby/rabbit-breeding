@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Microscope } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
@@ -36,11 +37,24 @@ export function PregnancyTestLog({
   t: Dictionary["pregnancyTest"];
   todayOnly?: boolean;
 }) {
+  // Denominator is every logged test, not just positive+negative: a row with
+  // any other result still consumed a mating, so folding it in would flatter
+  // the rate.
+  const positives = testLog.filter((r) => r.result === "positive").length;
+  const fertilityRate = testLog.length === 0 ? 0 : (positives / testLog.length) * 100;
+
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
         {t.logHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={testLog.length} />
+        {testLog.length > 0 && (
+          <>
+            <LogStatBadge label={t.positiveCountBadge} value={positives.toLocaleString()} />
+            <LogStatBadge label={t.fertilityRateBadge} value={`${fertilityRate.toFixed(0)}%`} />
+          </>
+        )}
       </h2>
       {testLog.length === 0 ? (
         <EmptyState icon={Microscope} title={t.logEmptyTitle} description={t.logEmptyDescription} />

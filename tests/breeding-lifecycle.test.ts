@@ -7,6 +7,7 @@ import {
   markKindledOp,
   markWeanedOp,
   recordKindlingOp,
+  recordNursingKitDeathOp,
 } from "@/lib/breeding-ops";
 
 beforeEach(resetDb);
@@ -118,5 +119,38 @@ describe("breeding lifecycle", () => {
       notes: null,
     });
     expect(second.ok).toBe(false);
+  });
+
+  // The counts a nursing death moves (litter.bornAlive down, bornDead up) are
+  // recycled by the doe's next cycle, so before KitDeathLog the event left no
+  // trace with a date on it and could never reach سجل النفوق or the اليومية.
+  test("a nursing kit death is archived as its own dated event", async () => {
+    const doe = await makeDoe();
+    await startBreedingOp(doe.id);
+    let breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
+    await markKindledOp(breeding.id, doe.id, 7, 1);
+    breeding = await prisma.breeding.findUniqueOrThrow({ where: { id: breeding.id } });
+
+    const death = await recordNursingKitDeathOp(breeding.id, 2);
+    expect(death.ok).toBe(true);
+
+    const deaths = await prisma.kitDeathLog.findMany({ where: { doeId: doe.id } });
+    expect(deaths).toHaveLength(1);
+    expect(deaths[0].count).toBe(2);
+    expect(deaths[0].breedingId).toBe(breeding.id);
+    // Snapshotted so the row still says which litter died once the next mating
+    // wipes Breeding.actualKindlingDate.
+    expect(deaths[0].kindlingDate?.toISOString()).toBe(breeding.actualKindlingDate!.toISOString());
+    // Stamped at UTC midnight like every other log date, so the [day, day+1)
+    // range the اليومية queries with catches it.
+    expect(deaths[0].deathDate.toISOString()).toMatch(/T00:00:00\.000Z$/);
+
+    // A second press is its own row, not an edit of the first — two deaths a
+    // week apart have to stay distinguishable.
+    await recordNursingKitDeathOp(breeding.id, 1);
+    expect(await prisma.kitDeathLog.count({ where: { doeId: doe.id } })).toBe(2);
+    const litter = await prisma.litter.findUniqueOrThrow({ where: { breedingId: breeding.id } });
+    expect(litter.bornAlive).toBe(4);
+    expect(litter.bornDead).toBe(4);
   });
 });

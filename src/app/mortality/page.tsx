@@ -11,6 +11,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isNursingKitDeathCandidate } from "@/lib/breeding-filters";
 import { isToday } from "@/lib/dates";
 import { MortalityLog } from "./mortality-log";
+import { getKitDeathRows } from "./kit-deaths";
 import { CullingLog } from "./culling-log";
 import { RabbitDeathForm } from "./rabbit-death-form";
 import { StockDeathForm } from "./stock-death-form";
@@ -36,6 +37,7 @@ export default async function MortalityPage({
     deceasedBucksRaw,
     deceasedStockRaw,
     culledRabbitsRaw,
+    kitDeathsRaw,
     { availableStock },
     { locale, t },
   ] = await Promise.all([
@@ -114,6 +116,7 @@ export default async function MortalityPage({
       select: { id: true, tagId: true, retiredTagId: true, breed: true, sex: true, updatedAt: true },
       orderBy: { updatedAt: "desc" },
     }),
+    getKitDeathRows(),
     getKitStockSummary(),
     getDictionary(),
   ]);
@@ -137,6 +140,7 @@ export default async function MortalityPage({
   const culledRabbits = todayOnly
     ? culledRabbitsRaw.filter((r) => isToday(r.updatedAt))
     : culledRabbitsRaw;
+  const kitDeaths = todayOnly ? kitDeathsRaw.filter((r) => isToday(r.date)) : kitDeathsRaw;
 
   return (
     <div className="space-y-8">
@@ -247,6 +251,7 @@ export default async function MortalityPage({
         deceasedMothers={deceasedMothers}
         deceasedBucks={deceasedBucks}
         deceasedStock={deceasedStock}
+        kitDeaths={kitDeaths}
         locale={locale}
         t={t}
         todayOnly={todayOnly}

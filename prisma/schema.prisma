@@ -162,6 +162,11 @@ model Rabbit {
 
   nestBoxLogs NestBoxLog[] @relation("NestBoxLogDoe")
 
+  // Nursing-kit deaths under this doe. Same append-only reasoning again: the
+  // death itself used to leave no trace at all — only Litter.bornAlive/bornDead
+  // moved, and those get reused by the next cycle.
+  kitDeathLogs KitDeathLog[] @relation("KitDeathLogDoe")
+
   // Logs
   weightRecords WeightRecord[]
   healthRecords HealthRecord[]
@@ -316,6 +321,49 @@ model NestBoxLog {
 
   @@index([doeId])
   @@index([nestBoxDate])
+  @@index([farmId])
+}
+
+/// A permanent nursing-kit death (نافق النتاج) record — one row per «تسجيل
+/// نافق» press, written at that instant and never updated.
+///
+/// Before this table the death left no event behind at all: the op only moved
+/// units from Litter.bornAlive to Litter.bornDead, and both of those are reused
+/// by the doe's next cycle. The only reconstruction available was the per-cycle
+/// difference `bornDead - bornDeadAtKindling` — no date, no split between two
+/// deaths a week apart, and wiped out by any hand edit of «نافق».
+///
+/// Deaths AFTER weaning are not recorded here: they already have a permanent,
+/// dated home in KitStockMovement(type: "death"), which is also what drives
+/// رصيد الفطام. Writing them in both places would create two ledgers of the
+/// same event that drift apart — سجل النفوق reads the two tables together
+/// instead.
+model KitDeathLog {
+  // Type-optional so call sites never mention farms; the Prisma extension
+  // injects the real farmId on every create, and the FK on farmId makes a
+  // missed injection fail loudly ("" matches no Farm) instead of leaking.
+  farmId String @default("")
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  id String @id @default(cuid())
+
+  doeId String
+  doe   Rabbit @relation("KitDeathLogDoe", fields: [doeId], references: [id], onDelete: Restrict)
+  // The cycle the kits belonged to. Nullable and NOT unique, like NestBoxLog's:
+  // a Breeding row is reused across cycles and accumulates several death rows.
+  breedingId String?
+
+  /// The cycle's birth date, snapshotted so a row still says which litter died
+  /// after Breeding.actualKindlingDate is wiped by the next mating.
+  kindlingDate DateTime?
+
+  deathDate DateTime
+  /// Kits lost in this one press — always positive.
+  count     Int
+  createdAt DateTime @default(now())
+
+  @@index([doeId])
+  @@index([deathDate])
   @@index([farmId])
 }
 
@@ -689,6 +737,7 @@ model Farm {
   kindlingLogs      KindlingLog[]
   weaningLogs       WeaningLog[]
   fosterLogs        FosterLog[]
+  kitDeathLogs      KitDeathLog[]
   syncTombstones    SyncTombstone[]
 }
 

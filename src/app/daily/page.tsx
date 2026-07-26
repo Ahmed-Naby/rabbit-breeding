@@ -43,6 +43,10 @@ export default async function DailyPage({
 
   const [log, { locale, t }] = await Promise.all([getDailyLog(day), getDictionary()]);
   const dt = t.daily;
+  // Two tables: a nursing loss belongs to a named mother, a weaned loss is a
+  // deduction from the farm-wide رصيد الفطام with no mother to name.
+  const nursingKitDeaths = log.kitDeaths.filter((r) => r.stage === "nursing");
+  const weanedKitDeaths = log.kitDeaths.filter((r) => r.stage === "weaned");
 
   return (
     <div className="space-y-8">
@@ -225,8 +229,8 @@ export default async function DailyPage({
                   tag: r.doeTag,
                   breed: r.doeBreed,
                   buckTag: r.buckTag,
-                  alive: r.bornAlive,
-                  dead: r.bornDead,
+                  alive: r.bornAliveAtKindling,
+                  dead: r.bornDeadAtKindling >= 0 ? r.bornDeadAtKindling : null,
                 },
                 node: (
                   <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
@@ -239,10 +243,11 @@ export default async function DailyPage({
                     <TableCell>{r.doeBreed ?? "—"}</TableCell>
                     <TableCell>{r.buckTag ?? "—"}</TableCell>
                     <TableCell className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {r.bornAlive}
+                      {r.bornAliveAtKindling}
                     </TableCell>
+                    {/* «—» distinguishes "predates the column" from a real 0. */}
                     <TableCell className="font-semibold text-red-600 dark:text-red-400">
-                      {r.bornDead}
+                      {r.bornDeadAtKindling >= 0 ? r.bornDeadAtKindling : "—"}
                     </TableCell>
                   </TableRow>
                 ),
@@ -332,6 +337,81 @@ export default async function DailyPage({
                     <TableCell>{r.breed ?? "—"}</TableCell>
                     <TableCell>
                       <StatusBadge value={r.status} locale={locale} />
+                    </TableCell>
+                  </TableRow>
+                ),
+              }))}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* نافق النتاج — الرضع عند الأم. الفطام في جدوله لوحده تحت: خصم من رصيد
+          المزرعة، من غير أم يتنسب لها. */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {dt.kitDeathsHeading(nursingKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+        </h2>
+        {nursingKitDeaths.length === 0 ? (
+          <EmptyState icon={CalendarDays} title={dt.kitDeathsEmpty} />
+        ) : (
+          <div className="rounded-xl border bg-card">
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: dt.colIndex, className: "text-center", sortable: false },
+                { key: "tag", label: dt.colMotherTag, type: "tag", className: "text-center" },
+                { key: "count", label: dt.colCount, type: "number", className: "text-center" },
+              ]}
+              rows={nursingKitDeaths.map((r, i) => ({
+                key: r.id,
+                sortValues: { tag: r.doeTag, count: r.count },
+                node: (
+                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-medium">
+                      {r.doeId && r.doeTag ? (
+                        <Link href={`/rabbits/${r.doeId}`} className="hover:underline">
+                          {r.doeTag}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="font-semibold text-red-600 tabular-nums dark:text-red-400">
+                      {r.count}
+                    </TableCell>
+                  </TableRow>
+                ),
+              }))}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* نافق الفطام */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {dt.weanedKitDeathsHeading(weanedKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+        </h2>
+        {weanedKitDeaths.length === 0 ? (
+          <EmptyState icon={CalendarDays} title={dt.weanedKitDeathsEmpty} />
+        ) : (
+          <div className="rounded-xl border bg-card">
+            <SortableTable
+              headerRowClassName="[&>th]:border-x"
+              columns={[
+                { key: "index", label: dt.colIndex, className: "text-center", sortable: false },
+                { key: "count", label: dt.colCount, type: "number", className: "text-center" },
+              ]}
+              rows={weanedKitDeaths.map((r, i) => ({
+                key: r.id,
+                sortValues: { count: r.count },
+                node: (
+                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
+                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                    <TableCell className="font-semibold text-red-600 tabular-nums dark:text-red-400">
+                      {r.count}
                     </TableCell>
                   </TableRow>
                 ),

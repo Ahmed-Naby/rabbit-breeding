@@ -3,6 +3,7 @@ import type { MatingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function MatingLog({
@@ -24,9 +25,10 @@ export function MatingLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل التلقيح" : "Mating Log"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={matingLog.length} />
       </h2>
       {matingLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا يوجد سجل تلقيح بعد." : "No mating log yet."}</p>

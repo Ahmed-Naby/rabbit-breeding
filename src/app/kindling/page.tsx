@@ -59,8 +59,10 @@ export default async function KindlingPage({
         id: true,
         matingDate: true,
         kindlingDate: true,
-        bornAlive: true,
-        bornDead: true,
+        // Frozen at the birth — see the comment on the same select in
+        // app/records/page.tsx.
+        bornAliveAtKindling: true,
+        bornDeadAtKindling: true,
         doe: { select: { id: true, tagId: true, breed: true } },
         buck: { select: { tagId: true } },
       },

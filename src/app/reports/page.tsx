@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { addDays } from "date-fns";
-import { FileText, Venus, Mars } from "lucide-react";
+import { FileText, Venus, Mars, Rabbit, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -93,6 +93,11 @@ export default async function ReportsPage({
       {/* TAB 1: Follow-Up Reports */}
       {activeTab === "follow-up" && (
         <div className="space-y-6 animate-fade-in">
+          {/* القطيع + السلالات sit ABOVE the date filter on purpose: both are
+              current balances, not period totals, so the range inputs below
+              have no effect on them. */}
+          <BalanceCards report={report} rt={rt} />
+
           <Card>
             <CardContent className="py-4">
               <form method="get" className="flex flex-wrap items-end gap-3">
@@ -147,44 +152,146 @@ export default async function ReportsPage({
 
 type RT = Awaited<ReturnType<typeof getDictionary>>["t"]["reports"];
 
+const STOCK_BUCKETS = ["under1m", "m1to2", "m2to3", "over3m"] as const;
+
+function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
+  const stockTotal = report.stock.males.total + report.stock.females.total;
+  const bucketLabels: Record<(typeof STOCK_BUCKETS)[number], string> = {
+    under1m: rt.stockAgeUnder1mLabel,
+    m1to2: rt.stockAge1to2mLabel,
+    m2to3: rt.stockAge2to3mLabel,
+    over3m: rt.stockAgeOver3mLabel,
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <BalanceCard icon={<Rabbit className="size-5" />} title={rt.sectionHerd} badge={rt.allTimeBadge}>
+          <div className="grid grid-cols-2 gap-3">
+            <StatTile icon={<Venus className="size-4" />} label={rt.doesLabel} value={report.herd.does} tone="rose" />
+            <StatTile icon={<Mars className="size-4" />} label={rt.bucksLabel} value={report.herd.bucks} tone="sky" />
+          </div>
+        </BalanceCard>
+
+        <BalanceCard
+          icon={<Layers className="size-5" />}
+          title={rt.sectionStock}
+          badge={rt.allTimeBadge}
+          total={stockTotal}
+        >
+          {/* Split by time in السلالات, not weight — replacement stock is raised
+              in group cages and never weighed individually, so the old weight
+              brackets could only ever print zeros. */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {([
+              ["males", rt.stockMalesLabel, <Mars key="m" className="size-4" />, "sky"],
+              ["females", rt.stockFemalesLabel, <Venus key="f" className="size-4" />, "rose"],
+            ] as const).map(([sexKey, sexLabel, icon, tone]) => (
+              <div key={sexKey} className="rounded-xl border border-border/60 bg-background/60 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                  <span className={cn("flex items-center gap-1.5 text-sm font-semibold", TONE_TEXT[tone])}>
+                    {icon}
+                    {sexLabel}
+                  </span>
+                  <span className="text-xl font-bold tabular-nums">
+                    {report.stock[sexKey].total.toLocaleString()}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {STOCK_BUCKETS.map((bucket) => (
+                    <div key={bucket} className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-muted-foreground">{bucketLabels[bucket]}</span>
+                      <span className="font-semibold tabular-nums">
+                        {report.stock[sexKey][bucket].toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </BalanceCard>
+      </div>
+
+      <p className="text-xs text-muted-foreground">{rt.allTimeNote}</p>
+    </div>
+  );
+}
+
+const TONE_TEXT = {
+  rose: "text-rose-600 dark:text-rose-400",
+  sky: "text-sky-600 dark:text-sky-400",
+} as const;
+
+const TONE_TILE = {
+  rose: "border-rose-500/25 bg-rose-500/10",
+  sky: "border-sky-500/25 bg-sky-500/10",
+} as const;
+
+function BalanceCard({
+  icon,
+  title,
+  badge,
+  total,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badge: string;
+  total?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="overflow-hidden border-border/70 bg-linear-to-br from-primary/8 via-card to-card shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+              {icon}
+            </span>
+            {title}
+            {total != null && (
+              <span className="text-2xl font-bold tabular-nums text-primary">{total.toLocaleString()}</span>
+            )}
+          </CardTitle>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+            {badge}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  tone: keyof typeof TONE_TILE;
+}) {
+  return (
+    <div className={cn("rounded-xl border p-4", TONE_TILE[tone])}>
+      <div className={cn("flex items-center gap-1.5 text-xs font-semibold", TONE_TEXT[tone])}>
+        {icon}
+        {label}
+      </div>
+      <div className="mt-1 text-3xl font-bold tabular-nums">{value.toLocaleString()}</div>
+    </div>
+  );
+}
+
 function ReportSections({ report, rt }: { report: FollowUpReport; rt: RT }) {
   const dash = "—";
   const n = (v: number | null) => (v == null ? dash : v.toLocaleString());
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Section title={rt.sectionHerd}>
-        <Row label={rt.doesLabel} value={n(report.herd.does)} />
-        <Row label={rt.bucksLabel} value={n(report.herd.bucks)} />
-      </Section>
-
-      <Section title={rt.sectionStock}>
-        <Row
-          label={`${rt.stockMalesLabel} — ${rt.weightHeavyLabel}`}
-          value={n(report.stock.males.heavy)}
-        />
-        <Row
-          label={`${rt.stockMalesLabel} — ${rt.weightMediumLabel}`}
-          value={n(report.stock.males.medium)}
-        />
-        <Row
-          label={`${rt.stockMalesLabel} — ${rt.weightLightLabel}`}
-          value={n(report.stock.males.light)}
-        />
-        <Row
-          label={`${rt.stockFemalesLabel} — ${rt.weightHeavyLabel}`}
-          value={n(report.stock.females.heavy)}
-        />
-        <Row
-          label={`${rt.stockFemalesLabel} — ${rt.weightMediumLabel}`}
-          value={n(report.stock.females.medium)}
-        />
-        <Row
-          label={`${rt.stockFemalesLabel} — ${rt.weightLightLabel}`}
-          value={n(report.stock.females.light)}
-        />
-      </Section>
-
       <Section title={rt.sectionDeaths}>
         <Row label={rt.totalDeathsLabel} value={n(report.deaths.total)} />
         <Row label={rt.newbornDeathsLabel} value={n(report.deaths.newborn)} />

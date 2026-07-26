@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HeartPulse } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
@@ -11,8 +12,10 @@ export type KindlingLogRow = {
   id: string;
   matingDate: Date | null;
   kindlingDate: Date;
-  bornAlive: number;
-  bornDead: number;
+  /** Live kits at the ولادة press, frozen — never touched by fostering. */
+  bornAliveAtKindling: number;
+  /** Stillborn at the ولادة press, frozen. `-1` = row predates the column. */
+  bornDeadAtKindling: number;
   doe: { id: string; tagId: string | null; breed: string | null };
   buck: { tagId: string | null } | null;
 };
@@ -34,11 +37,24 @@ export function KindlingLog({
   t: Dictionary["kindling"];
   todayOnly?: boolean;
 }) {
+  // Live kits at birth only: النافق is kept out of both badges (so متوسط البطن
+  // reads as live kits per kindling), and the frozen column is used so a later
+  // fostering or nursing death can't rewrite what the doe actually produced.
+  const totalKits = kindlingLog.reduce((sum, r) => sum + r.bornAliveAtKindling, 0);
+  const avgLitter = kindlingLog.length === 0 ? 0 : totalKits / kindlingLog.length;
+
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
         {t.logHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={kindlingLog.length} />
+        {kindlingLog.length > 0 && (
+          <>
+            <LogStatBadge label={t.totalKitsBadge} value={totalKits.toLocaleString()} />
+            <LogStatBadge label={t.avgLitterBadge} value={avgLitter.toFixed(1)} />
+          </>
+        )}
       </h2>
       {kindlingLog.length === 0 ? (
         <EmptyState icon={HeartPulse} title={t.logEmptyTitle} description={t.logEmptyDescription} />
@@ -64,8 +80,8 @@ export function KindlingLog({
                 buckTag: row.buck?.tagId,
                 matingDate: row.matingDate,
                 kindlingDate: row.kindlingDate,
-                bornAlive: row.bornAlive,
-                bornDead: row.bornDead,
+                bornAlive: row.bornAliveAtKindling,
+                bornDead: row.bornDeadAtKindling >= 0 ? row.bornDeadAtKindling : null,
               },
               node: (
                 <TableRow key={row.id} className="[&>td]:border-x [&>td]:text-center">
@@ -83,8 +99,9 @@ export function KindlingLog({
                   <TableCell>
                     <LocalDate date={row.kindlingDate} locale={locale} />
                   </TableCell>
-                  <TableCell>{row.bornAlive}</TableCell>
-                  <TableCell>{row.bornDead || "—"}</TableCell>
+                  <TableCell>{row.bornAliveAtKindling}</TableCell>
+                  {/* «—» distinguishes "predates the column" from a real 0. */}
+                  <TableCell>{row.bornDeadAtKindling >= 0 ? row.bornDeadAtKindling || "—" : "—"}</TableCell>
                 </TableRow>
               ),
             }))}

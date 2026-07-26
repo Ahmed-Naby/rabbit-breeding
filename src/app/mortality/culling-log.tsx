@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Skull } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
@@ -31,9 +32,10 @@ export function CullingLog({
 }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold tracking-tight">
-        {t.mortality.culledHeading(culledRabbits.length)}
+      <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        {t.mortality.culledHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={culledRabbits.length} />
       </h2>
       {culledRabbits.length === 0 ? (
         <EmptyState icon={Skull} title={t.mortality.culledEmptyTitle} />

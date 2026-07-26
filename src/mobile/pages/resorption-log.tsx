@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { ResorptionLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 export function ResorptionLog({
@@ -21,7 +22,10 @@ export function ResorptionLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">{locale === "ar" ? "سجل الامتصاص" : "Resorption Log"}</h2>
+      <h2 className="flex items-center gap-2 text-lg font-bold">
+        {locale === "ar" ? "سجل الامتصاص" : "Resorption Log"}
+        <LogCountBadge count={resorptionLog.length} />
+      </h2>
       {resorptionLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {locale === "ar" ? "لا يوجد امتصاص مسجل بعد." : "No resorption logs yet."}

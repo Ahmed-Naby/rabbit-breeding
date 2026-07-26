@@ -3,6 +3,8 @@ import type { PregnancyTestLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { cn } from "@/lib/utils";
 import { SortableTh } from "@/components/sortable-th";
+import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
 const RESULT_CLS: Record<string, string> = {
@@ -30,11 +32,23 @@ export function PregnancyTestLog({
     result: { type: "string", value: (r) => r.result },
   });
 
+  const pt = getClientDictionary(locale).pregnancyTest;
+  // Denominator is every logged test — see the web log for why.
+  const positives = testLog.filter((r) => r.result === "positive").length;
+  const fertilityRate = testLog.length === 0 ? 0 : (positives / testLog.length) * 100;
+
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الجس" : "Pregnancy Test Log"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={testLog.length} />
+        {testLog.length > 0 && (
+          <>
+            <LogStatBadge label={pt.positiveCountBadge} value={positives.toLocaleString()} />
+            <LogStatBadge label={pt.fertilityRateBadge} value={`${fertilityRate.toFixed(0)}%`} />
+          </>
+        )}
       </h2>
       {testLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات جس بعد." : "No pregnancy test logs yet."}</p>

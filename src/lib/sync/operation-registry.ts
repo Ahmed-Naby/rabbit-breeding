@@ -282,7 +282,14 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
     if (p.breedingId && await shouldSkipUpdate("litterByBreeding", p.breedingId as string, clientAt)) {
       return { status: "applied", resultMessage: "Skipped: newer litter edit exists on server" };
     }
-    return fromOpResult(await recordNursingKitDeathOp(p.breedingId as string, (p.count as number | undefined) ?? 1));
+    return fromOpResult(
+      await recordNursingKitDeathOp(p.breedingId as string, (p.count as number | undefined) ?? 1, {
+        logId: p.kitDeathLogId as string | undefined,
+        // The moment the press happened on the phone, not the moment this sync
+        // ran — a death recorded offline keeps its own day.
+        deathDate: clientAt,
+      })
+    );
   },
 
   markMatingFailed: async (p, clientAt) => {
@@ -467,10 +474,18 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
   },
 
   recordWeanedKitDeath: async (p, clientAt) => {
+    // The «+نافق» button on the mobile mortality board sends no date (it means
+    // "now"), and `new Date(undefined)` is an Invalid Date that made the whole
+    // op fail on push — so every death entered from that screen moved the
+    // phone's رصيد الفطام and never reached the server. Falling back to the
+    // press's own clientAt (not the sync's clock) also keeps an offline death
+    // on the day it happened. UTC midnight, like every other movement date.
+    const fallbackDate = new Date(clientAt);
+    fallbackDate.setUTCHours(0, 0, 0, 0);
     await prisma.kitStockMovement.create({
       data: {
         id: p.id as string | undefined,
-        date: new Date(p.date as string),
+        date: p.date ? new Date(p.date as string) : fallbackDate,
         type: "death",
         count: p.count as number,
         notes: (p.notes as string | null) ?? null,

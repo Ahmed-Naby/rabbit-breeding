@@ -86,8 +86,8 @@ export function DailyPage({ locale }: { locale: Locale }) {
     tag: { type: "tag", value: (r) => r.doeTag },
     breed: { type: "string", value: (r) => r.doeBreed },
     buckTag: { type: "tag", value: (r) => r.buckTag },
-    alive: { type: "number", value: (r) => r.bornAlive },
-    dead: { type: "number", value: (r) => r.bornDead },
+    alive: { type: "number", value: (r) => r.bornAliveAtKindling },
+    dead: { type: "number", value: (r) => (r.bornDeadAtKindling >= 0 ? r.bornDeadAtKindling : null) },
   });
   const weaningSort = useSortableRows(log?.weanings ?? [], {
     tag: { type: "tag", value: (r) => r.doeTag },
@@ -100,6 +100,17 @@ export function DailyPage({ locale }: { locale: Locale }) {
     tag: { type: "tag", value: (r) => r.tag },
     breed: { type: "string", value: (r) => r.breed },
     status: { type: "string", value: (r) => r.status },
+  });
+  // Two tables: a nursing loss belongs to a named mother, a weaned loss is a
+  // deduction from the farm-wide رصيد الفطام with no mother to name.
+  const nursingKitDeaths = (log?.kitDeaths ?? []).filter((r) => r.stage === "nursing");
+  const weanedKitDeaths = (log?.kitDeaths ?? []).filter((r) => r.stage === "weaned");
+  const kitDeathSort = useSortableRows(nursingKitDeaths, {
+    tag: { type: "tag", value: (r) => r.doeTag },
+    count: { type: "number", value: (r) => r.count },
+  });
+  const weanedKitDeathSort = useSortableRows(weanedKitDeaths, {
+    count: { type: "number", value: (r) => r.count },
   });
 
   if (!log) {
@@ -366,8 +377,11 @@ export function DailyPage({ locale }: { locale: Locale }) {
                     <td className="px-4 py-3 text-center font-bold">{r.doeTag ?? "—"}</td>
                     <td className="px-4 py-3 text-center">{r.doeBreed ?? "—"}</td>
                     <td className="px-4 py-3 text-center">{r.buckTag ?? "—"}</td>
-                    <td className="px-4 py-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.bornAlive}</td>
-                    <td className="px-4 py-3 text-center font-semibold text-red-600 dark:text-red-400">{r.bornDead}</td>
+                    <td className="px-4 py-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.bornAliveAtKindling}</td>
+                    {/* «—» distinguishes "predates the column" from a real 0. */}
+                    <td className="px-4 py-3 text-center font-semibold text-red-600 dark:text-red-400">
+                      {r.bornDeadAtKindling >= 0 ? r.bornDeadAtKindling : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -493,6 +507,91 @@ export function DailyPage({ locale }: { locale: Locale }) {
                     <td className="px-4 py-3 text-center">{r.breed ?? "—"}</td>
                     <td className="px-4 py-3 text-center">
                       <StatusBadge value={r.status} locale={locale} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* نافق النتاج — الرضع عند الأم */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {dt.kitDeathsHeading(nursingKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+        </h2>
+        {nursingKitDeaths.length === 0 ? (
+          <EmptyBlock title={dt.kitDeathsEmpty} />
+        ) : (
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right border-collapse">
+              <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                <tr className="[&>th]:border-x">
+                  <th className="px-4 py-3 text-center">{dt.colIndex}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={dt.colMotherTag}
+                    sortKey="tag"
+                    activeSortKey={kitDeathSort.sortKey}
+                    direction={kitDeathSort.direction}
+                    onSort={kitDeathSort.toggleSort}
+                  />
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={dt.colCount}
+                    sortKey="count"
+                    activeSortKey={kitDeathSort.sortKey}
+                    direction={kitDeathSort.direction}
+                    onSort={kitDeathSort.toggleSort}
+                  />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {kitDeathSort.sorted.map((r, i) => (
+                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
+                    <td className="px-4 py-3 text-center font-bold">{r.doeTag ?? "—"}</td>
+                    <td className="px-4 py-3 text-center font-bold tabular-nums text-red-600 dark:text-red-400">
+                      {r.count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* نافق الفطام */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          {dt.weanedKitDeathsHeading(weanedKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+        </h2>
+        {weanedKitDeaths.length === 0 ? (
+          <EmptyBlock title={dt.weanedKitDeathsEmpty} />
+        ) : (
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm text-left rtl:text-right border-collapse">
+              <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                <tr className="[&>th]:border-x">
+                  <th className="px-4 py-3 text-center">{dt.colIndex}</th>
+                  <SortableTh
+                    className="px-4 py-3 text-center"
+                    label={dt.colCount}
+                    sortKey="count"
+                    activeSortKey={weanedKitDeathSort.sortKey}
+                    direction={weanedKitDeathSort.direction}
+                    onSort={weanedKitDeathSort.toggleSort}
+                  />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {weanedKitDeathSort.sorted.map((r, i) => (
+                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
+                    <td className="px-4 py-3 text-center font-bold tabular-nums text-red-600 dark:text-red-400">
+                      {r.count}
                     </td>
                   </tr>
                 ))}

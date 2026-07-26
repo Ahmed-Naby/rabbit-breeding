@@ -1,7 +1,24 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 
-export type WeightBracket = { heavy: number; medium: number; light: number; total: number };
+/**
+ * السلالات split by how long they have been IN السلالات, not by weight.
+ * Weight bracketing was removed because it can only ever report zeros on a
+ * farm that doesn't weigh individually: the bracket counters were bumped from
+ * the rabbit's latest WeightRecord, and replacement stock is raised in group
+ * cages with no per-animal weighing — 0 of the 41 سلالات on the real farm had
+ * a single weight row, so all six printed cells were structurally 0 forever.
+ * Time-in-stock needs no husbandry work at all: it falls out of dates the app
+ * already records, and it answers the question the weight split was standing
+ * in for anyway ("which of these are old enough to select for breeding").
+ */
+export type AgeBracket = {
+  under1m: number;
+  m1to2: number;
+  m2to3: number;
+  over3m: number;
+  total: number;
+};
 
 export type FollowUpReport = {
   from: Date;
@@ -11,8 +28,8 @@ export type FollowUpReport = {
     bucks: number;
   };
   stock: {
-    males: WeightBracket;
-    females: WeightBracket;
+    males: AgeBracket;
+    females: AgeBracket;
   };
   deaths: {
     newborn: number | null; // نتاج — no per-event date on Litter.bornDead, not derivable
@@ -44,22 +61,51 @@ export type FollowUpReport = {
   };
 };
 
-const HEAVY_G = 2250;
-const MEDIUM_G = 2000;
+/** A "month" here is 30 days — calendar months would make the buckets uneven. */
+const DAY_MS = 86_400_000;
+const MONTH_DAYS = 30;
 
-function bucketWeights(
-  rabbits: { sex: string; weightRecords: { weightGrams: number }[] }[],
-  sex: string
-): WeightBracket {
-  const bracket: WeightBracket = { heavy: 0, medium: 0, light: 0, total: 0 };
+export type StockRabbitForAge = {
+  sex: string;
+  acquiredDate: Date | null;
+  createdAt: Date;
+  kitStockMovement: { date: Date; type: string } | null;
+};
+
+/**
+ * The moment this rabbit entered السلالات. Three sources, most truthful first:
+ *
+ *  1. Its "retained" KitStockMovement — the literal press that moved the kit
+ *     out of رصيد الفطام and into السلالات (1:1 via KitStockMovement.rabbitId).
+ *  2. acquiredDate — for stock bought in rather than bred, which never passes
+ *     through the weaning ledger at all.
+ *  3. createdAt — last resort so a row can never fall out of the report.
+ *
+ * The fallbacks are not theoretical: on the real farm 0 of 41 سلالات had a
+ * retained movement (they were all entered as مقتنى) while 41 of 41 had an
+ * acquiredDate, so (2) is what actually carries the existing herd and (1) is
+ * what will carry everything retained from الفطام going forward.
+ */
+function enteredStockAt(r: StockRabbitForAge): Date {
+  if (r.kitStockMovement?.type === "retained") return r.kitStockMovement.date;
+  return r.acquiredDate ?? r.createdAt;
+}
+
+/**
+ * Buckets by time in السلالات as of `asOf`. A rabbit whose entry date is in the
+ * future (back-dated data entry, or acquiring stock ahead of the report's end
+ * date) lands in under1m rather than going negative into nothing.
+ */
+function bucketByStockAge(rabbits: StockRabbitForAge[], sex: string, asOf: Date): AgeBracket {
+  const bracket: AgeBracket = { under1m: 0, m1to2: 0, m2to3: 0, over3m: 0, total: 0 };
   for (const r of rabbits) {
     if (r.sex !== sex) continue;
     bracket.total++;
-    const w = r.weightRecords[0]?.weightGrams;
-    if (w == null) continue;
-    if (w >= HEAVY_G) bracket.heavy++;
-    else if (w >= MEDIUM_G) bracket.medium++;
-    else bracket.light++;
+    const days = Math.floor((asOf.getTime() - enteredStockAt(r).getTime()) / DAY_MS);
+    if (days < MONTH_DAYS) bracket.under1m++;
+    else if (days < MONTH_DAYS * 2) bracket.m1to2++;
+    else if (days < MONTH_DAYS * 3) bracket.m2to3++;
+    else bracket.over3m++;
   }
   return bracket;
 }
@@ -132,7 +178,10 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       where: { tagId: null, status: "active" },
       select: {
         sex: true,
-        weightRecords: { orderBy: { date: "desc" }, take: 1, select: { weightGrams: true } },
+        acquiredDate: true,
+        createdAt: true,
+        // The retention press that created this سلالة, when there was one.
+        kitStockMovement: { select: { date: true, type: true } },
       },
     }),
     prisma.kitStockMovement.aggregate({
@@ -177,8 +226,12 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     to,
     herd: { does, bucks },
     stock: {
-      males: bucketWeights(stockRabbits, "buck"),
-      females: bucketWeights(stockRabbits, "doe"),
+      // Measured from now, not from `to`: like the herd headcounts above, this
+      // is a current snapshot — the query has no date filter, so ageing the
+      // rows against the period end would mix a live population with a
+      // historical clock and report stock as younger than it is.
+      males: bucketByStockAge(stockRabbits, "buck", new Date()),
+      females: bucketByStockAge(stockRabbits, "doe", new Date()),
     },
     deaths: {
       newborn: null,
