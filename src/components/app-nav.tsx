@@ -118,14 +118,35 @@ export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
           </button>
         </div>
       </div>
+      {/* A side drawer rather than a full-width panel pushed under the bar: it
+          opens from the same edge as the hamburger (`end` — the left in RTL)
+          over a backdrop that dismisses it, matching the offline app's shell. */}
       {open ? (
-        <div className="bg-sidebar px-3 py-3 text-sidebar-foreground border-b border-sidebar-border shadow-lg animate-fade-in-up">
-          <RabbitSearch t={t} className="mb-3" />
-          <NavLinks t={t} onNavigate={() => setOpen(false)} />
-          <div className="mt-4 pt-3 border-t border-sidebar-border/50">
-            <ThemeToggle className="w-full" />
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          <div className="fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col overflow-y-auto border-s border-sidebar-border bg-sidebar px-3 py-3 text-sidebar-foreground shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <Brand />
+              <button
+                type="button"
+                aria-label={t.closeMenu}
+                onClick={() => setOpen(false)}
+                className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border/60 hover:bg-sidebar-accent"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <RabbitSearch t={t} className="mb-3" />
+            <NavLinks t={t} onNavigate={() => setOpen(false)} />
+            <div className="mt-4 pt-3 border-t border-sidebar-border/50">
+              <ThemeToggle className="w-full" />
+            </div>
           </div>
-        </div>
+        </>
       ) : null}
     </div>
   );

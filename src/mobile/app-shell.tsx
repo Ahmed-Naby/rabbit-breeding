@@ -444,62 +444,83 @@ export function AppShell() {
           </button>
         </header>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Mobile Navigation Drawer — a side panel, not a full-screen takeover:
+            it slides in from the same edge the hamburger sits on (`end`, which
+            is the left in RTL) over a dimmed backdrop that closes it on tap, so
+            the page underneath stays visible for context. */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 top-14 z-50 flex flex-col bg-sidebar text-sidebar-foreground md:hidden border-b shadow-xl">
-            <div className="px-4 pt-4">
-              <RabbitSearch locale={locale} onNavigate={() => setMobileMenuOpen(false)} />
-            </div>
-            <nav className="flex flex-col gap-1 overflow-y-auto px-4 py-4 flex-1">
-              {navItems.map((item) => {
-                const active = route === item.href;
-                const Icon = item.icon;
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent"
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </a>
-                );
-              })}
-            </nav>
-            <div className="space-y-2.5 p-4 border-t border-sidebar-border">
-              <ThemeToggle className="w-full mb-2" />
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  void Browser.open({ url: SYNC_API_BASE_URL });
-                }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold hover:bg-sidebar-accent"
-              >
-                <ExternalLink className="h-4 w-4" />
-                {locale === "ar" ? "فتح الموقع الكامل" : "Open full site"}
-              </button>
-              {showSignOut && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden
+            />
+            <div className="fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl md:hidden">
+              <div className="flex items-center justify-between border-b border-sidebar-border/60 px-4 py-3">
+                {brandEl}
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-lg p-1.5 hover:bg-sidebar-accent"
+                  aria-label={locale === "ar" ? "إغلاق" : "Close"}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="px-4 pt-4">
+                <RabbitSearch locale={locale} onNavigate={() => setMobileMenuOpen(false)} />
+              </div>
+              <nav className="flex flex-col gap-1 overflow-y-auto px-4 py-4 flex-1">
+                {navItems.map((item) => {
+                  const active = route === item.href;
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/75 hover:bg-sidebar-accent"
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                })}
+              </nav>
+              <div className="space-y-2.5 p-4 border-t border-sidebar-border">
+                <ThemeToggle className="w-full mb-2" />
                 <button
                   type="button"
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    void handleSignOut();
+                    void Browser.open({ url: SYNC_API_BASE_URL });
                   }}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold hover:bg-sidebar-accent"
                 >
-                  <LogOut className="h-4 w-4" />
-                  {t.mobileAuth.logoutButton}
+                  <ExternalLink className="h-4 w-4" />
+                  {locale === "ar" ? "فتح الموقع الكامل" : "Open full site"}
                 </button>
-              )}
+                {showSignOut && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      void handleSignOut();
+                    }}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    {t.mobileAuth.logoutButton}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Page Content Panel */}
