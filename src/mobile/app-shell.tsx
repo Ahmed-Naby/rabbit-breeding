@@ -44,6 +44,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { BrandMark } from "@/components/brand-mark";
 import { matchesRoute } from "./routes";
+import { navRowStyles } from "@/lib/nav";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
 import { loadSession, getSession, logout, type AuthSession } from "./auth";
@@ -85,10 +86,11 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   "#/daily-rounds": { path: "#/daily-rounds", labelKey: "dailyRounds", icon: ListChecks },
   "#/operations": { path: "#/operations", labelKey: "operations", icon: HeartHandshake },
   "#/support-operations": { path: "#/support-operations", labelKey: "supportOps", icon: Box },
-  // Nav order follows this object's key order — اليومية sits below عمليات مساعدة.
-  "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/does": { path: "#/does", labelKey: "does", icon: ClipboardList },
   "#/health": { path: "#/health", labelKey: "health", icon: Stethoscope },
+  // Nav order follows this object's key order. اليومية sits below الصحة so the
+  // three review pages (isReviewNavItem) run together — see src/lib/nav.ts.
+  "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },
   "#/records": { path: "#/records", labelKey: "records", icon: History },
   "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
@@ -385,6 +387,7 @@ export function AppShell() {
             {navItems.map((item) => {
               const active = route === item.href;
               const Icon = item.icon;
+              const styles = navRowStyles(item.href, active);
               return (
                 <a
                   key={item.href}
@@ -392,22 +395,13 @@ export function AppShell() {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    styles.row
                   )}
                 >
                   {/* Marker on the inline-start edge — the fill alone doesn't
                       survive a glance down a list of thirteen items. */}
-                  {active && (
-                    <span className="absolute inset-y-1.5 start-0 w-1 rounded-full bg-sidebar-primary-foreground/70" />
-                  )}
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0 transition-transform duration-200",
-                      !active && "group-hover:scale-110"
-                    )}
-                  />
+                  {active && <span className={styles.marker} />}
+                  <Icon className={styles.icon} />
                   <span>{item.label}</span>
                 </a>
               );
@@ -490,19 +484,18 @@ export function AppShell() {
                 {navItems.map((item) => {
                   const active = route === item.href;
                   const Icon = item.icon;
+                  const styles = navRowStyles(item.href, active);
                   return (
                     <a
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground/75 hover:bg-sidebar-accent"
+                        "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                        styles.row
                       )}
                     >
-                      <Icon className="size-4 shrink-0" />
+                      <Icon className={styles.icon} />
                       <span>{item.label}</span>
                     </a>
                   );

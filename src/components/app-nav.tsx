@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { NAV_ITEMS } from "@/lib/nav";
+import { NAV_ITEMS, navRowStyles } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { RabbitSearch } from "@/components/rabbit-search";
@@ -26,6 +26,7 @@ function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
             ? pathname === "/"
             : pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = item.icon;
+        const styles = navRowStyles(item.href, active);
         return (
           <Link
             key={item.href}
@@ -37,22 +38,13 @@ function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
               // shifted it left even in RTL, and scaling text at this size
               // makes it shimmer as the browser re-hints the glyphs.
               "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200",
-              active
-                ? "bg-sidebar-primary font-semibold text-sidebar-primary-foreground shadow-md"
-                : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              styles.row
             )}
           >
             {/* Marker on the inline-start edge, so the active row is findable
                 at a glance down a long list. */}
-            {active ? (
-              <span className="absolute inset-y-1.5 start-0 w-1 rounded-full bg-sidebar-primary-foreground/70" />
-            ) : null}
-            <Icon
-              className={cn(
-                "size-4 shrink-0 transition-transform duration-200",
-                !active && "group-hover:scale-110"
-              )}
-            />
+            {active ? <span className={styles.marker} /> : null}
+            <Icon className={styles.icon} />
             {t[item.labelKey]}
           </Link>
         );
