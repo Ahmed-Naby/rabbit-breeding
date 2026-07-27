@@ -329,7 +329,9 @@ export function settingsSchema(t: Dictionary["validation"]) {
     nestBoxDays: z.coerce.number().int().min(1).max(30),
     matingWeightGrams: z.coerce.number().int().min(1),
     rebreedAfterKindlingDays: z.coerce.number().int().refine(
-      (v) => [0, 15, 30].includes(v),
+      // 15 is the retired نصف مكثف offset — still accepted so a farm saved
+      // before the switch to 10 can open and re-save its settings.
+      (v) => [0, 10, 15, 30].includes(v),
       t.invalidValue
     ),
     fosterWindowDays: z.coerce.number().int().min(0).max(14),

@@ -316,7 +316,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
 
   const rebreedOptions = [
     { value: "0", label: t.settings.rebreedIntensive },
-    { value: "15", label: t.settings.rebreedSemiIntensive },
+    { value: "10", label: t.settings.rebreedSemiIntensive },
     { value: "30", label: t.settings.rebreedNatural },
   ];
 

@@ -30,9 +30,9 @@ type FertilityRow = {
   totalBreedings: number;
   totalKindlings: number;
   fertilityRate: number | null;
-  /** «متوسط الخلفة» — from the frozen birth count, unmoved by fostering/deaths. */
+  /** «متوسط البطن» — from the frozen birth count, unmoved by fostering/deaths. */
   avgBornAtKindling: number | null;
-  /** «متوسط الرعاية» — from the live nursing count. */
+  /** «متوسط عدد الرعاية» — from the live nursing count. */
   avgBorn: number | null;
   avgWeaned: number | null;
   /** «متوسط وزن الفطام» — grams per kit, not per litter. */

@@ -51,8 +51,8 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     // logs only grow — they reset to zero solely when an operations/data reset
     // clears them.
     prisma.matingLog.groupBy({ by: ["doeId"], _count: { _all: true } }),
-    // Both born counts: bornAliveAtKindling is frozen at birth («متوسط الخلفة»),
-    // bornAlive is what she ended up nursing after fostering/deaths («متوسط الرعاية»).
+    // Both born counts: bornAliveAtKindling is frozen at birth («متوسط البطن»),
+    // bornAlive is what she ended up nursing after fostering/deaths («متوسط عدد الرعاية»).
     prisma.kindlingLog.groupBy({
       by: ["doeId"],
       _count: { _all: true },

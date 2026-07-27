@@ -31,7 +31,7 @@ export function SettingsForm({
 
   const rebreedOptions: Option[] = [
     { value: "0", label: t.rebreedIntensive },
-    { value: "15", label: t.rebreedSemiIntensive },
+    { value: "10", label: t.rebreedSemiIntensive },
     { value: "30", label: t.rebreedNatural },
   ];
 

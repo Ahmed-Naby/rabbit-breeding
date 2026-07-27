@@ -71,7 +71,7 @@ export const en: Dictionary = {
     rebreedLabel: "Rebreeding system after kindling",
     rebreedHint: "How long before a nursing doe becomes ready to mate again.",
     rebreedIntensive: "Intensive — mate on kindling day",
-    rebreedSemiIntensive: "Semi-intensive — 15 days after kindling",
+    rebreedSemiIntensive: "Semi-intensive — 10 days after kindling",
     rebreedNatural: "Natural — 30 days after kindling",
     fosterWindowDaysLabel: "Fostering lookback (days)",
     fosterWindowDaysHint:
