@@ -255,20 +255,6 @@ export function RecordsPage({ locale }: { locale: Locale }) {
 
         <button
           type="button"
-          onClick={() => setActiveTab("resorption")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
-            activeTab === "resorption"
-              ? "bg-background text-foreground shadow-sm border border-border/60"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
-        >
-          <Droplets className="size-4 text-cyan-500" />
-          {rt.tabResorption}
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveTab("kindling")}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
@@ -336,6 +322,20 @@ export function RecordsPage({ locale }: { locale: Locale }) {
           <Trash2 className="size-4 text-orange-500" />
           {rt.tabCulling}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("resorption")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "resorption"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Droplets className="size-4 text-cyan-500" />
+          {rt.tabResorption}
+        </button>
       </div>
 
       <Card>
@@ -375,12 +375,12 @@ export function RecordsPage({ locale }: { locale: Locale }) {
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} range={range} />}
         {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} range={range} />}
-        {activeTab === "resorption" && <ResorptionLogTab locale={locale} range={range} />}
         {activeTab === "kindling" && <KindlingLogTab locale={locale} range={range} />}
         {activeTab === "weaning" && <WeaningLogTab locale={locale} range={range} />}
         {activeTab === "fostering" && <FosteringLogTab locale={locale} range={range} />}
         {activeTab === "mortality" && <MortalityLogTab locale={locale} range={range} />}
         {activeTab === "culling" && <CullingLogTab locale={locale} range={range} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} range={range} />}
       </div>
     </div>
   );

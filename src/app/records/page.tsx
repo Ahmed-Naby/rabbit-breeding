@@ -263,19 +263,6 @@ export default async function RecordsPage({
         </Link>
 
         <Link
-          href={`/records?tab=resorption${dateQS}`}
-          className={cn(
-            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
-            activeTab === "resorption"
-              ? "bg-background text-foreground shadow-sm border border-border/60"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
-        >
-          <Droplets className="size-4 text-cyan-500" />
-          {rt.tabResorption}
-        </Link>
-
-        <Link
           href={`/records?tab=kindling${dateQS}`}
           className={cn(
             "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
@@ -339,6 +326,19 @@ export default async function RecordsPage({
           <Layers className="size-4 text-orange-500" />
           {rt.tabCulling}
         </Link>
+
+        <Link
+          href={`/records?tab=resorption${dateQS}`}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "resorption"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Droplets className="size-4 text-cyan-500" />
+          {rt.tabResorption}
+        </Link>
       </div>
 
       <Card>
@@ -368,12 +368,12 @@ export default async function RecordsPage({
       <div className="animate-fade-in">
         {activeTab === "mating" && <MatingLogTab locale={locale} t={t} range={range} />}
         {activeTab === "pregnancy-test" && <PregnancyTestLogTab locale={locale} t={t} range={range} />}
-        {activeTab === "resorption" && <ResorptionLogTab locale={locale} t={t} range={range} />}
         {activeTab === "kindling" && <KindlingLogTab locale={locale} t={t} range={range} />}
         {activeTab === "weaning" && <WeaningLogTab locale={locale} t={t} range={range} />}
         {activeTab === "fostering" && <FosteringLogTab locale={locale} t={t} range={range} />}
         {activeTab === "mortality" && <MortalityLogTab locale={locale} t={t} range={range} />}
         {activeTab === "culling" && <CullingLogTab locale={locale} t={t} range={range} />}
+        {activeTab === "resorption" && <ResorptionLogTab locale={locale} t={t} range={range} />}
       </div>
     </div>
   );
