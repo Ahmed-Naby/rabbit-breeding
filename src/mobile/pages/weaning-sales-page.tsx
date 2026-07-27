@@ -18,6 +18,23 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
+import { cn } from "@/lib/utils";
+
+/**
+ * One tone per movement kind, copied from the web ledger
+ * (src/app/weaning-sales/page.tsx) so the same row reads the same on both —
+ * a plain label made فطام and نافق indistinguishable until you read them.
+ */
+const KIND_TONES: Record<LocalKitLedgerEntry["kind"], string> = {
+  wean: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  sale: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  death: "bg-red-500/10 text-red-600 dark:text-red-400",
+  retained: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  adjustment: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  // The mirror image of "retained", so the same violet family — teal keeps the
+  // two apart at a glance.
+  returned: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+};
 
 export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -345,9 +362,9 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
             <div className="rounded-xl border bg-card overflow-x-auto">
               <table className="w-full text-sm text-left rtl:text-right border-collapse">
                 <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                  <tr className="border-b">
+                  <tr className="border-b [&>th]:border-x">
                     <SortableTh
-                      className="px-4 py-3"
+                      className="px-4 py-3 text-center"
                       label={t.weaningSales.colDate}
                       sortKey="date"
                       activeSortKey={ledgerSort.sortKey}
@@ -355,7 +372,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                       onSort={ledgerSort.toggleSort}
                     />
                     <SortableTh
-                      className="px-4 py-3"
+                      className="px-4 py-3 text-center"
                       label={t.weaningSales.colType}
                       sortKey="kind"
                       activeSortKey={ledgerSort.sortKey}
@@ -395,7 +412,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                       onSort={ledgerSort.toggleSort}
                     />
                     <SortableTh
-                      className="px-4 py-3"
+                      className="px-4 py-3 text-center"
                       label={t.weaningSales.colNotes}
                       sortKey="notes"
                       activeSortKey={ledgerSort.sortKey}
@@ -406,24 +423,44 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 </thead>
                 <tbody className="divide-y">
                   {ledgerSort.sorted.map((entry) => (
-                    <tr key={entry.key} className="hover:bg-muted/40">
+                    <tr key={entry.key} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                       <td className="px-4 py-3.5">
-                        <LocalDate date={new Date(entry.date)} />
+                        <LocalDate date={new Date(entry.date)} locale={locale} />
                       </td>
-                      <td className="px-4 py-3.5 font-medium">{kindLabels[entry.kind]}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold tabular-nums">
-                        {entry.count > 0 ? `+${entry.count}` : entry.count}
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-xs font-medium",
+                            KIND_TONES[entry.kind]
+                          )}
+                        >
+                          {kindLabels[entry.kind]}
+                        </span>
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      {/* Signed and coloured like the web's: a ledger where every
+                          number is the same weight hides which way it moved. */}
+                      <td
+                        className={cn(
+                          "px-4 py-3.5 font-medium tabular-nums",
+                          entry.count >= 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
+                        )}
+                      >
+                        {entry.count >= 0 ? `+${entry.count}` : entry.count}
+                      </td>
+                      <td className="px-4 py-3.5">
                         {entry.weightGrams ? formatWeight(entry.weightGrams, weightUnit as any) : "—"}
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-3.5">
                         {entry.pricePerKgCents ? formatMoney(entry.pricePerKgCents, currency) : "—"}
                       </td>
-                      <td className="px-4 py-3.5 text-center">
+                      <td className="px-4 py-3.5">
                         {entry.amountCents ? formatMoney(entry.amountCents, currency) : "—"}
                       </td>
-                      <td className="px-4 py-3.5 max-w-[200px] truncate">{entry.notes ?? "—"}</td>
+                      <td className="px-4 py-3.5 max-w-[200px] truncate text-muted-foreground">
+                        {entry.notes ?? "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
