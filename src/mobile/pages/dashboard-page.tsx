@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Venus,
@@ -6,6 +6,9 @@ import {
   HelpCircle,
   HeartPulse,
   HeartHandshake,
+  Heart,
+  Baby,
+  Stethoscope,
   Microscope,
   Box,
   Sprout,
@@ -21,6 +24,12 @@ import { flushOutbox, hasUnsyncedOps } from "../sync/sync-manager";
 import { Network } from "@capacitor/network";
 import { toast } from "sonner";
 import { PageSkeleton } from "@/components/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/status-badge";
+import { LocalDate } from "@/components/local-date";
+import { RABBIT_STATUSES } from "@/lib/enums";
+import { cn } from "@/lib/utils";
 
 export function DashboardPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -92,6 +101,8 @@ export function DashboardPage({ locale }: { locale: Locale }) {
       href: "#/stock",
     },
   ];
+
+  const countByStatus = new Map(stats.statusCounts.map((s) => [s.status, s.count]));
 
   // Breeding-cycle "ready now" cards — mirrors each dedicated board's own
   // eligibility rule (fetchDashboardStats), so these counts always match
@@ -226,6 +237,212 @@ export function DashboardPage({ locale }: { locale: Locale }) {
           );
         })}
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Kindlings — rows link to the doe, not the breeding: the offline app
+            has no #/breedings/<id> route, and her detail page carries the cycle
+            anyway. */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Heart className="size-4 text-pink-500" /> {t.dashboard.kindlingsHeading}
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#/kindling">{t.dashboard.viewAll}</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.overdueKindlings.length === 0 && stats.upcomingKindlings.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t.dashboard.noPendingBreedings}
+              </p>
+            ) : (
+              <>
+                {stats.overdueKindlings.map((b) => (
+                  <Row
+                    key={b.breedingId}
+                    href={`#/rabbits/${b.doeId}`}
+                    left={b.doeTagId ?? "—"}
+                    right={
+                      <span className="text-red-600 dark:text-red-400">
+                        {t.dashboard.overdueDays(Math.abs(b.daysLeft))}
+                      </span>
+                    }
+                    warn
+                  />
+                ))}
+                {stats.upcomingKindlings.map((b) => (
+                  <Row
+                    key={b.breedingId}
+                    href={`#/rabbits/${b.doeId}`}
+                    left={b.doeTagId ?? "—"}
+                    right={
+                      <span className="text-muted-foreground">
+                        {t.dashboard.dueOn}{" "}
+                        <LocalDate date={new Date(b.expectedKindlingDate)} locale={locale} />
+                      </span>
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Health */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Stethoscope className="size-4 text-emerald-500" /> {t.dashboard.healthTasksHeading}
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#/health">{t.dashboard.viewAll}</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.overdueHealth.length === 0 && stats.upcomingHealth.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t.dashboard.noUpcomingHealth}
+              </p>
+            ) : (
+              <>
+                {stats.overdueHealth.map((r) => (
+                  <Row
+                    key={r.id}
+                    href={`#/rabbits/${r.rabbitId}`}
+                    left={
+                      <span className="flex items-center gap-2">
+                        {r.rabbitTagId ?? t.dashboard.stockFallback}{" "}
+                        <StatusBadge value={r.type} locale={locale} />
+                      </span>
+                    }
+                    right={
+                      <span className="text-red-600 dark:text-red-400">
+                        {t.dashboard.overdueHealthDays(Math.abs(r.daysLeft))}
+                      </span>
+                    }
+                    warn
+                  />
+                ))}
+                {stats.upcomingHealth.slice(0, 6).map((r) => (
+                  <Row
+                    key={r.id}
+                    href={`#/rabbits/${r.rabbitId}`}
+                    left={
+                      <span className="flex items-center gap-2">
+                        {r.rabbitTagId ?? t.dashboard.stockFallback}{" "}
+                        <StatusBadge value={r.type} locale={locale} />
+                      </span>
+                    }
+                    right={
+                      <span className="text-muted-foreground">
+                        {t.dashboard.dueOn}{" "}
+                        <LocalDate date={new Date(r.nextDueDate)} locale={locale} />
+                      </span>
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Herd by status */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t.dashboard.herdByStatus(stats.totalRabbits)}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {RABBIT_STATUSES.map((s) => {
+              const c = countByStatus.get(s) ?? 0;
+              const pct = stats.totalRabbits ? (c / stats.totalRabbits) * 100 : 0;
+              return (
+                <div key={s} className="flex items-center gap-3">
+                  <div className="w-20 shrink-0">
+                    <StatusBadge value={s} locale={locale} />
+                  </div>
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="w-8 text-right text-sm tabular-nums">{c}</span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Recent litters survival trend. Rows aren't links: the offline app has
+            no litter detail page to open. */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Baby className="size-4" /> {t.dashboard.recentLittersHeading}
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="#/weaning-sales">{t.dashboard.viewAll}</a>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.recentWeanings.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                {t.dashboard.noWeanedLitters}
+              </p>
+            ) : (
+              stats.recentWeanings.map((l) => {
+                const pct = l.survival == null ? 0 : Math.round(l.survival * 100);
+                return (
+                  <div key={l.id} className="flex items-center gap-3 px-2 py-1.5 text-sm">
+                    <span className="w-24 shrink-0 text-muted-foreground">
+                      <LocalDate date={new Date(l.displayDate)} locale={locale} />
+                    </span>
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-emerald-500/70"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    {/* «—» rather than 0% for a row that predates
+                        bornDeadAtKindling: its losses are unrecoverable. */}
+                    <span className="w-10 text-right tabular-nums">
+                      {l.survival == null ? "—" : `${pct}%`}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
+  );
+}
+
+function Row({
+  href,
+  left,
+  right,
+  warn,
+}: {
+  href: string;
+  left: ReactNode;
+  right: ReactNode;
+  warn?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-sm transition-all duration-300",
+        "hover:scale-[1.01] active:scale-[0.99] hover:shadow-xs",
+        warn
+          ? "border-amber-400/50 bg-amber-500/5 hover:bg-amber-500/10 dark:border-amber-500/20 dark:bg-amber-500/5 text-amber-800 dark:text-amber-200"
+          : "bg-card/85 hover:bg-accent/40 border-border/60"
+      )}
+    >
+      <span className="font-medium">{left}</span>
+      {right}
+    </a>
   );
 }

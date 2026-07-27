@@ -8,7 +8,8 @@ import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
 import type { DoeBoardBreeding } from "@/lib/does-board";
-import { weaningDueDate, nestBoxDueDate } from "@/lib/dates";
+import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
+import { weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
 import {
   computeBreedingAverages,
@@ -153,6 +154,37 @@ export async function matingDateUsedLocally(
   return !!row;
 }
 
+/** A pending breeding, for the الولادات card. */
+export type DashboardKindlingRow = {
+  breedingId: string;
+  doeId: string;
+  doeTagId: string | null;
+  expectedKindlingDate: string;
+  /** Negative = overdue by that many days. Frozen at fetch time, like the web's. */
+  daysLeft: number;
+};
+
+/** A health record with a due date, for the مهام صحية card. */
+export type DashboardHealthRow = {
+  id: string;
+  rabbitId: string;
+  rabbitTagId: string | null;
+  type: string;
+  nextDueDate: string;
+  daysLeft: number;
+};
+
+export type DashboardStatusCount = { status: string; count: number };
+
+/** A weaned cycle, for the ولادات حديثة survival trend. */
+export type DashboardWeaningRow = {
+  id: string;
+  /** Kindling date when the archive kept one, else the weaning date. */
+  displayDate: string;
+  /** 0–1, or null when the row predates bornDeadAtKindling (see kit-mortality). */
+  survival: number | null;
+};
+
 export type DashboardStats = {
   stockCount: number;
   activeDoes: number;
@@ -161,6 +193,16 @@ export type DashboardStats = {
   readyForPregnancyTest: number;
   expectedKindlings: number;
   nestBoxesDue: number;
+  /** Later than the gestation window allows — rendered in the warn style. */
+  overdueKindlings: DashboardKindlingRow[];
+  /** Inside the window and up to 14 days out, same cut-off as the web. */
+  upcomingKindlings: DashboardKindlingRow[];
+  overdueHealth: DashboardHealthRow[];
+  /** Due within 30 days. The card itself shows only the first 6, as on web. */
+  upcomingHealth: DashboardHealthRow[];
+  statusCounts: DashboardStatusCount[];
+  totalRabbits: number;
+  recentWeanings: DashboardWeaningRow[];
 };
 
 /** Same eligibility rule as /mating's board (mobile mating-page.tsx: no rebreed-cooldown filter applied there, unlike the web board). */
@@ -231,6 +273,69 @@ async function countExpectedKindlings(db: SQLiteDBConnection, settings: LocalSet
   return count;
 }
 
+/**
+ * Every breeding still awaiting an outcome — the الولادات card's source, and
+ * the same `outcome = 'pending'` set the web dashboard pulls. Split into
+ * overdue/upcoming by the caller, which needs gestationWindowDays.
+ */
+async function fetchPendingKindlings(db: SQLiteDBConnection): Promise<DashboardKindlingRow[]> {
+  const rows = await queryAll<Omit<DashboardKindlingRow, "daysLeft">>(
+    db,
+    `SELECT b.id as breedingId, b.doeId, r.tagId as doeTagId, b.expectedKindlingDate
+       FROM breeding b JOIN rabbit r ON r.id = b.doeId
+      WHERE b.outcome = 'pending'
+      ORDER BY b.expectedKindlingDate ASC`
+  );
+  return rows.map((r) => ({ ...r, daysLeft: daysUntil(new Date(r.expectedKindlingDate)) }));
+}
+
+/** Health records carrying a follow-up date — the مهام صحية card's source. */
+async function fetchDueHealth(db: SQLiteDBConnection): Promise<DashboardHealthRow[]> {
+  const rows = await queryAll<Omit<DashboardHealthRow, "daysLeft">>(
+    db,
+    `SELECT h.id, h.rabbitId, r.tagId as rabbitTagId, h.type, h.nextDueDate
+       FROM health_record h JOIN rabbit r ON r.id = h.rabbitId
+      WHERE h.nextDueDate IS NOT NULL
+      ORDER BY h.nextDueDate ASC`
+  );
+  return rows.map((r) => ({ ...r, daysLeft: daysUntil(new Date(r.nextDueDate)) }));
+}
+
+/**
+ * The last few weaned cycles and how much of each litter survived to weaning.
+ *
+ * Reads weaning_log, NOT litter as the web dashboard does. The litter row is
+ * recycled by the doe's next kindling, so on a farm that keeps breeding, "the
+ * six most recent weanings" read off litter quietly becomes "the six does who
+ * haven't re-kindled yet" — the same recycling that made إجمالي الفطام read 20
+ * against weaning_log's 41. The archive carries bornAlive/bornDead/
+ * bornDeadAtKindling/weaned on the row itself, so the survival rate needs no
+ * join and can't drift from what الفطام والبيع shows in this same bundle.
+ */
+async function fetchRecentWeanings(db: SQLiteDBConnection): Promise<DashboardWeaningRow[]> {
+  const rows = await queryAll<{
+    id: string;
+    kindlingDate: string | null;
+    weaningDate: string;
+    bornAlive: number;
+    bornDead: number;
+    bornDeadAtKindling: number;
+    weaned: number | null;
+  }>(
+    db,
+    `SELECT id, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling, weaned
+       FROM weaning_log
+      WHERE weaned IS NOT NULL
+      ORDER BY COALESCE(kindlingDate, weaningDate) DESC
+      LIMIT 6`
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    displayDate: r.kindlingDate ?? r.weaningDate,
+    survival: weaningSurvivalRate(r),
+  }));
+}
+
 export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<DashboardStats> {
   const settings = await getLocalSettings(db);
   const [
@@ -241,6 +346,10 @@ export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<Dashb
     readyForPregnancyTest,
     expectedKindlings,
     nestBoxesDue,
+    pendingKindlings,
+    dueHealth,
+    statusRows,
+    recentWeanings,
   ] = await Promise.all([
     // Same filter as /stock: untagged juveniles not yet promoted to the breeding herd pen.
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status NOT IN ('deceased', 'culled')"),
@@ -250,7 +359,18 @@ export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<Dashb
     countReadyForPregnancyTest(db, settings),
     countExpectedKindlings(db, settings),
     countNestBoxesDue(db, settings),
+    fetchPendingKindlings(db),
+    fetchDueHealth(db),
+    // Every rabbit, untagged stock included — this is the herd headcount the
+    // card's title reports, not the breeding herd.
+    queryAll<DashboardStatusCount>(db, "SELECT status, COUNT(*) as count FROM rabbit GROUP BY status"),
+    fetchRecentWeanings(db),
   ]);
+
+  // Same two windows as the web dashboard: a doe is only "late" once she is
+  // past the whole gestation window, and the upcoming list stops at 14 days so
+  // it stays a to-do list rather than a calendar.
+  const win = settings.gestationWindowDays;
 
   return {
     stockCount: stockCount?.count ?? 0,
@@ -260,6 +380,13 @@ export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<Dashb
     readyForPregnancyTest,
     expectedKindlings,
     nestBoxesDue,
+    overdueKindlings: pendingKindlings.filter((b) => b.daysLeft < -win),
+    upcomingKindlings: pendingKindlings.filter((b) => b.daysLeft >= -win && b.daysLeft <= 14),
+    overdueHealth: dueHealth.filter((r) => r.daysLeft < 0),
+    upcomingHealth: dueHealth.filter((r) => r.daysLeft >= 0 && r.daysLeft <= 30),
+    statusCounts: statusRows,
+    totalRabbits: statusRows.reduce((s, r) => s + r.count, 0),
+    recentWeanings,
   };
 }
 
