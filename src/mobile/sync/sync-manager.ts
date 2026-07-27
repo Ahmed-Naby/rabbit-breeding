@@ -123,7 +123,12 @@ type CursorRow = {
 // the pull() check below). v1: mirrors provisioned before tombstone-based
 // delete propagation existed accumulated phantom rows — copies of records
 // hard-deleted server-side that no incremental pull could ever remove.
-const MIRROR_REFRESH_VERSION = 1;
+// v2: every mirror built while runPull capped the permanent *Log archives at
+// `take: 100` holds at most 100 kindlings/weanings/matings/… no matter how big
+// the farm is, and no incremental pull can backfill the rest (those rows are
+// older than any cursor). Only a fresh bootstrap against the uncapped query
+// can — see MUTABLE_ARCHIVE_DAYS in src/lib/sync/pull.ts.
+const MIRROR_REFRESH_VERSION = 2;
 
 async function getOrInitCursor(db: SQLiteDBConnection): Promise<CursorRow> {
   const existing = await queryOne<CursorRow>(db, "SELECT * FROM sync_cursor WHERE id = 1");
