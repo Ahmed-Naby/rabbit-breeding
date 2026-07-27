@@ -61,3 +61,4 @@ android/keystore.properties
 /www/
 /public/app/
 *.log
+demo-farm.json

@@ -43,7 +43,9 @@
     "build:web": "vite build --config vite.config.web.ts",
     "dev:electron": "npm run build:mobile && electron electron/main.js",
     "pack:electron": "npm run build:mobile && electron-builder build --windows",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo:generate": "tsx scripts/generate-demo-farm.mts demo-farm.json",
+    "demo:load": "tsx scripts/load-demo-farm.mts demo-farm.json"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
