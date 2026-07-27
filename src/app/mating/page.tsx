@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
-import { rebreedDueDate, daysUntil, isToday } from "@/lib/dates";
+import { isToday } from "@/lib/dates";
+import { rebreedCooldownElapsed } from "@/lib/does-board";
 import { getSettings } from "@/lib/settings";
 import { DoeStateBadge, MateCell } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -77,12 +78,14 @@ export default async function MatingPage({
   // latest breeding row (take: 1) is always her kindling row. A nursing doe
   // only counts as ready once the configured rebreed system's cooldown since
   // that kindling has elapsed (0/15/30 days, set in الإعدادات).
-  const does = doesRaw.filter((doe) => {
-    if (doe.doeState !== "nursing") return true;
-    const kindlingDate = doe.breedingsAsDoe[0]?.actualKindlingDate;
-    if (!kindlingDate) return true;
-    return daysUntil(rebreedDueDate(kindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
-  });
+  const does = doesRaw.filter(
+    (doe) =>
+      doe.doeState !== "nursing" ||
+      rebreedCooldownElapsed(
+        doe.breedingsAsDoe[0]?.actualKindlingDate,
+        settings.rebreedAfterKindlingDays
+      )
+  );
   const matingLog = todayOnly ? matingLogRaw.filter((row) => isToday(row.matingDate)) : matingLogRaw;
 
   return (

@@ -75,6 +75,24 @@ export function weaningEntryComplete(
   return litter.weaned === 0 || litter.weaningWeightGrams != null;
 }
 
+/**
+ * Whether a nursing doe has served the configured rebreed cooldown since her
+ * kindling (0/10/30 days — مكثف/نصف مكثف/طبيعي, set in الإعدادات). No kindling
+ * date on record means there's nothing to gate against.
+ *
+ * Exported because four callers need the identical rule — computeDoeBoardRow
+ * below, the mating board and the dashboard tile on each shell. They had it
+ * inlined four times, and the offline pair had simply dropped it: مرضعة does
+ * were listed under «أمهات جاهزة للتلقيح» with their «تلقيح» button disabled.
+ */
+export function rebreedCooldownElapsed(
+  kindlingDate: Date | null | undefined,
+  rebreedAfterKindlingDays: number
+): boolean {
+  if (!kindlingDate) return true;
+  return daysUntil(rebreedDueDate(kindlingDate, rebreedAfterKindlingDays)) <= 0;
+}
+
 export function computeDoeBoardRow(
   doeState: DoeState,
   status: RabbitStatus | string,
@@ -104,13 +122,10 @@ export function computeDoeBoardRow(
   const countsRow = prevIsClosingLitter ? prev : b;
   const isWeaned = !!countsRow?.litter?.weaningDate;
 
-  // A nursing doe only re-enters mating once the configured rebreed
-  // system's cooldown since her kindling has elapsed (0/15/30 days,
-  // intensive/semi-intensive/natural, set in Settings). No kindling date on
-  // record means nothing to gate against.
-  const rebreedReady =
-    !litterRow?.actualKindlingDate ||
-    daysUntil(rebreedDueDate(litterRow.actualKindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
+  const rebreedReady = rebreedCooldownElapsed(
+    litterRow?.actualKindlingDate,
+    settings.rebreedAfterKindlingDays
+  );
 
   // "استبعاد"/"راحة" (culled/resting herd status) override the reproductive
   // cycle entirely — a doe pulled from the breeding rotation this way can

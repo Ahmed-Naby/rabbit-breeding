@@ -22,7 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import { Button } from "@/components/ui/button";
-import { daysUntil, rebreedDueDate } from "@/lib/dates";
+import { daysUntil } from "@/lib/dates";
+import { rebreedCooldownElapsed } from "@/lib/does-board";
 import { hasKnownSurvival, kitsUnderCare, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { getSettings } from "@/lib/settings";
 import { RABBIT_STATUSES } from "@/lib/enums";
@@ -169,12 +170,14 @@ export default async function DashboardPage() {
   // Breeding-cycle "ready now" counts — mirrors the eligibility logic each
   // dedicated board (/mating, /pregnancy-test, /nest-box, /kindling) uses,
   // so these cards' counts always match what a click-through would show.
-  const readyForMatingCount = matingCandidates.filter((doe) => {
-    if (doe.doeState !== "nursing") return true;
-    const kindlingDate = doe.breedingsAsDoe[0]?.actualKindlingDate;
-    if (!kindlingDate) return true;
-    return daysUntil(rebreedDueDate(kindlingDate, settings.rebreedAfterKindlingDays)) <= 0;
-  }).length;
+  const readyForMatingCount = matingCandidates.filter(
+    (doe) =>
+      doe.doeState !== "nursing" ||
+      rebreedCooldownElapsed(
+        doe.breedingsAsDoe[0]?.actualKindlingDate,
+        settings.rebreedAfterKindlingDays
+      )
+  ).length;
   const readyForPregnancyTestCount = pregnancyTestCandidates.filter((doe) => {
     const b = doe.breedingsAsDoe[0];
     return !!b && isPregnancyTestCandidate({ ...b, actualKindlingDate: null }, settings.pregnancyTestDays);
