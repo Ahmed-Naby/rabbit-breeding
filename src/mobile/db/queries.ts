@@ -7,7 +7,8 @@
 import type { SQLiteDBConnection } from "@capacitor-community/sqlite";
 import { queryAll, queryOne } from "./helpers";
 import type { LocalSettings, LocalRabbit } from "./types";
-import type { DoeBoardBreeding } from "@/lib/does-board";
+import { computeDoeBoardRow, rebreedCooldownElapsed, type DoeBoardBreeding } from "@/lib/does-board";
+import type { DoeState } from "@/lib/enums";
 import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
 import { weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
@@ -17,6 +18,13 @@ import {
   type AverageKindlingRow,
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
+import {
+  computeHerdProductivity,
+  findIdleDoes,
+  rebreedTarget,
+  type HerdKindlingRow,
+  type HerdReport,
+} from "@/lib/herd-productivity";
 import {
   resolveNursingLitterRow,
   isWeaningCandidate,
@@ -206,12 +214,27 @@ export type DashboardStats = {
 };
 
 /** Same eligibility rule as /mating's board (mobile mating-page.tsx: no rebreed-cooldown filter applied there, unlike the web board). */
-async function countReadyForMating(db: SQLiteDBConnection): Promise<number> {
-  const row = await queryOne<{ count: number }>(
+/**
+ * Mirrors the mating board's eligibility so the tile and the list it links to
+ * always report the same number — a مرضعة is only ready once her rebreed
+ * cooldown has elapsed, which this counter used to ignore.
+ */
+async function countReadyForMating(db: SQLiteDBConnection, settings: LocalSettings): Promise<number> {
+  const rows = await queryAll<{ doeState: string; kindlingDate: string | null }>(
     db,
-    "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled', 'resting') AND doeState IN ('empty', 'nursing', 'excluded')"
+    `SELECT r.doeState,
+            (SELECT b.actualKindlingDate FROM breeding b
+              WHERE b.doeId = r.id ORDER BY b.createdAt DESC LIMIT 1) as kindlingDate
+       FROM rabbit r
+      WHERE r.sex = 'doe' AND r.tagId IS NOT NULL
+        AND r.status NOT IN ('deceased', 'culled', 'resting')
+        AND r.doeState IN ('empty', 'nursing', 'excluded')`
   );
-  return row?.count ?? 0;
+  return rows.filter(
+    (r) =>
+      r.doeState !== "nursing" ||
+      rebreedCooldownElapsed(toDate(r.kindlingDate), settings.rebreedAfterKindlingDays)
+  ).length;
 }
 
 /** Mirrors fetchPregnancyPageData's candidate filter, counted without the log/buck joins the full page needs. */
@@ -355,7 +378,7 @@ export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<Dashb
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status NOT IN ('deceased', 'culled')"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
-    countReadyForMating(db),
+    countReadyForMating(db, settings),
     countReadyForPregnancyTest(db, settings),
     countExpectedKindlings(db, settings),
     countNestBoxesDue(db, settings),
@@ -468,6 +491,15 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
     does.push({ id: doe.id, tagId: doe.tagId, breed: doe.breed, doeState: doe.doeState, status: doe.status, breedings });
   }
 
+  // The SQL above only filters on حالة الأم, so a مرضعة still inside her
+  // rebreed cooldown came back and sat under «أمهات جاهزة للتلقيح» with a dead
+  // «تلقيح» button. Filtering on the row's own canMate — the very value
+  // MateCell renders from — mirrors what the web board does at query level and
+  // means the list can never hold a doe you are not allowed to mate.
+  const readyDoes = does.filter(
+    (doe) => computeDoeBoardRow(doe.doeState as DoeState, doe.status, doe.breedings, settings).canMate
+  );
+
   const logRows = await queryAll<{
     id: string;
     matingDate: string;
@@ -499,7 +531,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
     });
   }
 
-  return { does, matingLog, settings };
+  return { does: readyDoes, matingLog, settings };
 }
 
 export type PregnancyTestLogEntry = {
@@ -2585,3 +2617,137 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
   };
 }
 
+
+/**
+ * Local-SQLite equivalent of getHerdReport (src/app/reports/herd-data.ts) for
+ * the «إنتاجية القطيع» tab. Feeds the same shared src/lib/herd-productivity.ts
+ * used by the web Server Component, so the two can only ever differ in how the
+ * rows are fetched — never in what the numbers mean.
+ *
+ * `toIso` is the EXCLUSIVE upper bound, same contract as fetchFollowUpReport.
+ *
+ * Every period-bound figure comes from the permanent *_log tables, never from
+ * litter/breeding: those rows are recycled by the doe's next kindling, so a
+ * herd-level series built on them silently loses every superseded cycle — on a
+ * productive farm, nearly all of them.
+ */
+export async function fetchHerdReport(
+  db: SQLiteDBConnection,
+  fromIso: string,
+  toIso: string
+): Promise<HerdReport> {
+  const [
+    settings,
+    doeRows,
+    kindlings,
+    weanings,
+    weanedStockDeathAgg,
+    saleAgg,
+    incomeAgg,
+    expenseAgg,
+    lastKindlings,
+  ] = await Promise.all([
+    getLocalSettings(db),
+    // The denominator, and the same population the does board shows: tagged
+    // and active. A نافقة or مستبعدة doe has left the herd, so charging the
+    // farm for her cage would understate every rate below.
+    queryAll<{
+      id: string;
+      tagId: string | null;
+      breed: string | null;
+      acquiredDate: string | null;
+      dateOfBirth: string | null;
+      createdAt: string;
+    }>(
+      db,
+      `SELECT id, tagId, breed, acquiredDate, dateOfBirth, createdAt FROM rabbit
+       WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active' ORDER BY tagId ASC`
+    ),
+    queryAll<HerdKindlingRow>(
+      db,
+      `SELECT bornAliveAtKindling, bornAlive, bornDead FROM kindling_log
+       WHERE kindlingDate >= ? AND kindlingDate < ?`,
+      [fromIso, toIso]
+    ),
+    queryAll<{ weaned: number | null }>(
+      db,
+      "SELECT weaned FROM weaning_log WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL",
+      [fromIso, toIso]
+    ),
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ count: number | null; grams: number | null }>(
+      db,
+      `SELECT SUM(count) as count, SUM(weightGrams) as grams FROM kit_stock_movement
+       WHERE type = 'sale' AND date >= ? AND date < ?`,
+      [fromIso, toIso]
+    ),
+    // The ledger, not the sale movements' amountCents: the farm may also sell
+    // culled does, bucks, or manure, and every one of those is real income the
+    // does' cages helped produce. Kit sales are mirrored into the ledger
+    // anyway, so reading it avoids double counting them.
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(amountCents) as total FROM transaction_ledger WHERE type = 'income' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(amountCents) as total FROM transaction_ledger WHERE type = 'expense' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    // Latest kindling per doe over ALL time — deliberately unbounded by the
+    // period. "She hasn't kindled in the last week" is meaningless; "she
+    // hasn't kindled in 140 days" is a culling decision, and only unbounded
+    // history can tell the two apart.
+    queryAll<{ doeId: string; lastKindlingDate: string | null }>(
+      db,
+      "SELECT doeId, MAX(kindlingDate) as lastKindlingDate FROM kindling_log GROUP BY doeId"
+    ),
+  ]);
+
+  const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, toDate(r.lastKindlingDate)]));
+
+  const periodDays = Math.max(
+    1,
+    Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
+  );
+  const { cycleDays, targetCyclesPerYear } = rebreedTarget(
+    settings.rebreedAfterKindlingDays,
+    settings.gestationDays
+  );
+
+  const productivity = computeHerdProductivity({
+    doeCount: doeRows.length,
+    periodDays,
+    cycleDays,
+    targetCyclesPerYear,
+    kindlings,
+    weanings,
+    weanedStockDeaths: weanedStockDeathAgg?.total ?? 0,
+    soldCount: saleAgg?.count ?? 0,
+    soldWeightGrams: saleAgg?.grams ?? 0,
+    incomeCents: incomeAgg?.total ?? 0,
+    expenseCents: expenseAgg?.total ?? 0,
+  });
+
+  // Idleness is measured from now, not from the period end: it is a current
+  // state ("who is sitting idle in the barn today"), the same way the herd and
+  // stock balance cards on the follow-up report are current snapshots.
+  const idleDoes = findIdleDoes(
+    doeRows.map((d) => ({
+      id: d.id,
+      tagId: d.tagId,
+      breed: d.breed,
+      lastKindlingDate: lastByDoe.get(d.id) ?? null,
+      enteredHerdAt: toDate(d.acquiredDate) ?? toDate(d.dateOfBirth) ?? new Date(d.createdAt),
+    })),
+    cycleDays,
+    new Date()
+  );
+
+  return { productivity, idleDoes, cycleDays, currency: settings.currency };
+}

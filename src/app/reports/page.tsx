@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { addDays } from "date-fns";
-import { FileText, Venus, Mars, Rabbit, Layers, TrendingUp } from "lucide-react";
+import { FileText, Venus, Mars, Rabbit, Layers, TrendingUp, Gauge } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { TableRow, TableCell } from "@/components/ui/table";
+import { SortableTable } from "@/components/ui/sortable-table";
+import { LocalDate } from "@/components/local-date";
+import { formatMoney } from "@/lib/units";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { getFollowUpReport, type FollowUpReport } from "./report-data";
+import { getHerdReport, type HerdReport } from "./herd-data";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
 import DoesFertilityPage from "../does-fertility/page";
 import BucksFertilityPage from "../bucks-fertility/page";
 import { cn } from "@/lib/utils";
@@ -17,10 +23,18 @@ export async function generateMetadata() {
   return { title: `${t.reports.title} · RabbitTrack` };
 }
 
-function defaultRange() {
+/**
+ * `spanDays` is the inclusive window length. تقارير المتابعة is a *weekly*
+ * report, so 7. إنتاجية القطيع defaults to 90 instead: its headline is cycles
+ * per doe per year, and annualising a 7-day window multiplies whatever noise
+ * that week held by 52 — one busy Tuesday would read as a world-class farm.
+ * Ninety days spans at least one full cycle under any of the three rebreed
+ * systems, so every doe has had a fair chance to appear in the numerator.
+ */
+function defaultRange(spanDays: number) {
   const to = new Date();
   to.setUTCHours(0, 0, 0, 0);
-  const from = addDays(to, -6);
+  const from = addDays(to, -(spanDays - 1));
   return { from, to };
 }
 
@@ -31,18 +45,27 @@ export default async function ReportsPage({
 }) {
   const sp = await searchParams;
   const activeTab = sp.tab || "follow-up";
-  const { from: defaultFrom, to: defaultTo } = defaultRange();
+  const isHerdTab = activeTab === "herd";
+  const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? 90 : 7);
   const from = sp.from ? fromDateInputValue(sp.from) : defaultFrom;
   const toSelected = sp.to ? fromDateInputValue(sp.to) : defaultTo;
   const toExclusive = addDays(toSelected, 1);
 
-  const [report, { t }] = await Promise.all([
-    getFollowUpReport(from, toExclusive),
+  // Only the visible tab's data is fetched: the two reports have no overlap and
+  // إنتاجية القطيع scans every KindlingLog row on the farm for its idle list, so
+  // loading it behind تقارير المتابعة would tax the common case for nothing.
+  const [report, herd, { locale, t }] = await Promise.all([
+    isHerdTab ? null : getFollowUpReport(from, toExclusive),
+    isHerdTab ? getHerdReport(from, toExclusive) : null,
     getDictionary(),
   ]);
   const rt = t.reports;
 
-  const followUpHref = `/reports?tab=follow-up${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
+  const rangeQuery = `${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
+  const followUpHref = `/reports?tab=follow-up${rangeQuery}`;
+  // The range carries over to إنتاجية القطيع too — a user who just filtered
+  // تقارير المتابعة to a month means the same month here.
+  const herdHref = `/reports?tab=herd${rangeQuery}`;
 
   return (
     <div className="space-y-6">
@@ -88,10 +111,23 @@ export default async function ReportsPage({
           <Mars className="size-4 text-sky-500" />
           {rt.tabBucksFertility}
         </Link>
+
+        <Link
+          href={herdHref}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            isHerdTab
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Gauge className="size-4 text-emerald-500" />
+          {rt.tabHerdProductivity}
+        </Link>
       </div>
 
       {/* TAB 1: Follow-Up Reports */}
-      {activeTab === "follow-up" && (
+      {report && activeTab === "follow-up" && (
         <div className="space-y-6 animate-fade-in">
           {/* القطيع + السلالات sit ABOVE the date filter on purpose: both are
               current balances, not period totals, so the range inputs below
@@ -105,34 +141,7 @@ export default async function ReportsPage({
               selected period. */}
           <AveragesSection averages={report.averages} rt={rt} />
 
-          <Card>
-            <CardContent className="py-4">
-              <form method="get" className="flex flex-wrap items-end gap-3">
-                <input type="hidden" name="tab" value="follow-up" />
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
-                  <Input
-                    type="date"
-                    name="from"
-                    defaultValue={toDateInputValue(from)}
-                    className="w-40"
-                  />
-                </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
-                  <Input
-                    type="date"
-                    name="to"
-                    defaultValue={toDateInputValue(toSelected)}
-                    className="w-40"
-                  />
-                </label>
-                <Button type="submit" size="sm">
-                  {rt.applyButton}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          <RangeFilter tab="follow-up" from={from} to={toSelected} rt={rt} />
 
           <p className="text-xs text-muted-foreground">{rt.notTrackedNote}</p>
 
@@ -153,7 +162,48 @@ export default async function ReportsPage({
           <BucksFertilityPage hideHeader={true} />
         </div>
       )}
+
+      {/* TAB 4: Herd Productivity — everything ÷ عدد الأمهات */}
+      {herd && isHerdTab && (
+        <div className="space-y-6 animate-fade-in">
+          <RangeFilter tab="herd" from={from} to={toSelected} rt={rt} />
+          <HerdProductivitySection herd={herd} rt={rt} locale={locale} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function RangeFilter({
+  tab,
+  from,
+  to,
+  rt,
+}: {
+  tab: string;
+  from: Date;
+  to: Date;
+  rt: RT;
+}) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <form method="get" className="flex flex-wrap items-end gap-3">
+          <input type="hidden" name="tab" value={tab} />
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
+            <Input type="date" name="from" defaultValue={toDateInputValue(from)} className="w-40" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
+            <Input type="date" name="to" defaultValue={toDateInputValue(to)} className="w-40" />
+          </label>
+          <Button type="submit" size="sm">
+            {rt.applyButton}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -420,6 +470,231 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-4 px-6 py-2.5 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/* ─────────────────────────  إنتاجية القطيع  ───────────────────────── */
+
+/**
+ * Everything here divides by عدد الأمهات, so every tile prints the same
+ * denominator once at the top (herdBasis) rather than repeating it per number —
+ * the whole section is one fraction with a shared bottom, and that is the one
+ * fact a reader must not lose track of while comparing these to متوسطات الأداء
+ * on the follow-up tab, which divide by events instead.
+ */
+function HerdProductivitySection({
+  herd,
+  rt,
+  locale,
+}: {
+  herd: HerdReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const p = herd.productivity;
+  // One decimal, same as the event-based averages — a second decimal is false
+  // precision on a herd of a few dozen does.
+  const num = (v: number | null, digits = 1) =>
+    v == null
+      ? "—"
+      : v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const money = (v: number | null) => (v == null ? "—" : formatMoney(Math.round(v), herd.currency));
+  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+
+  const idleShare = p.doeCount > 0 ? herd.idleDoes.length / p.doeCount : null;
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-emerald-500/8 via-card to-card shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
+                <Gauge className="size-5" />
+              </span>
+              {rt.herdTitle}
+            </CardTitle>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              {rt.herdBasis(p.doeCount, p.periodDays)}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground">{rt.herdDescription}</p>
+        </CardContent>
+      </Card>
+
+      {/* An empty herd makes every figure below «—»; say why once instead of
+          printing a wall of dashes with no explanation. */}
+      {p.doeCount === 0 && (
+        <p className="text-sm text-amber-600 dark:text-amber-400">{rt.herdNoDoesNote}</p>
+      )}
+
+      <Section title={rt.herdSectionCycles}>
+        <div className="grid gap-3 p-4 sm:grid-cols-3">
+          <HerdTile label={rt.herdCyclesActualLabel} value={num(p.cyclesPerDoePerYear)} strong />
+          <HerdTile label={rt.herdCyclesTargetLabel} value={num(p.targetCyclesPerYear)} />
+          <HerdTile
+            label={rt.herdCycleAchievementLabel}
+            value={pct(p.cycleAchievement)}
+            // The one number on the page with a natural pass mark: below 80% of
+            // the system the farm chose, the barn is idling.
+            tone={
+              p.cycleAchievement == null
+                ? undefined
+                : p.cycleAchievement >= 0.8
+                  ? "good"
+                  : "bad"
+            }
+          />
+        </div>
+        <p className="px-4 pb-4 text-xs text-muted-foreground">
+          {rt.herdCycleNote(p.targetCyclesPerYear, herd.cycleDays)}
+        </p>
+      </Section>
+
+      <Section title={rt.herdSectionPerDoe}>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <HerdTile label={rt.herdBornAlivePerDoeLabel} value={num(p.bornAlivePerDoe)} />
+          <HerdTile label={rt.herdNursedPerDoeLabel} value={num(p.nursedPerDoe)} />
+          <HerdTile label={rt.herdDeathsPerDoeLabel} value={num(p.kitDeathsPerDoe)} />
+          <HerdTile label={rt.herdWeanedPerDoeLabel} value={num(p.weanedPerDoe)} strong />
+        </div>
+        <p className="px-4 pb-4 text-xs text-muted-foreground">{rt.herdDeathsPerDoeNote}</p>
+      </Section>
+
+      <Section title={rt.herdSectionMonthly}>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <HerdTile label={rt.herdWeanedPerMonthLabel} value={num(p.weanedPerDoePerMonth)} />
+          <HerdTile label={rt.herdKgSoldPerMonthLabel} value={num(p.kgSoldPerDoePerMonth, 2)} />
+          <HerdTile label={rt.herdRevenuePerMonthLabel} value={money(p.revenuePerDoePerMonthCents)} />
+          <HerdTile label={rt.herdCostPerMonthLabel} value={money(p.costPerDoePerMonthCents)} />
+          <HerdTile
+            label={rt.herdNetPerMonthLabel}
+            value={money(p.netPerDoePerMonthCents)}
+            strong
+            tone={
+              p.netPerDoePerMonthCents == null
+                ? undefined
+                : p.netPerDoePerMonthCents >= 0
+                  ? "good"
+                  : "bad"
+            }
+          />
+        </div>
+        <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
+          <p>{rt.herdCostNote}</p>
+          {p.netPerDoePerMonthCents != null && (
+            <p
+              className={cn(
+                p.netPerDoePerMonthCents >= 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+              )}
+            >
+              {p.netPerDoePerMonthCents >= 0 ? rt.herdNetPositiveNote : rt.herdNetNegativeNote}
+            </p>
+          )}
+        </div>
+      </Section>
+
+      <Section title={rt.herdSectionIdle}>
+        <div className="space-y-3 p-4">
+          <p className="text-xs text-muted-foreground">{rt.herdIdleDescription(herd.cycleDays)}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <HerdTile
+              label={rt.herdIdleCountLabel}
+              value={herd.idleDoes.length.toLocaleString()}
+              strong
+              tone={herd.idleDoes.length > 0 ? "bad" : "good"}
+            />
+            <HerdTile label={rt.herdIdleShareLabel} value={pct(idleShare)} />
+          </div>
+
+          {herd.idleDoes.length === 0 ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.herdIdleEmpty}</p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border">
+              <SortableTable
+                headerRowClassName="[&>th]:border-x"
+                // Worst first, matching what findIdleDoes already returns: the
+                // top rows are the استبعاد shortlist and should need no sorting.
+                initialSortKey="idleDays"
+                initialSortDirection="desc"
+                columns={[
+                  { key: "index", label: rt.herdColIndex, className: "text-center", sortable: false },
+                  { key: "tag", label: rt.herdColTag, type: "tag", className: "text-center" },
+                  { key: "breed", label: rt.herdColBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                  { key: "last", label: rt.herdColLastKindling, type: "date", className: "text-center" },
+                  { key: "idleDays", label: rt.herdColIdleDays, type: "number", className: "text-center" },
+                ]}
+                rows={herd.idleDoes.map((doe, i) => ({
+                  key: doe.id,
+                  sortValues: {
+                    tag: doe.tagId,
+                    breed: doe.breed,
+                    last: doe.lastKindlingDate,
+                    idleDays: doe.idleDays,
+                  },
+                  node: (
+                    <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/rabbits/${doe.id}`} className="hover:underline">
+                          {doe.tagId ?? "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                      <TableCell>
+                        {doe.neverKindled ? (
+                          <span className="text-muted-foreground">{rt.herdNeverKindled}</span>
+                        ) : (
+                          <LocalDate date={doe.lastKindlingDate} locale={locale} />
+                        )}
+                      </TableCell>
+                      <TableCell className="font-semibold tabular-nums">
+                        {doe.idleDays.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                }))}
+              />
+            </div>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+const HERD_TONE = {
+  good: "border-emerald-500/25 bg-emerald-500/8 text-emerald-700 dark:text-emerald-400",
+  bad: "border-rose-500/25 bg-rose-500/8 text-rose-700 dark:text-rose-400",
+} as const;
+
+function HerdTile({
+  label,
+  value,
+  strong,
+  tone,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  tone?: keyof typeof HERD_TONE;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-border/60 bg-card p-3",
+        tone && HERD_TONE[tone]
+      )}
+    >
+      <div className={cn("text-xs", tone ? "opacity-80" : "text-muted-foreground")}>{label}</div>
+      <div className={cn("mt-1 font-bold tabular-nums", strong ? "text-2xl" : "text-xl")}>
+        {value}
+      </div>
     </div>
   );
 }

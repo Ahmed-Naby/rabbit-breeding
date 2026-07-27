@@ -787,6 +787,7 @@ export const ar = {
     tabFollowUp: "تقارير المتابعة",
     tabDoesFertility: "تقرير خصوبة الأمهات",
     tabBucksFertility: "تقرير خصوبة الذكور",
+    tabHerdProductivity: "إنتاجية القطيع",
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "عرض التقرير",
@@ -839,6 +840,52 @@ export const ar = {
       `${count} ولادة في الفترة لا يمكن حساب نافق الرعاية فيها (سجلات أُنشئت قبل إضافة هذا الحقل)، واستُبعدت من المتوسط بدلًا من احتسابها صفرًا.`,
     avgRemainingStockNote:
       "رصيد الفطام المتاح للبيع رصيد تراكمي حتى نهاية الفترة وليس إنتاج الفترة وحدها، فهو يتغير عند بيع مخزون قديم حتى لو لم يحدث فطام.",
+
+    // ——— إنتاجية القطيع ———
+    herdTitle: "إنتاجية القطيع",
+    herdDescription:
+      "نفس أرقام الإنتاج لكن مقسومة على كل الأمهات في العنبر بدل عدد الولادات — فالأم غير المنتجة تظهر هنا وتخفّض المعدل، وهذا هو المقصود.",
+    herdBasis: (does: number, days: number) => `÷ ${does} أم في العنبر · فترة ${days} يوم`,
+    herdNoDoesNote: "لا توجد أمهات مسجّلة في العنبر، فلا يمكن حساب أي معدل.",
+
+    herdSectionCycles: "الدورات التناسلية",
+    herdCyclesActualLabel: "دورات فعلية لكل أم في السنة",
+    herdCyclesTargetLabel: "المستهدف حسب نظام إعادة التلقيح",
+    herdCycleAchievementLabel: "نسبة تحقيق المستهدف",
+    herdCycleNote: (target: number, cycleDays: number) =>
+      `المستهدف (${target} دورة في السنة) هو الرقم المكتوب على نظام إعادة التلقيح الذي اخترته في الإعدادات، أي دورة كاملة كل ${cycleDays} يومًا تقريبًا.`,
+
+    herdSectionPerDoe: "المعدلات لكل أم في الفترة",
+    herdBornAlivePerDoeLabel: "معدل البطن لكل أم",
+    herdNursedPerDoeLabel: "معدل الرعاية لكل أم",
+    herdDeathsPerDoeLabel: "معدل النفوق لكل أم",
+    herdWeanedPerDoeLabel: "معدل الفطام لكل أم",
+    herdDeathsPerDoeNote:
+      "معدل النفوق يشمل الخلفة الميتة ونافق الرعاية ونافق الفطام معًا — على مستوى القطيع الأرنب المفقود خسارة واحدة أيًّا كان مكان فقده.",
+
+    herdSectionMonthly: "العائد الشهري لكل أم",
+    herdWeanedPerMonthLabel: "فطام لكل أم شهريًا",
+    herdKgSoldPerMonthLabel: "كجم مباع لكل أم شهريًا",
+    herdRevenuePerMonthLabel: "إيراد لكل أم شهريًا",
+    herdCostPerMonthLabel: "مصروف موزَّع لكل أم شهريًا",
+    herdNetPerMonthLabel: "الصافي لكل أم شهريًا",
+    herdCostNote:
+      "العلف والعلاج مصاريف مزرعة عامة وليست مسجّلة لكل أم على حدة، لذلك المصروف هنا موزَّع بالتساوي على الأمهات ويشمل نصيبها من تكلفة الذكور والسلالات. اعتبره تقديرًا للتوزيع لا رصدًا فعليًا.",
+    herdNetPositiveNote: "الصافي موجب: الأم في المتوسط تغطي تكلفتها وتزيد.",
+    herdNetNegativeNote: "الصافي سالب: متوسط ما تدخله الأم أقل من نصيبها من المصاريف في هذه الفترة.",
+
+    herdSectionIdle: "الأمهات الخاملة",
+    herdIdleDescription: (cycleDays: number) =>
+      `أمهات مرّ عليها أكثر من ${cycleDays} يومًا (دورة كاملة) دون ولادة. هؤلاء بالتحديد هم سبب انخفاض المعدلات بالأعلى.`,
+    herdIdleEmpty: "لا توجد أمهات خاملة — كل أم في العنبر داخل دورتها التناسلية.",
+    herdIdleCountLabel: "عدد الأمهات الخاملة",
+    herdIdleShareLabel: "نسبتهن من القطيع",
+    herdColIndex: "م",
+    herdColTag: "رقم الأم",
+    herdColBreed: "السلالة",
+    herdColLastKindling: "آخر ولادة",
+    herdColIdleDays: "أيام بلا ولادة",
+    herdNeverKindled: "لم تلد إطلاقًا",
   },
   records: {
     title: "السجلات",

@@ -797,6 +797,7 @@ export const en: Dictionary = {
     tabFollowUp: "Follow-up Reports",
     tabDoesFertility: "Does Fertility Report",
     tabBucksFertility: "Bucks Fertility Report",
+    tabHerdProductivity: "Herd Productivity",
     fromLabel: "From",
     toLabel: "To",
     applyButton: "View report",
@@ -849,6 +850,53 @@ export const en: Dictionary = {
       `${count} litter(s) in this period predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,
     avgRemainingStockNote:
       "Weaned stock available to sell is a running balance as of the period end, not what the period produced — it moves when older stock is sold even if nothing was weaned.",
+
+    // ——— Herd productivity ———
+    herdTitle: "Herd Productivity",
+    herdDescription:
+      "The same production figures divided by every doe in the herd instead of by the events that happened — an unproductive doe shows up here and drags the rate down, which is the point.",
+    herdBasis: (does: number, days: number) => `÷ ${does} does in the herd · ${days}-day period`,
+    herdNoDoesNote: "No does on file, so no rate can be computed.",
+
+    herdSectionCycles: "Reproductive cycles",
+    herdCyclesActualLabel: "Actual cycles per doe per year",
+    herdCyclesTargetLabel: "Target from the rebreed system",
+    herdCycleAchievementLabel: "Target achieved",
+    herdCycleNote: (target: number, cycleDays: number) =>
+      `The target (${target} cycles a year) is the figure printed on the rebreed system you picked in settings — roughly one full cycle every ${cycleDays} days.`,
+
+    herdSectionPerDoe: "Per-doe rates for the period",
+    herdBornAlivePerDoeLabel: "Born alive per doe",
+    herdNursedPerDoeLabel: "Nursed per doe",
+    herdDeathsPerDoeLabel: "Kit deaths per doe",
+    herdWeanedPerDoeLabel: "Weaned per doe",
+    herdDeathsPerDoeNote:
+      "Kit deaths here cover stillborn, nursing and post-weaning losses together — at herd level a lost kit is one loss wherever it was lost.",
+
+    herdSectionMonthly: "Monthly return per doe",
+    herdWeanedPerMonthLabel: "Weaned per doe per month",
+    herdKgSoldPerMonthLabel: "Kg sold per doe per month",
+    herdRevenuePerMonthLabel: "Income per doe per month",
+    herdCostPerMonthLabel: "Allocated cost per doe per month",
+    herdNetPerMonthLabel: "Net per doe per month",
+    herdCostNote:
+      "Feed and vet costs are farm-level, not recorded per doe, so the cost here is allocated evenly across the does and includes their share of keeping the bucks and replacement stock. Read it as an allocation, not a measurement.",
+    herdNetPositiveNote: "Net is positive: on average a doe covers her keep and more.",
+    herdNetNegativeNote:
+      "Net is negative: the average doe brought in less than her share of the costs over this period.",
+
+    herdSectionIdle: "Idle does",
+    herdIdleDescription: (cycleDays: number) =>
+      `Does with no kindling for more than ${cycleDays} days (one full cycle). These are precisely what pulls the rates above down.`,
+    herdIdleEmpty: "No idle does — every doe in the herd is within her cycle.",
+    herdIdleCountLabel: "Idle does",
+    herdIdleShareLabel: "Share of the herd",
+    herdColIndex: "#",
+    herdColTag: "Doe",
+    herdColBreed: "Breed",
+    herdColLastKindling: "Last kindling",
+    herdColIdleDays: "Days without kindling",
+    herdNeverKindled: "Never kindled",
   },
   records: {
     title: "Records",
