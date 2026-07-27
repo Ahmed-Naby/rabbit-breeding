@@ -145,6 +145,9 @@ export function SelectField({
     >
       <input type="hidden" name={name} value={value} />
       <Select
+        // Without items the trigger has no value -> label map and renders the
+        // raw value, so وحدة الوزن read "kg" and نظام إعادة التلقيح read "0".
+        items={items}
         value={value === "" ? NONE : value}
         onValueChange={(v: string | null) => {
           const next = v === NONE || v == null ? "" : v;

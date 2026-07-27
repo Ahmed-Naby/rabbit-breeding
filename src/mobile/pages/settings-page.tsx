@@ -15,7 +15,7 @@ import { getSyncStatus } from "../sync/sync-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field } from "@/components/form-fields";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LocalSettings } from "../db/types";
 import { PageSkeleton } from "@/components/skeleton";
@@ -53,13 +53,16 @@ async function saveBackupFile(json: string, filename: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Delegates to the web form's Field so the offline settings screen cannot drift
+ * from src/app/settings/settings-form.tsx — it had its own heavier label and
+ * hint styling, which is the whole reason the two looked different.
+ */
 function FieldLayout({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-semibold">{label}</Label>
+    <Field label={label} hint={hint}>
       {children}
-      {hint && <p className="text-xs text-muted-foreground leading-normal">{hint}</p>}
-    </div>
+    </Field>
   );
 }
 
@@ -332,7 +335,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       {/* Settings Form */}
       <form onSubmit={handleSaveSettings} className="space-y-6">
         <Card>
-          <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2 p-6">
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FieldLayout label={t.settings.weightUnitLabel} hint={t.settings.weightUnitHint}>
               <Select
                 items={[
@@ -344,7 +347,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 onValueChange={(v) => setWeightUnit(v ?? "kg")}
                 disabled={savingSettings}
               >
-                <SelectTrigger id="weightUnit">
+                <SelectTrigger id="weightUnit" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -444,7 +447,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")}
                 disabled={savingSettings}
               >
-                <SelectTrigger id="rebreedAfterKindlingDays">
+                <SelectTrigger id="rebreedAfterKindlingDays" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -495,14 +498,14 @@ export function SettingsPage({ locale }: { locale: Locale }) {
           </CardContent>
         </Card>
 
-        <Button type="submit" disabled={savingSettings} className="w-full py-5 text-sm font-semibold">
+        <Button type="submit" disabled={savingSettings}>
           {t.settings.saveButton}
         </Button>
       </form>
 
       {/* Breeds Management Card */}
       <Card>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">{t.settings.breedsHeading}</h2>
             <p className="text-sm text-muted-foreground">{t.settings.breedsDescription}</p>
@@ -535,17 +538,16 @@ export function SettingsPage({ locale }: { locale: Locale }) {
             </div>
           )}
 
-          <form onSubmit={handleAddBreed} className="flex items-end gap-3 pt-2">
-            <div className="flex-1 space-y-1.5">
-              <Label className="text-sm font-semibold">{t.settings.newBreedLabel}</Label>
+          <form onSubmit={handleAddBreed} className="flex items-end gap-3">
+            <Field label={t.settings.newBreedLabel} className="flex-1">
               <Input
                 placeholder={t.settings.newBreedPlaceholder}
                 value={newBreedName}
                 onChange={(e) => setNewBreedName(e.target.value)}
                 disabled={savingBreed}
               />
-            </div>
-            <Button type="submit" disabled={savingBreed} className="h-10">
+            </Field>
+            <Button type="submit" disabled={savingBreed}>
               {t.settings.addBreedButton}
             </Button>
           </form>
@@ -554,7 +556,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
 
       {/* Backup / Restore / Reset Card */}
       <Card>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">{t.mobileSettings.backupHeading}</h2>
             <p className="text-sm text-muted-foreground">{t.mobileSettings.backupDescription}</p>
