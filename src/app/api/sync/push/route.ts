@@ -101,7 +101,28 @@ export async function POST(request: Request) {
     const handler = operationRegistry[op.opType];
     let outcome: { status: "applied" | "rejected"; resultMessage?: string };
     if (!handler) {
-      outcome = { status: "rejected", resultMessage: `Unknown opType: ${op.opType}` };
+      // Transient, NOT a rejection — the same version-skew reasoning the catch
+      // block below spells out, which this branch used to skip entirely. An
+      // opType this server has never heard of nearly always means the device
+      // is running ahead of it: the app updated, or the server is mid-deploy.
+      // Persisting a "rejected" SyncOperation made that permanent, because the
+      // idempotency check above then answers "already_applied" for the same
+      // clientOpId forever — so the op could never replay once the server
+      // caught up, and whatever it carried was lost for good. That is exactly
+      // what happened to the first المصروفات الثابتة الشهرية written from a
+      // phone: four templates pushed at a server that predated the handler,
+      // burned on arrival, and wiped locally by the next pull.
+      //
+      // Reporting it as "error" leaves no SyncOperation row, so the outbox
+      // keeps the op and the identical clientOpId retries cleanly later. A
+      // genuinely bogus opType costs a retry every sync instead of silent
+      // data loss, which is the right way round.
+      results.push({
+        clientOpId: op.clientOpId,
+        status: "error",
+        resultMessage: `Unknown opType: ${op.opType}`,
+      });
+      continue;
     } else {
       try {
         // Every op replays inside the authenticated farm's context — the
