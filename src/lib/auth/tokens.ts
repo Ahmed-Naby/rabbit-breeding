@@ -22,6 +22,8 @@ export async function issueToken(userId: string, label?: string | null): Promise
 
 export type TokenUser = {
   userId: string;
+  email: string;
+  name: string | null;
   memberships: {
     farmId: string;
     role: string;
@@ -53,6 +55,8 @@ export async function resolveToken(token: string): Promise<TokenUser | null> {
     .catch(() => {});
   return {
     userId: row.userId,
+    email: row.user.email,
+    name: row.user.name,
     memberships: row.user.memberships.map((m) => ({
       farmId: m.farmId,
       role: m.role,

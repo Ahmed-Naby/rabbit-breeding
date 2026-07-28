@@ -16,7 +16,7 @@ import { login, register } from "../auth";
  * farm's own local database (each farm has its own — see db/client.ts).
  */
 export function LoginPage({ locale }: { locale: Locale }) {
-  const t = getClientDictionary(locale).mobileAuth;
+  const t = getClientDictionary(locale).auth;
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

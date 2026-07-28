@@ -136,7 +136,10 @@ export const ar = {
     resettingOpsLabel: "جارِ الحذف…",
     resetOpsSuccessToast: "تم حذف كل العمليات",
   },
-  mobileAuth: {
+  auth: {
+    missingFields: "أدخل البريد الإلكتروني وكلمة المرور",
+    noFarmMembership: "حسابك غير مضاف لأي مزرعة — تواصل مع مالك المزرعة",
+    switchFarmLabel: "تبديل المزرعة",
     loginSubtitle: "سجّل الدخول لمزامنة بيانات مزرعتك",
     registerSubtitle: "أنشئ حسابًا جديدًا لإدارة مزرعتك",
     loginTab: "تسجيل الدخول",

@@ -307,7 +307,7 @@ export function AppShell() {
   const showSignOut = pageFilter !== null && !pageFilter.has(SETTINGS_PAGE);
 
   const handleSignOut = async () => {
-    if (!window.confirm(t.mobileAuth.logoutConfirm)) return;
+    if (!window.confirm(t.auth.logoutConfirm)) return;
 
     // logout() -> wipeAllLocalDatabases() wipes every local db (outbox
     // included) unconditionally, so anything still queued there would be
@@ -316,9 +316,9 @@ export function AppShell() {
     const netStatus = await Network.getStatus();
     const synced = netStatus.connected ? await flushOutbox() : !(await hasUnsyncedOps());
     if (!synced) {
-      window.alert(t.mobileAuth.logoutBlockedUnsynced);
+      window.alert(t.auth.logoutBlockedUnsynced);
       const force = window.confirm(
-        t.mobileAuth.logoutConfirm +
+        t.auth.logoutConfirm +
           "\n\n" +
           (locale === "ar"
             ? "توجد تعديلات محليّة لم تُرفع بعد. هل تريد تسجيل الخروج القسري وتجاهلها؟"
@@ -436,7 +436,7 @@ export function AppShell() {
                 className="flex w-full items-center justify-center gap-1.5 rounded-md border border-sidebar-border/60 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                {t.mobileAuth.logoutButton}
+                {t.auth.logoutButton}
               </button>
             )}
           </div>
@@ -524,7 +524,7 @@ export function AppShell() {
                     className="flex w-full items-center justify-center gap-1.5 rounded-lg border px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-500/10 dark:text-red-400"
                   >
                     <LogOut className="h-4 w-4" />
-                    {t.mobileAuth.logoutButton}
+                    {t.auth.logoutButton}
                   </button>
                 )}
               </div>

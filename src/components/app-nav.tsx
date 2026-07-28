@@ -11,10 +11,24 @@ import { LocaleToggle } from "@/components/locale-toggle";
 import { RabbitSearch } from "@/components/rabbit-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandMark } from "@/components/brand-mark";
+import { AccountMenu, type FarmOption } from "@/components/account-menu";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
 type NavT = Dictionary["nav"];
+
+/**
+ * Who is signed in and which farm they're viewing. Passed down from the root
+ * layout (a Server Component) rather than fetched here — the nav is a Client
+ * Component and must not read the session itself.
+ */
+export type SessionProps = {
+  authT: Dictionary["auth"];
+  email: string;
+  name: string | null;
+  farms: FarmOption[];
+  activeFarmId: string;
+};
 
 function NavLinks({ t, onNavigate }: { t: NavT; onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -68,7 +82,7 @@ function Brand({ id }: { id: string }) {
 }
 
 /** Desktop sidebar (md+). */
-export function Sidebar({ locale, t }: { locale: Locale; t: NavT }) {
+export function Sidebar({ locale, t, session }: { locale: Locale; t: NavT; session: SessionProps }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto bg-sidebar px-3 py-4 text-sidebar-foreground md:flex">
       <div className="mb-6">
@@ -77,6 +91,13 @@ export function Sidebar({ locale, t }: { locale: Locale; t: NavT }) {
       <RabbitSearch t={t} className="mb-4" />
       <NavLinks t={t} />
       <div className="mt-auto space-y-2.5">
+        <AccountMenu
+          t={session.authT}
+          email={session.email}
+          name={session.name}
+          farms={session.farms}
+          activeFarmId={session.activeFarmId}
+        />
         <ThemeToggle className="w-full" />
         <LocaleToggle
           locale={locale}
@@ -103,7 +124,7 @@ export function Sidebar({ locale, t }: { locale: Locale; t: NavT }) {
 }
 
 /** Mobile top bar with a collapsible menu (below md). */
-export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
+export function MobileNav({ locale, t, session }: { locale: Locale; t: NavT; session: SessionProps }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="md:hidden">
@@ -149,7 +170,14 @@ export function MobileNav({ locale, t }: { locale: Locale; t: NavT }) {
             </div>
             <RabbitSearch t={t} className="mb-3" />
             <NavLinks t={t} onNavigate={() => setOpen(false)} />
-            <div className="mt-4 pt-3 border-t border-sidebar-border/50">
+            <div className="mt-4 space-y-2.5 border-t border-sidebar-border/50 pt-3">
+              <AccountMenu
+                t={session.authT}
+                email={session.email}
+                name={session.name}
+                farms={session.farms}
+                activeFarmId={session.activeFarmId}
+              />
               <ThemeToggle className="w-full" />
             </div>
           </div>

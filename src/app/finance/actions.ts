@@ -9,7 +9,7 @@ import { fromDateInputValue } from "@/lib/dates";
 import { toCents } from "@/lib/units";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { currentFarmId } from "@/lib/tenant";
+import { resolveFarmId } from "@/lib/tenant";
 import {
   parseRecurringExpenses,
   dueRecurringPostings,
@@ -47,7 +47,7 @@ export async function createTransaction(
  * the whole array. Centralised here so that stays in one place.
  */
 async function writeTemplates(next: RecurringExpense[]) {
-  const farmId = currentFarmId();
+  const farmId = await resolveFarmId();
   await prisma.settings.upsert({
     where: { farmId },
     update: { recurringExpenses: next },
@@ -58,7 +58,7 @@ async function writeTemplates(next: RecurringExpense[]) {
 
 async function readTemplates(): Promise<RecurringExpense[]> {
   const settings = await prisma.settings.findUnique({
-    where: { farmId: currentFarmId() },
+    where: { farmId: await resolveFarmId() },
     select: { recurringExpenses: true },
   });
   return parseRecurringExpenses(settings?.recurringExpenses);

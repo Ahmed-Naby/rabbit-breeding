@@ -29,7 +29,7 @@ type Member = {
  */
 export function AccountCard({ locale }: { locale: Locale }) {
   const dict = getClientDictionary(locale);
-  const t = dict.mobileAuth;
+  const t = dict.auth;
   const nav = dict.nav;
   const [session, setSession] = useState<AuthSession | null>(() => getSession());
 

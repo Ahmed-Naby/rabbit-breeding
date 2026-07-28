@@ -56,3 +56,47 @@ export function currentFarmId(): string {
   if (fallback) return fallback;
   throw new Error("No farm context: wrap this call in runWithFarm() or set DEFAULT_FARM_ID");
 }
+
+/** Thrown when a browser reaches farm data with no session. Caught by the app shell. */
+export class NoSessionError extends Error {
+  constructor() {
+    super("NO_SESSION");
+    this.name = "NoSessionError";
+  }
+}
+
+/**
+ * The async form, and the one the Prisma extension uses.
+ *
+ * currentFarmId() cannot ask who is signed in: `cookies()` is async in Next 16
+ * and this function is called from synchronous positions all over the sync
+ * layer. Rather than make 29 call sites async, the split is by *who is
+ * asking* — the sync API and the ops registry always run inside runWithFarm()
+ * and keep the cheap synchronous path, while the web's Server Components and
+ * Actions, which have no ALS scope, resolve through the session cookie here.
+ *
+ * Precedence is ALS first on purpose: a sync push authenticated as farm A must
+ * never be re-pointed at farm B by a cookie that happens to be on the same
+ * request.
+ *
+ * next/headers is imported dynamically to break the cycle
+ * tenant -> web-session -> tokens -> prisma -> tenant, and to keep next/headers
+ * out of the bundle for the seed scripts and the desktop build, which import
+ * prisma but have no Next runtime at all.
+ */
+export async function resolveFarmId(): Promise<string> {
+  const ctx = storage.getStore();
+  if (ctx) return ctx.farmId;
+
+  const { getFarmContext } = await import("./web-session");
+  const farmCtx = await getFarmContext();
+  if (farmCtx.kind === "session") return farmCtx.farmId;
+
+  // Anonymous browser: no fallback. See the FarmContext doc comment — reading
+  // DEFAULT_FARM_ID here is what served real farm data to the public.
+  if (farmCtx.kind === "anonymous") throw new NoSessionError();
+
+  const fallback = process.env.DEFAULT_FARM_ID;
+  if (fallback) return fallback;
+  throw new Error("No farm context: wrap this call in runWithFarm() or set DEFAULT_FARM_ID");
+}

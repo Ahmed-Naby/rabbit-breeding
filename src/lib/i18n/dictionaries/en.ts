@@ -134,7 +134,10 @@ export const en: Dictionary = {
   // above because that section is passed wholesale from a Server Component
   // to web Client Components — resetConfirm is a function, and RSC cannot
   // serialize functions across that boundary.
-  mobileAuth: {
+  auth: {
+    missingFields: "Enter your email and password",
+    noFarmMembership: "Your account is not a member of any farm — contact the farm owner",
+    switchFarmLabel: "Switch farm",
     loginSubtitle: "Sign in to sync your farm's data",
     registerSubtitle: "Create an account to manage your farm",
     loginTab: "Sign in",

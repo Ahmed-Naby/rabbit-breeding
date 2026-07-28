@@ -1,6 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { currentFarmId } from "./tenant";
+import { resolveFarmId } from "./tenant";
 
 // Prisma 7 uses driver adapters: the DB connection is passed to the client
 // constructor rather than read from the schema. DATABASE_URL (Neon, pooled)
@@ -40,17 +40,23 @@ function makeClient() {
         async $allOperations({ model, operation, args, query }) {
           if (!TENANT_MODELS.has(model)) return query(args);
 
+          // Awaited, not the synchronous currentFarmId(): on the web there is
+          // no runWithFarm scope, so the farm comes from the session cookie —
+          // and reading a cookie is async in Next 16. This hook is the one
+          // place every tenant query already funnels through, which is why the
+          // session can be wired in here instead of at 40-odd page components.
+          const farmId = await resolveFarmId();
+
           /* eslint-disable @typescript-eslint/no-explicit-any */
           const a = args as any;
           if (WHERE_OPS.has(operation)) {
-            a.where = { AND: [{ farmId: currentFarmId() }, a.where ?? {}] };
+            a.where = { AND: [{ farmId }, a.where ?? {}] };
           } else if (operation === "create") {
-            a.data = { ...a.data, farmId: currentFarmId() };
+            a.data = { ...a.data, farmId };
           } else if (operation === "createMany" || operation === "createManyAndReturn") {
-            const farmId = currentFarmId();
             a.data = (Array.isArray(a.data) ? a.data : [a.data]).map((d: object) => ({ ...d, farmId }));
           } else if (operation === "upsert") {
-            a.create = { ...a.create, farmId: currentFarmId() };
+            a.create = { ...a.create, farmId };
           }
           /* eslint-enable @typescript-eslint/no-explicit-any */
           return query(a);

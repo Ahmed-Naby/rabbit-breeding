@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { currentFarmId } from "./tenant";
+import { resolveFarmId } from "./tenant";
 import type { Settings as SettingsRow } from "@/generated/prisma/client";
 import type { WeightUnit } from "./enums";
 
@@ -17,7 +17,7 @@ export type AppSettings = Omit<SettingsRow, "createdAt" | "updatedAt" | "weightU
  * Kept small and un-cached so changes take effect immediately.
  */
 export async function getSettings(): Promise<AppSettings> {
-  const farmId = currentFarmId();
+  const farmId = await resolveFarmId();
   const existing = await prisma.settings.findUnique({ where: { farmId } });
   const { createdAt: _createdAt, updatedAt: _updatedAt, ...row } =
     existing ?? (await prisma.settings.create({ data: { farmId } }));

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { currentFarmId } from "@/lib/tenant";
+import { resolveFarmId } from "@/lib/tenant";
 import { settingsSchema, breedSchema } from "@/lib/validations";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
 import { toCents } from "@/lib/units";
@@ -29,10 +29,11 @@ export async function updateSettings(
     feedPricePerTonCents: toCents(feedPricePerTon),
   };
 
+  const farmId = await resolveFarmId();
   await prisma.settings.upsert({
-    where: { farmId: currentFarmId() },
+    where: { farmId },
     update: d,
-    create: { farmId: currentFarmId(), ...d },
+    create: { farmId, ...d },
   });
 
   // Settings affect display across the whole app.
