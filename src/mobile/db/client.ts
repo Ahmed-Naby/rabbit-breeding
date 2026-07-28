@@ -137,6 +137,10 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     // Same sentinel on the weaning archive, where the survival rate is actually
     // computed (the rate needs bornAlive + bornDead + this, all on one row).
     `ALTER TABLE weaning_log ADD COLUMN bornDeadAtKindling INTEGER NOT NULL DEFAULT -1`,
+    // Nullable, unlike every settings column above it: NULL means the farm has
+    // never configured any fixed monthly expenses, which must stay
+    // distinguishable from an explicit empty list it deliberately cleared.
+    `ALTER TABLE settings_cache ADD COLUMN recurringExpenses TEXT`,
   ];
   for (const sql of migrations) {
     try {

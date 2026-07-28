@@ -76,6 +76,7 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
       feedGramsBuckPerDay: 0,
       feedGramsGrowerPerDay: 0,
       feedGramsJuvenilePerDay: 0,
+      recurringExpenses: null,
     }
   );
 }
@@ -1324,6 +1325,10 @@ export const localOpRegistry: Record<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   deleteTransaction: deleteTransaction as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateRecurringExpenses: updateRecurringExpenses as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  postRecurringExpenses: postRecurringExpenses as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateSettings: updateSettings as any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addBreed: addBreed as any,
@@ -1474,6 +1479,54 @@ export async function createTransaction(
   return applied;
 }
 
+/**
+ * المصروفات الثابتة الشهرية — write the whole template list at once.
+ *
+ * Deliberately NOT folded into updateSettings: that op is a full-row upsert
+ * where every column is `payload.x ?? <default>`, so a settings save (which
+ * knows nothing about these templates) would send no recurringExpenses and
+ * blank them. Keeping it separate also means the reverse holds — editing the
+ * templates cannot disturb the gestation days.
+ */
+export async function updateRecurringExpenses(
+  db: SQLiteDBConnection,
+  payload: { recurringExpenses: unknown }
+): Promise<LocalOpOutcome> {
+  await run(
+    db,
+    `INSERT INTO settings_cache (id, recurringExpenses) VALUES (1, ?)
+     ON CONFLICT(id) DO UPDATE SET recurringExpenses = excluded.recurringExpenses`,
+    [payload.recurringExpenses == null ? null : JSON.stringify(payload.recurringExpenses)]
+  );
+  return applied;
+}
+
+/**
+ * Book this month's fixed expenses as ordinary Transactions.
+ *
+ * OR IGNORE, and the ids come from the caller rather than createId(): a
+ * posting's id is derived from its template and its month (see
+ * lib/recurring-expenses.ts), so pressing the button twice — or two phones
+ * posting the same month while both offline — inserts the row once and skips it
+ * every time after. That is the entire duplicate-protection mechanism; there is
+ * no counter to keep in step.
+ */
+export async function postRecurringExpenses(
+  db: SQLiteDBConnection,
+  payload: { postings: { id: string; date: string; category: string; amountCents: number; notes?: string | null }[] }
+): Promise<LocalOpOutcome> {
+  const now = nowIso();
+  for (const p of payload.postings ?? []) {
+    await run(
+      db,
+      `INSERT OR IGNORE INTO transaction_ledger (id, date, type, category, amountCents, notes, rabbitId, createdAt, updatedAt)
+       VALUES (?, ?, 'expense', ?, ?, ?, NULL, ?, ?)`,
+      [p.id, p.date, p.category, p.amountCents, p.notes ?? null, now, now]
+    );
+  }
+  return applied;
+}
+
 export async function deleteTransaction(
   db: SQLiteDBConnection,
   payload: { id: string }
@@ -1482,6 +1535,15 @@ export async function deleteTransaction(
   return applied;
 }
 
+/**
+ * Note the shape: every column is `payload.x ?? <default>`, so this op REPLACES
+ * the whole row and a partial payload silently resets everything it omits.
+ * That is why recurringExpenses is absent from both the column list and the
+ * DO UPDATE clause — left out of the upsert entirely, SQLite preserves it;
+ * listed with a `?? null`, every settings save would erase it. Anything else
+ * settings-adjacent that is edited from another screen needs its own op too
+ * (see updateRecurringExpenses).
+ */
 export async function updateSettings(
   db: SQLiteDBConnection,
   payload: Record<string, any>

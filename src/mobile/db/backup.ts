@@ -124,6 +124,16 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   const db = await getDb();
   type Row = Record<string, unknown>;
 
+  /** null stays null; anything unparseable is dropped rather than shipped. */
+  const parseSettingsJson = (value: unknown): unknown => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
   const [
     settings, rabbits, breedings, litters, weightRecords, healthRecords,
     transactions, kitStockMovements, breeds, pregnancyTestLogs, kindlingLogs, weaningLogs,
@@ -135,7 +145,8 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
               nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays,
               fosterWindowDays, fosterHighKits, fosterLowKits, currency,
               defaultPricePerKgCents, feedPricePerTonCents,
-              feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay
+              feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay,
+              recurringExpenses
        FROM settings_cache WHERE id = 1`
     ),
     queryAll<Row>(
@@ -231,7 +242,13 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
   const remappedTransactions = transactions.map(withPermanentId(txIds));
 
   return {
-    settings,
+    // recurringExpenses lives in SQLite as a JSON string; the server's column
+    // is JSONB and wants the array itself. Sent as-is it would land as a JSON
+    // *string* — technically valid JSON, so no error, just a settings row no
+    // reader recognises. Parsed back here, both sides hold the same shape.
+    settings: settings
+      ? { ...settings, recurringExpenses: parseSettingsJson(settings.recurringExpenses) }
+      : settings,
     // SQLite stores booleans as 0/1; Prisma validates the real type.
     rabbits: rabbits.map((r) => ({
       ...r,

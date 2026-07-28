@@ -109,7 +109,12 @@ CREATE TABLE IF NOT EXISTS settings_cache (
   feedGramsDoeNursingPerDay  INTEGER NOT NULL DEFAULT 0,
   feedGramsBuckPerDay        INTEGER NOT NULL DEFAULT 0,
   feedGramsGrowerPerDay      INTEGER NOT NULL DEFAULT 0,
-  feedGramsJuvenilePerDay    INTEGER NOT NULL DEFAULT 0
+  feedGramsJuvenilePerDay    INTEGER NOT NULL DEFAULT 0,
+  -- المصروفات الثابتة الشهرية, as a JSON array of templates. TEXT because
+  -- SQLite has no JSON type; the value is stored and forwarded verbatim so the
+  -- server's JSONB column and this one can never disagree about its shape.
+  -- NULL = never configured (see the Settings model and lib/recurring-expenses.ts).
+  recurringExpenses          TEXT
 );
 
 -- Single-row sync bookkeeping: this device's identity and its pull cursor.

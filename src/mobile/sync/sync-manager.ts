@@ -286,8 +286,8 @@ export async function pull(): Promise<boolean> {
   if (data.settings) {
     const s = data.settings;
     set.push({
-      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay, recurringExpenses)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
          gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
@@ -304,7 +304,8 @@ export async function pull(): Promise<boolean> {
          feedGramsDoeNursingPerDay = excluded.feedGramsDoeNursingPerDay,
          feedGramsBuckPerDay = excluded.feedGramsBuckPerDay,
          feedGramsGrowerPerDay = excluded.feedGramsGrowerPerDay,
-         feedGramsJuvenilePerDay = excluded.feedGramsJuvenilePerDay`,
+         feedGramsJuvenilePerDay = excluded.feedGramsJuvenilePerDay,
+         recurringExpenses = excluded.recurringExpenses`,
       values: [
         s.weightUnit,
         s.gestationDays,
@@ -331,6 +332,10 @@ export async function pull(): Promise<boolean> {
         s.feedGramsBuckPerDay ?? 0,
         s.feedGramsGrowerPerDay ?? 0,
         s.feedGramsJuvenilePerDay ?? 0,
+        // Re-serialised, not passed through: the server sends a parsed JSON
+        // value (an array), and SQLite would bind that as "[object Object]".
+        // Null stays null — see the column comment in schema.sql.
+        s.recurringExpenses == null ? null : JSON.stringify(s.recurringExpenses),
       ],
     });
   }

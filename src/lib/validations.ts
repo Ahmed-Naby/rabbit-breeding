@@ -316,6 +316,29 @@ export function kitSaleSchema(t: Dictionary["validation"]) {
 
 export type KitSaleInput = z.infer<ReturnType<typeof kitSaleSchema>>;
 
+// Recurring fixed expenses --------------------------------------------------
+
+/**
+ * One template on the «المصروفات الثابتة الشهرية» form. Not part of
+ * settingsSchema: these are edited from the finance page, and folding them in
+ * would mean every settings save had to carry them (and every template save had
+ * to carry the gestation days) — see the note on the mobile updateSettings op.
+ */
+export function recurringExpenseSchema(t: Dictionary["validation"]) {
+  return z.object({
+    category: z.enum(TRANSACTION_CATEGORIES),
+    // Whole currency units, like the money fields in settingsSchema — the farm
+    // types 1500, not 150000.
+    amount: z.coerce.number().positive(t.amountPositive),
+    // 28, not 31, so the schedule has no hole in February. See RecurringExpense.
+    dayOfMonth: z.coerce.number().int().min(1).max(28),
+    startDate: requiredDate(t),
+    note: optionalText,
+  });
+}
+
+export type RecurringExpenseInput = z.infer<ReturnType<typeof recurringExpenseSchema>>;
+
 // Settings ------------------------------------------------------------------
 
 export function settingsSchema(t: Dictionary["validation"]) {

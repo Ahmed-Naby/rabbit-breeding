@@ -55,6 +55,7 @@ import {
 import { AsyncLocalStorage } from "node:async_hooks";
 import { prisma } from "@/lib/prisma";
 import { currentFarmId } from "@/lib/tenant";
+import type { Prisma } from "@/generated/prisma/client";
 
 // globalThis-cached for the same reason tenant.ts caches its farm storage: a
 // dev hot-reload can otherwise leave push/route.ts writing to one instance
@@ -564,6 +565,48 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
       prisma.transaction.delete({ where: { id: p.id as string } }),
       prisma.syncTombstone.create({ data: { model: "transaction_ledger", recordId: p.id as string } }),
     ]);
+    return applied;
+  },
+
+  updateRecurringExpenses: async (p, clientAt) => {
+    // No shouldSkipUpdate guard, unlike updateSettings: that guard exists to
+    // stop a stale full-row settings payload from rolling back columns it did
+    // not mean to touch, and this op writes exactly one column. Gating it on
+    // the settings row's mtime would let an unrelated settings save on another
+    // device silently swallow the farm's edit to its expense templates.
+    const value = (p.recurringExpenses ?? []) as Prisma.InputJsonValue;
+    await prisma.settings.upsert({
+      where: { farmId: currentFarmId() },
+      update: { recurringExpenses: value },
+      create: { farmId: currentFarmId(), recurringExpenses: value },
+    });
+    return applied;
+  },
+
+  postRecurringExpenses: async (p, clientAt) => {
+    const postings = (p.postings ?? []) as {
+      id: string;
+      date: string;
+      category: string;
+      amountCents: number;
+      notes?: string | null;
+    }[];
+    if (postings.length === 0) return applied;
+    // skipDuplicates is the point, not a nicety: the ids are derived from
+    // template + month (see lib/recurring-expenses.ts), so a second device
+    // posting the same month arrives here with the same ids and must be a
+    // no-op rather than a P2002 that rejects the whole op.
+    await prisma.transaction.createMany({
+      data: postings.map((row) => ({
+        id: row.id,
+        date: new Date(row.date),
+        type: "expense",
+        category: row.category,
+        amountCents: row.amountCents,
+        notes: row.notes ?? null,
+      })),
+      skipDuplicates: true,
+    });
     return applied;
   },
 

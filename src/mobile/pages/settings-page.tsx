@@ -231,6 +231,7 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         feedGramsBuckPerDay: 0,
         feedGramsGrowerPerDay: 0,
         feedGramsJuvenilePerDay: 0,
+        recurringExpenses: null,
       });
     }
   }, []);

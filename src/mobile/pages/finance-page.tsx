@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Wallet, Plus, Trash2, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Wallet, Plus, Trash2, ArrowUpRight, ArrowDownLeft, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -18,6 +18,13 @@ import { toDateInputValue } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageHeader } from "@/components/page-header";
+import {
+  parseRecurringExpenses,
+  dueRecurringPostings,
+  recurringMonthlyTotalCents,
+  type RecurringExpense,
+} from "@/lib/recurring-expenses";
+import { createId } from "@paralleldrive/cuid2";
 
 export function FinancePage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
@@ -25,6 +32,17 @@ export function FinancePage({ locale }: { locale: Locale }) {
   const [currency, setCurrency] = useState("USD");
   const [feedPricePerTonCents, setFeedPricePerTonCents] = useState(0);
   const [tons, setTons] = useState("");
+
+  // المصروفات الثابتة الشهرية
+  const [recurring, setRecurring] = useState<RecurringExpense[]>([]);
+  const [postedRecurringIds, setPostedRecurringIds] = useState<string[]>([]);
+  const [doeCount, setDoeCount] = useState(0);
+  const [recCategory, setRecCategory] = useState("rent");
+  const [recAmount, setRecAmount] = useState("");
+  const [recDay, setRecDay] = useState("1");
+  const [recStart, setRecStart] = useState(() => toDateInputValue(new Date()));
+  const [recNote, setRecNote] = useState("");
+  const [recBusy, setRecBusy] = useState(false);
 
   const [type, setType] = useState<"income" | "expense">("expense");
   const [date, setDate] = useState(() => toDateInputValue(new Date()));
@@ -39,6 +57,9 @@ export function FinancePage({ locale }: { locale: Locale }) {
     setTransactions(res.transactions);
     setCurrency(res.settings.currency);
     setFeedPricePerTonCents(res.settings.feedPricePerTonCents);
+    setRecurring(parseRecurringExpenses(res.settings.recurringExpenses));
+    setPostedRecurringIds(res.postedRecurringIds);
+    setDoeCount(res.doeCount);
   }, []);
 
   const showTonnage = category === "feed" && feedPricePerTonCents > 0;
@@ -80,8 +101,8 @@ export function FinancePage({ locale }: { locale: Locale }) {
       setTons("");
       setNotes("");
       void load();
-    } catch (err: any) {
-      toast.error(err.message || "Error");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
     } finally {
       setSubmitting(false);
     }
@@ -95,8 +116,92 @@ export function FinancePage({ locale }: { locale: Locale }) {
       await enqueue("deleteTransaction", { id });
       toast.success(locale === "ar" ? "تم الحذف بنجاح" : "Deleted successfully");
       void load();
-    } catch (err: any) {
-      toast.error(err.message || "Error");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    }
+  };
+
+  // Same three helpers as the web card, over the same shared lib — the two
+  // platforms must never disagree about which month is due.
+  const recurringMonthly = recurringMonthlyTotalCents(recurring);
+  const dueRecurring = dueRecurringPostings(recurring, new Date(), new Set(postedRecurringIds));
+  const dueRecurringTotal = dueRecurring.reduce((s, r) => s + r.amountCents, 0);
+
+  /** The templates are one Json value, so every edit rewrites the whole list. */
+  const saveTemplates = async (next: RecurringExpense[]) => {
+    await enqueue("updateRecurringExpenses", { recurringExpenses: next });
+  };
+
+  const handleAddRecurring = async () => {
+    const val = parseFloat(recAmount.trim());
+    if (isNaN(val) || val <= 0) {
+      toast.error(locale === "ar" ? "يرجى إدخال مبلغ صحيح" : "Please enter a valid amount");
+      return;
+    }
+    const day = Math.min(28, Math.max(1, Math.round(Number(recDay) || 1)));
+    setRecBusy(true);
+    try {
+      await saveTemplates([
+        ...recurring,
+        {
+          id: createId(),
+          category: recCategory,
+          amountCents: Math.round(val * 100),
+          dayOfMonth: day,
+          startDate: recStart,
+          note: recNote.trim() || null,
+        },
+      ]);
+      toast.success(t.finance.recurringAddedToast);
+      setRecAmount("");
+      setRecNote("");
+      void load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setRecBusy(false);
+    }
+  };
+
+  const handleRemoveRecurring = async (id: string) => {
+    if (!window.confirm(t.finance.recurringRemoveConfirm)) return;
+    setRecBusy(true);
+    try {
+      await saveTemplates(recurring.filter((tpl) => tpl.id !== id));
+      toast.success(t.finance.recurringRemovedToast);
+      void load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setRecBusy(false);
+    }
+  };
+
+  const handlePostRecurring = async () => {
+    if (dueRecurring.length === 0) {
+      toast.info(t.finance.recurringNothingDue);
+      return;
+    }
+    setRecBusy(true);
+    try {
+      // One op carrying every posting, not one op each: the ids are already
+      // derived from template + month, so the batch is idempotent as a whole
+      // and a half-synced outbox can't leave a month partly booked.
+      await enqueue("postRecurringExpenses", {
+        postings: dueRecurring.map((r) => ({
+          id: r.id,
+          date: r.date.toISOString(),
+          category: r.category,
+          amountCents: r.amountCents,
+          notes: r.notes,
+        })),
+      });
+      toast.success(t.finance.recurringPostedToast(dueRecurring.length));
+      void load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error");
+    } finally {
+      setRecBusy(false);
     }
   };
 
@@ -274,6 +379,168 @@ export function FinancePage({ locale }: { locale: Locale }) {
                 {locale === "ar" ? "تسجيل المعاملة" : "Save Transaction"}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        {/* المصروفات الثابتة الشهرية */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              {t.finance.recurringTitle}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <p className="text-sm text-muted-foreground">{t.finance.recurringDescription}</p>
+
+            {recurring.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t.finance.recurringEmpty}</p>
+            ) : (
+              <div className="divide-y rounded-lg border">
+                {recurring.map((tpl) => (
+                  <div key={tpl.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium">
+                        {categoryLabels[tpl.category] ?? tpl.category}
+                        {tpl.note ? (
+                          <span className="ms-2 font-normal text-muted-foreground">{tpl.note}</span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.finance.recurringDayOf(tpl.dayOfMonth)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium tabular-nums text-red-600 dark:text-red-400">
+                        −{formatMoney(tpl.amountCents, currency)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={recBusy}
+                        onClick={() => handleRemoveRecurring(tpl.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {recurring.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 px-4 py-3">
+                <div className="text-sm">
+                  <p className="font-medium">
+                    {t.finance.recurringMonthlyTotal(formatMoney(recurringMonthly, currency))}
+                  </p>
+                  {doeCount > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t.finance.recurringPerDoeHint(
+                        formatMoney(Math.round(recurringMonthly / doeCount), currency)
+                      )}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="text-end">
+                  <Button
+                    size="sm"
+                    disabled={recBusy || dueRecurring.length === 0}
+                    onClick={handlePostRecurring}
+                  >
+                    {t.finance.recurringPostButton}
+                  </Button>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {dueRecurring.length === 0
+                      ? t.finance.recurringNothingDue
+                      : t.finance.recurringDueCount(
+                          dueRecurring.length,
+                          formatMoney(dueRecurringTotal, currency)
+                        )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="recCategory">{locale === "ar" ? "الفئة" : "Category"}</Label>
+                <Select
+                  items={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
+                  value={recCategory}
+                  onValueChange={(v) => setRecCategory(v ?? "")}
+                  disabled={recBusy}
+                >
+                  <SelectTrigger id="recCategory">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRANSACTION_CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {categoryLabels[c]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recAmount">{locale === "ar" ? `المبلغ (${currency})` : `Amount (${currency})`}</Label>
+                <Input
+                  id="recAmount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="1500.00"
+                  value={recAmount}
+                  onChange={(e) => setRecAmount(e.target.value)}
+                  disabled={recBusy}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recDay">{t.finance.recurringDayLabel}</Label>
+                <Input
+                  id="recDay"
+                  type="number"
+                  min="1"
+                  max="28"
+                  value={recDay}
+                  onChange={(e) => setRecDay(e.target.value)}
+                  disabled={recBusy}
+                />
+                <p className="text-xs text-muted-foreground">{t.finance.recurringDayHint}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recStart">{t.finance.recurringStartLabel}</Label>
+                <Input
+                  id="recStart"
+                  type="date"
+                  value={recStart}
+                  onChange={(e) => setRecStart(e.target.value)}
+                  disabled={recBusy}
+                />
+                <p className="text-xs text-muted-foreground">{t.finance.recurringStartHint}</p>
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="recNote">{locale === "ar" ? "ملاحظات" : "Notes"}</Label>
+                <Input
+                  id="recNote"
+                  placeholder="..."
+                  value={recNote}
+                  onChange={(e) => setRecNote(e.target.value)}
+                  disabled={recBusy}
+                />
+              </div>
+            </div>
+
+            <Button onClick={handleAddRecurring} disabled={recBusy} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.finance.recurringAddButton}
+            </Button>
           </CardContent>
         </Card>
 

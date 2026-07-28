@@ -70,6 +70,14 @@ model Settings {
   // and needs a full local wipe + re-bootstrap rather than a normal
   // incremental pull (which only ever adds/updates rows, never notices
   // deletions).
+  // المصروفات الثابتة الشهرية — إيجار/مرتبات/كهرباء. An array of templates:
+  // [{ id, category, amountCents, dayOfMonth, startDate, note }]. JSON rather
+  // than its own model on purpose — see the header of lib/recurring-expenses.ts
+  // for why, and for why the postings need no "posted through" marker column.
+  // Nothing is charged from these automatically on read: the farm presses زرار
+  // and real Transactions are written, so the ledger stays the single source of
+  // truth for every figure the app reports.
+  recurringExpenses        Json?
   dataResetAt              DateTime?
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt

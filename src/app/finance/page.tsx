@@ -12,6 +12,12 @@ import { cn, compareTagId } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { TransactionForm } from "./transaction-form";
 import { DeleteTransactionButton } from "./delete-button";
+import { RecurringExpensesCard } from "./recurring-expenses-card";
+import {
+  parseRecurringExpenses,
+  dueRecurringPostings,
+  RECURRING_ID_PREFIX,
+} from "@/lib/recurring-expenses";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -42,7 +48,7 @@ export default async function FinancePage({
     ? { date: { gte: start } }
     : {};
 
-  const [transactions, settings, { locale, t }] = await Promise.all([
+  const [transactions, settings, { locale, t }, postedIds, doeCount] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: { rabbit: { select: { id: true, tagId: true } } },
@@ -50,7 +56,23 @@ export default async function FinancePage({
     }),
     getSettings(),
     getDictionary(),
+    // Its own query rather than a filter over `transactions`: that list is
+    // clipped to the selected range, so switching to «هذا الشهر» would hide
+    // last month's postings and make them look due all over again.
+    prisma.transaction.findMany({
+      where: { id: { startsWith: RECURRING_ID_PREFIX } },
+      select: { id: true },
+    }),
+    prisma.rabbit.count({ where: { sex: "doe", status: "active" } }),
   ]);
+
+  const recurringTemplates = parseRecurringExpenses(settings.recurringExpenses);
+  const dueRecurring = dueRecurringPostings(
+    recurringTemplates,
+    new Date(),
+    new Set(postedIds.map((r) => r.id))
+  );
+  const dueRecurringTotal = dueRecurring.reduce((s, r) => s + r.amountCents, 0);
 
   const RANGES: { key: Range; label: string }[] = [
     { key: "month", label: t.finance.rangeMonth },
@@ -121,6 +143,16 @@ export default async function FinancePage({
         rabbitOptions={rabbitOptions}
         currency={settings.currency}
         feedPricePerTonCents={settings.feedPricePerTonCents}
+        tCommon={t.common}
+        locale={locale}
+      />
+
+      <RecurringExpensesCard
+        templates={recurringTemplates}
+        dueCount={dueRecurring.length}
+        dueTotalCents={dueRecurringTotal}
+        currency={settings.currency}
+        doeCount={doeCount}
         tCommon={t.common}
         locale={locale}
       />

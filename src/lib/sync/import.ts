@@ -1,4 +1,7 @@
-import type { Prisma } from "@/generated/prisma/client";
+// Value import, not `import type`: Prisma.DbNull below is a runtime sentinel —
+// it is how a Json column is set to SQL NULL, since a bare null on a Json field
+// means "don't touch this column".
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { currentFarmId } from "@/lib/tenant";
 import { deleteAllFarmData } from "./delete-all";
@@ -249,6 +252,11 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         feedGramsBuckPerDay: s?.feedGramsBuckPerDay ?? 0,
         feedGramsGrowerPerDay: s?.feedGramsGrowerPerDay ?? 0,
         feedGramsJuvenilePerDay: s?.feedGramsJuvenilePerDay ?? 0,
+        // `?? Prisma.DbNull` rather than `?? null`: on a Json column Prisma
+        // reads a bare null as "leave it alone", so an import from a backup
+        // that predates the column would keep whatever the target farm had —
+        // and an import is supposed to replace the target, not merge into it.
+        recurringExpenses: (s?.recurringExpenses ?? Prisma.DbNull) as Prisma.InputJsonValue,
         dataResetAt,
       };
       await tx.settings.upsert({

@@ -1021,6 +1021,39 @@ export const ar = {
     notesLabel: "ملاحظات",
     submitButton: "إضافة معاملة",
     deletedToast: "تم حذف المعاملة",
+    // المصروفات الثابتة الشهرية
+    recurringTitle: "المصروفات الثابتة الشهرية",
+    recurringDescription:
+      "الإيجار والمرتبات والكهرباء — تكاليف بتيجي كل شهر سواء المزرعة أنتجت أو لأ. سجّلها مرة واحدة هنا واضغط «تسجيل المستحق» بدل ما تدخّلها بإيدك كل شهر.",
+    recurringMonthlyTotal: (amount: string) => `الإجمالي الشهري: ${amount}`,
+    recurringPerDoeHint: (amount: string) => `أي ${amount} على كل أم في الشهر.`,
+    recurringEmpty: "لا توجد مصروفات ثابتة مسجّلة.",
+    recurringDayLabel: "يوم الاستحقاق",
+    recurringDayHint: "من 1 إلى 28 — عشان الشهور القصيرة متعدّيش من غير تسجيل.",
+    recurringStartLabel: "يبدأ من",
+    recurringStartHint: "مش هيتسجّل أي شهر قبل التاريخ ده.",
+    recurringDayOf: (day: number) => `يوم ${day} من كل شهر`,
+    recurringAddButton: "إضافة مصروف ثابت",
+    recurringAddedToast: "تمت إضافة المصروف الثابت",
+    recurringRemovedToast: "تم حذف المصروف الثابت",
+    recurringRemoveConfirm:
+      "حذف القالب ده هيوقّف تسجيله في الشهور الجاية بس — المعاملات اللي اتسجّلت فعلًا هتفضل مكانها. تمام؟",
+    recurringPostButton: "تسجيل المستحق",
+    // Counts ENTRIES, not months: three templates over three unbooked months
+    // is nine rows, and calling that "9 months" would read as three years of
+    // arrears on a farm that is merely a quarter behind.
+    recurringDueCount: (count: number, amount: string) => {
+      const noun =
+        count === 1 ? "معاملة واحدة"
+        : count === 2 ? "معاملتين"
+        : count <= 10 ? `${count} معاملات`
+        : `${count} معاملة`;
+      return `مستحق ${noun} (${amount})`;
+    },
+    recurringNothingDue: "مفيش حاجة مستحقة دلوقتي — كل الشهور اللي فاتت متسجّلة.",
+    recurringPostedToast: (count: number) =>
+      count === 1 ? "تم تسجيل معاملة واحدة" : `تم تسجيل ${count} معاملة`,
+    recurringPostedNote: "مصروف ثابت شهري",
   },
   rabbits: {
     saveButton: "حفظ الأرنب",

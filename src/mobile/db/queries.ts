@@ -70,6 +70,7 @@ const DEFAULT_SETTINGS: LocalSettings = {
   feedGramsBuckPerDay: 0,
   feedGramsGrowerPerDay: 0,
   feedGramsJuvenilePerDay: 0,
+  recurringExpenses: null,
 };
 
 function toDate(iso: string | null): Date | null {
@@ -1855,13 +1856,33 @@ export type LocalTransaction = {
 export async function fetchFinancePageData(db: SQLiteDBConnection): Promise<{
   transactions: LocalTransaction[];
   settings: LocalSettings;
+  /** Ids of recurring-expense postings already booked — see lib/recurring-expenses.ts. */
+  postedRecurringIds: string[];
+  /** Active does, for reading the fixed monthly cost per doe. */
+  doeCount: number;
 }> {
   const settings = await getLocalSettings(db);
   const transactions = await queryAll<LocalTransaction>(
     db,
     "SELECT id, date, type, category, amountCents, notes FROM transaction_ledger ORDER BY date DESC, createdAt DESC LIMIT 200"
   );
-  return { transactions, settings };
+  // Its own query, not a filter over the list above: that one is capped at 200
+  // rows, so on a busy farm an older posting would fall off the end and look
+  // due again every time the page loaded.
+  const posted = await queryAll<{ id: string }>(
+    db,
+    "SELECT id FROM transaction_ledger WHERE id LIKE 'rec-%'"
+  );
+  const doeRow = await queryOne<{ n: number }>(
+    db,
+    "SELECT COUNT(*) AS n FROM rabbit WHERE sex = 'doe' AND status = 'active'"
+  );
+  return {
+    transactions,
+    settings,
+    postedRecurringIds: posted.map((r) => r.id),
+    doeCount: doeRow?.n ?? 0,
+  };
 }
 
 export type LocalBreed = {

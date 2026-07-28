@@ -1022,6 +1022,32 @@ export const en: Dictionary = {
     notesLabel: "Notes",
     submitButton: "Add transaction",
     deletedToast: "Transaction deleted",
+    // Recurring fixed monthly expenses
+    recurringTitle: "Fixed monthly expenses",
+    recurringDescription:
+      "Rent, salaries, electricity — costs that arrive whether the farm produced anything or not. Set them up once here and press “Post what's due” instead of typing them in every month.",
+    recurringMonthlyTotal: (amount: string) => `Monthly total: ${amount}`,
+    recurringPerDoeHint: (amount: string) => `That is ${amount} per doe per month.`,
+    recurringEmpty: "No fixed expenses set up yet.",
+    recurringDayLabel: "Day due",
+    recurringDayHint: "1–28, so a short month can never pass unbooked.",
+    recurringStartLabel: "Starting from",
+    recurringStartHint: "No month before this date is ever posted.",
+    recurringDayOf: (day: number) => `Day ${day} of each month`,
+    recurringAddButton: "Add fixed expense",
+    recurringAddedToast: "Fixed expense added",
+    recurringRemovedToast: "Fixed expense removed",
+    recurringRemoveConfirm:
+      "Removing this template only stops future months — transactions already posted stay in the ledger. Continue?",
+    recurringPostButton: "Post what's due",
+    // Entries, not months — three templates over three unbooked months is nine
+    // rows, and "9 months" would read as three years behind.
+    recurringDueCount: (count: number, amount: string) =>
+      count === 1 ? `1 entry due (${amount})` : `${count} entries due (${amount})`,
+    recurringNothingDue: "Nothing due right now — every past month is already posted.",
+    recurringPostedToast: (count: number) =>
+      count === 1 ? "1 transaction posted" : `${count} transactions posted`,
+    recurringPostedNote: "Fixed monthly expense",
   },
   rabbits: {
     saveButton: "Save rabbit",

@@ -1,3 +1,7 @@
+// Prisma.DbNull is a runtime sentinel: on a Json column a bare null means
+// "leave the column as it is", which on a wipe would preserve exactly what the
+// wipe is meant to destroy.
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { currentFarmId } from "@/lib/tenant";
 import { deleteAllFarmData } from "./delete-all";
@@ -43,6 +47,7 @@ export async function runWipe(): Promise<{ dataResetAt: string }> {
         feedGramsBuckPerDay: 0,
         feedGramsGrowerPerDay: 0,
         feedGramsJuvenilePerDay: 0,
+        recurringExpenses: Prisma.DbNull,
         dataResetAt,
       },
     });

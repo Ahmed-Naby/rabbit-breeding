@@ -90,6 +90,8 @@ export type LocalSettings = {
   feedGramsBuckPerDay: number;
   feedGramsGrowerPerDay: number;
   feedGramsJuvenilePerDay: number;
+  /** JSON array of recurring-expense templates, verbatim. Parse with parseRecurringExpenses. */
+  recurringExpenses: string | null;
 };
 
 export type OutboxStatus = "pending" | "syncing" | "applied" | "already_applied" | "rejected";
