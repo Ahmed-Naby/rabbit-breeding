@@ -2546,19 +2546,26 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
       [fromIso, toIso]
     ),
+    // Dying retires the number: setRabbitStatus clears tagId and parks it in
+    // retiredTagId, so "was this a tagged mother/buck" cannot be asked of tagId
+    // alone — `tagId IS NOT NULL AND deceased` matches nothing the app can
+    // produce, which put every dead doe and buck in the untagged سلالات bucket
+    // and left «نافق الأمهات» and «نافق الذكور» permanently at zero. The
+    // mortality page already reads it this way, as does the server (see the
+    // matching note in reports/report-data.ts); this is the same test.
     queryOne<{ count: number }>(
       db,
-      "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND retiredTagId IS NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
       [fromIso, toIso]
     ),
     queryOne<{ count: number }>(
       db,
-      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND (tagId IS NOT NULL OR retiredTagId IS NOT NULL) AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
       [fromIso, toIso]
     ),
     queryOne<{ count: number }>(
       db,
-      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
+      "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND (tagId IS NOT NULL OR retiredTagId IS NOT NULL) AND status = 'deceased' AND updatedAt >= ? AND updatedAt < ?",
       [fromIso, toIso]
     ),
     queryOne<{ count: number }>(
