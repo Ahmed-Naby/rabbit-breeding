@@ -92,10 +92,26 @@ async function main() {
       await tx.rabbit.deleteMany({ where });
       await tx.breed.deleteMany({ where });
 
+      // Stamping dataResetAt is not optional bookkeeping — it is what makes a
+      // reload safe for anything that has already synced this farm.
+      //
+      // Every row above is deleted straight through deleteMany, which writes no
+      // SyncTombstone, and every row below gets a brand-new id. A device that
+      // had already mirrored the previous load therefore keeps its old copy AND
+      // receives the new one, so its archives silently DOUBLE: the herd tab read
+      // 12.5 cycles per doe per year against a target of 8 (157%!) because 622
+      // kindlings — the same 311 twice — were divided by the 200 does the device
+      // still had from the first load. Every per-doe average on the tab was
+      // exactly 2x, and nothing about the numbers said "duplicate".
+      //
+      // A fresh dataResetAt is the mechanism the sync layer already has for
+      // exactly this: pull() compares it against the one the device last saw and,
+      // when it moves, wipes the local mirror and re-bootstraps instead of
+      // merging a delta (see src/mobile/sync/sync-manager.ts).
       await tx.settings.upsert({
         where: { farmId: DEMO_FARM_ID },
-        update: data.settings,
-        create: { ...data.settings, farmId: DEMO_FARM_ID },
+        update: { ...data.settings, dataResetAt: new Date() },
+        create: { ...data.settings, farmId: DEMO_FARM_ID, dataResetAt: new Date() },
       });
 
       // Parent → child, so no FK is ever pointed at a row that isn't in yet.
