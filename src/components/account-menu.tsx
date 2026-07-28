@@ -6,6 +6,7 @@ import { Check, ChevronDown, LogOut, Warehouse } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -77,24 +78,31 @@ export function AccountMenu({
         {/* Only worth a picker when there is something to pick between. */}
         {farms.length > 1 ? (
           <>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-              {t.switchFarmLabel}
-            </DropdownMenuLabel>
-            {farms.map((f) => (
-              <DropdownMenuItem
-                key={f.farmId}
-                onSelect={() => onSwitch(f.farmId)}
-                className="gap-2"
-              >
-                <Check
-                  className={cn("size-4 shrink-0", f.farmId !== activeFarmId && "opacity-0")}
-                />
-                <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {f.role === "owner" ? t.roleOwner : t.roleWorker}
-                </span>
-              </DropdownMenuItem>
-            ))}
+            {/* The group wrapper is load-bearing, not decoration:
+                DropdownMenuLabel is Base UI's Menu.GroupLabel, which reads a
+                context only <Menu.Group> provides and throws outright without
+                it — taking the whole page down with it, since the menu lives
+                in the root layout and there is no error boundary above it. */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                {t.switchFarmLabel}
+              </DropdownMenuLabel>
+              {farms.map((f) => (
+                <DropdownMenuItem
+                  key={f.farmId}
+                  onSelect={() => onSwitch(f.farmId)}
+                  className="gap-2"
+                >
+                  <Check
+                    className={cn("size-4 shrink-0", f.farmId !== activeFarmId && "opacity-0")}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {f.role === "owner" ? t.roleOwner : t.roleWorker}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
         ) : null}
