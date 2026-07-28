@@ -190,14 +190,30 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       where: { type: "death", date: dateRange },
       _sum: { count: true },
     }),
+    // Dying retires the number: setRabbitStatusOp clears tagId and parks it in
+    // retiredTagId, so "was this a tagged mother/buck" cannot be asked of tagId
+    // alone — `tagId != null AND deceased` matches nothing the app can produce,
+    // which put every dead doe and buck in the untagged سلالات bucket and left
+    // «نافق الأمهات» and «نافق الذكور» permanently at zero. /mortality already
+    // reads it this way (see its own note); this is the same test.
     prisma.rabbit.count({
-      where: { tagId: null, status: "deceased", updatedAt: dateRange },
+      where: { tagId: null, retiredTagId: null, status: "deceased", updatedAt: dateRange },
     }),
     prisma.rabbit.count({
-      where: { sex: "doe", tagId: { not: null }, status: "deceased", updatedAt: dateRange },
+      where: {
+        sex: "doe",
+        status: "deceased",
+        updatedAt: dateRange,
+        OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      },
     }),
     prisma.rabbit.count({
-      where: { sex: "buck", tagId: { not: null }, status: "deceased", updatedAt: dateRange },
+      where: {
+        sex: "buck",
+        status: "deceased",
+        updatedAt: dateRange,
+        OR: [{ tagId: { not: null } }, { retiredTagId: { not: null } }],
+      },
     }),
     prisma.rabbit.count({ where: { status: "culled", updatedAt: dateRange } }),
     // WeaningLog, not Litter — same reason as getKitStockBalanceAsOf: a doe who
