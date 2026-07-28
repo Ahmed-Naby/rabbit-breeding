@@ -181,6 +181,8 @@ function rollTier() {
 type Doe = {
   id: string;
   tagId: string | null;
+  /** The number she wore while she was in the herd, kept even after it is retired. */
+  originalTag: string;
   tier: (typeof TIERS)[number];
   enteredAt: Date;
   /** Set for the does that leave the herd mid-year. */
@@ -207,11 +209,15 @@ for (let i = 1; i <= ACTIVE_DOES + DECEASED_COUNT + CULLED_COUNT; i++) {
 
   const exitAt = isDeceased || isCulled ? daysAgo(int(10, SIM_DAYS - 60)) : null;
 
+  // Leaving the herd frees the number for reuse: setRabbitStatusOp nulls tagId
+  // and parks the old one in retiredTagId, for نافقة and مستبعدة alike. So an
+  // exited doe here has to be untagged too — otherwise the demo farm shows
+  // fourteen numbered does the real app could never produce.
+  const originalTag = String(i);
   does.push({
     id: id(),
-    // A نافقة doe's number is freed for reuse (setRabbitStatusOp nulls tagId and
-    // keeps the old one in retiredTagId), a مستبعدة doe keeps hers.
-    tagId: isDeceased ? null : String(isCulled ? 200 + (i - ACTIVE_DOES - DECEASED_COUNT) : i),
+    tagId: isDeceased || isCulled ? null : originalTag,
+    originalTag,
     tier: rollTier(),
     enteredAt,
     exitAt,
@@ -223,7 +229,11 @@ for (const [index, doe] of does.entries()) {
   rabbits.push({
     id: doe.id,
     tagId: doe.tagId,
-    retiredTagId: doe.exitStatus === "deceased" ? String(index + 1) : null,
+    // Same shape setRabbitStatusOp writes: the number, then how and when it
+    // was retired — it is the only trace of her tag left on the row.
+    retiredTagId: doe.exitStatus
+      ? `${doe.originalTag} (${doe.exitStatus === "deceased" ? "نافق" : "استبعاد"} ${iso(doe.exitAt!).slice(0, 10)})`
+      : null,
     breed: pick(BREED_NAMES),
     color: null,
     sex: "doe",
@@ -503,6 +513,127 @@ for (const cycle of cycles) {
   });
 }
 
+/* ───────────────── السلالات: the retained kits ──────────────────── */
+
+/** A retained kit inherits its dam's breed, so the herd stays believable. */
+const breedByRabbitId = new Map(rabbits.map((r) => [r.id as string, r.breed as string]));
+
+/** Ids of the kits kept as سلالة, so the husbandry rounds below can tell the
+ *  young stock apart from the breeding herd without guessing from `origin`. */
+const stockKitIds = new Set<string>();
+
+/** What a young breeder fetches, per head — sold by animal, not by weight. */
+const STOCK_SALE_PRICE_CENTS = 25_000; // 250 ج.م
+
+/**
+ * Turns one weaned kit into a سلالة: the Rabbit row, the "retained" movement
+ * that deducted it from رصيد الفطام, its intake weight, and whatever became of
+ * it afterwards.
+ *
+ * Untagged on purpose. The reports split the herd by tag, not by age:
+ * الأمهات/الذكور are `tagId != null && active`, السلالات is `tagId == null &&
+ * active`, and «نافق السلالات» is `tagId == null && deceased` (see
+ * src/app/reports/report-data.ts). Giving a kit a number would file it as a
+ * breeding doe that somehow never mated.
+ */
+function retainStockKit(cycle: Cycle, retainedAt: Date) {
+  const rabbitId = id();
+  stockKitIds.add(rabbitId);
+  const sex = chance(0.6) ? "doe" : "buck";
+
+  // Most are sold on as young breeders within a few months; the ones whose exit
+  // date has not arrived yet are the standing stock the age buckets show.
+  const exitAt = addDays(retainedAt, int(20, 150));
+  const hasLeft = exitAt <= TODAY;
+  const roll = rng();
+  // Sold-on stock is booked as "culled" (استبعاد) — «مباع» is offered by the
+  // status menu but no board excludes it: every "still on the farm" query in
+  // the app is `status NOT IN (deceased, culled)`, in 45 places across web and
+  // mobile, so a rabbit marked مباع keeps showing up in the herd. Using it here
+  // would put animals that left the farm back on the does and stock screens.
+  const status = !hasLeft ? "active" : roll < 0.9 ? "culled" : "deceased";
+
+  rabbits.push({
+    id: rabbitId,
+    tagId: null,
+    retiredTagId: null,
+    breed: breedByRabbitId.get(cycle.doe.id) ?? pick(BREED_NAMES),
+    color: null,
+    sex,
+    dateOfBirth: iso(cycle.kindlingDate!),
+    status,
+    doeState: "empty",
+    cage: null,
+    origin: "farm",
+    movedToHerdPen: false,
+    acquiredDate: iso(retainedAt),
+    acquiredFrom: null,
+    notes: null,
+    photoUrl: null,
+    // The whole point of keeping a kit: it has a known sire and dam.
+    sireId: cycle.buckId,
+    damId: cycle.doe.id,
+    // Deliberately null: the Litter row this kit came from was recycled by the
+    // dam's next kindling weeks before the retention, so there is nothing left
+    // to point at. Its parentage is carried by sireId/damId instead.
+    litterId: null,
+    createdAt: iso(retainedAt),
+    // The mortality and culling reports read updatedAt as the exit date.
+    updatedAt: iso(hasLeft ? exitAt : retainedAt),
+  });
+
+  kitStockMovements.push({
+    id: id(),
+    date: iso(retainedAt),
+    type: "retained",
+    count: 1,
+    weightGrams: null,
+    pricePerKgCents: null,
+    amountCents: null,
+    transactionId: null,
+    rabbitId,
+    notes: null,
+    createdAt: iso(retainedAt),
+  });
+
+  weightRecords.push({
+    id: id(),
+    rabbitId,
+    date: iso(retainedAt),
+    weightGrams: int(1_800, 2_400),
+    notes: null,
+    createdAt: iso(retainedAt),
+    updatedAt: iso(retainedAt),
+  });
+
+  if (status === "culled") {
+    // Sold by the head, not by the kilo — this is breeding stock leaving the
+    // farm, not meat. It never touches رصيد الفطام again: the kit left that
+    // ledger the day it was retained.
+    transactions.push({
+      id: id(),
+      rabbitId,
+      date: iso(exitAt),
+      type: "income",
+      category: "sale",
+      amountCents: STOCK_SALE_PRICE_CENTS + int(-4_000, 8_000),
+      notes: `بيع سلالة (${sex === "doe" ? "أنثى" : "ذكر"})`,
+      createdAt: iso(exitAt),
+    });
+  }
+  if (hasLeft && status !== "deceased") {
+    weightRecords.push({
+      id: id(),
+      rabbitId,
+      date: iso(exitAt),
+      weightGrams: int(2_900, 3_700),
+      notes: null,
+      createdAt: iso(exitAt),
+      updatedAt: iso(exitAt),
+    });
+  }
+}
+
 /* ─────────── phase 4: the weaned-kit ledger and the money ──────── */
 
 /**
@@ -534,22 +665,21 @@ for (const cycle of cycles) {
     });
   }
 
+  // Kept for breeding. Unlike a sale or a death — which are batch counts with
+  // no row behind them — a retention creates an actual animal: the app writes
+  // ONE movement per rabbit, linked 1:1 through KitStockMovement.rabbitId (see
+  // createQuickRabbitOp). So this loop emits one movement AND one Rabbit per
+  // kit, or the farm reports 379 kits retained into a السلالات table that is
+  // empty on every screen that reads it.
   const retained = chance(0.3) ? Math.min(left, int(1, 2)) : 0;
-  if (retained > 0) {
-    left -= retained;
-    kitStockMovements.push({
-      id: id(),
-      date: iso(addDays(weanedAt, int(25, 45))),
-      type: "retained",
-      count: retained,
-      weightGrams: null,
-      pricePerKgCents: null,
-      amountCents: null,
-      transactionId: null,
-      rabbitId: null,
-      notes: null,
-      createdAt: iso(addDays(weanedAt, int(25, 45))),
-    });
+  for (let k = 0; k < retained; k++) {
+    left -= 1;
+    const retainedAt = addDays(weanedAt, int(25, 45));
+    if (retainedAt > TODAY) {
+      left += 1;
+      break;
+    }
+    retainStockKit(cycle, retainedAt);
   }
 
   // Kits are sold at ~2 kg, roughly a month after weaning. A couple are left
@@ -741,38 +871,123 @@ for (const rabbit of rabbits) {
     rabbit.status === "active" ? (doeStateById.get(rabbit.id as string) ?? "empty") : "empty";
 }
 
-/* ───────────── a little husbandry data for the rabbit pages ────── */
+/* ────────────────── husbandry: weights and health ───────────────── */
 
-for (const rabbit of rabbits) {
-  if (!chance(0.4)) continue;
-  const base = new Date(rabbit.acquiredDate as string);
-  for (let i = 0; i < int(1, 4); i++) {
-    const date = addDays(base, int(10, SIM_DAYS));
-    if (date > TODAY) continue;
+/**
+ * These two tables used to be an afterthought — 40% of the herd, one to four
+ * weights at random dates, a quarter of them one health record with a null
+ * nextDueDate. On a 239-head farm that came out as 171 weights and 14 health
+ * records, so صفحة الصحة showed four empty cards next to a farm with 1,101
+ * kindlings, and «التطعيمات القادمة/المتأخرة» could never show anything at all
+ * because they are driven entirely by nextDueDate.
+ *
+ * A working farm weighs and vaccinates on a ROUND, not at random: everything in
+ * the herd on the day gets a row. So both loops below walk the calendar and
+ * cover whoever was actually present, which is what makes the numbers on the
+ * صحة and الأوزان screens belong to the same farm as the breeding screens.
+ */
+const WEIGH_IN_INTERVAL_DAYS = 60;
+const VACCINATION_INTERVAL_DAYS = 180;
+const DEWORMING_INTERVAL_DAYS = 120;
+
+/** Alive and on the farm on `date` — exit is carried by updatedAt, as everywhere else. */
+const presentOn = (rabbit: Row, date: Date) => {
+  const from = new Date((rabbit.acquiredDate as string) ?? (rabbit.createdAt as string));
+  if (date < from) return false;
+  if (rabbit.status === "active") return true;
+  return date <= new Date(rabbit.updatedAt as string);
+};
+
+/** The breeding herd: the retained kits already carry their own intake/exit weights. */
+const breeders = rabbits.filter((r) => !stockKitIds.has(r.id as string));
+
+for (const rabbit of breeders) {
+  // Offset per animal so the whole herd is not weighed on the same four days.
+  const offset = int(0, WEIGH_IN_INTERVAL_DAYS - 1);
+  for (let day = offset; day <= SIM_DAYS; day += WEIGH_IN_INTERVAL_DAYS) {
+    const date = addDays(SIM_START, day);
+    if (date > TODAY || !presentOn(rabbit, date)) continue;
     weightRecords.push({
       id: id(),
       rabbitId: rabbit.id,
       date: iso(date),
-      weightGrams: int(3_100, 4_600),
+      weightGrams: rabbit.sex === "buck" ? int(3_600, 4_800) : int(3_400, 4_600),
       notes: null,
       createdAt: iso(date),
       updatedAt: iso(date),
     });
   }
-  if (chance(0.25)) {
-    const date = addDays(base, int(20, SIM_DAYS));
-    if (date <= TODAY) {
-      healthRecords.push({
-        id: id(),
-        rabbitId: rabbit.id,
-        date: iso(date),
-        type: pick(["vaccination", "treatment", "deworming", "checkup"]),
-        description: pick(["تحصين دوري", "علاج جرب", "علاج نزلة معوية", "فحص عام"]),
-        nextDueDate: null,
-        createdAt: iso(date),
-      });
-    }
+}
+
+const health = (rabbit: Row, date: Date, type: string, description: string, nextDue: Date | null) =>
+  healthRecords.push({
+    id: id(),
+    rabbitId: rabbit.id,
+    date: iso(date),
+    type,
+    description,
+    // The only thing صفحة الصحة's «متأخر» and «قادم» cards read. A round that
+    // books no next date is a round the farm can never be reminded about.
+    nextDueDate: nextDue ? iso(nextDue) : null,
+    createdAt: iso(date),
+  });
+
+/**
+ * One recurring treatment, repeated across the year at `every` days.
+ *
+ * Only the LAST dose carries a nextDueDate. صفحة الصحة lists every record with
+ * one and never asks whether a later dose superseded it, so dating them all
+ * would file each animal's whole vaccination history under «متأخر» — hundreds
+ * of rows demanding a shot that was already given. The reminder belongs to the
+ * dose that is actually outstanding.
+ */
+function round(rabbit: Row, every: number, type: string, description: string) {
+  const dates: Date[] = [];
+  for (let day = int(0, every - 1); day <= SIM_DAYS; day += every) {
+    const date = addDays(SIM_START, day);
+    if (date > TODAY || !presentOn(rabbit, date)) continue;
+    dates.push(date);
   }
+  // One animal in ten is behind: it missed its latest round, so the reminder
+  // left standing is the previous one and it is already past due. Without this
+  // every due date is by construction in the future and صفحة الصحة's «متأخر»
+  // card can only ever say صفر, which is not what a real farm looks like.
+  if (dates.length > 1 && chance(0.1)) dates.pop();
+  dates.forEach((date, i) => {
+    const isLast = i === dates.length - 1;
+    // No next dose for an animal that has since left the farm.
+    const due = isLast && rabbit.status === "active" ? addDays(date, every) : null;
+    health(rabbit, date, type, description, due);
+  });
+}
+
+for (const rabbit of breeders) {
+  round(rabbit, VACCINATION_INTERVAL_DAYS, "vaccination", "تحصين ضد التسمم الدموي");
+  round(rabbit, DEWORMING_INTERVAL_DAYS, "deworming", "علاج الطفيليات الداخلية");
+
+  // Individual episodes, unlike the rounds above: one animal, one problem, no
+  // next date — they are what makes the recent-history list read like a farm
+  // rather than a schedule.
+  for (let i = 0; i < int(0, 2); i++) {
+    const date = addDays(SIM_START, int(0, SIM_DAYS));
+    if (date > TODAY || !presentOn(rabbit, date)) continue;
+    const [type, description] = pick([
+      ["treatment", "علاج جرب"],
+      ["treatment", "علاج نزلة معوية"],
+      ["treatment", "علاج التهاب الضرع"],
+      ["checkup", "فحص عام"],
+    ] as const);
+    health(rabbit, date, type, description, null);
+  }
+}
+
+// The retained kits get their intake dose on the day they enter السلالات, so
+// the صحة screen covers the young stock too and not just the breeders.
+for (const rabbit of rabbits) {
+  if (!stockKitIds.has(rabbit.id as string)) continue;
+  const date = new Date(rabbit.acquiredDate as string);
+  const due = rabbit.status === "active" ? addDays(date, VACCINATION_INTERVAL_DAYS) : null;
+  health(rabbit, date, "vaccination", "تحصين السلالات عند الفرز", due);
 }
 
 /* ────────────────────────── write it out ───────────────────────── */
