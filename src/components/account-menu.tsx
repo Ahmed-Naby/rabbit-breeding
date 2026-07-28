@@ -90,7 +90,7 @@ export function AccountMenu({
               {farms.map((f) => (
                 <DropdownMenuItem
                   key={f.farmId}
-                  onSelect={() => onSwitch(f.farmId)}
+                  onClick={() => onSwitch(f.farmId)}
                   className="gap-2"
                 >
                   <Check
@@ -107,7 +107,11 @@ export function AccountMenu({
           </>
         ) : null}
 
-        <DropdownMenuItem onSelect={() => startTransition(() => void signOut())} className="gap-2">
+        {/* onClick, not Radix's onSelect: Base UI's Menu.Item names its handler
+            onClick, and `onSelect` is a real DOM prop on the <div> it renders
+            (React's text-selection event), so it type-checks and then never
+            fires — the menu closes and nothing happens. */}
+        <DropdownMenuItem onClick={() => startTransition(() => void signOut())} className="gap-2">
           <LogOut className="size-4 shrink-0" />
           {t.logoutButton}
         </DropdownMenuItem>
