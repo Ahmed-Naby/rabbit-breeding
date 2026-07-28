@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { currentFarmId } from "@/lib/tenant";
 import { settingsSchema, breedSchema } from "@/lib/validations";
 import { type FormState, zodErrors, formDataToObject } from "@/lib/form";
+import { toCents } from "@/lib/units";
 import { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { runResetOperations } from "@/lib/sync/reset-operations";
@@ -16,11 +17,18 @@ export async function updateSettings(
   const { t } = await getDictionary();
   const parsed = settingsSchema(t.validation).safeParse(formDataToObject(formData));
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
-  const d = parsed.data;
+  // settingsSchema's fields are kept 1:1 with the Settings model, so the parsed
+  // data doubles as both the update and (with an id) the create payload — no
+  // per-field list to keep in sync here. The two money fields are the sole
+  // exception: they're typed in whole currency units and stored as cents, like
+  // every other amount in the app.
+  const { defaultPricePerKg, feedPricePerTon, ...rest } = parsed.data;
+  const d = {
+    ...rest,
+    defaultPricePerKgCents: toCents(defaultPricePerKg),
+    feedPricePerTonCents: toCents(feedPricePerTon),
+  };
 
-  // settingsSchema's fields are kept 1:1 with the Settings model, so the
-  // parsed data doubles as both the update and (with an id) the create
-  // payload — no per-field list to keep in sync here.
   await prisma.settings.upsert({
     where: { farmId: currentFarmId() },
     update: d,

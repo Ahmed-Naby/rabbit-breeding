@@ -60,7 +60,12 @@ export default async function WeaningSalesPage() {
         />
       </div>
 
-      <SaleForm currency={settings.currency} tCommon={t.common} locale={locale} />
+      <SaleForm
+        currency={settings.currency}
+        defaultPricePerKgCents={settings.defaultPricePerKgCents}
+        tCommon={t.common}
+        locale={locale}
+      />
 
       <Card>
         <CardContent className="p-0">

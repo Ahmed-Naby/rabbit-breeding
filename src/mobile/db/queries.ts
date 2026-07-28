@@ -61,6 +61,9 @@ const DEFAULT_SETTINGS: LocalSettings = {
   fosterHighKits: 8,
   fosterLowKits: 4,
   currency: "EGP",
+  defaultPricePerKgCents: 0,
+  feedPricePerTonCents: 0,
+  feedGramsPerDoePerDay: 0,
 };
 
 function toDate(iso: string | null): Date | null {

@@ -120,6 +120,7 @@ export default async function FinancePage({
       <TransactionForm
         rabbitOptions={rabbitOptions}
         currency={settings.currency}
+        feedPricePerTonCents={settings.feedPricePerTonCents}
         tCommon={t.common}
         locale={locale}
       />

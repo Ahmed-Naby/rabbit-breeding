@@ -7,6 +7,7 @@ import { TextField, TextareaField, SelectField, type Option } from "@/components
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
+import { formatMoney } from "@/lib/units";
 import {
   TRANSACTION_TYPES,
   TRANSACTION_CATEGORIES,
@@ -20,11 +21,14 @@ import type { Locale } from "@/lib/i18n/locales";
 export function TransactionForm({
   rabbitOptions,
   currency,
+  feedPricePerTonCents,
   tCommon,
   locale = "ar",
 }: {
   rabbitOptions: Option[];
   currency: string;
+  /** Settings.feedPricePerTonCents; 0 hides the tonnage helper entirely. */
+  feedPricePerTonCents: number;
   tCommon: Dictionary["common"];
   locale?: Locale;
 }) {
@@ -38,6 +42,25 @@ export function TransactionForm({
   // Computed once (not inline in JSX) so it stays stable across re-renders —
   // Base UI's uncontrolled Input warns if defaultValue changes after mount.
   const [today] = useState(() => toDateInputValue(new Date()));
+
+  const [category, setCategory] = useState("feed");
+  const showTonnage = category === "feed" && feedPricePerTonCents > 0;
+
+  // Both the tonnage box and the amount stay uncontrolled, and the helper
+  // writes the computed amount through the DOM. Making either one controlled
+  // would mean form.reset() no longer clears it, pushing two setState calls
+  // into the success effect for no gain — the amount is still just a field the
+  // user can overtype.
+  const fillAmountFromTons = (value: string) => {
+    const qty = Number(value);
+    // A cleared or nonsense quantity leaves the amount alone rather than
+    // zeroing it: the farm may well know the bill without knowing the tonnage.
+    if (!value.trim() || !Number.isFinite(qty) || qty <= 0) return;
+    const amount = formRef.current?.elements.namedItem("amount");
+    if (amount instanceof HTMLInputElement) {
+      amount.value = ((qty * feedPricePerTonCents) / 100).toFixed(2);
+    }
+  };
 
   const typeOptions: Option[] = TRANSACTION_TYPES.map((type) => ({
     value: type,
@@ -81,8 +104,23 @@ export function TransactionForm({
               label={t.categoryLabel}
               options={categoryOptions}
               defaultValue="feed"
+              onValueChange={(v) => setCategory(v ?? "")}
               error={e.category}
             />
+            {showTonnage ? (
+              // Deliberately not part of the submitted transaction: what gets
+              // stored is still a plain amount, so a later change to the ton
+              // price can't rewrite what an old feed bill actually cost.
+              <TextField
+                name="feedTons"
+                type="number"
+                step="0.25"
+                min={0}
+                label={t.feedTonsLabel}
+                hint={t.feedTonsHint(formatMoney(feedPricePerTonCents, currency))}
+                onChange={(ev) => fillAmountFromTons(ev.target.value)}
+              />
+            ) : null}
             <TextField
               name="amount"
               type="number"

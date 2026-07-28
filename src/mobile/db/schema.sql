@@ -96,7 +96,11 @@ CREATE TABLE IF NOT EXISTS settings_cache (
   fosterWindowDays          INTEGER NOT NULL DEFAULT 2,
   fosterHighKits            INTEGER NOT NULL DEFAULT 8,
   fosterLowKits             INTEGER NOT NULL DEFAULT 4,
-  currency                  TEXT NOT NULL DEFAULT 'EGP'
+  currency                  TEXT NOT NULL DEFAULT 'EGP',
+  -- 0 = not set (see the Settings model); never a guessed price.
+  defaultPricePerKgCents    INTEGER NOT NULL DEFAULT 0,
+  feedPricePerTonCents      INTEGER NOT NULL DEFAULT 0,
+  feedGramsPerDoePerDay     INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row sync bookkeeping: this device's identity and its pull cursor.

@@ -35,6 +35,9 @@ export async function runWipe(): Promise<{ dataResetAt: string }> {
         fosterHighKits: 8,
         fosterLowKits: 4,
         currency: "USD",
+        defaultPricePerKgCents: 0,
+        feedPricePerTonCents: 0,
+        feedGramsPerDoePerDay: 0,
         dataResetAt,
       },
     });

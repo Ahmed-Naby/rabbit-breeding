@@ -82,6 +82,9 @@ export type LocalSettings = {
   fosterHighKits: number;
   fosterLowKits: number;
   currency: string;
+  defaultPricePerKgCents: number;
+  feedPricePerTonCents: number;
+  feedGramsPerDoePerDay: number;
 };
 
 export type OutboxStatus = "pending" | "syncing" | "applied" | "already_applied" | "rejected";

@@ -41,6 +41,14 @@ model Settings {
   fosterHighKits           Int       @default(8) // "خلفة كبيرة" threshold (inclusive)
   fosterLowKits            Int       @default(4) // "خلفة صغيرة" threshold (inclusive)
   currency                 String    @default("USD")
+  // Money/market defaults. All three are 0 = "not set yet", never a guessed
+  // price: a wrong default here would silently ride along on every kit sale and
+  // every feed bill, which is worse than an empty field the farm has to fill in
+  // once. Nothing derives a Transaction from these on its own — they only
+  // pre-fill and cross-check what the user is already typing.
+  defaultPricePerKgCents   Int       @default(0) // سعر بيع الكيلو — pre-fills the kit-sale form
+  feedPricePerTonCents     Int       @default(0) // سعر طن العلف — turns "3.5 طن" into a money amount
+  feedGramsPerDoePerDay    Int       @default(0) // استهلاك الأم وخلفتها يوميًا, in grams (integers only, like every weight here)
   // Set (to now()) whenever the "wipe online database" danger-zone action
   // runs. Returned to every client on every pull/bootstrap (Settings is
   // always sent in full); a device compares this against the resetAt it

@@ -241,6 +241,9 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         fosterHighKits: s?.fosterHighKits ?? 8,
         fosterLowKits: s?.fosterLowKits ?? 4,
         currency: s?.currency ?? "USD",
+        defaultPricePerKgCents: s?.defaultPricePerKgCents ?? 0,
+        feedPricePerTonCents: s?.feedPricePerTonCents ?? 0,
+        feedGramsPerDoePerDay: s?.feedGramsPerDoePerDay ?? 0,
         dataResetAt,
       };
       await tx.settings.upsert({

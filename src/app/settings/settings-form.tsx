@@ -1,8 +1,15 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { formatMoney, fromCents } from "@/lib/units";
 import { TextField, SelectField, type Option } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
@@ -34,6 +41,16 @@ export function SettingsForm({
     { value: "10", label: t.rebreedSemiIntensive },
     { value: "30", label: t.rebreedNatural },
   ];
+
+  // Kept as the raw input strings so the derived cost below tracks typing.
+  // Prices are stored as cents but entered in whole currency units.
+  const [feedTon, setFeedTon] = useState(() => fromCents(settings.feedPricePerTonCents));
+  const [feedGrams, setFeedGrams] = useState(() =>
+    settings.feedGramsPerDoePerDay.toString()
+  );
+  const feedCostPerDoePerDayCents = Math.round(
+    ((Number(feedTon) || 0) * 100 * (Number(feedGrams) || 0)) / 1_000_000
+  );
 
   useEffect(() => {
     if (state.ok) toast.success(state.message ?? t.savedToast);
@@ -159,6 +176,59 @@ export function SettingsForm({
           />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.pricingSectionTitle}</CardTitle>
+          <CardDescription>{t.pricingSectionHint}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <TextField
+            name="defaultPricePerKg"
+            type="number"
+            step="0.01"
+            min={0}
+            label={`${t.defaultPricePerKgLabel} (${settings.currency})`}
+            defaultValue={fromCents(settings.defaultPricePerKgCents)}
+            hint={t.defaultPricePerKgHint}
+            error={e.defaultPricePerKg}
+          />
+          <TextField
+            name="feedPricePerTon"
+            type="number"
+            step="0.01"
+            min={0}
+            label={`${t.feedPricePerTonLabel} (${settings.currency})`}
+            defaultValue={fromCents(settings.feedPricePerTonCents)}
+            hint={t.feedPricePerTonHint}
+            error={e.feedPricePerTon}
+            onChange={(ev) => setFeedTon(ev.target.value)}
+          />
+          <TextField
+            name="feedGramsPerDoePerDay"
+            type="number"
+            min={0}
+            max={5000}
+            label={t.feedGramsPerDoePerDayLabel}
+            defaultValue={settings.feedGramsPerDoePerDay.toString()}
+            hint={t.feedGramsPerDoePerDayHint}
+            error={e.feedGramsPerDoePerDay}
+            onChange={(ev) => setFeedGrams(ev.target.value)}
+          />
+          {/* The number the two feed fields exist to produce. Shown live rather
+              than on save, because the pair is only meaningful together and a
+              farm checks the answer against what it already knows it spends. */}
+          <div className="self-end rounded-md border border-dashed px-3 py-2 text-sm">
+            <div className="text-muted-foreground">{t.feedCostPerDoePerDayLabel}</div>
+            <div className="font-medium tabular-nums">
+              {feedCostPerDoePerDayCents > 0
+                ? formatMoney(feedCostPerDoePerDayCents, settings.currency)
+                : "—"}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <SubmitButton>{t.saveButton}</SubmitButton>
     </form>
   );

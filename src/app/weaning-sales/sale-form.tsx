@@ -7,16 +7,20 @@ import { TextField, SelectField } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
+import { fromCents } from "@/lib/units";
 import { recordKitMovementAction } from "./actions";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import type { Locale } from "@/lib/i18n/locales";
 
 export function SaleForm({
   currency,
+  defaultPricePerKgCents,
   tCommon,
   locale,
 }: {
   currency: string;
+  /** Settings.defaultPricePerKgCents; 0 means the farm hasn't set one. */
+  defaultPricePerKgCents: number;
   tCommon: { saving: string };
   locale: Locale;
 }) {
@@ -107,6 +111,11 @@ export function SaleForm({
                   step="0.01"
                   label={t.pricePerKgLabel(currency)}
                   required
+                  // Pre-filled from the farm's settings, not forced: today's
+                  // price is what the buyer paid, which is why this stays an
+                  // ordinary editable field and the sale keeps its own
+                  // pricePerKgCents rather than reading settings at report time.
+                  defaultValue={fromCents(defaultPricePerKgCents)}
                   error={e.pricePerKg}
                 />
               </>

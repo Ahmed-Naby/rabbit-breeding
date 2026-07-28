@@ -60,6 +60,18 @@ export function toCents(amount: number): number {
 }
 
 /**
+ * Integer cents back to the plain decimal string a <input type="number"> wants
+ * — the inverse of toCents, not a display formatter (that's formatMoney: it
+ * adds a currency symbol and locale grouping, both of which a number input
+ * silently rejects, blanking the field). An unset 0 comes back as "" so the
+ * field reads as empty rather than as a price of zero.
+ */
+export function fromCents(cents: number | null | undefined): string {
+  if (!cents) return "";
+  return (cents / 100).toString();
+}
+
+/**
  * Format integer cents as a currency string in the user's locale. Falls back
  * to a plain "<code> <amount>" format for a currency code Intl doesn't
  * recognize (e.g. stale/invalid data in Settings.currency) instead of

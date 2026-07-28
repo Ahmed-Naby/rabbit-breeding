@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/form-fields";
+import { formatMoney, fromCents, toCents } from "@/lib/units";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LocalSettings } from "../db/types";
 import { PageSkeleton } from "@/components/skeleton";
@@ -85,7 +86,15 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [fosterHighKits, setFosterHighKits] = useState("");
   const [fosterLowKits, setFosterLowKits] = useState("");
   const [currency, setCurrency] = useState("EGP");
+  // Money is entered in whole currency units and stored as cents, same as the
+  // web form; "" means unset, which saves as 0.
+  const [defaultPricePerKg, setDefaultPricePerKg] = useState("");
+  const [feedPricePerTon, setFeedPricePerTon] = useState("");
+  const [feedGramsPerDoePerDay, setFeedGramsPerDoePerDay] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
+  const feedCostPerDoePerDayCents = Math.round(
+    ((Number(feedPricePerTon) || 0) * 100 * (Number(feedGramsPerDoePerDay) || 0)) / 1_000_000
+  );
 
   // New Breed field state
   const [newBreedName, setNewBreedName] = useState("");
@@ -120,6 +129,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         fosterHighKits: 8,
         fosterLowKits: 4,
         currency: "EGP",
+        defaultPricePerKgCents: 0,
+        feedPricePerTonCents: 0,
+        feedGramsPerDoePerDay: 0,
       };
       setSettings(s);
       setBreeds(res.breeds ?? []);
@@ -138,6 +150,11 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       setFosterHighKits(String(s.fosterHighKits ?? 8));
       setFosterLowKits(String(s.fosterLowKits ?? 4));
       setCurrency(s.currency ?? "EGP");
+      setDefaultPricePerKg(fromCents(s.defaultPricePerKgCents));
+      setFeedPricePerTon(fromCents(s.feedPricePerTonCents));
+      setFeedGramsPerDoePerDay(
+        s.feedGramsPerDoePerDay ? String(s.feedGramsPerDoePerDay) : ""
+      );
     } catch (err) {
       console.error("[SettingsPage] Error loading settings:", err);
       // Fallback settings so the page never gets stuck on infinite loading
@@ -156,6 +173,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         fosterHighKits: 8,
         fosterLowKits: 4,
         currency: "EGP",
+        defaultPricePerKgCents: 0,
+        feedPricePerTonCents: 0,
+        feedGramsPerDoePerDay: 0,
       });
     }
   }, []);
@@ -182,6 +202,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         fosterHighKits: parseInt(fosterHighKits, 10),
         fosterLowKits: parseInt(fosterLowKits, 10),
         currency,
+        defaultPricePerKgCents: toCents(parseFloat(defaultPricePerKg) || 0),
+        feedPricePerTonCents: toCents(parseFloat(feedPricePerTon) || 0),
+        feedGramsPerDoePerDay: parseInt(feedGramsPerDoePerDay, 10) || 0,
       };
 
       await enqueue("updateSettings", payload);
@@ -495,6 +518,76 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 disabled={savingSettings}
               />
             </FieldLayout>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="space-y-4">
+            <div>
+              <h2 className="font-medium">{t.settings.pricingSectionTitle}</h2>
+              <p className="text-xs text-muted-foreground">{t.settings.pricingSectionHint}</p>
+            </div>
+
+            <FieldLayout
+              label={`${t.settings.defaultPricePerKgLabel} (${currency})`}
+              hint={t.settings.defaultPricePerKgHint}
+            >
+              <Input
+                id="defaultPricePerKg"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min={0}
+                value={defaultPricePerKg}
+                onChange={(e) => setDefaultPricePerKg(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            <FieldLayout
+              label={`${t.settings.feedPricePerTonLabel} (${currency})`}
+              hint={t.settings.feedPricePerTonHint}
+            >
+              <Input
+                id="feedPricePerTon"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min={0}
+                value={feedPricePerTon}
+                onChange={(e) => setFeedPricePerTon(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            <FieldLayout
+              label={t.settings.feedGramsPerDoePerDayLabel}
+              hint={t.settings.feedGramsPerDoePerDayHint}
+            >
+              <Input
+                id="feedGramsPerDoePerDay"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={5000}
+                value={feedGramsPerDoePerDay}
+                onChange={(e) => setFeedGramsPerDoePerDay(e.target.value)}
+                disabled={savingSettings}
+              />
+            </FieldLayout>
+
+            {/* Same live readout as the web form — the pair of feed fields is
+                only meaningful as the per-doe daily cost it produces. */}
+            <div className="rounded-md border border-dashed px-3 py-2 text-sm">
+              <div className="text-muted-foreground">
+                {t.settings.feedCostPerDoePerDayLabel}
+              </div>
+              <div className="font-medium tabular-nums">
+                {feedCostPerDoePerDayCents > 0
+                  ? formatMoney(feedCostPerDoePerDayCents, currency)
+                  : "—"}
+              </div>
+            </div>
           </CardContent>
         </Card>
 

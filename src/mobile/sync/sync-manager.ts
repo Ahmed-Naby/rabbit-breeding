@@ -286,8 +286,8 @@ export async function pull(): Promise<boolean> {
   if (data.settings) {
     const s = data.settings;
     set.push({
-      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsPerDoePerDay)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
          gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
@@ -296,7 +296,10 @@ export async function pull(): Promise<boolean> {
          matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
          fosterWindowDays = excluded.fosterWindowDays, fosterHighKits = excluded.fosterHighKits,
          fosterLowKits = excluded.fosterLowKits,
-         currency = excluded.currency`,
+         currency = excluded.currency,
+         defaultPricePerKgCents = excluded.defaultPricePerKgCents,
+         feedPricePerTonCents = excluded.feedPricePerTonCents,
+         feedGramsPerDoePerDay = excluded.feedGramsPerDoePerDay`,
       values: [
         s.weightUnit,
         s.gestationDays,
@@ -315,6 +318,9 @@ export async function pull(): Promise<boolean> {
         s.fosterHighKits ?? 8,
         s.fosterLowKits ?? 4,
         s.currency,
+        s.defaultPricePerKgCents ?? 0,
+        s.feedPricePerTonCents ?? 0,
+        s.feedGramsPerDoePerDay ?? 0,
       ],
     });
   }

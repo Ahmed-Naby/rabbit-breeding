@@ -68,6 +68,9 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
       fosterHighKits: 8,
       fosterLowKits: 4,
       currency: "EGP",
+      defaultPricePerKgCents: 0,
+      feedPricePerTonCents: 0,
+      feedGramsPerDoePerDay: 0,
     }
   );
 }
@@ -1480,8 +1483,8 @@ export async function updateSettings(
 ): Promise<LocalOpOutcome> {
   await run(
     db,
-    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsPerDoePerDay)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
        gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
@@ -1490,7 +1493,10 @@ export async function updateSettings(
        matingWeightGrams = excluded.matingWeightGrams, rebreedAfterKindlingDays = excluded.rebreedAfterKindlingDays,
        fosterWindowDays = excluded.fosterWindowDays, fosterHighKits = excluded.fosterHighKits,
        fosterLowKits = excluded.fosterLowKits,
-       currency = excluded.currency`,
+       currency = excluded.currency,
+       defaultPricePerKgCents = excluded.defaultPricePerKgCents,
+       feedPricePerTonCents = excluded.feedPricePerTonCents,
+       feedGramsPerDoePerDay = excluded.feedGramsPerDoePerDay`,
     [
       payload.weightUnit ?? 'kg',
       payload.gestationDays ?? 30,
@@ -1504,7 +1510,10 @@ export async function updateSettings(
       payload.fosterWindowDays ?? 2,
       payload.fosterHighKits ?? 8,
       payload.fosterLowKits ?? 4,
-      payload.currency ?? 'USD'
+      payload.currency ?? 'USD',
+      payload.defaultPricePerKgCents ?? 0,
+      payload.feedPricePerTonCents ?? 0,
+      payload.feedGramsPerDoePerDay ?? 0
     ]
   );
   return applied;

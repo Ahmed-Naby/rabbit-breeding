@@ -8,6 +8,7 @@ import { fetchFinancePageData, type LocalTransaction } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { enqueue } from "../sync/outbox";
 import { formatMoney } from "@/lib/units";
+import { TRANSACTION_CATEGORIES, label } from "@/lib/enums";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ export function FinancePage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
   const [transactions, setTransactions] = useState<LocalTransaction[]>([]);
   const [currency, setCurrency] = useState("USD");
+  const [feedPricePerTonCents, setFeedPricePerTonCents] = useState(0);
+  const [tons, setTons] = useState("");
 
   const [type, setType] = useState<"income" | "expense">("expense");
   const [date, setDate] = useState(() => toDateInputValue(new Date()));
@@ -35,7 +38,19 @@ export function FinancePage({ locale }: { locale: Locale }) {
     const res = await fetchFinancePageData(db);
     setTransactions(res.transactions);
     setCurrency(res.settings.currency);
+    setFeedPricePerTonCents(res.settings.feedPricePerTonCents);
   }, []);
+
+  const showTonnage = category === "feed" && feedPricePerTonCents > 0;
+
+  const setTonnage = (value: string) => {
+    setTons(value);
+    const qty = Number(value);
+    // A cleared or nonsense quantity leaves the amount alone rather than
+    // zeroing it: the farm may well know the bill without knowing the tonnage.
+    if (!value.trim() || !Number.isFinite(qty) || qty <= 0) return;
+    setAmount(((qty * feedPricePerTonCents) / 100).toFixed(2));
+  };
 
   useEffect(() => {
     void load();
@@ -62,6 +77,7 @@ export function FinancePage({ locale }: { locale: Locale }) {
 
       toast.success(locale === "ar" ? "تم تسجيل المعاملة بنجاح" : "Transaction recorded successfully");
       setAmount("");
+      setTons("");
       setNotes("");
       void load();
     } catch (err: any) {
@@ -89,14 +105,12 @@ export function FinancePage({ locale }: { locale: Locale }) {
     expense: locale === "ar" ? "مصروف" : "Expense",
   };
 
-  const categoryLabels: Record<string, string> = {
-    sale: locale === "ar" ? "بيع إنتاج" : "Sales",
-    purchase: locale === "ar" ? "شراء أرنب" : "Purchase Roster",
-    feed: locale === "ar" ? "شراء علف" : "Feed",
-    vet: locale === "ar" ? "رعاية بيطرية وعلاجات" : "Veterinary/Meds",
-    equipment: locale === "ar" ? "معدات ومستلزمات" : "Equipment",
-    other: locale === "ar" ? "مصاريف أخرى" : "Other",
-  };
+  // Derived from the shared list rather than spelled out again: this page used
+  // its own six hard-coded labels and its own six <SelectItem>s, so the three
+  // categories added to enums.ts were reachable on the web and invisible here.
+  const categoryLabels: Record<string, string> = Object.fromEntries(
+    TRANSACTION_CATEGORIES.map((c) => [c, label(c, locale)])
+  );
 
   const totalRevenue = transactions
     .filter((tr) => tr.type === "income")
@@ -205,12 +219,11 @@ export function FinancePage({ locale }: { locale: Locale }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sale">{categoryLabels.sale}</SelectItem>
-                    <SelectItem value="purchase">{categoryLabels.purchase}</SelectItem>
-                    <SelectItem value="feed">{categoryLabels.feed}</SelectItem>
-                    <SelectItem value="vet">{categoryLabels.vet}</SelectItem>
-                    <SelectItem value="equipment">{categoryLabels.equipment}</SelectItem>
-                    <SelectItem value="other">{categoryLabels.other}</SelectItem>
+                    {TRANSACTION_CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {categoryLabels[c]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -228,6 +241,28 @@ export function FinancePage({ locale }: { locale: Locale }) {
                   disabled={submitting}
                 />
               </div>
+
+              {showTonnage ? (
+                // Not stored with the transaction — only a calculator for the
+                // amount, so changing the ton price later can't rewrite what an
+                // old feed bill actually cost.
+                <div className="space-y-2">
+                  <Label htmlFor="feedTons">{t.finance.feedTonsLabel}</Label>
+                  <Input
+                    id="feedTons"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.25"
+                    min="0"
+                    value={tons}
+                    onChange={(e) => setTonnage(e.target.value)}
+                    disabled={submitting}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t.finance.feedTonsHint(formatMoney(feedPricePerTonCents, currency))}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="space-y-2">
                 <Label htmlFor="notes">{locale === "ar" ? "ملاحظات" : "Notes"}</Label>

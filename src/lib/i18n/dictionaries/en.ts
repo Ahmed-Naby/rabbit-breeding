@@ -82,6 +82,17 @@ export const en: Dictionary = {
     fosterLowKitsLabel: "Small litter threshold (kits)",
     fosterLowKitsHint:
       "A doe nursing this many kits or fewer is listed as a recipient (default 4).",
+    pricingSectionTitle: "Prices & costs",
+    pricingSectionHint:
+      "Reference figures for this farm — they pre-fill forms and compute costs, and never post a transaction on their own. Leave blank to skip.",
+    defaultPricePerKgLabel: "Meat price per kg",
+    defaultPricePerKgHint:
+      "Pre-fills the weaned-kit sale form; still editable on every sale.",
+    feedPricePerTonLabel: "Feed price per ton",
+    feedPricePerTonHint: "Turns a quantity in tons into an amount on a feed expense.",
+    feedGramsPerDoePerDayLabel: "Feed per doe per day (g)",
+    feedGramsPerDoePerDayHint: "The doe and her litter together — usually 150–250 g.",
+    feedCostPerDoePerDayLabel: "Feed cost per doe per day",
     saveButton: "Save settings",
     savedToast: "Saved",
     breedAlreadyExists: "This breed is already registered",
@@ -961,6 +972,8 @@ export const en: Dictionary = {
     dateLabel: "Date",
     typeLabel: "Type",
     categoryLabel: "Category",
+    feedTonsLabel: "Quantity (tons)",
+    feedTonsHint: (price: string) => `Fills the amount at ${price} per ton.`,
     amountLabel: (currency: string) => `Amount (${currency})`,
     rabbitLabel: "Rabbit (optional)",
     farmWideOption: "Farm-wide",

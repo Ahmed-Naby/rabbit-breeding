@@ -80,6 +80,21 @@ export const ar = {
     fosterLowKitsLabel: "حد الخلفة الصغيرة (عدد الرضاعة)",
     fosterLowKitsHint:
       "الأم اللي عندها هذا العدد أو أقل تظهر في قائمة «انقل إليها» (الافتراضي 4).",
+    pricingSectionTitle: "الأسعار والتكاليف",
+    pricingSectionHint:
+      "أرقام مرجعية للمزرعة — تُستخدم لملء الحقول تلقائيًا وحساب التكلفة، ولا تسجّل أي معاملة بنفسها. اتركها فاضية لو مش عايز.",
+    // Plain strings, not (currency) => `...` like finance's amountLabel: the
+    // settings page is a Server Component and hands its whole `t.settings`
+    // slice to SettingsForm as a prop, and a function can't cross that
+    // boundary. The currency is appended by the form instead.
+    defaultPricePerKgLabel: "سعر بيع الكيلو",
+    defaultPricePerKgHint:
+      "يُملأ تلقائيًا في شاشة «بيع الفطام»، وتقدر تعدّله في أي عملية بيع.",
+    feedPricePerTonLabel: "سعر طن العلف",
+    feedPricePerTonHint: "يُستخدم لتحويل الكمية بالطن إلى مبلغ في مصروف العلف.",
+    feedGramsPerDoePerDayLabel: "استهلاك العلف للأم يوميًا (جم)",
+    feedGramsPerDoePerDayHint: "الأم وخلفتها معًا — غالبًا بين 150 و 250 جم.",
+    feedCostPerDoePerDayLabel: "تكلفة العلف للأم يوميًا",
     saveButton: "حفظ الإعدادات",
     savedToast: "تم الحفظ",
     breedAlreadyExists: "هذا النوع مسجل بالفعل",
@@ -950,6 +965,8 @@ export const ar = {
     dateLabel: "التاريخ",
     typeLabel: "النوع",
     categoryLabel: "الفئة",
+    feedTonsLabel: "الكمية (طن)",
+    feedTonsHint: (price: string) => `يحسب المبلغ تلقائيًا على أساس ${price} للطن.`,
     amountLabel: (currency: string) => `المبلغ (${currency})`,
     rabbitLabel: "الأرنب (اختياري)",
     farmWideOption: "على مستوى المزرعة",

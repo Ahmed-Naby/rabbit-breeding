@@ -7,7 +7,7 @@ import { getDb } from "../db/client";
 import { fetchWeaningSalesPageData, type LocalKitLedgerEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { enqueue } from "../sync/outbox";
-import { formatMoney, formatWeight } from "@/lib/units";
+import { formatMoney, formatWeight, fromCents } from "@/lib/units";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,10 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
       currency: res.settings.currency,
       weightUnit: res.settings.weightUnit,
     });
+    // Pre-fill from the farm's default price, but never overwrite a price the
+    // user is in the middle of typing — load() also runs right after a save.
+    const fallback = fromCents(res.settings.defaultPricePerKgCents);
+    if (fallback) setPricePerKg((current) => current || fallback);
   }, []);
 
   useEffect(() => {
@@ -133,7 +137,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
       toast.success(locale === "ar" ? "تم التسجيل بنجاح" : "Logged successfully");
       setCount("");
       setWeightKg("");
-      setPricePerKg("");
+      setPricePerKg(""); // load() below puts the farm default back
       setNotes("");
       void load();
     } catch (err: any) {

@@ -42,12 +42,19 @@ export type HealthType = (typeof HEALTH_TYPES)[number];
 export const TRANSACTION_TYPES = ["income", "expense"] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
+// Category is stored as a free String column, so adding one here is not a
+// migration — but it IS a one-way door for existing rows: nothing rewrites the
+// «أخرى» transactions a farm booked before the category existed. Append rather
+// than rename, and keep "other" last so it reads as the fallback it is.
 export const TRANSACTION_CATEGORIES = [
   "sale",
   "purchase",
   "feed",
   "vet",
   "equipment",
+  "rent",
+  "salaries",
+  "utilities",
   "other",
 ] as const;
 export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];
@@ -108,6 +115,9 @@ export const LABELS: Record<Locale, Record<string, string>> = {
     feed: "علف",
     vet: "بيطري",
     equipment: "معدات",
+    rent: "إيجار",
+    salaries: "مرتبات وأجور",
+    utilities: "كهرباء ومياه",
     other: "أخرى",
     kg: "كيلوجرام",
     lb_oz: "رطل / أونصة",
@@ -149,6 +159,9 @@ export const LABELS: Record<Locale, Record<string, string>> = {
     feed: "Feed",
     vet: "Vet",
     equipment: "Equipment",
+    rent: "Rent",
+    salaries: "Wages & salaries",
+    utilities: "Utilities",
     other: "Other",
     kg: "Kilograms",
     lb_oz: "Pounds / ounces",

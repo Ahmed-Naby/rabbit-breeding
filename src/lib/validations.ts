@@ -334,6 +334,13 @@ export function settingsSchema(t: Dictionary["validation"]) {
       (v) => [0, 10, 15, 30].includes(v),
       t.invalidValue
     ),
+    // Money in whole currency units (the farm types 55, not 5500) — converted
+    // to cents in updateSettings, which is why these three are the only fields
+    // in this schema whose names don't match the Settings column they land in.
+    // 0 means "not set": every reader treats it as absent rather than free.
+    defaultPricePerKg: z.coerce.number().min(0).max(100_000),
+    feedPricePerTon: z.coerce.number().min(0).max(10_000_000),
+    feedGramsPerDoePerDay: z.coerce.number().int().min(0).max(5_000),
     fosterWindowDays: z.coerce.number().int().min(0).max(14),
     fosterHighKits: z.coerce.number().int().min(1).max(20),
     fosterLowKits: z.coerce.number().int().min(0).max(20),
