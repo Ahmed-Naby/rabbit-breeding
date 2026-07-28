@@ -9,7 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatMoney, fromCents } from "@/lib/units";
+import { formatMoney, fromCents, toCents } from "@/lib/units";
+import {
+  computeFeedPlan,
+  RATION_KEYS,
+  type FeedRations,
+  type HerdComposition,
+} from "@/lib/feed-plan";
 import { TextField, SelectField, type Option } from "@/components/form-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
@@ -21,10 +27,13 @@ import { updateSettings } from "./actions";
 
 export function SettingsForm({
   settings,
+  composition,
   locale,
   t,
 }: {
   settings: AppSettings;
+  /** The herd as it stands today — the multiplier for the rations below. */
+  composition: HerdComposition;
   locale: Locale;
   t: Dictionary["settings"];
 }) {
@@ -42,15 +51,41 @@ export function SettingsForm({
     { value: "30", label: t.rebreedNatural },
   ];
 
-  // Kept as the raw input strings so the derived cost below tracks typing.
-  // Prices are stored as cents but entered in whole currency units.
+  // The feed block is the one part of this form that computes something, so
+  // its inputs are mirrored into state as raw strings and the plan is recomputed
+  // on every keystroke. Everything else stays uncontrolled.
   const [feedTon, setFeedTon] = useState(() => fromCents(settings.feedPricePerTonCents));
-  const [feedGrams, setFeedGrams] = useState(() =>
-    settings.feedGramsPerDoePerDay.toString()
+  const [rations, setRations] = useState<Record<string, string>>(() =>
+    Object.fromEntries(RATION_KEYS.map((k) => [k, settings[k] ? String(settings[k]) : ""]))
   );
-  const feedCostPerDoePerDayCents = Math.round(
-    ((Number(feedTon) || 0) * 100 * (Number(feedGrams) || 0)) / 1_000_000
+  const plan = computeFeedPlan(
+    composition,
+    Object.fromEntries(
+      RATION_KEYS.map((k) => [k, Number(rations[k]) || 0])
+    ) as unknown as FeedRations,
+    toCents(Number(feedTon) || 0)
   );
+
+  const RATION_FIELDS: { key: (typeof RATION_KEYS)[number]; label: string; head: number }[] = [
+    { key: "feedGramsDoeIdlePerDay", label: t.rationDoeIdleLabel, head: composition.doesIdle },
+    {
+      key: "feedGramsDoePregnantPerDay",
+      label: t.rationDoePregnantLabel,
+      head: composition.doesPregnant,
+    },
+    {
+      key: "feedGramsDoeNursingPerDay",
+      label: t.rationDoeNursingLabel,
+      head: composition.doesNursing,
+    },
+    { key: "feedGramsBuckPerDay", label: t.rationBuckLabel, head: composition.bucks },
+    { key: "feedGramsGrowerPerDay", label: t.rationGrowerLabel, head: composition.growers },
+    {
+      key: "feedGramsJuvenilePerDay",
+      label: t.rationJuvenileLabel,
+      head: composition.juveniles,
+    },
+  ];
 
   useEffect(() => {
     if (state.ok) toast.success(state.message ?? t.savedToast);
@@ -204,32 +239,86 @@ export function SettingsForm({
             error={e.feedPricePerTon}
             onChange={(ev) => setFeedTon(ev.target.value)}
           />
-          <TextField
-            name="feedGramsPerDoePerDay"
-            type="number"
-            min={0}
-            max={5000}
-            label={t.feedGramsPerDoePerDayLabel}
-            defaultValue={settings.feedGramsPerDoePerDay.toString()}
-            hint={t.feedGramsPerDoePerDayHint}
-            error={e.feedGramsPerDoePerDay}
-            onChange={(ev) => setFeedGrams(ev.target.value)}
-          />
-          {/* The number the two feed fields exist to produce. Shown live rather
-              than on save, because the pair is only meaningful together and a
-              farm checks the answer against what it already knows it spends. */}
-          <div className="self-end rounded-md border border-dashed px-3 py-2 text-sm">
-            <div className="text-muted-foreground">{t.feedCostPerDoePerDayLabel}</div>
-            <div className="font-medium tabular-nums">
-              {feedCostPerDoePerDayCents > 0
-                ? formatMoney(feedCostPerDoePerDayCents, settings.currency)
-                : "—"}
-            </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.rationsSectionTitle}</CardTitle>
+          <CardDescription>{t.rationsSectionHint}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {RATION_FIELDS.map((f) => (
+              <TextField
+                key={f.key}
+                name={f.key}
+                type="number"
+                min={0}
+                max={5000}
+                // The head count rides on the label so the farm can see what
+                // each ration is being multiplied by without cross-referencing
+                // the summary below.
+                label={`${f.label} · ${f.head} ${t.feedPlanHeadUnit}`}
+                defaultValue={settings[f.key] ? String(settings[f.key]) : ""}
+                error={e[f.key]}
+                onChange={(ev) =>
+                  setRations((r) => ({ ...r, [f.key]: ev.target.value }))
+                }
+              />
+            ))}
+          </div>
+
+          {/* The number the whole section exists to produce. Live rather than
+              on save: the rations are only meaningful multiplied out, and a
+              farm judges them by whether the total matches the bills it pays. */}
+          <div className="rounded-md border border-dashed p-4">
+            <div className="text-sm font-medium">{t.feedPlanTitle}</div>
+            {plan.gramsPerDay > 0 ? (
+              <>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Figure
+                    label={t.feedPlanKgPerMonthLabel}
+                    value={`${Math.round(plan.kgPerMonth).toLocaleString(locale)} ${
+                      locale === "ar" ? "كجم" : "kg"
+                    }`}
+                  />
+                  <Figure
+                    label={t.feedPlanCostPerMonthLabel}
+                    value={
+                      plan.costPerMonthCents != null
+                        ? formatMoney(plan.costPerMonthCents, settings.currency)
+                        : "—"
+                    }
+                  />
+                  <Figure
+                    label={t.feedCostPerDoePerDayLabel}
+                    value={
+                      plan.costPerDoePerDayCents != null
+                        ? formatMoney(plan.costPerDoePerDayCents, settings.currency)
+                        : "—"
+                    }
+                  />
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground">{t.feedPlanNote}</p>
+              </>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">{t.feedPlanEmpty}</p>
+            )}
           </div>
         </CardContent>
       </Card>
 
       <SubmitButton>{t.saveButton}</SubmitButton>
     </form>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="font-medium tabular-nums">{value}</div>
+    </div>
   );
 }

@@ -35,6 +35,7 @@ import {
   type BaseBreeding
 } from "@/lib/breeding-filters";
 import { fosterWindowStart, splitFosterCandidates, type FosterCandidate } from "@/lib/fostering";
+import type { HerdComposition } from "@/lib/feed-plan";
 
 export type DoeRow = {
   id: string;
@@ -63,7 +64,12 @@ const DEFAULT_SETTINGS: LocalSettings = {
   currency: "EGP",
   defaultPricePerKgCents: 0,
   feedPricePerTonCents: 0,
-  feedGramsPerDoePerDay: 0,
+  feedGramsDoeIdlePerDay: 0,
+  feedGramsDoePregnantPerDay: 0,
+  feedGramsDoeNursingPerDay: 0,
+  feedGramsBuckPerDay: 0,
+  feedGramsGrowerPerDay: 0,
+  feedGramsJuvenilePerDay: 0,
 };
 
 function toDate(iso: string | null): Date | null {
@@ -1866,10 +1872,13 @@ export type LocalBreed = {
 export async function fetchSettingsPageData(db: SQLiteDBConnection): Promise<{
   settings: LocalSettings;
   breeds: LocalBreed[];
+  /** The multiplier for the feed rations — see fetchHerdComposition. */
+  composition: HerdComposition;
  }> {
   const settings = await getLocalSettings(db);
   const breeds = await queryAll<LocalBreed>(db, "SELECT id, name FROM breed ORDER BY name ASC");
-  return { settings, breeds };
+  const composition = await fetchHerdComposition(db);
+  return { settings, breeds, composition };
 }
 
 export async function fetchBreedOptions(db: SQLiteDBConnection): Promise<string[]> {
@@ -2648,6 +2657,7 @@ export async function fetchHerdReport(
     saleAgg,
     incomeAgg,
     expenseAgg,
+    feedExpenseAgg,
     lastKindlings,
   ] = await Promise.all([
     getLocalSettings(db),
@@ -2682,9 +2692,10 @@ export async function fetchHerdReport(
       "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
       [fromIso, toIso]
     ),
-    queryOne<{ count: number | null; grams: number | null }>(
+    queryOne<{ count: number | null; grams: number | null; amount: number | null }>(
       db,
-      `SELECT SUM(count) as count, SUM(weightGrams) as grams FROM kit_stock_movement
+      `SELECT SUM(count) as count, SUM(weightGrams) as grams, SUM(amountCents) as amount
+         FROM kit_stock_movement
        WHERE type = 'sale' AND date >= ? AND date < ?`,
       [fromIso, toIso]
     ),
@@ -2700,6 +2711,14 @@ export async function fetchHerdReport(
     queryOne<{ total: number | null }>(
       db,
       "SELECT SUM(amountCents) as total FROM transaction_ledger WHERE type = 'expense' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    // Feed alone, so the bill can be turned back into kilograms at the farm's
+    // ton price and compared against the meat it produced.
+    queryOne<{ total: number | null }>(
+      db,
+      `SELECT SUM(amountCents) as total FROM transaction_ledger
+        WHERE type = 'expense' AND category = 'feed' AND date >= ? AND date < ?`,
       [fromIso, toIso]
     ),
     // Latest kindling per doe over ALL time — deliberately unbounded by the
@@ -2735,6 +2754,9 @@ export async function fetchHerdReport(
     soldWeightGrams: saleAgg?.grams ?? 0,
     incomeCents: incomeAgg?.total ?? 0,
     expenseCents: expenseAgg?.total ?? 0,
+    soldAmountCents: saleAgg?.amount ?? 0,
+    feedExpenseCents: feedExpenseAgg?.total ?? 0,
+    feedPricePerTonCents: settings.feedPricePerTonCents,
   });
 
   // Idleness is measured from now, not from the period end: it is a current
@@ -2753,4 +2775,49 @@ export async function fetchHerdReport(
   );
 
   return { productivity, idleDoes, cycleDays, currency: settings.currency };
+}
+
+/**
+ * The SQLite twin of src/lib/herd-composition.ts — same class mapping, same
+ * two judgement calls (a nursing-and-pregnant doe eats as nursing; `bred`
+ * counts as empty), so the expected-feed figure on the phone and on the web
+ * can only differ in how the rows were counted, never in what they mean.
+ *
+ * doeState lives on `rabbit`, so this is a plain group-by with no join, and a
+ * doe who has never been bred is still counted (as empty, which is what she is).
+ */
+export async function fetchHerdComposition(
+  db: SQLiteDBConnection
+): Promise<HerdComposition> {
+  const states = await queryAll<{ doeState: string; count: number }>(
+    db,
+    `SELECT doeState, COUNT(*) as count
+       FROM rabbit
+      WHERE sex = 'doe' AND status = 'active' AND tagId IS NOT NULL
+      GROUP BY doeState`
+  );
+  const n = (...wanted: string[]) =>
+    states.reduce((s, r) => (wanted.includes(r.doeState) ? s + r.count : s), 0);
+  const total = states.reduce((s, r) => s + r.count, 0);
+  const doesNursing = n("nursing", "nursing_bred", "nursing_pregnant");
+  const doesPregnant = n("pregnant");
+
+  const bucks = await queryOne<{ count: number }>(
+    db,
+    "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'active'"
+  );
+  const juveniles = await queryOne<{ count: number }>(
+    db,
+    "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND status = 'active'"
+  );
+  const growers = await computeAvailableWeanedStock(db);
+
+  return {
+    doesIdle: Math.max(0, total - doesNursing - doesPregnant),
+    doesPregnant,
+    doesNursing,
+    bucks: bucks?.count ?? 0,
+    growers: Math.max(0, growers),
+    juveniles: juveniles?.count ?? 0,
+  };
 }

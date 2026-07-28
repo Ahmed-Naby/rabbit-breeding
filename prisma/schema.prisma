@@ -48,7 +48,21 @@ model Settings {
   // pre-fill and cross-check what the user is already typing.
   defaultPricePerKgCents   Int       @default(0) // سعر بيع الكيلو — pre-fills the kit-sale form
   feedPricePerTonCents     Int       @default(0) // سعر طن العلف — turns "3.5 طن" into a money amount
-  feedGramsPerDoePerDay    Int       @default(0) // استهلاك الأم وخلفتها يوميًا, in grams (integers only, like every weight here)
+  // Daily feed ration per head, in grams, by what the animal is DOING rather
+  // than what it is: the same doe eats 150g empty, 200g pregnant and 275g
+  // nursing, and collapsing that into one "per doe" number (which is what this
+  // used to be) understates a productive farm and overstates an idle one by
+  // the same ~40%. The classes match the states the app already tracks, so the
+  // expected ration can be costed against the herd as it actually stands
+  // today. Still 0 = "not set": nothing is charged from these, they only
+  // produce the expected-cost figure the farm checks its real feed bills
+  // against.
+  feedGramsDoeIdlePerDay     Int     @default(0) // أم فارغة (غير حامل وغير مرضعة)
+  feedGramsDoePregnantPerDay Int     @default(0) // أم حامل
+  feedGramsDoeNursingPerDay  Int     @default(0) // أم مرضعة — هي وخلفتها معًا
+  feedGramsBuckPerDay        Int     @default(0) // ذكر
+  feedGramsGrowerPerDay      Int     @default(0) // أرنب تسمين بعد الفطام
+  feedGramsJuvenilePerDay    Int     @default(0) // سلالة (بديل لم يدخل الإنتاج بعد)
   // Set (to now()) whenever the "wipe online database" danger-zone action
   // runs. Returned to every client on every pull/bootstrap (Settings is
   // always sent in full); a device compares this against the resetAt it

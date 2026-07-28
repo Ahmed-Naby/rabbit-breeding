@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import { getSettings } from "@/lib/settings";
+import { getHerdComposition } from "@/lib/herd-composition";
 import { prisma } from "@/lib/prisma";
 import { SettingsForm } from "./settings-form";
 import { BreedsManager } from "./breeds-manager";
@@ -12,9 +13,13 @@ export async function generateMetadata() {
 }
 
 export default async function SettingsPage() {
-  const [settings, breeds, { locale, t }] = await Promise.all([
+  const [settings, breeds, composition, { locale, t }] = await Promise.all([
     getSettings(),
     prisma.breed.findMany({ orderBy: { name: "asc" } }),
+    // Read here rather than inside the form so the expected-feed figure is
+    // costed against the herd that actually exists, not against a number the
+    // user typed. It is the only thing on this page that isn't a setting.
+    getHerdComposition(),
     getDictionary(),
   ]);
   return (
@@ -23,6 +28,7 @@ export default async function SettingsPage() {
       <SettingsForm
         key={JSON.stringify(settings)}
         settings={settings}
+        composition={composition}
         locale={locale}
         t={t.settings}
       />

@@ -33,6 +33,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     saleAgg,
     incomeAgg,
     expenseAgg,
+    feedExpenseAgg,
     lastKindlings,
   ] = await Promise.all([
     getSettings(),
@@ -65,7 +66,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     }),
     prisma.kitStockMovement.aggregate({
       where: { type: "sale", date: dateRange },
-      _sum: { count: true, weightGrams: true },
+      _sum: { count: true, weightGrams: true, amountCents: true },
     }),
     // Transaction, not the sale movements' amountCents: the farm may also sell
     // culled does, bucks, or manure, and every one of those is real income the
@@ -77,6 +78,12 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     }),
     prisma.transaction.aggregate({
       where: { type: "expense", date: dateRange },
+      _sum: { amountCents: true },
+    }),
+    // Feed alone, so the bill can be turned back into kilograms at the farm's
+    // ton price and compared against the meat it produced.
+    prisma.transaction.aggregate({
+      where: { type: "expense", category: "feed", date: dateRange },
       _sum: { amountCents: true },
     }),
     // Latest kindling per doe, over ALL time — deliberately not bounded by the
@@ -109,6 +116,9 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     soldWeightGrams: saleAgg._sum.weightGrams ?? 0,
     incomeCents: incomeAgg._sum.amountCents ?? 0,
     expenseCents: expenseAgg._sum.amountCents ?? 0,
+    soldAmountCents: saleAgg._sum.amountCents ?? 0,
+    feedExpenseCents: feedExpenseAgg._sum.amountCents ?? 0,
+    feedPricePerTonCents: settings.feedPricePerTonCents,
   });
 
   // Idleness is measured from now, not from the period end: it is a current

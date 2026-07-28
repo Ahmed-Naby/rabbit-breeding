@@ -482,6 +482,55 @@ function HerdProductivitySection({
         </div>
       </Section>
 
+      {/* Same section as the web report, same shared computation — see
+          computeHerdProductivity. */}
+      <Section title={rt.herdSectionBreakEven}>
+        {p.breakEvenPricePerKgCents == null ? (
+          <p className="p-4 text-sm text-muted-foreground">{rt.herdBreakEvenNoSales}</p>
+        ) : (
+          <>
+            <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <HerdTile label={rt.herdKgSoldLabel} value={num(p.kgSold, 1)} />
+              <HerdTile label={rt.herdRealizedPriceLabel} value={money(p.realizedPricePerKgCents)} />
+              <HerdTile
+                label={rt.herdBreakEvenPriceLabel}
+                value={money(p.breakEvenPricePerKgCents)}
+                strong
+              />
+              <HerdTile
+                label={rt.herdMarginPerKgLabel}
+                value={money(p.marginPerKgCents)}
+                strong
+                tone={
+                  p.marginPerKgCents == null ? undefined : p.marginPerKgCents >= 0 ? "good" : "bad"
+                }
+              />
+              <HerdTile label={rt.herdFeedKgLabel} value={num(p.feedKgConsumed, 0)} />
+              <HerdTile label={rt.herdFeedConversionLabel} value={num(p.feedConversionRatio, 2)} />
+            </div>
+            <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
+              <p>{rt.herdBreakEvenNote}</p>
+              <p>{rt.herdFeedConversionNote}</p>
+              {p.marginPerKgCents != null && (
+                <p
+                  className={cn(
+                    p.marginPerKgCents >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                  )}
+                >
+                  {p.marginPerKgCents >= 0
+                    ? rt.herdBreakEvenPositiveNote(formatMoney(p.marginPerKgCents, herd.currency))
+                    : rt.herdBreakEvenNegativeNote(
+                        formatMoney(Math.abs(p.marginPerKgCents), herd.currency)
+                      )}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </Section>
+
       <Section title={rt.herdSectionIdle}>
         <div className="space-y-3 p-4">
           <p className="text-xs text-muted-foreground">{rt.herdIdleDescription(herd.cycleDays)}</p>

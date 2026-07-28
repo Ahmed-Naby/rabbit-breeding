@@ -90,9 +90,24 @@ export const en: Dictionary = {
       "Pre-fills the weaned-kit sale form; still editable on every sale.",
     feedPricePerTonLabel: "Feed price per ton",
     feedPricePerTonHint: "Turns a quantity in tons into an amount on a feed expense.",
-    feedGramsPerDoePerDayLabel: "Feed per doe per day (g)",
-    feedGramsPerDoePerDayHint: "The doe and her litter together — usually 150–250 g.",
+    rationsSectionTitle: "Daily feed rations (g/head)",
+    rationsSectionHint:
+      "A rabbit eats by what it is doing, not by what it is — an empty, a pregnant and a nursing doe are three different numbers. These drive the expected feed load and cost for the herd as it stands.",
+    rationDoeIdleLabel: "Empty doe",
+    rationDoePregnantLabel: "Pregnant doe",
+    rationDoeNursingLabel: "Nursing doe (with her litter)",
+    rationBuckLabel: "Buck",
+    rationGrowerLabel: "Grower (post-weaning)",
+    rationJuvenileLabel: "Replacement stock",
+    feedPlanTitle: "Expected feed for the current herd",
+    feedPlanCompositionLabel: "Herd composition",
+    feedPlanKgPerMonthLabel: "Feed per month",
+    feedPlanCostPerMonthLabel: "Feed cost per month",
     feedCostPerDoePerDayLabel: "Feed cost per doe per day",
+    feedPlanNote:
+      "Expected, computed from the rations and today's head count — not from actual feed bills. Compare it against the feed expense on the finance page: a wide gap means overfeeding, waste, or rations entered wrong.",
+    feedPlanEmpty: "Enter the rations and the feed price per ton to see the expected figure.",
+    feedPlanHeadUnit: "head",
     saveButton: "Save settings",
     savedToast: "Saved",
     breedAlreadyExists: "This breed is already registered",
@@ -895,6 +910,22 @@ export const en: Dictionary = {
     herdNetPositiveNote: "Net is positive: on average a doe covers her keep and more.",
     herdNetNegativeNote:
       "Net is negative: the average doe brought in less than her share of the costs over this period.",
+
+    herdSectionBreakEven: "Break-even price",
+    herdKgSoldLabel: "Total meat sold",
+    herdRealizedPriceLabel: "Realized price per kg",
+    herdBreakEvenPriceLabel: "Break-even price per kg",
+    herdMarginPerKgLabel: "Margin per kg",
+    herdFeedKgLabel: "Feed consumed",
+    herdFeedConversionLabel: "Actual conversion (kg feed / kg meat)",
+    herdBreakEvenNote:
+      "Break-even = (all costs in the period − non-meat income such as breeding-stock sales) ÷ kilograms of meat sold. Below this price, every extra kilo sold widens the loss rather than narrowing it.",
+    herdBreakEvenPositiveNote: (margin: string) => `Each kilo clears ${margin} above break-even.`,
+    herdBreakEvenNegativeNote: (margin: string) =>
+      `Each kilo falls ${margin} short of break-even — selling at today's price widens the gap.`,
+    herdBreakEvenNoSales: "No meat was sold in this period, so no break-even price can be computed.",
+    herdFeedConversionNote:
+      "Feed consumed is inferred from the feed expense divided by the ton price in settings, not from a recorded quantity — it is only as accurate as that price. A «—» means the ton price is unset.",
 
     herdSectionIdle: "Idle does",
     herdIdleDescription: (cycleDays: number) =>

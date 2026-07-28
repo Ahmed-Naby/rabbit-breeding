@@ -243,7 +243,12 @@ export async function runFullImport(data: FullExportData): Promise<{ dataResetAt
         currency: s?.currency ?? "USD",
         defaultPricePerKgCents: s?.defaultPricePerKgCents ?? 0,
         feedPricePerTonCents: s?.feedPricePerTonCents ?? 0,
-        feedGramsPerDoePerDay: s?.feedGramsPerDoePerDay ?? 0,
+        feedGramsDoeIdlePerDay: s?.feedGramsDoeIdlePerDay ?? 0,
+        feedGramsDoePregnantPerDay: s?.feedGramsDoePregnantPerDay ?? 0,
+        feedGramsDoeNursingPerDay: s?.feedGramsDoeNursingPerDay ?? 0,
+        feedGramsBuckPerDay: s?.feedGramsBuckPerDay ?? 0,
+        feedGramsGrowerPerDay: s?.feedGramsGrowerPerDay ?? 0,
+        feedGramsJuvenilePerDay: s?.feedGramsJuvenilePerDay ?? 0,
         dataResetAt,
       };
       await tx.settings.upsert({

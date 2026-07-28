@@ -8,6 +8,12 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
 import { fetchSettingsPageData, type LocalBreed } from "../db/queries";
+import {
+  computeFeedPlan,
+  RATION_KEYS,
+  type FeedRations,
+  type HerdComposition,
+} from "@/lib/feed-plan";
 import { enqueue } from "../sync/outbox";
 import { exportBackup, restoreBackup, resetEverything, resetOperations } from "../db/backup";
 import { AccountCard } from "../components/account-card";
@@ -59,6 +65,15 @@ async function saveBackupFile(json: string, filename: string): Promise<void> {
  * from src/app/settings/settings-form.tsx — it had its own heavier label and
  * hint styling, which is the whole reason the two looked different.
  */
+function PlanRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
 function FieldLayout({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <Field label={label} hint={hint}>
@@ -90,11 +105,40 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   // web form; "" means unset, which saves as 0.
   const [defaultPricePerKg, setDefaultPricePerKg] = useState("");
   const [feedPricePerTon, setFeedPricePerTon] = useState("");
-  const [feedGramsPerDoePerDay, setFeedGramsPerDoePerDay] = useState("");
-  const [savingSettings, setSavingSettings] = useState(false);
-  const feedCostPerDoePerDayCents = Math.round(
-    ((Number(feedPricePerTon) || 0) * 100 * (Number(feedGramsPerDoePerDay) || 0)) / 1_000_000
+  // One string per animal class, keyed by the Settings column name so the
+  // save payload is a straight Object.fromEntries — see RATION_KEYS.
+  const [rations, setRations] = useState<Record<string, string>>(() =>
+    Object.fromEntries(RATION_KEYS.map((k) => [k, ""]))
   );
+  const [composition, setComposition] = useState<HerdComposition>({
+    doesIdle: 0,
+    doesPregnant: 0,
+    doesNursing: 0,
+    bucks: 0,
+    growers: 0,
+    juveniles: 0,
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const plan = computeFeedPlan(
+    composition,
+    Object.fromEntries(
+      RATION_KEYS.map((k) => [k, Number(rations[k]) || 0])
+    ) as unknown as FeedRations,
+    toCents(Number(feedPricePerTon) || 0)
+  );
+
+  const RATION_FIELDS: {
+    key: (typeof RATION_KEYS)[number];
+    label: string;
+    head: number;
+  }[] = [
+    { key: "feedGramsDoeIdlePerDay", label: t.settings.rationDoeIdleLabel, head: composition.doesIdle },
+    { key: "feedGramsDoePregnantPerDay", label: t.settings.rationDoePregnantLabel, head: composition.doesPregnant },
+    { key: "feedGramsDoeNursingPerDay", label: t.settings.rationDoeNursingLabel, head: composition.doesNursing },
+    { key: "feedGramsBuckPerDay", label: t.settings.rationBuckLabel, head: composition.bucks },
+    { key: "feedGramsGrowerPerDay", label: t.settings.rationGrowerLabel, head: composition.growers },
+    { key: "feedGramsJuvenilePerDay", label: t.settings.rationJuvenileLabel, head: composition.juveniles },
+  ];
 
   // New Breed field state
   const [newBreedName, setNewBreedName] = useState("");
@@ -131,7 +175,12 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         currency: "EGP",
         defaultPricePerKgCents: 0,
         feedPricePerTonCents: 0,
-        feedGramsPerDoePerDay: 0,
+        feedGramsDoeIdlePerDay: 0,
+        feedGramsDoePregnantPerDay: 0,
+        feedGramsDoeNursingPerDay: 0,
+        feedGramsBuckPerDay: 0,
+        feedGramsGrowerPerDay: 0,
+        feedGramsJuvenilePerDay: 0,
       };
       setSettings(s);
       setBreeds(res.breeds ?? []);
@@ -152,9 +201,10 @@ export function SettingsPage({ locale }: { locale: Locale }) {
       setCurrency(s.currency ?? "EGP");
       setDefaultPricePerKg(fromCents(s.defaultPricePerKgCents));
       setFeedPricePerTon(fromCents(s.feedPricePerTonCents));
-      setFeedGramsPerDoePerDay(
-        s.feedGramsPerDoePerDay ? String(s.feedGramsPerDoePerDay) : ""
+      setRations(
+        Object.fromEntries(RATION_KEYS.map((k) => [k, s[k] ? String(s[k]) : ""]))
       );
+      setComposition(res.composition);
     } catch (err) {
       console.error("[SettingsPage] Error loading settings:", err);
       // Fallback settings so the page never gets stuck on infinite loading
@@ -175,7 +225,12 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         currency: "EGP",
         defaultPricePerKgCents: 0,
         feedPricePerTonCents: 0,
-        feedGramsPerDoePerDay: 0,
+        feedGramsDoeIdlePerDay: 0,
+        feedGramsDoePregnantPerDay: 0,
+        feedGramsDoeNursingPerDay: 0,
+        feedGramsBuckPerDay: 0,
+        feedGramsGrowerPerDay: 0,
+        feedGramsJuvenilePerDay: 0,
       });
     }
   }, []);
@@ -204,7 +259,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         currency,
         defaultPricePerKgCents: toCents(parseFloat(defaultPricePerKg) || 0),
         feedPricePerTonCents: toCents(parseFloat(feedPricePerTon) || 0),
-        feedGramsPerDoePerDay: parseInt(feedGramsPerDoePerDay, 10) || 0,
+        ...Object.fromEntries(
+          RATION_KEYS.map((k) => [k, parseInt(rations[k], 10) || 0])
+        ),
       };
 
       await enqueue("updateSettings", payload);
@@ -560,33 +617,77 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               />
             </FieldLayout>
 
-            <FieldLayout
-              label={t.settings.feedGramsPerDoePerDayLabel}
-              hint={t.settings.feedGramsPerDoePerDayHint}
-            >
-              <Input
-                id="feedGramsPerDoePerDay"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={5000}
-                value={feedGramsPerDoePerDay}
-                onChange={(e) => setFeedGramsPerDoePerDay(e.target.value)}
-                disabled={savingSettings}
-              />
-            </FieldLayout>
+          </CardContent>
+        </Card>
 
-            {/* Same live readout as the web form — the pair of feed fields is
-                only meaningful as the per-doe daily cost it produces. */}
-            <div className="rounded-md border border-dashed px-3 py-2 text-sm">
-              <div className="text-muted-foreground">
-                {t.settings.feedCostPerDoePerDayLabel}
-              </div>
-              <div className="font-medium tabular-nums">
-                {feedCostPerDoePerDayCents > 0
-                  ? formatMoney(feedCostPerDoePerDayCents, currency)
-                  : "—"}
-              </div>
+        <Card>
+          <CardContent className="space-y-4">
+            <div>
+              <h2 className="font-medium">{t.settings.rationsSectionTitle}</h2>
+              <p className="text-xs text-muted-foreground">
+                {t.settings.rationsSectionHint}
+              </p>
+            </div>
+
+            {RATION_FIELDS.map((f) => (
+              <FieldLayout
+                key={f.key}
+                label={`${f.label} · ${f.head} ${t.settings.feedPlanHeadUnit}`}
+              >
+                <Input
+                  id={f.key}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={5000}
+                  value={rations[f.key] ?? ""}
+                  onChange={(e) =>
+                    setRations((r) => ({ ...r, [f.key]: e.target.value }))
+                  }
+                  disabled={savingSettings}
+                />
+              </FieldLayout>
+            ))}
+
+            {/* Same live plan as the web form — the rations only mean
+                something multiplied out over the herd that exists. */}
+            <div className="rounded-md border border-dashed p-3 text-sm">
+              <div className="font-medium">{t.settings.feedPlanTitle}</div>
+              {plan.gramsPerDay > 0 ? (
+                <>
+                  <dl className="mt-2 space-y-1">
+                    <PlanRow
+                      label={t.settings.feedPlanKgPerMonthLabel}
+                      value={`${Math.round(plan.kgPerMonth).toLocaleString(locale)} ${
+                        locale === "ar" ? "كجم" : "kg"
+                      }`}
+                    />
+                    <PlanRow
+                      label={t.settings.feedPlanCostPerMonthLabel}
+                      value={
+                        plan.costPerMonthCents != null
+                          ? formatMoney(plan.costPerMonthCents, currency)
+                          : "—"
+                      }
+                    />
+                    <PlanRow
+                      label={t.settings.feedCostPerDoePerDayLabel}
+                      value={
+                        plan.costPerDoePerDayCents != null
+                          ? formatMoney(plan.costPerDoePerDayCents, currency)
+                          : "—"
+                      }
+                    />
+                  </dl>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t.settings.feedPlanNote}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t.settings.feedPlanEmpty}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

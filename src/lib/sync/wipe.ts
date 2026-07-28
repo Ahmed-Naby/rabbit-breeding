@@ -37,7 +37,12 @@ export async function runWipe(): Promise<{ dataResetAt: string }> {
         currency: "USD",
         defaultPricePerKgCents: 0,
         feedPricePerTonCents: 0,
-        feedGramsPerDoePerDay: 0,
+        feedGramsDoeIdlePerDay: 0,
+        feedGramsDoePregnantPerDay: 0,
+        feedGramsDoeNursingPerDay: 0,
+        feedGramsBuckPerDay: 0,
+        feedGramsGrowerPerDay: 0,
+        feedGramsJuvenilePerDay: 0,
         dataResetAt,
       },
     });

@@ -42,7 +42,16 @@ const flag = (name: string, fallback: number) => {
 const OUT_FILE = args.find((a) => !a.startsWith("--")) ?? "demo-farm.json";
 const SEED = flag("seed", 20260727);
 const ACTIVE_DOES = flag("does", 200);
-const SIM_DAYS = flag("days", 365);
+/**
+ * Simulated horizon. Deliberately longer than a year even though nobody reads
+ * an 18-month report: a farm started from an empty barn sells nothing for its
+ * first three months while the first litters are still growing, and any window
+ * that reaches back into that stretch prices a full year's feed against a
+ * partial year's meat. It made the demo look like it lost 176,000 EGP. The
+ * extra ~185 days are a warm-up so that even a 365-day window lands entirely
+ * inside the steady state.
+ */
+const SIM_DAYS = flag("days", 550);
 
 /** The farm's own settings — these drive what the report calls "المستهدف". */
 const GESTATION_DAYS = 31;
@@ -52,12 +61,46 @@ const PREGNANCY_TEST_DAYS = 10;
 const NEST_BOX_DAYS = 27;
 const CURRENCY = "EGP";
 
-/** Market assumptions, in the smallest currency unit (piastres). */
-const PRICE_PER_KG_CENTS = 5_500; // 55 ج.م/كجم
+/**
+ * Market assumptions, in the smallest currency unit (piastres), at real
+ * Egyptian prices rather than round numbers. These two are the whole economic
+ * story of a meat farm and they are close enough together that everything else
+ * is a rounding error: 3.5–4 kg of feed goes into every kg of live rabbit, so
+ * a farm buying feed at 19,000/ton has already spent 66–76 of the 100 it gets
+ * back before rent, wages, medicine or a single dead kit.
+ */
+const PRICE_PER_KG_CENTS = 10_000; // 100 ج.م/كجم قائم
+const FEED_PRICE_PER_TON_CENTS = 1_900_000; // 19,000 ج.م/طن
 const KIT_SALE_WEIGHT_G = [1_900, 2_400] as const;
-const FEED_COST_PER_DOE_PER_DAY_CENTS = 700; // 7 ج.م — doe + her litter
 const FEED_POSTING_INTERVAL_DAYS = 15;
 const VET_COST_PER_MONTH_CENTS = 300_000; // 3,000 ج.م
+
+/**
+ * Daily ration per head, in grams, by animal class — the same six numbers the
+ * app now stores in Settings (see src/lib/feed-plan.ts). The feed bill below is
+ * simulated FROM these against the herd's actual state day by day, not from a
+ * flat per-doe figure: a flat figure charges an idle barn and a full one the
+ * same money, which is precisely the error that made the previous dataset lose
+ * money for reasons no report could explain.
+ */
+const RATIONS = {
+  doeIdle: 150,
+  doePregnant: 200,
+  doeNursing: 275, // هي وخلفتها
+  buck: 200,
+  grower: 100, // بعد الفطام وحتى البيع
+  juvenile: 150, // سلالة
+} as const;
+
+/**
+ * The fixed monthly costs that existed on every real farm and in none of this
+ * app's data until now. Scaled off the doe count so a --does=50 run doesn't
+ * carry a 200-doe payroll: one worker per ~120 does is the usual staffing.
+ */
+const RENT_PER_MONTH_CENTS = Math.round((ACTIVE_DOES / 100) * 150_000); // 1,500 ج.م لكل 100 أم
+const UTILITIES_PER_MONTH_CENTS = Math.round((ACTIVE_DOES / 100) * 75_000); // 750 ج.م لكل 100 أم
+const WORKERS = Math.max(1, Math.round(ACTIVE_DOES / 120));
+const SALARY_PER_WORKER_PER_MONTH_CENTS = 600_000; // 6,000 ج.م
 
 /* ─────────────────────── deterministic RNG ─────────────────────── */
 
@@ -352,7 +395,9 @@ for (const doe of does) {
     cycle.kindlingDate = kindlingDate;
     const [lo, hi] = doe.tier.litter;
     cycle.bornAliveAtKindling = int(lo, hi);
-    cycle.bornDeadAtKindling = chance(0.45) ? int(1, 3) : 0;
+    // ~0.5 stillborn per litter. The old 45%×(1–3) averaged 1.9, which is a
+    // figure you see in a herd with a real problem, not in a working barn.
+    cycle.bornDeadAtKindling = chance(0.3) ? int(1, 2) : 0;
     cycle.bornAlive = cycle.bornAliveAtKindling;
     cycle.bornDead = cycle.bornDeadAtKindling;
 
@@ -454,9 +499,13 @@ for (const cycle of cycles) {
   // move, the way recordNursingKitDeathOp does — which is what makes
   // «نافق الرعاية» (bornDead − bornDeadAtKindling) come out right.
   const kindlingLogId = id();
+  // ~13% pre-weaning mortality across the herd, which is where a farm that
+  // checks its nest boxes lands. It used to be ~24%, and once feed is priced at
+  // 19,000/ton that difference is not a detail: a kit that dies at two weeks has
+  // already been paid for in its mother's nursing ration and returns nothing.
   let deaths = 0;
-  if (chance(0.45)) deaths = int(1, Math.min(3, Math.max(1, cycle.bornAlive - 1)));
-  if (chance(0.02)) deaths = cycle.bornAlive; // the occasional total loss
+  if (chance(0.3)) deaths = int(1, Math.min(2, Math.max(1, cycle.bornAlive - 1)));
+  if (chance(0.015)) deaths = cycle.bornAlive; // the occasional total loss
 
   let remaining = deaths;
   let deathCursor = addDays(cycle.kindlingDate, int(1, 6));
@@ -542,7 +591,8 @@ const STOCK_SALE_PRICE_CENTS = 25_000; // 250 ج.م
  * src/app/reports/report-data.ts). Giving a kit a number would file it as a
  * breeding doe that somehow never mated.
  */
-function retainStockKit(cycle: Cycle, retainedAt: Date) {
+/** Returns the day the kit stopped eating this farm's feed — its exit, or today. */
+function retainStockKit(cycle: Cycle, retainedAt: Date): Date {
   const rabbitId = id();
   stockKitIds.add(rabbitId);
   const sex = chance(0.6) ? "doe" : "buck";
@@ -638,6 +688,8 @@ function retainStockKit(cycle: Cycle, retainedAt: Date) {
       updatedAt: iso(exitAt),
     });
   }
+
+  return hasLeft ? exitAt : TODAY;
 }
 
 /* ─────────── phase 4: the weaned-kit ledger and the money ──────── */
@@ -647,7 +699,15 @@ function retainStockKit(cycle: Cycle, retainedAt: Date) {
  * dead. Whatever is left over is the running balance the report prints — so
  * the deductions here are capped at what was actually weaned, or the balance
  * would go negative and «باقي الفطام» would print nonsense.
+ *
+ * Mouths the feed model has to pay for that aren't breeding animals are
+ * collected as they go: every weaned kit from the day it leaves its mother to
+ * the day it leaves the farm, and every retained سلالة from retention to its
+ * exit. They are gathered here rather than recomputed later because the sale
+ * date is decided inside this loop and nowhere else.
  */
+const growerSpans: { from: Date; to: Date; head: number; ration: number }[] = [];
+
 for (const cycle of cycles) {
   if (!cycle.weaned || cycle.weaned <= 0) continue;
   const weanedAt = cycle.weaningDate!;
@@ -677,7 +737,14 @@ for (const cycle of cycles) {
   // createQuickRabbitOp). So this loop emits one movement AND one Rabbit per
   // kit, or the farm reports 379 kits retained into a السلالات table that is
   // empty on every screen that reads it.
-  const retained = chance(0.3) ? Math.min(left, int(1, 2)) : 0;
+  //
+  // ~7% of weanings keep one kit, which over a year replaces roughly a third of
+  // the does — the normal replacement rate. It used to be 30%×(1–2), i.e. ~450
+  // young breeders a year for a 200-doe herd: nearly two replacements per doe
+  // per year, each one eating a سلالة ration for months and then leaving at a
+  // young-breeder price. That single number was quietly costing the demo farm
+  // more than its rent.
+  const retained = chance(0.07) ? Math.min(left, 1) : 0;
   for (let k = 0; k < retained; k++) {
     left -= 1;
     const retainedAt = addDays(weanedAt, int(25, 45));
@@ -685,13 +752,30 @@ for (const cycle of cycles) {
       left += 1;
       break;
     }
-    retainStockKit(cycle, retainedAt);
+    const leftAt = retainStockKit(cycle, retainedAt);
+    growerSpans.push({ from: retainedAt, to: leftAt, head: 1, ration: RATIONS.juvenile });
   }
 
-  // Kits are sold at ~2 kg, roughly a month after weaning. A couple are left
-  // behind on purpose so the farm always carries some balance.
-  const saleDate = addDays(weanedAt, int(28, 45));
-  const sold = saleDate <= TODAY ? Math.max(0, left - (chance(0.3) ? int(1, 2) : 0)) : 0;
+  // Kits go out whole at ~2.1 kg, 45–60 days after weaning — i.e. around 80
+  // days old, which is when a rabbit eating 100g a day actually gets there:
+  // 0.6 kg at weaning to 2.1 kg at sale is 1.5 kg of gain, and at the 3.3–3.5
+  // conversion of the fattening phase that is roughly 5 kg of feed, which is
+  // fifty days' ration and not thirty. The window used to be 28–45 days, and
+  // the cost of that shortcut was invisible until the report started printing
+  // a feed-conversion ratio: the demo farm was showing 2.9 kg of feed per kg of
+  // meat, a number no rabbit has ever achieved.
+  //
+  // Nothing is held back on purpose either: the standing رصيد الفطام comes from
+  // the batches whose sale date simply hasn't arrived yet, which is where a
+  // real farm's balance comes from too.
+  const saleDate = addDays(weanedAt, int(45, 60));
+  const sold = saleDate <= TODAY ? left : 0;
+  growerSpans.push({
+    from: weanedAt,
+    to: sold > 0 ? saleDate : TODAY,
+    head: cycle.weaned,
+    ration: RATIONS.grower,
+  });
   if (sold > 0) {
     const weightGrams = sold * int(...KIT_SALE_WEIGHT_G);
     const amountCents = Math.round((weightGrams * PRICE_PER_KG_CENTS) / 1000);
@@ -726,12 +810,51 @@ for (const cycle of cycles) {
 // deliberately posted farm-wide with no rabbitId, because that is how a real
 // farm books feed and vet bills and is the reason the report calls the per-doe
 // cost an allocation rather than a measurement.
+/**
+ * The feed bill, simulated day by day off the herd this run actually produced
+ * rather than off a flat per-doe rate. Each day accumulates grams: every living
+ * doe eats her idle ration as a baseline, and pregnancy and lactation are added
+ * on top as uplifts over exactly the days she was in that state, so a farm that
+ * bred badly in March pays less in April — which is the entire point of putting
+ * a feed number in front of the farmer.
+ */
+const gramsOnDay = new Float64Array(SIM_DAYS + 1);
+const dayIndex = (d: Date) => Math.round((d.getTime() - SIM_START.getTime()) / 86_400_000);
+
+function eat(from: Date, to: Date | null, head: number, gramsPerHead: number) {
+  if (!to || head <= 0 || gramsPerHead === 0) return;
+  const first = Math.max(0, dayIndex(from));
+  const last = Math.min(SIM_DAYS, dayIndex(to));
+  for (let d = first; d <= last; d++) gramsOnDay[d] += head * gramsPerHead;
+}
+
+for (const doe of does) {
+  eat(doe.enteredAt, doe.exitAt ?? TODAY, 1, RATIONS.doeIdle);
+}
+for (const cycle of cycles) {
+  // Uplifts, not replacements: the idle baseline above already covers her.
+  const carriedUntil = cycle.kindlingDate ?? cycle.resorptionDate;
+  eat(cycle.matingDate, carriedUntil, 1, RATIONS.doePregnant - RATIONS.doeIdle);
+  if (cycle.kindlingDate) {
+    eat(cycle.kindlingDate, cycle.weaningDate, 1, RATIONS.doeNursing - RATIONS.doeIdle);
+  }
+}
+eat(SIM_START, TODAY, BUCK_COUNT, RATIONS.buck);
+for (const span of growerSpans) eat(span.from, span.to, span.head, span.ration);
+
 for (let day = 0; day <= SIM_DAYS; day += FEED_POSTING_INTERVAL_DAYS) {
   const date = addDays(SIM_START, day);
   if (date > TODAY) break;
-  const amountCents =
-    FEED_COST_PER_DOE_PER_DAY_CENTS * ACTIVE_DOES * FEED_POSTING_INTERVAL_DAYS +
-    int(-40_000, 40_000);
+  let grams = 0;
+  for (let d = day; d < day + FEED_POSTING_INTERVAL_DAYS && d <= SIM_DAYS; d++) {
+    grams += gramsOnDay[d];
+  }
+  if (grams <= 0) continue;
+  // ±3% — real invoices never land on the calculated gram, and a ledger where
+  // every feed row is arithmetically perfect reads as fabricated.
+  const amountCents = Math.round(
+    ((grams * FEED_PRICE_PER_TON_CENTS) / 1_000_000) * (1 + int(-30, 30) / 1000)
+  );
   transactions.push({
     id: id(),
     rabbitId: null,
@@ -739,7 +862,7 @@ for (let day = 0; day <= SIM_DAYS; day += FEED_POSTING_INTERVAL_DAYS) {
     type: "expense",
     category: "feed",
     amountCents,
-    notes: "علف",
+    notes: `علف — ${Math.round(grams / 1000).toLocaleString("ar-EG")} كجم`,
     createdAt: iso(date),
   });
 }
@@ -754,6 +877,39 @@ for (let day = 0; day <= SIM_DAYS; day += 30) {
     category: "vet",
     amountCents: VET_COST_PER_MONTH_CENTS + int(-60_000, 90_000),
     notes: "أدوية وتحصينات",
+    createdAt: iso(date),
+  });
+  // The overheads that don't care how the herd performed. They are flat by
+  // design — that is what makes them the thing a farm has to out-produce, and
+  // the reason a half-empty barn bleeds money while a full one doesn't.
+  transactions.push({
+    id: id(),
+    rabbitId: null,
+    date: iso(date),
+    type: "expense",
+    category: "rent",
+    amountCents: RENT_PER_MONTH_CENTS,
+    notes: "إيجار المزرعة",
+    createdAt: iso(date),
+  });
+  transactions.push({
+    id: id(),
+    rabbitId: null,
+    date: iso(date),
+    type: "expense",
+    category: "salaries",
+    amountCents: WORKERS * SALARY_PER_WORKER_PER_MONTH_CENTS,
+    notes: `مرتبات ${WORKERS.toLocaleString("ar-EG")} عامل`,
+    createdAt: iso(date),
+  });
+  transactions.push({
+    id: id(),
+    rabbitId: null,
+    date: iso(date),
+    type: "expense",
+    category: "utilities",
+    amountCents: UTILITIES_PER_MONTH_CENTS + int(-10_000, 15_000),
+    notes: "كهرباء ومياه",
     createdAt: iso(date),
   });
   if (chance(0.3)) {
@@ -1020,6 +1176,17 @@ const data = {
     fosterHighKits: 8,
     fosterLowKits: 4,
     currency: CURRENCY,
+    // The money side of Settings, filled from the same constants the ledger
+    // above was simulated with — so the «خطة العلف» panel and the ledger tell
+    // the same story instead of two unrelated ones.
+    defaultPricePerKgCents: PRICE_PER_KG_CENTS,
+    feedPricePerTonCents: FEED_PRICE_PER_TON_CENTS,
+    feedGramsDoeIdlePerDay: RATIONS.doeIdle,
+    feedGramsDoePregnantPerDay: RATIONS.doePregnant,
+    feedGramsDoeNursingPerDay: RATIONS.doeNursing,
+    feedGramsBuckPerDay: RATIONS.buck,
+    feedGramsGrowerPerDay: RATIONS.grower,
+    feedGramsJuvenilePerDay: RATIONS.juvenile,
   },
   breeds,
   rabbits,
@@ -1042,8 +1209,35 @@ const data = {
 writeFileSync(OUT_FILE, JSON.stringify(data));
 
 const totalWeaned = weaningLogs.reduce((s, w) => s + ((w.weaned as number) ?? 0), 0);
-const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + (t.amountCents as number), 0);
-const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + (t.amountCents as number), 0);
+// The same arithmetic إنتاجية القطيع does, printed here so a regenerated dataset
+// can be sanity-checked without loading it into a database first. Measured over
+// the LAST 365 days, not the whole simulated horizon: the warm-up months
+// deliberately sit outside it (see SIM_DAYS), and including them would report a
+// year's costs against a partial year's sales — the exact distortion the
+// warm-up exists to keep out of the farmer's report.
+const YEAR_START = addDays(TODAY, -365);
+const inYear = (d: unknown) => new Date(d as string) >= YEAR_START;
+const yearTx = transactions.filter((t) => inYear(t.date));
+const yearSales = kitStockMovements.filter((m) => m.type === "sale" && inYear(m.date));
+const sum = <T extends Record<string, unknown>>(rows: T[], key: string) =>
+  rows.reduce((s, r) => s + ((r[key] as number) ?? 0), 0);
+
+const income = sum(
+  yearTx.filter((t) => t.type === "income"),
+  "amountCents"
+);
+const expense = sum(
+  yearTx.filter((t) => t.type === "expense"),
+  "amountCents"
+);
+const feedCents = sum(
+  yearTx.filter((t) => t.category === "feed"),
+  "amountCents"
+);
+const saleCents = sum(yearSales, "amountCents");
+const kgSold = sum(yearSales, "weightGrams") / 1000;
+const feedKg = (feedCents / FEED_PRICE_PER_TON_CENTS) * 1000;
+const breakEven = kgSold > 0 ? (expense - (income - saleCents)) / kgSold : 0;
 
 console.log(`✔ ${OUT_FILE}`);
 console.table({
@@ -1059,6 +1253,12 @@ console.table({
   امتصاص: resorptionLogs.length,
   "حركات مخزون": kitStockMovements.length,
   "معاملات مالية": transactions.length,
-  "إيراد (ج.م)": Math.round(income / 100),
-  "مصروف (ج.م)": Math.round(expense / 100),
+  "إيراد آخر سنة (ج.م)": Math.round(income / 100),
+  "مصروف آخر سنة (ج.م)": Math.round(expense / 100),
+  "صافي آخر سنة (ج.م)": Math.round((income - expense) / 100),
+  "علف آخر سنة (طن)": +(feedKg / 1000).toFixed(1),
+  "لحم مباع آخر سنة (كجم)": Math.round(kgSold),
+  "تحويل غذائي (كجم علف/كجم)": kgSold > 0 ? +(feedKg / kgSold).toFixed(2) : 0,
+  "سعر التعادل (ج.م/كجم)": +(breakEven / 100).toFixed(2),
+  "سعر البيع (ج.م/كجم)": kgSold > 0 ? +(saleCents / kgSold / 100).toFixed(2) : 0,
 });

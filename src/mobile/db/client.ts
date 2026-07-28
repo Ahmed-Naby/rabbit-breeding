@@ -110,7 +110,16 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     `ALTER TABLE settings_cache ADD COLUMN fosterLowKits INTEGER NOT NULL DEFAULT 4`,
     `ALTER TABLE settings_cache ADD COLUMN defaultPricePerKgCents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE settings_cache ADD COLUMN feedPricePerTonCents INTEGER NOT NULL DEFAULT 0`,
-    `ALTER TABLE settings_cache ADD COLUMN feedGramsPerDoePerDay INTEGER NOT NULL DEFAULT 0`,
+    // feedGramsPerDoePerDay was added and then superseded within a day by the
+    // six per-class rations below. It is deliberately NOT dropped: it shipped
+    // NOT NULL DEFAULT 0, nothing reads or writes it anymore, and a DROP here
+    // would rewrite the table on every device to remove a harmless zero.
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsDoeIdlePerDay INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsDoePregnantPerDay INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsDoeNursingPerDay INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsBuckPerDay INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsGrowerPerDay INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE settings_cache ADD COLUMN feedGramsJuvenilePerDay INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE kindling_log ADD COLUMN bornAliveAtKindling INTEGER NOT NULL DEFAULT 0`,
     // Backfill for rows that predate the column, matching the server
     // migration: bornAlive is the closest surviving value, exact for any litter

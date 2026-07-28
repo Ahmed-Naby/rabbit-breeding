@@ -286,8 +286,8 @@ export async function pull(): Promise<boolean> {
   if (data.settings) {
     const s = data.settings;
     set.push({
-      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsPerDoePerDay)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      statement: `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
          gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
@@ -299,7 +299,12 @@ export async function pull(): Promise<boolean> {
          currency = excluded.currency,
          defaultPricePerKgCents = excluded.defaultPricePerKgCents,
          feedPricePerTonCents = excluded.feedPricePerTonCents,
-         feedGramsPerDoePerDay = excluded.feedGramsPerDoePerDay`,
+         feedGramsDoeIdlePerDay = excluded.feedGramsDoeIdlePerDay,
+         feedGramsDoePregnantPerDay = excluded.feedGramsDoePregnantPerDay,
+         feedGramsDoeNursingPerDay = excluded.feedGramsDoeNursingPerDay,
+         feedGramsBuckPerDay = excluded.feedGramsBuckPerDay,
+         feedGramsGrowerPerDay = excluded.feedGramsGrowerPerDay,
+         feedGramsJuvenilePerDay = excluded.feedGramsJuvenilePerDay`,
       values: [
         s.weightUnit,
         s.gestationDays,
@@ -320,7 +325,12 @@ export async function pull(): Promise<boolean> {
         s.currency,
         s.defaultPricePerKgCents ?? 0,
         s.feedPricePerTonCents ?? 0,
-        s.feedGramsPerDoePerDay ?? 0,
+        s.feedGramsDoeIdlePerDay ?? 0,
+        s.feedGramsDoePregnantPerDay ?? 0,
+        s.feedGramsDoeNursingPerDay ?? 0,
+        s.feedGramsBuckPerDay ?? 0,
+        s.feedGramsGrowerPerDay ?? 0,
+        s.feedGramsJuvenilePerDay ?? 0,
       ],
     });
   }

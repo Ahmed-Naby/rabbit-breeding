@@ -84,7 +84,12 @@ export type LocalSettings = {
   currency: string;
   defaultPricePerKgCents: number;
   feedPricePerTonCents: number;
-  feedGramsPerDoePerDay: number;
+  feedGramsDoeIdlePerDay: number;
+  feedGramsDoePregnantPerDay: number;
+  feedGramsDoeNursingPerDay: number;
+  feedGramsBuckPerDay: number;
+  feedGramsGrowerPerDay: number;
+  feedGramsJuvenilePerDay: number;
 };
 
 export type OutboxStatus = "pending" | "syncing" | "applied" | "already_applied" | "rejected";

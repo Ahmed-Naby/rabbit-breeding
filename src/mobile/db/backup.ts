@@ -134,7 +134,8 @@ async function readRestoredSnapshot(): Promise<Record<string, unknown>> {
       `SELECT weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays,
               nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays,
               fosterWindowDays, fosterHighKits, fosterLowKits, currency,
-              defaultPricePerKgCents, feedPricePerTonCents, feedGramsPerDoePerDay
+              defaultPricePerKgCents, feedPricePerTonCents,
+              feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay
        FROM settings_cache WHERE id = 1`
     ),
     queryAll<Row>(

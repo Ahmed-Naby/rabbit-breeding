@@ -70,7 +70,12 @@ async function getSettings(db: SQLiteDBConnection): Promise<LocalSettings> {
       currency: "EGP",
       defaultPricePerKgCents: 0,
       feedPricePerTonCents: 0,
-      feedGramsPerDoePerDay: 0,
+      feedGramsDoeIdlePerDay: 0,
+      feedGramsDoePregnantPerDay: 0,
+      feedGramsDoeNursingPerDay: 0,
+      feedGramsBuckPerDay: 0,
+      feedGramsGrowerPerDay: 0,
+      feedGramsJuvenilePerDay: 0,
     }
   );
 }
@@ -1483,8 +1488,8 @@ export async function updateSettings(
 ): Promise<LocalOpOutcome> {
   await run(
     db,
-    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsPerDoePerDay)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO settings_cache (id, weightUnit, gestationDays, gestationWindowDays, pregnancyTestDays, palpationCheckDays, weaningDays, nestBoxDays, matingWeightGrams, rebreedAfterKindlingDays, fosterWindowDays, fosterHighKits, fosterLowKits, currency, defaultPricePerKgCents, feedPricePerTonCents, feedGramsDoeIdlePerDay, feedGramsDoePregnantPerDay, feedGramsDoeNursingPerDay, feedGramsBuckPerDay, feedGramsGrowerPerDay, feedGramsJuvenilePerDay)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        weightUnit = excluded.weightUnit, gestationDays = excluded.gestationDays,
        gestationWindowDays = excluded.gestationWindowDays, pregnancyTestDays = excluded.pregnancyTestDays,
@@ -1496,7 +1501,12 @@ export async function updateSettings(
        currency = excluded.currency,
        defaultPricePerKgCents = excluded.defaultPricePerKgCents,
        feedPricePerTonCents = excluded.feedPricePerTonCents,
-       feedGramsPerDoePerDay = excluded.feedGramsPerDoePerDay`,
+       feedGramsDoeIdlePerDay = excluded.feedGramsDoeIdlePerDay,
+       feedGramsDoePregnantPerDay = excluded.feedGramsDoePregnantPerDay,
+       feedGramsDoeNursingPerDay = excluded.feedGramsDoeNursingPerDay,
+       feedGramsBuckPerDay = excluded.feedGramsBuckPerDay,
+       feedGramsGrowerPerDay = excluded.feedGramsGrowerPerDay,
+       feedGramsJuvenilePerDay = excluded.feedGramsJuvenilePerDay`,
     [
       payload.weightUnit ?? 'kg',
       payload.gestationDays ?? 30,
@@ -1513,7 +1523,12 @@ export async function updateSettings(
       payload.currency ?? 'USD',
       payload.defaultPricePerKgCents ?? 0,
       payload.feedPricePerTonCents ?? 0,
-      payload.feedGramsPerDoePerDay ?? 0
+      payload.feedGramsDoeIdlePerDay ?? 0,
+      payload.feedGramsDoePregnantPerDay ?? 0,
+      payload.feedGramsDoeNursingPerDay ?? 0,
+      payload.feedGramsBuckPerDay ?? 0,
+      payload.feedGramsGrowerPerDay ?? 0,
+      payload.feedGramsJuvenilePerDay ?? 0
     ]
   );
   return applied;

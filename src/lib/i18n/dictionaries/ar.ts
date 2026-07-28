@@ -92,9 +92,28 @@ export const ar = {
       "يُملأ تلقائيًا في شاشة «بيع الفطام»، وتقدر تعدّله في أي عملية بيع.",
     feedPricePerTonLabel: "سعر طن العلف",
     feedPricePerTonHint: "يُستخدم لتحويل الكمية بالطن إلى مبلغ في مصروف العلف.",
-    feedGramsPerDoePerDayLabel: "استهلاك العلف للأم يوميًا (جم)",
-    feedGramsPerDoePerDayHint: "الأم وخلفتها معًا — غالبًا بين 150 و 250 جم.",
+    rationsSectionTitle: "مقننات العلف اليومية (جم/رأس)",
+    rationsSectionHint:
+      "الأرنب بياكل حسب حالته مش حسب نوعه، فالأم الفارغة والحامل والمرضعة تلات أرقام مختلفة. من هنا يحسب التطبيق العلف المتوقع للقطيع الحالي وتكلفته.",
+    rationDoeIdleLabel: "أم فارغة",
+    rationDoePregnantLabel: "أم حامل",
+    rationDoeNursingLabel: "أم مرضعة (هي وخلفتها)",
+    rationBuckLabel: "ذكر",
+    rationGrowerLabel: "أرنب تسمين بعد الفطام",
+    rationJuvenileLabel: "سلالة",
+    feedPlanTitle: "العلف المتوقع للقطيع الحالي",
+    feedPlanCompositionLabel: "تركيبة القطيع",
+    feedPlanKgPerMonthLabel: "كمية العلف شهريًا",
+    feedPlanCostPerMonthLabel: "تكلفة العلف شهريًا",
     feedCostPerDoePerDayLabel: "تكلفة العلف للأم يوميًا",
+    feedPlanNote:
+      "رقم متوقع محسوب من المقننات وعدد الرؤوس اليوم، مش من فواتير العلف الفعلية. قارنه بمصروف العلف في صفحة المالية: الفرق الكبير معناه إسراف أو هدر أو مقننات مكتوبة غلط.",
+    feedPlanEmpty: "اكتب المقننات وسعر طن العلف عشان يظهر الرقم المتوقع.",
+    // A plain noun, not a formatter: this whole dictionary object is handed to
+    // SettingsForm, which is a Client Component, and React refuses to serialize
+    // a function across that boundary — the page 500s with "Functions cannot be
+    // passed directly to Client Components". The caller does the interpolation.
+    feedPlanHeadUnit: "رأس",
     saveButton: "حفظ الإعدادات",
     savedToast: "تم الحفظ",
     breedAlreadyExists: "هذا النوع مسجل بالفعل",
@@ -888,6 +907,24 @@ export const ar = {
       "العلف والعلاج مصاريف مزرعة عامة وليست مسجّلة لكل أم على حدة، لذلك المصروف هنا موزَّع بالتساوي على الأمهات ويشمل نصيبها من تكلفة الذكور والسلالات. اعتبره تقديرًا للتوزيع لا رصدًا فعليًا.",
     herdNetPositiveNote: "الصافي موجب: الأم في المتوسط تغطي تكلفتها وتزيد.",
     herdNetNegativeNote: "الصافي سالب: متوسط ما تدخله الأم أقل من نصيبها من المصاريف في هذه الفترة.",
+
+    // ——— سعر التعادل ———
+    herdSectionBreakEven: "سعر التعادل",
+    herdKgSoldLabel: "إجمالي اللحم المباع",
+    herdRealizedPriceLabel: "متوسط سعر البيع الفعلي للكيلو",
+    herdBreakEvenPriceLabel: "سعر التعادل للكيلو",
+    herdMarginPerKgLabel: "الربح في الكيلو",
+    herdFeedKgLabel: "العلف المستهلك",
+    herdFeedConversionLabel: "معامل التحويل الفعلي (كجم علف/كجم لحم)",
+    herdBreakEvenNote:
+      "سعر التعادل = (كل مصاريف الفترة − الإيرادات غير اللحم مثل بيع السلالة) ÷ كيلوجرامات اللحم المباعة. تحت هذا السعر كل كيلو تبيعه يكبّر الخسارة، مش يقلّلها.",
+    herdBreakEvenPositiveNote: (margin: string) =>
+      `الكيلو بيربح ${margin} فوق التعادل.`,
+    herdBreakEvenNegativeNote: (margin: string) =>
+      `الكيلو بيخسر ${margin} تحت التعادل — البيع بالسعر الحالي بيوسّع الفجوة.`,
+    herdBreakEvenNoSales: "لا توجد مبيعات باللحم في هذه الفترة، فلا يمكن حساب سعر تعادل.",
+    herdFeedConversionNote:
+      "العلف المستهلك محسوب من مصروف العلف مقسومًا على سعر الطن في الإعدادات، مش من كمية مسجّلة — فدقته من دقة سعر الطن. لو ظهر «—» يبقى سعر الطن مش متحدد.",
 
     herdSectionIdle: "الأمهات الخاملة",
     herdIdleDescription: (cycleDays: number) =>

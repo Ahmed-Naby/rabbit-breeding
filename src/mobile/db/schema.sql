@@ -100,7 +100,16 @@ CREATE TABLE IF NOT EXISTS settings_cache (
   -- 0 = not set (see the Settings model); never a guessed price.
   defaultPricePerKgCents    INTEGER NOT NULL DEFAULT 0,
   feedPricePerTonCents      INTEGER NOT NULL DEFAULT 0,
-  feedGramsPerDoePerDay     INTEGER NOT NULL DEFAULT 0
+  -- Daily ration per head, in grams, by animal class — see feed-plan.ts.
+  -- A device upgraded from the single feedGramsPerDoePerDay still carries that
+  -- dead column (SQLite has no safe DROP COLUMN here and it is NOT NULL
+  -- DEFAULT 0, so nothing reads or writes it); fresh installs never get it.
+  feedGramsDoeIdlePerDay     INTEGER NOT NULL DEFAULT 0,
+  feedGramsDoePregnantPerDay INTEGER NOT NULL DEFAULT 0,
+  feedGramsDoeNursingPerDay  INTEGER NOT NULL DEFAULT 0,
+  feedGramsBuckPerDay        INTEGER NOT NULL DEFAULT 0,
+  feedGramsGrowerPerDay      INTEGER NOT NULL DEFAULT 0,
+  feedGramsJuvenilePerDay    INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row sync bookkeeping: this device's identity and its pull cursor.

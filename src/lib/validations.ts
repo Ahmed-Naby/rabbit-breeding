@@ -319,6 +319,7 @@ export type KitSaleInput = z.infer<ReturnType<typeof kitSaleSchema>>;
 // Settings ------------------------------------------------------------------
 
 export function settingsSchema(t: Dictionary["validation"]) {
+  const ration = z.coerce.number().int().min(0).max(5_000);
   return z.object({
     weightUnit: z.enum(WEIGHT_UNITS),
     gestationDays: z.coerce.number().int().min(1).max(60),
@@ -335,12 +336,19 @@ export function settingsSchema(t: Dictionary["validation"]) {
       t.invalidValue
     ),
     // Money in whole currency units (the farm types 55, not 5500) — converted
-    // to cents in updateSettings, which is why these three are the only fields
+    // to cents in updateSettings, which is why these two are the only fields
     // in this schema whose names don't match the Settings column they land in.
     // 0 means "not set": every reader treats it as absent rather than free.
     defaultPricePerKg: z.coerce.number().min(0).max(100_000),
     feedPricePerTon: z.coerce.number().min(0).max(10_000_000),
-    feedGramsPerDoePerDay: z.coerce.number().int().min(0).max(5_000),
+    // Daily rations in grams per head. The 5,000 ceiling is a typo guard, not
+    // a husbandry limit — the biggest of these is a nursing doe at ~300 g.
+    feedGramsDoeIdlePerDay: ration,
+    feedGramsDoePregnantPerDay: ration,
+    feedGramsDoeNursingPerDay: ration,
+    feedGramsBuckPerDay: ration,
+    feedGramsGrowerPerDay: ration,
+    feedGramsJuvenilePerDay: ration,
     fosterWindowDays: z.coerce.number().int().min(0).max(14),
     fosterHighKits: z.coerce.number().int().min(1).max(20),
     fosterLowKits: z.coerce.number().int().min(0).max(20),

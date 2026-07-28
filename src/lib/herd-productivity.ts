@@ -52,6 +52,12 @@ export type HerdProductivityInput = {
   /** Transaction totals in range, farm-wide. */
   incomeCents: number;
   expenseCents: number;
+  /** KitStockMovement(type: "sale") money in range — the meat revenue alone. */
+  soldAmountCents: number;
+  /** Transaction(category: "feed") in range, needed to weigh the feed bill. */
+  feedExpenseCents: number;
+  /** Settings.feedPricePerTonCents — turns that bill back into kilograms. */
+  feedPricePerTonCents: number;
 };
 
 export type HerdProductivity = {
@@ -80,6 +86,19 @@ export type HerdProductivity = {
   incomeCents: number;
   expenseCents: number;
   soldCount: number;
+
+  /** Kilograms of meat sold in the period — the denominator for everything below. */
+  kgSold: number;
+  /** What a kilo actually fetched: meat revenue ÷ kg sold. */
+  realizedPricePerKgCents: number | null;
+  /** The price a kilo must fetch for the farm to come out level — see below. */
+  breakEvenPricePerKgCents: number | null;
+  /** realized − break-even. Negative means every kilo sold deepened the hole. */
+  marginPerKgCents: number | null;
+  /** Feed bought in the period, in kg, inferred from the bill and the ton price. */
+  feedKgConsumed: number | null;
+  /** kg of feed per kg of meat sold — the farm's real whole-herd conversion. */
+  feedConversionRatio: number | null;
 };
 
 /** A 30-day month, matching the rest of the reports (see report-data.ts). */
@@ -164,6 +183,41 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
 
   const weanedTotal = sum(input.weanings.map((w) => w.weaned ?? 0));
 
+  // ── سعر التعادل ────────────────────────────────────────────────────────
+  // The single most consequential number a meat farm has, and the one the app
+  // could not previously state: below this price per kilo, selling more makes
+  // the loss bigger.
+  //
+  // Costs are taken WHOLE and then offset by whatever the farm earned that
+  // wasn't meat (culled does, bucks, breeding stock, manure). That offset is
+  // the reason this isn't just expense ÷ kg: a farm that covers a fifth of its
+  // overhead selling replacement stock genuinely needs less from each kilo of
+  // meat, and charging the meat for costs the stock sales already paid would
+  // print a break-even price nobody could ever hit.
+  //
+  // Null, never 0, when nothing was sold by weight — with no kilograms there is
+  // no per-kilo anything, and a 0 here would read as "you break even for free".
+  const kgSold = input.soldWeightGrams / 1000;
+  const otherIncomeCents = input.incomeCents - input.soldAmountCents;
+  const perKg = (cents: number) => (kgSold > 0 ? Math.round(cents / kgSold) : null);
+
+  const realizedPricePerKgCents = perKg(input.soldAmountCents);
+  const breakEvenPricePerKgCents = perKg(input.expenseCents - otherIncomeCents);
+  const marginPerKgCents =
+    realizedPricePerKgCents != null && breakEvenPricePerKgCents != null
+      ? realizedPricePerKgCents - breakEvenPricePerKgCents
+      : null;
+
+  // A feed Transaction stores money, not weight, so the only way back to
+  // kilograms is through the farm's own ton price. That makes this figure only
+  // as good as that setting — which is precisely why it renders as «—» rather
+  // than as a number when the price is unset, instead of quietly dividing by a
+  // default nobody chose.
+  const feedKgConsumed =
+    input.feedPricePerTonCents > 0
+      ? (input.feedExpenseCents / input.feedPricePerTonCents) * 1000
+      : null;
+
   return {
     doeCount,
     periodDays,
@@ -196,6 +250,14 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
     incomeCents: input.incomeCents,
     expenseCents: input.expenseCents,
     soldCount: input.soldCount,
+
+    kgSold,
+    realizedPricePerKgCents,
+    breakEvenPricePerKgCents,
+    marginPerKgCents,
+    feedKgConsumed,
+    feedConversionRatio:
+      feedKgConsumed != null && kgSold > 0 ? feedKgConsumed / kgSold : null,
   };
 }
 
