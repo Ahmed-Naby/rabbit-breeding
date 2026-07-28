@@ -56,68 +56,89 @@ async function main() {
   });
   console.log(`Farm: ${farm.name} (${farm.id})`);
 
-  // Reload-safe: clears only this farm. Children first — the raw client has no
-  // tenant extension, so every filter here is explicit.
-  console.log("Clearing the demo farm…");
-  const where = { farmId: DEMO_FARM_ID };
-  await prisma.$transaction([
-    prisma.kitDeathLog.deleteMany({ where }),
-    prisma.fosterLog.deleteMany({ where }),
-    prisma.resorptionLog.deleteMany({ where }),
-    prisma.matingLog.deleteMany({ where }),
-    prisma.nestBoxLog.deleteMany({ where }),
-    prisma.weaningLog.deleteMany({ where }),
-    prisma.kindlingLog.deleteMany({ where }),
-    prisma.pregnancyTestLog.deleteMany({ where }),
-    prisma.kitStockMovement.deleteMany({ where }),
-    prisma.transaction.deleteMany({ where }),
-    prisma.healthRecord.deleteMany({ where }),
-    prisma.weightRecord.deleteMany({ where }),
-    prisma.litter.deleteMany({ where }),
-    prisma.breeding.deleteMany({ where }),
-    prisma.rabbit.deleteMany({ where }),
-    prisma.breed.deleteMany({ where }),
-  ]);
-
-  await prisma.settings.upsert({
-    where: { farmId: DEMO_FARM_ID },
-    update: data.settings,
-    create: { ...data.settings, farmId: DEMO_FARM_ID },
-  });
-
-  // Parent → child, so no FK is ever pointed at a row that isn't in yet.
   type Insertable = { createMany(args: { data: Row[] }): Promise<{ count: number }> };
-  const order: [string, Insertable][] = [
-    ["breeds", prisma.breed],
-    ["rabbits", prisma.rabbit],
-    ["breedings", prisma.breeding],
-    ["litters", prisma.litter],
-    ["weightRecords", prisma.weightRecord],
-    ["healthRecords", prisma.healthRecord],
-    ["transactions", prisma.transaction],
-    ["kitStockMovements", prisma.kitStockMovement],
-    ["pregnancyTestLogs", prisma.pregnancyTestLog],
-    ["kindlingLogs", prisma.kindlingLog],
-    ["weaningLogs", prisma.weaningLog],
-    ["nestBoxLogs", prisma.nestBoxLog],
-    ["matingLogs", prisma.matingLog],
-    ["resorptionLogs", prisma.resorptionLog],
-    ["fosterLogs", prisma.fosterLog],
-    ["kitDeathLogs", prisma.kitDeathLog],
-  ] as unknown as [string, Insertable][];
 
-  for (const [key, model] of order) {
-    const rows = revive(data[key] ?? [], DEMO_FARM_ID);
-    if (rows.length === 0) continue;
-    // Chunked: a single createMany of ~40k rows exceeds the driver's bind-param
-    // limit, and the failure looks nothing like "too many rows".
-    let inserted = 0;
-    for (let i = 0; i < rows.length; i += 2_000) {
-      const { count } = await model.createMany({ data: rows.slice(i, i + 2_000) });
-      inserted += count;
-    }
-    console.log(`  ${key.padEnd(20)} ${inserted}`);
-  }
+  // The whole reload is ONE transaction, so no reader ever sees a half-loaded
+  // farm. Without it the app briefly showed «إجمالي المباع» larger than
+  // «إجمالي الفطام» and a negative «المخزون المتاح» — every KitStockMovement
+  // was in while the WeaningLog rows they draw down were still being written.
+  //
+  // Worth stressing that this is a property of THIS script, not of the app: the
+  // stock invariant is enforced on every real write path (recordKitSale,
+  // recordWeanedKitDeath, adjustStock, and the mobile equivalents all refuse a
+  // count that would drive availableStock below zero). createMany goes straight
+  // to the table and past all of it, which is exactly why the seeding order has
+  // to be right by construction here.
+  console.log("Loading (single transaction)…");
+  await prisma.$transaction(
+    async (tx) => {
+      // Reload-safe: clears only this farm. Children first — the raw client has
+      // no tenant extension, so every filter here is explicit.
+      const where = { farmId: DEMO_FARM_ID };
+      await tx.kitDeathLog.deleteMany({ where });
+      await tx.fosterLog.deleteMany({ where });
+      await tx.resorptionLog.deleteMany({ where });
+      await tx.matingLog.deleteMany({ where });
+      await tx.nestBoxLog.deleteMany({ where });
+      await tx.weaningLog.deleteMany({ where });
+      await tx.kindlingLog.deleteMany({ where });
+      await tx.pregnancyTestLog.deleteMany({ where });
+      await tx.kitStockMovement.deleteMany({ where });
+      await tx.transaction.deleteMany({ where });
+      await tx.healthRecord.deleteMany({ where });
+      await tx.weightRecord.deleteMany({ where });
+      await tx.litter.deleteMany({ where });
+      await tx.breeding.deleteMany({ where });
+      await tx.rabbit.deleteMany({ where });
+      await tx.breed.deleteMany({ where });
+
+      await tx.settings.upsert({
+        where: { farmId: DEMO_FARM_ID },
+        update: data.settings,
+        create: { ...data.settings, farmId: DEMO_FARM_ID },
+      });
+
+      // Parent → child, so no FK is ever pointed at a row that isn't in yet.
+      // weaningLogs come BEFORE kitStockMovements for a second reason that no
+      // FK enforces: a sale/death/retained movement is a withdrawal from the
+      // weaned stock, so the weanings it draws on have to exist first for the
+      // balance to be non-negative at every point of the load.
+      const order: [string, Insertable][] = [
+        ["breeds", tx.breed],
+        ["rabbits", tx.rabbit],
+        ["breedings", tx.breeding],
+        ["litters", tx.litter],
+        ["weightRecords", tx.weightRecord],
+        ["healthRecords", tx.healthRecord],
+        ["pregnancyTestLogs", tx.pregnancyTestLog],
+        ["kindlingLogs", tx.kindlingLog],
+        ["weaningLogs", tx.weaningLog],
+        ["transactions", tx.transaction],
+        ["kitStockMovements", tx.kitStockMovement],
+        ["nestBoxLogs", tx.nestBoxLog],
+        ["matingLogs", tx.matingLog],
+        ["resorptionLogs", tx.resorptionLog],
+        ["fosterLogs", tx.fosterLog],
+        ["kitDeathLogs", tx.kitDeathLog],
+      ] as unknown as [string, Insertable][];
+
+      for (const [key, model] of order) {
+        const rows = revive(data[key] ?? [], DEMO_FARM_ID);
+        if (rows.length === 0) continue;
+        // Chunked: a single createMany of ~40k rows exceeds the driver's
+        // bind-param limit, and the failure looks nothing like "too many rows".
+        let inserted = 0;
+        for (let i = 0; i < rows.length; i += 2_000) {
+          const { count } = await model.createMany({ data: rows.slice(i, i + 2_000) });
+          inserted += count;
+        }
+        console.log(`  ${key.padEnd(20)} ${inserted}`);
+      }
+    },
+    // Prisma's 5s default kills a load this size mid-way. maxWait is the queue
+    // for a free connection, timeout the transaction's own budget.
+    { maxWait: 60_000, timeout: 600_000 }
+  );
 
   // Make the demo farm reachable from inside the app. The mobile/desktop
   // client picks its farm from the account's memberships (see
