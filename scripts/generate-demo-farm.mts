@@ -160,12 +160,18 @@ for (let i = 1; i <= BUCK_COUNT; i++) {
  * eat, and complete almost no cycles. A generator where every doe performs
  * would make the herd-level and the event-level averages agree, and prove
  * nothing about the report.
+ *
+ * The litter ranges are set for the stock these farms actually run — hybrid
+ * does, not pure lines — which puts خلفة حية عند الولادة at about 6.3 per
+ * litter herd-wide. They used to average 8.3, a pure-line figure: flattering,
+ * and wrong in the direction that matters, since a demo farm is what someone
+ * measures their own numbers against before they trust the app with them.
  */
 const TIERS = [
-  { name: "excellent", share: 0.35, conception: 0.9, litter: [8, 12] as const, restDays: [0, 4] as const },
-  { name: "good", share: 0.35, conception: 0.8, litter: [6, 10] as const, restDays: [0, 8] as const },
-  { name: "weak", share: 0.2, conception: 0.6, litter: [4, 8] as const, restDays: [3, 20] as const },
-  { name: "idle", share: 0.1, conception: 0.25, litter: [3, 7] as const, restDays: [25, 90] as const },
+  { name: "excellent", share: 0.35, conception: 0.9, litter: [6, 9] as const, restDays: [0, 4] as const },
+  { name: "good", share: 0.35, conception: 0.8, litter: [5, 8] as const, restDays: [0, 8] as const },
+  { name: "weak", share: 0.2, conception: 0.6, litter: [3, 5] as const, restDays: [3, 20] as const },
+  { name: "idle", share: 0.1, conception: 0.25, litter: [2, 5] as const, restDays: [25, 90] as const },
 ];
 
 function rollTier() {
