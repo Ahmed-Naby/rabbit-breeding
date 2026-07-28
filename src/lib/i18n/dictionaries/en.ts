@@ -911,12 +911,23 @@ export const en: Dictionary = {
     herdNetNegativeNote:
       "Net is negative: the average doe brought in less than her share of the costs over this period.",
 
+    herdSectionTotals: "Period totals",
+    herdTotalIncomeLabel: "Total income",
+    herdTotalExpenseLabel: "Total expenses",
+    herdTotalNetLabel: "Net",
+    herdSoldCountLabel: "Rabbits sold",
+    herdSoldPerDoePerYearLabel: "Rabbits sold per doe per year",
+    herdTotalsNote:
+      "Whole-farm figures for the selected period, not per doe. Rabbits sold per doe per year is the most important number here: while the break-even price sits close to the selling price, this is what decides profit or loss — two more kits per doe per year beats a five-pound rise in the price of a kilo.",
+    herdTotalsProfitNote: (net: string) => `The farm made ${net} over the selected period.`,
+    herdTotalsLossNote: (net: string) => `The farm lost ${net} over the selected period.`,
+
     herdSectionBreakEven: "Break-even price",
-    herdKgSoldLabel: "Total meat sold",
+    herdKgSoldLabel: "Total meat sold (kg)",
     herdRealizedPriceLabel: "Realized price per kg",
     herdBreakEvenPriceLabel: "Break-even price per kg",
     herdMarginPerKgLabel: "Margin per kg",
-    herdFeedKgLabel: "Feed consumed",
+    herdFeedKgLabel: "Feed consumed (kg)",
     herdFeedConversionLabel: "Actual conversion (kg feed / kg meat)",
     herdBreakEvenNote:
       "Break-even = (all costs in the period − non-meat income such as breeding-stock sales) ÷ kilograms of meat sold. Below this price, every extra kilo sold widens the loss rather than narrowing it.",

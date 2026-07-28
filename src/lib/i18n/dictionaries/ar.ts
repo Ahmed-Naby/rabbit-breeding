@@ -909,12 +909,23 @@ export const ar = {
     herdNetNegativeNote: "الصافي سالب: متوسط ما تدخله الأم أقل من نصيبها من المصاريف في هذه الفترة.",
 
     // ——— سعر التعادل ———
+    herdSectionTotals: "حصيلة الفترة",
+    herdTotalIncomeLabel: "إجمالي الإيراد",
+    herdTotalExpenseLabel: "إجمالي المصروف",
+    herdTotalNetLabel: "الصافي",
+    herdSoldCountLabel: "عدد الأرانب المباعة",
+    herdSoldPerDoePerYearLabel: "أرنب مباع لكل أم في السنة",
+    herdTotalsNote:
+      "أرقام المزرعة كلها في الفترة المختارة، مش لكل أم. «أرنب مباع لكل أم في السنة» هو أهم رقم في الصفحة: طالما سعر التعادل قريب من سعر البيع، الرقم ده هو اللي بيفرق بين الربح والخسارة — أرنبين زيادة لكل أم في السنة أحسن من خمسة جنيه زيادة في سعر الكيلو.",
+    herdTotalsProfitNote: (net: string) => `المزرعة كسبانة ${net} في الفترة المختارة.`,
+    herdTotalsLossNote: (net: string) => `المزرعة خسرانة ${net} في الفترة المختارة.`,
+
     herdSectionBreakEven: "سعر التعادل",
-    herdKgSoldLabel: "إجمالي اللحم المباع",
+    herdKgSoldLabel: "إجمالي اللحم المباع (كجم)",
     herdRealizedPriceLabel: "متوسط سعر البيع الفعلي للكيلو",
     herdBreakEvenPriceLabel: "سعر التعادل للكيلو",
     herdMarginPerKgLabel: "الربح في الكيلو",
-    herdFeedKgLabel: "العلف المستهلك",
+    herdFeedKgLabel: "العلف المستهلك (كجم)",
     herdFeedConversionLabel: "معامل التحويل الفعلي (كجم علف/كجم لحم)",
     herdBreakEvenNote:
       "سعر التعادل = (كل مصاريف الفترة − الإيرادات غير اللحم مثل بيع السلالة) ÷ كيلوجرامات اللحم المباعة. تحت هذا السعر كل كيلو تبيعه يكبّر الخسارة، مش يقلّلها.",

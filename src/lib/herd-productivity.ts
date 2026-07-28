@@ -85,7 +85,17 @@ export type HerdProductivity = {
 
   incomeCents: number;
   expenseCents: number;
+  /** income − expense over the whole period. Negative is a real loss, not a rounding. */
+  netCents: number;
   soldCount: number;
+  /**
+   * Rabbits sold per doe per year, annualised from the period. The governing
+   * number of a meat farm: at a break-even within a few pounds of the sale
+   * price — which is where 19,000/ton feed puts every Egyptian farm — the price
+   * cannot be argued with, but this can. Two extra kits per doe per year is
+   * worth more than a five-pound rise in the price of a kilo.
+   */
+  soldPerDoePerYear: number | null;
 
   /** Kilograms of meat sold in the period — the denominator for everything below. */
   kgSold: number;
@@ -249,7 +259,12 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
 
     incomeCents: input.incomeCents,
     expenseCents: input.expenseCents,
+    netCents: input.incomeCents - input.expenseCents,
     soldCount: input.soldCount,
+    soldPerDoePerYear:
+      doeCount > 0 && periodDays > 0
+        ? (input.soldCount / doeCount) * (YEAR_DAYS / periodDays)
+        : null,
 
     kgSold,
     realizedPricePerKgCents,

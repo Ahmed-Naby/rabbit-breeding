@@ -599,13 +599,49 @@ function HerdProductivitySection({
         </div>
       </Section>
 
+      <Section title={rt.herdSectionTotals}>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <HerdTile label={rt.herdTotalIncomeLabel} value={money(p.incomeCents)} />
+          <HerdTile label={rt.herdTotalExpenseLabel} value={money(p.expenseCents)} />
+          <HerdTile
+            label={rt.herdTotalNetLabel}
+            value={money(p.netCents)}
+            strong
+            tone={p.netCents >= 0 ? "good" : "bad"}
+          />
+          <HerdTile label={rt.herdSoldCountLabel} value={num(p.soldCount, 0)} />
+          <HerdTile
+            label={rt.herdSoldPerDoePerYearLabel}
+            value={num(p.soldPerDoePerYear, 1)}
+            strong
+          />
+          <HerdTile label={rt.herdKgSoldLabel} value={num(p.kgSold, 1)} />
+        </div>
+        <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
+          <p>{rt.herdTotalsNote}</p>
+          <p
+            className={cn(
+              p.netCents >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            )}
+          >
+            {p.netCents >= 0
+              ? rt.herdTotalsProfitNote(formatMoney(p.netCents, herd.currency))
+              : rt.herdTotalsLossNote(formatMoney(Math.abs(p.netCents), herd.currency))}
+          </p>
+        </div>
+      </Section>
+
       <Section title={rt.herdSectionBreakEven}>
         {p.breakEvenPricePerKgCents == null ? (
           <p className="p-4 text-sm text-muted-foreground">{rt.herdBreakEvenNoSales}</p>
         ) : (
           <>
+            {/* kgSold is not repeated here: it is the denominator of every tile
+                below and it already has a home in حصيلة الفترة above, with the
+                other absolute quantities. */}
             <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-              <HerdTile label={rt.herdKgSoldLabel} value={num(p.kgSold, 1)} />
               <HerdTile
                 label={rt.herdRealizedPriceLabel}
                 value={money(p.realizedPricePerKgCents)}
