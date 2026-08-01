@@ -26,7 +26,8 @@ export default async function OperationsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const sp = await searchParams;
-  const activeTab = sp.tab || "mating";
+  // The first tab, not التلقيح: opening the page lands where the day starts.
+  const activeTab = sp.tab || "pregnancy-test";
   const { t } = await getDictionary();
   const ops = t.dailyOperations;
 
@@ -36,19 +37,6 @@ export default async function OperationsPage({
 
       {/* 5 Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
-        <Link
-          href="/operations?tab=mating"
-          className={cn(
-            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
-            activeTab === "mating"
-              ? "bg-background text-foreground shadow-sm border border-border/60"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
-        >
-          <HeartHandshake className="size-4 text-pink-500" />
-          {ops.tabMating}
-        </Link>
-
         <Link
           href="/operations?tab=pregnancy-test"
           className={cn(
@@ -73,6 +61,22 @@ export default async function OperationsPage({
         >
           <HeartPulse className="size-4 text-emerald-500" />
           {ops.tabKindling}
+        </Link>
+
+        {/* After الجس and الولادة: the two tabs the farm opens every morning
+            to clear yesterday's does come first, and mating follows on from
+            what they leave behind. */}
+        <Link
+          href="/operations?tab=mating"
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            activeTab === "mating"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <HeartHandshake className="size-4 text-pink-500" />
+          {ops.tabMating}
         </Link>
 
         <Link
@@ -104,9 +108,9 @@ export default async function OperationsPage({
 
       {/* Active Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === "mating" && <MatingPage hideHeader={true} todayOnly />}
         {activeTab === "pregnancy-test" && <PregnancyTestPage hideHeader={true} todayOnly />}
         {activeTab === "kindling" && <KindlingPage hideHeader={true} todayOnly />}
+        {activeTab === "mating" && <MatingPage hideHeader={true} todayOnly />}
         {activeTab === "weaning" && <WeaningPage hideHeader={true} todayOnly />}
         {activeTab === "fostering" && <FosteringPage hideHeader={true} todayOnly />}
       </div>

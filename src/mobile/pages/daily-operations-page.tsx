@@ -31,7 +31,8 @@ export function DailyOperationsPage({ locale }: { locale: Locale }) {
       if (hash.includes("tab=fostering") || hash.startsWith("#/fostering")) return "fostering";
       if (hash.includes("tab=mating") || hash.startsWith("#/mating")) return "mating";
     }
-    return "mating";
+    // The first tab, not التلقيح: opening the page lands where the day starts.
+    return "pregnancy-test";
   });
 
   return (
@@ -44,20 +45,6 @@ export function DailyOperationsPage({ locale }: { locale: Locale }) {
 
       {/* Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
-        <button
-          type="button"
-          onClick={() => setActiveTab("mating")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
-            activeTab === "mating"
-              ? "bg-background text-foreground shadow-sm border border-border/60"
-              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
-        >
-          <HeartHandshake className="size-4 text-pink-500" />
-          {ops.tabMating}
-        </button>
-
         <button
           type="button"
           onClick={() => setActiveTab("pregnancy-test")}
@@ -84,6 +71,23 @@ export function DailyOperationsPage({ locale }: { locale: Locale }) {
         >
           <HeartPulse className="size-4 text-emerald-500" />
           {ops.tabKindling}
+        </button>
+
+        {/* After الجس and الولادة: the two tabs the farm opens every morning
+            to clear yesterday's does come first, and mating follows on from
+            what they leave behind. */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("mating")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "mating"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <HeartHandshake className="size-4 text-pink-500" />
+          {ops.tabMating}
         </button>
 
         <button
@@ -117,9 +121,9 @@ export function DailyOperationsPage({ locale }: { locale: Locale }) {
 
       {/* Active Tab Content */}
       <div className="animate-fade-in">
-        {activeTab === "mating" && <MatingPage locale={locale} hideHeader={true} />}
         {activeTab === "pregnancy-test" && <PregnancyTestPage locale={locale} hideHeader={true} />}
         {activeTab === "kindling" && <KindlingPage locale={locale} hideHeader={true} />}
+        {activeTab === "mating" && <MatingPage locale={locale} hideHeader={true} />}
         {activeTab === "weaning" && <WeaningPage locale={locale} hideHeader={true} />}
         {activeTab === "fostering" && <FosteringPage locale={locale} hideHeader={true} />}
       </div>
