@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useTransition } from "react";
-import { Skull, Trash2 } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Skull, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
@@ -11,8 +11,6 @@ import { enqueue } from "../sync/outbox";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { SortableTh } from "@/components/sortable-th";
-import { useSortableRows } from "@/lib/use-sortable-rows";
 import type { LocalRabbit } from "../db/types";
 import { MortalityLog } from "./mortality-log";
 import { CullingLog } from "./culling-log";
@@ -34,10 +32,14 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
 
   const [nursingCounts, setNursingCounts] = useState<Record<string, number>>({});
   const [weanedCount, setWeanedCount] = useState(1);
+  const [nursingTag, setNursingTag] = useState("");
+  // Which nursing does the farmer has pulled up this session, in the order he
+  // typed them. Breeding ids, not doe ids: the litter is what a death is
+  // recorded against, and it is what the counts below are keyed by.
+  const [shownBreedingIds, setShownBreedingIds] = useState<string[]>([]);
   const [motherTag, setMotherTag] = useState("");
   const [buckTag, setBuckTag] = useState("");
   const [stockCage, setStockCage] = useState("");
-  const [pending, startTransition] = useState(false);
 
   const load = useCallback(async () => {
     const db = await getDb();
@@ -106,11 +108,20 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   const nursingDoes = data?.nursingDoes ?? [];
   const availableWeanedStock = data?.availableWeanedStock ?? 0;
 
-  const nursingSort = useSortableRows(nursingDoes, {
-    tag: { type: "tag", value: (r) => r.doe.tagId },
-    alive: { type: "number", value: (r) => r.litter.bornAlive },
-    dead: { type: "number", value: (r) => r.litter.bornDead },
-  });
+  // نافق الرضاعة is looked up the same way: the doe is typed in and «اعرض»
+  // pulls her row into a short working table, instead of listing every nursing
+  // doe on the farm. Rows are re-read from `nursingDoes` on each render so the
+  // counts stay fresh after a death is recorded — and a doe whose last live kit
+  // is gone leaves that list, so her row correctly disappears with nothing left
+  // to record.
+  const nursingQuery = nursingTag.trim();
+  const nursingMatch = nursingQuery
+    ? (nursingDoes.find((r) => (r.doe.tagId ?? "").trim() === nursingQuery) ?? null)
+    : null;
+  const shownNursing = shownBreedingIds
+    .map((id) => nursingDoes.find((r) => r.breedingId === id))
+    .filter((r): r is (typeof nursingDoes)[number] => r != null);
+
   // نافق الأمهات/الذكور are entered by tag number rather than picked out of a
   // table of the whole herd, so the match resolves locally off the already-
   // loaded list — no query, and the feedback lands as the farmer types.
@@ -171,75 +182,134 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
             description={t.mortality.nursingEmptyDescription}
           />
         ) : (
-          <div className="rounded-xl border bg-card overflow-x-auto">
-            <table className="w-full text-sm text-left rtl:text-right border-collapse">
-              <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{t.mortality.colIndex}</th>
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colMotherTag}
-                    sortKey="tag"
-                    activeSortKey={nursingSort.sortKey}
-                    direction={nursingSort.direction}
-                    onSort={nursingSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colAlive}
-                    sortKey="alive"
-                    activeSortKey={nursingSort.sortKey}
-                    direction={nursingSort.direction}
-                    onSort={nursingSort.toggleSort}
-                  />
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={t.mortality.colDead}
-                    sortKey="dead"
-                    activeSortKey={nursingSort.sortKey}
-                    direction={nursingSort.direction}
-                    onSort={nursingSort.toggleSort}
-                  />
-                  <th className="px-4 py-3 text-center w-48">{t.mortality.colRecordDeath}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {nursingSort.sorted.map(({ doe, breedingId, litter }, i) => {
-                  const countInput = nursingCounts[breedingId] || 1;
-                  return (
-                    <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                      <td className="px-4 py-3.5 text-center text-muted-foreground">{i + 1}</td>
-                      <td className="px-4 py-3.5 text-center font-bold">{doe.tagId}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold text-emerald-600 dark:text-emerald-400">{litter.bornAlive}</td>
-                      <td className="px-4 py-3.5 text-center font-semibold text-red-600 dark:text-red-400">{litter.bornDead}</td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-center gap-2">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={litter.bornAlive}
-                            value={countInput}
-                            className="h-8 w-16 px-2 text-center text-xs"
-                            onChange={(e) => {
-                              const v = Math.min(litter.bornAlive, Math.max(1, parseInt(e.target.value, 10) || 1));
-                              setNursingCounts({ ...nursingCounts, [breedingId]: v });
-                            }}
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2.5 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
-                            onClick={() => handleNursingDeath(breedingId, litter.bornAlive)}
-                          >
-                            {t.mortality.recordNursingDeathButton}
-                          </Button>
-                        </div>
-                      </td>
+          <div className="space-y-3">
+            <Card>
+              <CardContent className="space-y-3 py-5">
+                <form
+                  className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!nursingMatch) return;
+                    setShownBreedingIds((prev) =>
+                      prev.includes(nursingMatch.breedingId)
+                        ? prev
+                        : [...prev, nursingMatch.breedingId],
+                    );
+                    setNursingTag("");
+                  }}
+                >
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-sm font-semibold" htmlFor="nursing-death-tag">
+                      {t.mortality.colMotherTag}
+                    </label>
+                    <Input
+                      id="nursing-death-tag"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      value={nursingTag}
+                      placeholder={t.mortality.motherTagPlaceholder}
+                      onChange={(e) => setNursingTag(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="text-sm font-semibold" htmlFor="nursing-death-breed">
+                      {t.mortality.colBreed}
+                    </label>
+                    <Input
+                      id="nursing-death-breed"
+                      readOnly
+                      tabIndex={-1}
+                      value={nursingMatch ? (nursingMatch.doe.breed ?? "—") : ""}
+                      className="bg-muted/50 font-medium"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={!nursingMatch}
+                    className="h-9 px-4 text-xs"
+                  >
+                    {t.mortality.showRowButton}
+                  </Button>
+                </form>
+                {!nursingMatch && nursingQuery.length > 0 ? (
+                  <p className="text-sm font-medium text-destructive">
+                    {t.mortality.nursingMotherNotFound}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t.mortality.nursingFormHint}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {shownNursing.length > 0 ? (
+              <div className="rounded-xl border bg-card overflow-x-auto">
+                <table className="w-full text-sm text-left rtl:text-right border-collapse">
+                  <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                    <tr className="[&>th]:border-x">
+                      <th className="px-4 py-3 text-center">{t.mortality.colIndex}</th>
+                      <th className="px-4 py-3 text-center">{t.mortality.colMotherTag}</th>
+                      <th className="px-4 py-3 text-center">{t.mortality.colAlive}</th>
+                      <th className="px-4 py-3 text-center">{t.mortality.colDead}</th>
+                      <th className="px-4 py-3 text-center w-48">{t.mortality.colRecordDeath}</th>
+                      <th className="w-12" />
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y">
+                    {shownNursing.map(({ doe, breedingId, litter }, i) => {
+                      const countInput = nursingCounts[breedingId] || 1;
+                      return (
+                        <tr key={doe.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                          <td className="px-4 py-3.5 text-center text-muted-foreground">{i + 1}</td>
+                          <td className="px-4 py-3.5 text-center font-bold">{doe.tagId}</td>
+                          <td className="px-4 py-3.5 text-center font-semibold text-emerald-600 dark:text-emerald-400">{litter.bornAlive}</td>
+                          <td className="px-4 py-3.5 text-center font-semibold text-red-600 dark:text-red-400">{litter.bornDead}</td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center justify-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={litter.bornAlive}
+                                value={countInput}
+                                className="h-8 w-16 px-2 text-center text-xs"
+                                onChange={(e) => {
+                                  const v = Math.min(litter.bornAlive, Math.max(1, parseInt(e.target.value, 10) || 1));
+                                  setNursingCounts({ ...nursingCounts, [breedingId]: v });
+                                }}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2.5 text-xs border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
+                                onClick={() => handleNursingDeath(breedingId, litter.bornAlive)}
+                              >
+                                {t.mortality.recordNursingDeathButton}
+                              </Button>
+                            </div>
+                          </td>
+                          <td className="px-2 py-3.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t.mortality.removeRowLabel}
+                              title={t.mortality.removeRowLabel}
+                              className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() =>
+                                setShownBreedingIds((prev) =>
+                                  prev.filter((id) => id !== breedingId),
+                                )
+                              }
+                            >
+                              <X className="size-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

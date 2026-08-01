@@ -1,11 +1,9 @@
-import Link from "next/link";
 import { Skull } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader, EmptyState } from "@/components/page-header";
-import { TableRow, TableCell } from "@/components/ui/table";
-import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
-import { NursingKitDeathButton, WeaningStockDeathButton } from "./mortality-actions";
+import { WeaningStockDeathButton } from "./mortality-actions";
+import { NursingDeathForm, type NursingDoeOption } from "./nursing-death-form";
 import { getKitStockSummary } from "../weaning-sales/stock";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isNursingKitDeathCandidate } from "@/lib/breeding-filters";
@@ -121,13 +119,23 @@ export default async function MortalityPage({
     getDictionary(),
   ]);
 
-  const nursingDoes = nursingDoesRaw
+  // Flattened to exactly the six fields the lookup form needs: the whole list
+  // crosses to the client so the doe a farmer types resolves without a round
+  // trip, and the nested breeding/litter shape would ship far more than that.
+  const nursingDoes: NursingDoeOption[] = nursingDoesRaw
     .map((doe) => {
       const litterRow = resolveNursingLitterRow(doe.breedingsAsDoe);
       if (!litterRow || !isNursingKitDeathCandidate(litterRow)) return null;
-      return { doe, breedingId: litterRow.id, litter: litterRow.litter! };
+      return {
+        id: doe.id,
+        tagId: doe.tagId,
+        breed: doe.breed,
+        breedingId: litterRow.id,
+        bornAlive: litterRow.litter!.bornAlive,
+        bornDead: litterRow.litter!.bornDead,
+      };
     })
-    .filter((row): row is NonNullable<typeof row> => row != null);
+    .filter((row): row is NursingDoeOption => row != null);
   const deceasedMothers = todayOnly
     ? deceasedMothersRaw.filter((r) => isToday(r.updatedAt))
     : deceasedMothersRaw;
@@ -158,43 +166,7 @@ export default async function MortalityPage({
             description={t.mortality.nursingEmptyDescription}
           />
         ) : (
-          <div className="rounded-xl border bg-card">
-            <SortableTable
-              headerRowClassName="[&>th]:border-x"
-              columns={[
-                { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
-                { key: "tag", label: t.mortality.colMotherTag, type: "tag", className: "text-center" },
-                { key: "breed", label: t.mortality.colBreed, type: "string", className: "text-center" },
-                { key: "alive", label: t.mortality.colAlive, type: "number", className: "text-center" },
-                { key: "dead", label: t.mortality.colDead, type: "number", className: "text-center" },
-                { key: "action", label: t.mortality.colRecordDeath, className: "text-center", sortable: false },
-              ]}
-              rows={nursingDoes.map(({ doe, breedingId, litter }, i) => ({
-                key: doe.id,
-                sortValues: { tag: doe.tagId, breed: doe.breed, alive: litter.bornAlive, dead: litter.bornDead },
-                node: (
-                  <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/rabbits/${doe.id}`} className="hover:underline">
-                        {doe.tagId ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{doe.breed ?? "—"}</TableCell>
-                    <TableCell>{litter.bornAlive}</TableCell>
-                    <TableCell>{litter.bornDead}</TableCell>
-                    <TableCell>
-                      <NursingKitDeathButton
-                        breedingId={breedingId}
-                        bornAlive={litter.bornAlive}
-                        locale={locale}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
-            />
-          </div>
+          <NursingDeathForm does={nursingDoes} locale={locale} />
         )}
       </div>
 
