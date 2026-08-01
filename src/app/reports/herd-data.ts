@@ -99,10 +99,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
   const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, r._max.kindlingDate]));
 
   const periodDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / DAY_MS));
-  const { cycleDays, targetCyclesPerYear } = rebreedTarget(
-    settings.rebreedAfterKindlingDays,
-    settings.gestationDays
-  );
+  const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
   const productivity = computeHerdProductivity({
     doeCount: doeRows.length,

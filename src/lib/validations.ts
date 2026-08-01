@@ -8,6 +8,7 @@ import {
   TRANSACTION_CATEGORIES,
   WEIGHT_UNITS,
 } from "./enums";
+import { REBREED_MAX_DAYS, maxWeaningDays } from "./does-board";
 import type { Dictionary } from "./i18n/dictionaries/ar";
 
 // Shared coercers ----------------------------------------------------------
@@ -352,12 +353,14 @@ export function settingsSchema(t: Dictionary["validation"]) {
     weaningDays: z.coerce.number().int().min(0).max(90),
     nestBoxDays: z.coerce.number().int().min(1).max(30),
     matingWeightGrams: z.coerce.number().int().min(1),
-    rebreedAfterKindlingDays: z.coerce.number().int().refine(
-      // 15 is the retired نصف مكثف offset — still accepted so a farm saved
-      // before the switch to 10 can open and re-save its settings.
-      (v) => [0, 10, 15, 30].includes(v),
-      t.invalidValue
-    ),
+    // Any number of days the farm wants, not one of three preset systems:
+    // 0 is مكثف (mate on kindling day) and 30 is طبيعي, the longest schedule
+    // anyone runs — past it the doe is resting, not on a rebreed interval.
+    rebreedAfterKindlingDays: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(REBREED_MAX_DAYS, t.rebreedMaxDays(REBREED_MAX_DAYS)),
     // Money in whole currency units (the farm types 55, not 5500) — converted
     // to cents in updateSettings, which is why these two are the only fields
     // in this schema whose names don't match the Settings column they land in.
@@ -391,7 +394,20 @@ export function settingsSchema(t: Dictionary["validation"]) {
           return false;
         }
       }, t.invalidCurrency),
-  });
+  })
+    // Cross-field, so it can only live out here on the object: the weaning wait
+    // has to end before the doe's next kindling, and when that falls depends on
+    // the rebreed interval typed in the field above.
+    .superRefine((v, ctx) => {
+      const max = maxWeaningDays(v.rebreedAfterKindlingDays);
+      if (v.weaningDays > max) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["weaningDays"],
+          message: t.weaningMaxDays(max),
+        });
+      }
+    });
 }
 
 export type SettingsInput = z.infer<ReturnType<typeof settingsSchema>>;

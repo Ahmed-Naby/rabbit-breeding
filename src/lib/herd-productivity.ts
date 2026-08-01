@@ -22,6 +22,8 @@
  * SQLite rows, and the two must never disagree on what these mean.
  */
 
+import { rebreedSystemBand, type RebreedSystemBand } from "./does-board";
+
 /** Kindling fields needed here; every KindlingLog row on both platforms has them. */
 export type HerdKindlingRow = {
   /** Frozen litter size at birth — «عدد الخلفة». */
@@ -116,21 +118,25 @@ const MONTH_DAYS = 30;
 const YEAR_DAYS = 365;
 
 /**
- * Cycles a year each rebreed system promises — the very numbers printed on the
- * three options in الإعدادات («مكثف … 10 دورات في السنة» and friends).
+ * Cycles a year each husbandry system averages — the figure printed on the
+ * badge beside مدة إعادة التلقيح in الإعدادات, so the farm reads its target off
+ * the settings page before any report is opened.
+ *
+ * Keyed by band rather than by exact offset because the setting is a free
+ * number: a farm typing 12 is running نصف مكثف and gets نصف مكثف's target, the
+ * same as one typing 10.
  *
  * Deliberately NOT derived as 365 ÷ (gestationDays + rebreedAfterKindlingDays).
  * That arithmetic gives 12.2 for مكثف on a 30-day gestation, because it assumes
- * a doe conceives on the very day she is presented, every time, forever. Using
- * it would print a target the farm was never sold and mark a herd hitting its
- * advertised 10 cycles as an 82% failure. The published figures already carry
- * the practical slack for missed services and repeat matings, so they are the
- * honest bar — and they are the bar the user chose when they picked the option.
+ * a doe conceives on the very day she is presented, every time, forever — and
+ * it is not even monotonic against the setting once the offset is free, so
+ * resting does *longer* would raise the bar. These averages carry the practical
+ * slack for missed services and repeat matings, so they are the honest bar.
  */
-const TARGET_CYCLES_PER_YEAR: Record<number, number> = {
-  0: 10, // مكثف — تلقيح يوم الولادة
-  10: 8, // نصف مكثف — 10 أيام بعد الولادة
-  30: 6, // طبيعي — 30 يومًا بعد الولادة
+export const REBREED_BAND_TARGET_CYCLES: Record<RebreedSystemBand, number> = {
+  intensive: 11, // مكثف — 0 إلى 5 أيام بعد الولادة
+  semiIntensive: 9, // نصف مكثف — 6 إلى 15 يومًا
+  natural: 7, // طبيعي — أكثر من 15 يومًا
 };
 
 export type RebreedTarget = {
@@ -145,18 +151,12 @@ export type RebreedTarget = {
 };
 
 /**
- * The farm's own target, from its rebreed setting. `15` — the retired نصف مكثف
- * offset that validations.ts still accepts so an old farm can re-save — has no
- * published figure, so it falls back to the biological arithmetic; it is the
- * one case where an approximate target beats none at all.
+ * The farm's own target, from its rebreed setting — whatever number of days it
+ * typed, via the band that number falls in.
  */
-export function rebreedTarget(
-  rebreedAfterKindlingDays: number,
-  gestationDays: number
-): RebreedTarget {
-  const published = TARGET_CYCLES_PER_YEAR[rebreedAfterKindlingDays];
+export function rebreedTarget(rebreedAfterKindlingDays: number): RebreedTarget {
   const targetCyclesPerYear =
-    published ?? YEAR_DAYS / Math.max(1, gestationDays + rebreedAfterKindlingDays);
+    REBREED_BAND_TARGET_CYCLES[rebreedSystemBand(rebreedAfterKindlingDays)];
   return {
     targetCyclesPerYear,
     cycleDays: Math.round(YEAR_DAYS / targetCyclesPerYear),

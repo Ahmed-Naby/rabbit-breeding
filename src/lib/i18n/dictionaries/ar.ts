@@ -58,19 +58,28 @@ export const ar = {
     palpationCheckDaysHint:
       "عدد الأيام بعد التلقيح قبل ما يظهر زر 'تأكيد الجس' للكشف عن الامتصاص (الافتراضي 15).",
     weaningDaysLabel: "مدة انتظار الفطام (أيام)",
+    // {max} — a moving ceiling, not the old fixed «الافتراضي 28»: it is
+    // 30 + مدة إعادة التلقيح − 2, so it changes with the field above. (28 was
+    // that same figure for مكثف, which is why the old wording read right.)
+    // Substituted by the form; see the note on rebreedCyclesBadge.
     weaningDaysHint:
-      "عدد الأيام بعد الولادة قبل ما تظهر الأم في صفحة 'عمليات الفطام' (الافتراضي 28).",
+      "عدد الأيام بعد الولادة قبل ما تظهر الأم في صفحة 'عمليات الفطام' (الحد الأقصى {max}).",
     nestBoxDaysLabel: "مدة تركيب بيت الولادة (أيام)",
     nestBoxDaysHint:
       "عدد الأيام بعد التلقيح قبل ما تظهر الأم في صفحة 'تركيب بيوت الولادة' (الافتراضي 27).",
     matingWeightGramsLabel: "وزن التلقيح (جرام)",
     matingWeightGramsHint:
       "مرجعي فقط حاليًا — الإضافة لجدول الأمهات/الذكور تتم يدويًا من صفحة إضافة أرنب.",
-    rebreedLabel: "نظام إعادة التلقيح بعد الولادة",
-    rebreedHint: "المدة قبل ما تصبح الأم المرضعة جاهزة للتلقيح مرة أخرى.",
-    rebreedIntensive: "مكثف — تلقيح يوم الولادة — 10 دورات في السنة",
-    rebreedSemiIntensive: "نصف مكثف — 10 أيام بعد الولادة — 8 دورات في السنة",
-    rebreedNatural: "طبيعي — 30 يومًا بعد الولادة — 6 دورات في السنة",
+    rebreedLabel: "إعادة التلقيح بعد الولادة (أيام)",
+    rebreedHint:
+      "المدة قبل ما تصبح الأم المرضعة جاهزة للتلقيح وتظهر في «أمهات مستعدة للتلقيح».",
+    rebreedIntensive: "مكثف",
+    rebreedSemiIntensive: "نصف مكثف",
+    rebreedNatural: "طبيعي",
+    // A {placeholder} template rather than (cycles) => `...`, for the same
+    // reason as defaultPricePerKgLabel below: nothing in this slice may be a
+    // function. The form substitutes the number.
+    rebreedCyclesBadge: "متوسط {cycles} دورة في السنة",
     fosterWindowDaysLabel: "مدة البحث عن أمهات للتبني (أيام)",
     fosterWindowDaysHint:
       "الأمهات اللي ولدت خلال هذه المدة بس هي اللي تظهر في قائمتي مساعدة التبني (الافتراضي 2).",
@@ -268,6 +277,10 @@ export const ar = {
   },
   validation: {
     invalidValue: "قيمة غير صالحة",
+    rebreedMaxDays: (max: number) =>
+      `مدة إعادة التلقيح لا تزيد عن ${max} يومًا — تم ضبطها على ${max}.`,
+    weaningMaxDays: (max: number) =>
+      `مدة انتظار الفطام لا تزيد عن ${max} يومًا (30 + مدة إعادة التلقيح − 2) — تم ضبطها على ${max}.`,
     invalidCurrency: "رمز عملة غير صالح — استخدم رمز ISO مثل EGP أو USD",
     required: "مطلوب",
     invalidDate: "تاريخ غير صالح",
@@ -737,6 +750,10 @@ export const ar = {
     nursingSectionTitle: "نافق الرضاعة",
     nursingEmptyTitle: "لا توجد أمهات مرضعة حاليًا",
     nursingEmptyDescription: "الأمهات اللي عندها رضاعة أحياء هتظهر هنا عشان تسجل وفاة رضيع.",
+    nursingFormHint: "اكتب رقم الأم واضغط «اعرض» عشان تضيفها للجدول وتسجل النافق بتاعها.",
+    nursingMotherNotFound: "لا توجد أم مرضعة بهذا الرقم",
+    showRowButton: "اعرض",
+    removeRowLabel: "شيل السطر",
     colIndex: "م",
     colMotherTag: "رقم الأم",
     colBreed: "النوع",
@@ -890,7 +907,7 @@ export const ar = {
     herdCyclesTargetLabel: "المستهدف حسب نظام إعادة التلقيح",
     herdCycleAchievementLabel: "نسبة تحقيق المستهدف",
     herdCycleNote: (target: number, cycleDays: number) =>
-      `المستهدف (${target} دورة في السنة) هو الرقم المكتوب على نظام إعادة التلقيح الذي اخترته في الإعدادات، أي دورة كاملة كل ${cycleDays} يومًا تقريبًا.`,
+      `المستهدف (${target} دورة في السنة) محسوب من مدة إعادة التلقيح المضبوطة في الإعدادات، أي دورة كاملة كل ${cycleDays} يومًا تقريبًا.`,
 
     herdSectionPerDoe: "المعدلات لكل أم في الفترة",
     herdBornAlivePerDoeLabel: "معدل البطن لكل أم",

@@ -2765,10 +2765,7 @@ export async function fetchHerdReport(
     1,
     Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
   );
-  const { cycleDays, targetCyclesPerYear } = rebreedTarget(
-    settings.rebreedAfterKindlingDays,
-    settings.gestationDays
-  );
+  const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
   const productivity = computeHerdProductivity({
     doeCount: doeRows.length,

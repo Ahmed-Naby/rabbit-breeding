@@ -75,9 +75,43 @@ export function weaningEntryComplete(
   return litter.weaned === 0 || litter.weaningWeightGrams != null;
 }
 
+/** Which husbandry system a rebreed offset amounts to — see rebreedSystemBand. */
+export type RebreedSystemBand = "intensive" | "semiIntensive" | "natural";
+
+/**
+ * Longest rebreed offset الإعدادات accepts. 30 is طبيعي; past it a doe is being
+ * rested, not run on a rebreed interval. Lives here so the zod schema, both
+ * settings forms and their max= attributes can never drift apart.
+ */
+export const REBREED_MAX_DAYS = 30;
+
+/**
+ * Longest weaning wait that still fits inside a cycle: the doe kindles again
+ * about 30 + rebreed days after this litter, and the nest has to be clear at
+ * least 2 days before the next one arrives.
+ *
+ * Shared by the schema and both settings forms for the same reason as
+ * REBREED_MAX_DAYS — one rule, one place.
+ */
+export function maxWeaningDays(rebreedAfterKindlingDays: number): number {
+  return 30 + rebreedAfterKindlingDays - 2;
+}
+
+/**
+ * Names the system behind a free-typed rebreed offset, for the badge beside the
+ * field in الإعدادات. The bands are wider than the three classic offsets
+ * (0/10/30) on purpose: a farm that types 3 or 12 is still running مكثف or نصف
+ * مكثف, and should be told so rather than left guessing.
+ */
+export function rebreedSystemBand(days: number): RebreedSystemBand {
+  if (days <= 5) return "intensive";
+  if (days <= 15) return "semiIntensive";
+  return "natural";
+}
+
 /**
  * Whether a nursing doe has served the configured rebreed cooldown since her
- * kindling (0/10/30 days — مكثف/نصف مكثف/طبيعي, set in الإعدادات). No kindling
+ * kindling (the days set in الإعدادات — see rebreedSystemBand). No kindling
  * date on record means there's nothing to gate against.
  *
  * Exported because four callers need the identical rule — computeDoeBoardRow

@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -17,6 +18,10 @@ import {
   type HerdComposition,
 } from "@/lib/feed-plan";
 import { TextField, SelectField, type Option } from "@/components/form-fields";
+import { Badge } from "@/components/ui/badge";
+import { rebreedSystemBand, REBREED_MAX_DAYS, maxWeaningDays } from "@/lib/does-board";
+import { getClientDictionary } from "@/lib/i18n/dictionaries";
+import { REBREED_BAND_TARGET_CYCLES } from "@/lib/herd-productivity";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { WEIGHT_UNITS, label } from "@/lib/enums";
@@ -39,17 +44,60 @@ export function SettingsForm({
 }) {
   const [state, formAction] = useActionState(updateSettings, EMPTY_FORM_STATE);
   const e = state.errors ?? {};
+  // The clamp notice is the same string the schema rejects with, so the box and
+  // the server never phrase the same rule two different ways.
+  const vt = getClientDictionary(locale).validation;
 
   const unitOptions: Option[] = WEIGHT_UNITS.map((u) => ({
     value: u,
     label: label(u, locale),
   }));
 
-  const rebreedOptions: Option[] = [
-    { value: "0", label: t.rebreedIntensive },
-    { value: "10", label: t.rebreedSemiIntensive },
-    { value: "30", label: t.rebreedNatural },
-  ];
+  const [rebreedDays, setRebreedDays] = useState(() =>
+    settings.rebreedAfterKindlingDays.toString()
+  );
+  // Set when a number over the ceiling was typed and pulled back down to it.
+  // Shown instead of the hint until the next edit, so the correction is
+  // explained rather than looking like the box swallowed a keystroke.
+  const [rebreedClamped, setRebreedClamped] = useState(false);
+  const [weaningDays, setWeaningDays] = useState(() => settings.weaningDays.toString());
+  const [weaningClamped, setWeaningClamped] = useState(false);
+
+  const weaningCap = maxWeaningDays(Number(rebreedDays) || 0);
+
+  const onRebreedChange = (raw: string) => {
+    const over = raw.trim() !== "" && Number(raw) > REBREED_MAX_DAYS;
+    setRebreedClamped(over);
+    const next = over ? String(REBREED_MAX_DAYS) : raw;
+    setRebreedDays(next);
+    // Shortening the rebreed interval lowers the weaning ceiling under a value
+    // already in the box, so the cap has to be re-applied here too — otherwise
+    // the form looks fine and the save is the first thing to complain.
+    const cap = maxWeaningDays(Number(next) || 0);
+    if (weaningDays.trim() !== "" && Number(weaningDays) > cap) {
+      setWeaningDays(String(cap));
+      setWeaningClamped(true);
+    }
+  };
+
+  const onWeaningChange = (raw: string) => {
+    const over = raw.trim() !== "" && Number(raw) > weaningCap;
+    setWeaningClamped(over);
+    setWeaningDays(over ? String(weaningCap) : raw);
+  };
+  const rebreedBand = rebreedSystemBand(Number(rebreedDays) || 0);
+  const rebreedBadgeLabel = {
+    intensive: t.rebreedIntensive,
+    semiIntensive: t.rebreedSemiIntensive,
+    natural: t.rebreedNatural,
+  }[rebreedBand];
+  // The same figure the report prints as «المستهدف حسب نظام إعادة التلقيح» —
+  // read off REBREED_BAND_TARGET_CYCLES, never re-typed here, so the settings
+  // page and the report can never promise two different targets.
+  const rebreedCyclesLabel = t.rebreedCyclesBadge.replace(
+    "{cycles}",
+    String(REBREED_BAND_TARGET_CYCLES[rebreedBand])
+  );
 
   // The feed block is the one part of this form that computes something, so
   // its inputs are mirrored into state as raw strings and the plan is recomputed
@@ -151,15 +199,45 @@ export function SettingsForm({
             hint={t.palpationCheckDaysHint}
             error={e.palpationCheckDays}
           />
+          {/* Before مدة انتظار الفطام, not after: the weaning ceiling is
+              derived from this number, so it has to be the one already filled
+              in when the farm reaches the field it caps. The two are also the
+              only controlled fields in this card — their badge and their cap
+              have to follow the typing, not wait for a save. */}
+          <TextField
+            name="rebreedAfterKindlingDays"
+            type="number"
+            min={0}
+            max={REBREED_MAX_DAYS}
+            label={t.rebreedLabel}
+            value={rebreedDays}
+            onChange={(ev) => onRebreedChange(ev.target.value)}
+            hint={t.rebreedHint}
+            error={
+              e.rebreedAfterKindlingDays ??
+              (rebreedClamped ? vt.rebreedMaxDays(REBREED_MAX_DAYS) : undefined)
+            }
+            badge={
+              rebreedDays.trim() === "" ? null : (
+                <>
+                  <Badge variant="secondary">{rebreedBadgeLabel}</Badge>
+                  <Badge variant="outline">{rebreedCyclesLabel}</Badge>
+                </>
+              )
+            }
+          />
           <TextField
             name="weaningDays"
             type="number"
             min={0}
-            max={90}
+            max={weaningCap}
             label={t.weaningDaysLabel}
-            defaultValue={settings.weaningDays.toString()}
-            hint={t.weaningDaysHint}
-            error={e.weaningDays}
+            value={weaningDays}
+            onChange={(ev) => onWeaningChange(ev.target.value)}
+            hint={t.weaningDaysHint.replace("{max}", String(weaningCap))}
+            error={
+              e.weaningDays ?? (weaningClamped ? vt.weaningMaxDays(weaningCap) : undefined)
+            }
           />
           <TextField
             name="nestBoxDays"
@@ -170,14 +248,6 @@ export function SettingsForm({
             defaultValue={settings.nestBoxDays.toString()}
             hint={t.nestBoxDaysHint}
             error={e.nestBoxDays}
-          />
-          <SelectField
-            name="rebreedAfterKindlingDays"
-            label={t.rebreedLabel}
-            options={rebreedOptions}
-            defaultValue={settings.rebreedAfterKindlingDays.toString()}
-            hint={t.rebreedHint}
-            error={e.rebreedAfterKindlingDays}
           />
           <TextField
             name="fosterWindowDays"
@@ -210,6 +280,12 @@ export function SettingsForm({
             error={e.fosterLowKits}
           />
         </CardContent>
+        {/* The card with the most fields, and the one furthest from the button
+            at the bottom of the form — so it gets its own. Same submit, same
+            action: it saves the whole form, not this card alone. */}
+        <CardFooter className="mt-6 justify-end">
+          <SubmitButton>{t.saveButton}</SubmitButton>
+        </CardFooter>
       </Card>
 
       <Card>

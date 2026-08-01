@@ -19,8 +19,11 @@ import { exportBackup, restoreBackup, resetEverything, resetOperations } from ".
 import { AccountCard } from "../components/account-card";
 import { getSyncStatus } from "../sync/sync-manager";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { rebreedSystemBand, REBREED_MAX_DAYS, maxWeaningDays } from "@/lib/does-board";
+import { REBREED_BAND_TARGET_CYCLES } from "@/lib/herd-productivity";
 import { Field } from "@/components/form-fields";
 import { formatMoney, fromCents, toCents } from "@/lib/units";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -74,9 +77,19 @@ function PlanRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FieldLayout({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function FieldLayout({
+  label,
+  hint,
+  error,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Field label={label} hint={hint}>
+    <Field label={label} hint={hint} error={error}>
       {children}
     </Field>
   );
@@ -97,6 +110,10 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   const [nestBoxDays, setNestBoxDays] = useState("");
   const [matingWeightGrams, setMatingWeightGrams] = useState("");
   const [rebreedAfterKindlingDays, setRebreedAfterKindlingDays] = useState("0");
+  // Set when a number over the ceiling was typed and pulled back down to it —
+  // see onRebreedChange / onWeaningChange.
+  const [rebreedClamped, setRebreedClamped] = useState(false);
+  const [weaningClamped, setWeaningClamped] = useState(false);
   const [fosterWindowDays, setFosterWindowDays] = useState("");
   const [fosterHighKits, setFosterHighKits] = useState("");
   const [fosterLowKits, setFosterLowKits] = useState("");
@@ -250,10 +267,23 @@ export function SettingsPage({ locale }: { locale: Locale }) {
         gestationWindowDays: parseInt(gestationWindowDays, 10),
         pregnancyTestDays: parseInt(pregnancyTestDays, 10),
         palpationCheckDays: parseInt(palpationCheckDays, 10),
-        weaningDays: parseInt(weaningDays, 10),
+        // Clamped like rebreedAfterKindlingDays below, and to a ceiling that
+        // moves with it — nothing on the sync path revalidates this op.
+        weaningDays: Math.min(
+          maxWeaningDays(Math.min(REBREED_MAX_DAYS, parseInt(rebreedAfterKindlingDays, 10) || 0)),
+          Math.max(0, parseInt(weaningDays, 10) || 0)
+        ),
         nestBoxDays: parseInt(nestBoxDays, 10),
         matingWeightGrams: parseInt(matingWeightGrams, 10),
-        rebreedAfterKindlingDays: parseInt(rebreedAfterKindlingDays, 10),
+        // Guarded unlike its neighbours: this one used to be a Select and now
+        // takes free typing, so an emptied box is reachable — and 0 (تلقيح يوم
+        // الولادة) is a real, safe value for it, not a silent wrong default.
+        // Clamped to the same ceiling the web schema enforces, because nothing
+        // on the sync path revalidates what this op carries.
+        rebreedAfterKindlingDays: Math.min(
+          REBREED_MAX_DAYS,
+          Math.max(0, parseInt(rebreedAfterKindlingDays, 10) || 0)
+        ),
         fosterWindowDays: parseInt(fosterWindowDays, 10),
         fosterHighKits: parseInt(fosterHighKits, 10),
         fosterLowKits: parseInt(fosterLowKits, 10),
@@ -398,11 +428,37 @@ export function SettingsPage({ locale }: { locale: Locale }) {
     return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
-  const rebreedOptions = [
-    { value: "0", label: t.settings.rebreedIntensive },
-    { value: "10", label: t.settings.rebreedSemiIntensive },
-    { value: "30", label: t.settings.rebreedNatural },
-  ];
+  const weaningCap = maxWeaningDays(Number(rebreedAfterKindlingDays) || 0);
+
+  const onRebreedChange = (raw: string) => {
+    const over = raw.trim() !== "" && Number(raw) > REBREED_MAX_DAYS;
+    setRebreedClamped(over);
+    const next = over ? String(REBREED_MAX_DAYS) : raw;
+    setRebreedAfterKindlingDays(next);
+    // Shortening the rebreed interval lowers the weaning ceiling under a value
+    // already in the box, so the cap is re-applied here too.
+    const cap = maxWeaningDays(Number(next) || 0);
+    if (weaningDays.trim() !== "" && Number(weaningDays) > cap) {
+      setWeaningDays(String(cap));
+      setWeaningClamped(true);
+    }
+  };
+
+  const onWeaningChange = (raw: string) => {
+    const over = raw.trim() !== "" && Number(raw) > weaningCap;
+    setWeaningClamped(over);
+    setWeaningDays(over ? String(weaningCap) : raw);
+  };
+  const rebreedBand = rebreedSystemBand(Number(rebreedAfterKindlingDays) || 0);
+  const rebreedBadgeLabel = {
+    intensive: t.settings.rebreedIntensive,
+    semiIntensive: t.settings.rebreedSemiIntensive,
+    natural: t.settings.rebreedNatural,
+  }[rebreedBand];
+  const rebreedCyclesLabel = t.settings.rebreedCyclesBadge.replace(
+    "{cycles}",
+    String(REBREED_BAND_TARGET_CYCLES[rebreedBand])
+  );
 
   return (
     <div className="space-y-6">
@@ -497,14 +553,47 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               />
             </FieldLayout>
 
-            <FieldLayout label={t.settings.weaningDaysLabel} hint={t.settings.weaningDaysHint}>
+            {/* Before مدة انتظار الفطام, not after: the weaning ceiling is
+                derived from this number, so it has to be the one already
+                filled in when the farm reaches the field it caps. */}
+            <FieldLayout
+              label={t.settings.rebreedLabel}
+              hint={t.settings.rebreedHint}
+              error={rebreedClamped ? t.validation.rebreedMaxDays(REBREED_MAX_DAYS) : undefined}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-24 flex-1">
+                  <Input
+                    id="rebreedAfterKindlingDays"
+                    type="number"
+                    min={0}
+                    max={REBREED_MAX_DAYS}
+                    value={rebreedAfterKindlingDays}
+                    onChange={(e) => onRebreedChange(e.target.value)}
+                    disabled={savingSettings}
+                  />
+                </div>
+                {rebreedAfterKindlingDays.trim() === "" ? null : (
+                  <>
+                    <Badge variant="secondary">{rebreedBadgeLabel}</Badge>
+                    <Badge variant="outline">{rebreedCyclesLabel}</Badge>
+                  </>
+                )}
+              </div>
+            </FieldLayout>
+
+            <FieldLayout
+              label={t.settings.weaningDaysLabel}
+              hint={t.settings.weaningDaysHint.replace("{max}", String(weaningCap))}
+              error={weaningClamped ? t.validation.weaningMaxDays(weaningCap) : undefined}
+            >
               <Input
                 id="weaningDays"
                 type="number"
                 min={0}
-                max={90}
+                max={weaningCap}
                 value={weaningDays}
-                onChange={(e) => setWeaningDays(e.target.value)}
+                onChange={(e) => onWeaningChange(e.target.value)}
                 disabled={savingSettings}
               />
             </FieldLayout>
@@ -519,26 +608,6 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 onChange={(e) => setNestBoxDays(e.target.value)}
                 disabled={savingSettings}
               />
-            </FieldLayout>
-
-            <FieldLayout label={t.settings.rebreedLabel} hint={t.settings.rebreedHint}>
-              <Select
-                items={rebreedOptions}
-                value={rebreedAfterKindlingDays}
-                onValueChange={(v) => setRebreedAfterKindlingDays(v ?? "0")}
-                disabled={savingSettings}
-              >
-                <SelectTrigger id="rebreedAfterKindlingDays" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {rebreedOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </FieldLayout>
 
             <FieldLayout label={t.settings.fosterWindowDaysLabel} hint={t.settings.fosterWindowDaysHint}>
@@ -577,6 +646,14 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               />
             </FieldLayout>
           </CardContent>
+          {/* The card with the most fields, and the one furthest from the
+              button at the bottom of the form — so it gets its own. Same
+              submit: it saves the whole form, not this card alone. */}
+          <CardFooter className="mt-6 justify-end">
+            <Button type="submit" disabled={savingSettings}>
+              {t.settings.saveButton}
+            </Button>
+          </CardFooter>
         </Card>
 
         <Card>

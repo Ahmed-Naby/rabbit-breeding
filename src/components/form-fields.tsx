@@ -54,12 +54,16 @@ export function TextField({
   required,
   hint,
   className,
+  badge,
   ...props
 }: React.ComponentProps<typeof Input> & {
   label?: string;
   error?: string;
   hint?: string;
+  /** Optional read-only chip beside the input — what the typed value means. */
+  badge?: React.ReactNode;
 }) {
+  const input = <Input id={name} name={name} aria-invalid={!!error} {...props} />;
   return (
     <Field
       label={label}
@@ -69,7 +73,17 @@ export function TextField({
       required={required}
       className={className}
     >
-      <Input id={name} name={name} aria-invalid={!!error} {...props} />
+      {badge ? (
+        // Wraps rather than squeezing: the badges sit beside the box on a wide
+        // screen and drop under it in a narrow column, instead of shrinking the
+        // input until the number itself is unreadable.
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-24 flex-1">{input}</div>
+          {badge}
+        </div>
+      ) : (
+        input
+      )}
     </Field>
   );
 }

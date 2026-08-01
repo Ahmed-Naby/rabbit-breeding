@@ -60,19 +60,23 @@ export const en: Dictionary = {
     palpationCheckDaysHint:
       "Days after mating before the 'Confirm Palpation' button (resorption check) appears (default 15).",
     weaningDaysLabel: "Weaning wait (days)",
+    // {max} moves with the rebreed interval — see the note in ar.ts.
     weaningDaysHint:
-      "Days after kindling before a doe appears on the 'Weaning' page (default 28).",
+      "Days after kindling before a doe appears on the 'Weaning' page (max {max}).",
     nestBoxDaysLabel: "Nest box setup wait (days)",
     nestBoxDaysHint:
       "Days after mating before a doe appears on the 'Nest Boxes' page (default 27).",
     matingWeightGramsLabel: "Mating weight (grams)",
     matingWeightGramsHint:
       "Reference only for now — adding it to the does/bucks table is done manually from the add-rabbit page.",
-    rebreedLabel: "Rebreeding system after kindling",
-    rebreedHint: "How long before a nursing doe becomes ready to mate again.",
-    rebreedIntensive: "Intensive — mate on kindling day",
-    rebreedSemiIntensive: "Semi-intensive — 10 days after kindling",
-    rebreedNatural: "Natural — 30 days after kindling",
+    rebreedLabel: "Rebreed after kindling (days)",
+    rebreedHint:
+      "How long before a nursing doe becomes ready to mate again and shows up under “Does ready to mate”.",
+    rebreedIntensive: "Intensive",
+    rebreedSemiIntensive: "Semi-intensive",
+    rebreedNatural: "Natural",
+    // {placeholder} template, not a function — see the note in ar.ts.
+    rebreedCyclesBadge: "{cycles} cycles a year on average",
     fosterWindowDaysLabel: "Fostering lookback (days)",
     fosterWindowDaysHint:
       "Only does that kindled within this many days show up in the two fostering lists (default 2).",
@@ -267,6 +271,10 @@ export const en: Dictionary = {
   },
   validation: {
     invalidValue: "Invalid value",
+    rebreedMaxDays: (max: number) =>
+      `The rebreed interval can't be more than ${max} days — set to ${max}.`,
+    weaningMaxDays: (max: number) =>
+      `The weaning wait can't be more than ${max} days (30 + rebreed interval − 2) — set to ${max}.`,
     invalidCurrency: "Invalid currency code — use an ISO code like EGP or USD",
     required: "Required",
     invalidDate: "Invalid date",
@@ -738,6 +746,10 @@ export const en: Dictionary = {
     nursingSectionTitle: "Nursing kit deaths",
     nursingEmptyTitle: "No nursing does right now",
     nursingEmptyDescription: "Does with live nursing kits will show up here so you can record a kit death.",
+    nursingFormHint: "Enter a doe's number and press “Show” to add her to the table and record her kit deaths.",
+    nursingMotherNotFound: "No nursing doe with this number",
+    showRowButton: "Show",
+    removeRowLabel: "Remove row",
     colIndex: "#",
     colMotherTag: "Doe #",
     colBreed: "Breed",
@@ -892,7 +904,7 @@ export const en: Dictionary = {
     herdCyclesTargetLabel: "Target from the rebreed system",
     herdCycleAchievementLabel: "Target achieved",
     herdCycleNote: (target: number, cycleDays: number) =>
-      `The target (${target} cycles a year) is the figure printed on the rebreed system you picked in settings — roughly one full cycle every ${cycleDays} days.`,
+      `The target (${target} cycles a year) comes from the rebreed interval set in settings — roughly one full cycle every ${cycleDays} days.`,
 
     herdSectionPerDoe: "Per-doe rates for the period",
     herdBornAlivePerDoeLabel: "Born alive per doe",
