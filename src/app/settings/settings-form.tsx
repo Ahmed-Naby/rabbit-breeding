@@ -280,9 +280,9 @@ export function SettingsForm({
             error={e.fosterLowKits}
           />
         </CardContent>
-        {/* The card with the most fields, and the one furthest from the button
-            at the bottom of the form — so it gets its own. Same submit, same
-            action: it saves the whole form, not this card alone. */}
+        {/* A save within reach of the fields, rather than one button under a
+            page of them. Same submit and same action in every card: it saves
+            the whole form, not the card it sits in. */}
         <CardFooter className="mt-6 justify-end">
           <SubmitButton>{t.saveButton}</SubmitButton>
         </CardFooter>
@@ -316,6 +316,9 @@ export function SettingsForm({
             onChange={(ev) => setFeedTon(ev.target.value)}
           />
         </CardContent>
+        <CardFooter className="mt-6 justify-end">
+          <SubmitButton>{t.saveButton}</SubmitButton>
+        </CardFooter>
       </Card>
 
       <Card>
@@ -383,9 +386,12 @@ export function SettingsForm({
             )}
           </div>
         </CardContent>
+        <CardFooter className="mt-6 justify-end">
+          <SubmitButton>{t.saveButton}</SubmitButton>
+        </CardFooter>
       </Card>
-
-      <SubmitButton>{t.saveButton}</SubmitButton>
+      {/* No loose button under the last card any more — it would sit right
+          under that card's own footer as a second identical save. */}
     </form>
   );
 }

@@ -646,9 +646,9 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               />
             </FieldLayout>
           </CardContent>
-          {/* The card with the most fields, and the one furthest from the
-              button at the bottom of the form — so it gets its own. Same
-              submit: it saves the whole form, not this card alone. */}
+          {/* A save within reach of the fields, rather than one button under
+              a page of them. Same submit in every card: it saves the whole
+              form, not the card it sits in. */}
           <CardFooter className="mt-6 justify-end">
             <Button type="submit" disabled={savingSettings}>
               {t.settings.saveButton}
@@ -694,8 +694,12 @@ export function SettingsPage({ locale }: { locale: Locale }) {
                 disabled={savingSettings}
               />
             </FieldLayout>
-
           </CardContent>
+          <CardFooter className="mt-6 justify-end">
+            <Button type="submit" disabled={savingSettings}>
+              {t.settings.saveButton}
+            </Button>
+          </CardFooter>
         </Card>
 
         <Card>
@@ -768,11 +772,14 @@ export function SettingsPage({ locale }: { locale: Locale }) {
               )}
             </div>
           </CardContent>
+          <CardFooter className="mt-6 justify-end">
+            <Button type="submit" disabled={savingSettings}>
+              {t.settings.saveButton}
+            </Button>
+          </CardFooter>
         </Card>
-
-        <Button type="submit" disabled={savingSettings}>
-          {t.settings.saveButton}
-        </Button>
+        {/* No loose button under the last card any more — it would sit right
+            under that card's own footer as a second identical save. */}
       </form>
 
       {/* Breeds Management Card */}
