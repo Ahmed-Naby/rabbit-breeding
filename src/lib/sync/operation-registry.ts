@@ -442,9 +442,19 @@ export const operationRegistry: Record<string, SyncOpHandler> = {
 
   recordKitSale: async (p, clientAt) => {
     const date = new Date(p.date as string);
-    const weightGrams = p.weightGrams as number | null;
-    const pricePerKgCents = p.pricePerKgCents as number | null;
-    const amountCents = p.amountCents as number | null;
+    // Canonical payload is grams/cents (see weaning-sales/actions.ts). The kg
+    // fallbacks are for outbox rows queued by the mobile page before it was
+    // corrected to send those units: it enqueued weightKg/pricePerKg, which
+    // read as undefined here, so every synced بيع landed with a null weight and
+    // price — and once the movement started sharing its id with the phone's
+    // optimistic row, that empty server copy replaced the good local one.
+    const kg = p.weightKg as number | null | undefined;
+    const perKg = p.pricePerKg as number | null | undefined;
+    const weightGrams = (p.weightGrams as number | null | undefined) ?? (kg != null ? Math.round(kg * 1000) : null);
+    const pricePerKgCents = (p.pricePerKgCents as number | null | undefined) ?? (perKg != null ? Math.round(perKg * 100) : null);
+    const amountCents =
+      (p.amountCents as number | null | undefined) ??
+      (weightGrams != null && pricePerKgCents != null ? Math.round((weightGrams * pricePerKgCents) / 1000) : null);
 
     await prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({

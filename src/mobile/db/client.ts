@@ -141,6 +141,78 @@ async function applyColumnMigrations(db: SQLiteDBConnection): Promise<void> {
     // never configured any fixed monthly expenses, which must stay
     // distinguishable from an explicit empty list it deliberately cleared.
     `ALTER TABLE settings_cache ADD COLUMN recurringExpenses TEXT`,
+    // One-off repair, not a schema change: every بيع/نافق/تسوية recorded on a
+    // phone left an optimistic "local-" row that the server's pulled copy then
+    // landed *beside* instead of on top of (different id, and the pull's
+    // date-based fallback compared "2026-08-02" against a full ISO string), so
+    // each one was counted twice in المخزون المتاح. The ops now carry a client
+    // id, but the incremental pull never revisits an old movement to clean up
+    // after itself, so the leftovers are dropped here: a "local-" row is a
+    // duplicate exactly when the server has sent a row of the same type, day
+    // and count. Re-runs harmlessly on every startup once nothing matches.
+    `DELETE FROM kit_stock_movement
+       WHERE id LIKE 'local-%'
+         AND EXISTS (
+           SELECT 1 FROM kit_stock_movement AS server
+            WHERE server.id NOT LIKE 'local-%'
+              AND server.type = kit_stock_movement.type
+              AND server.count = kit_stock_movement.count
+              AND substr(server.date, 1, 10) = substr(kit_stock_movement.date, 1, 10)
+         )`,
+    // The same repair for every other table whose placeholder cleanup was
+    // defeated by that date seam. Each one is "drop the local- row when the
+    // server has already sent its counterpart", matched on the same columns
+    // the pull's own fallback uses, so a row survives here exactly when the
+    // pull would have kept it. foster_log is in the list because its cleanup
+    // didn't exist at all — every adoption entered on a phone was showing
+    // twice — and transaction_ledger because its duplicate isn't just a
+    // repeated line, it doubles the figure in الحسابات.
+    `DELETE FROM weight_record WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM weight_record AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.rabbitId = weight_record.rabbitId
+        AND substr(s.date, 1, 10) = substr(weight_record.date, 1, 10))`,
+    `DELETE FROM health_record WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM health_record AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.rabbitId = health_record.rabbitId AND s.type = health_record.type
+        AND substr(s.date, 1, 10) = substr(health_record.date, 1, 10))`,
+    `DELETE FROM transaction_ledger WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM transaction_ledger AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.type = transaction_ledger.type AND s.category = transaction_ledger.category
+        AND s.amountCents = transaction_ledger.amountCents
+        AND substr(s.date, 1, 10) = substr(transaction_ledger.date, 1, 10))`,
+    `DELETE FROM foster_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM foster_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.fromDoeId = foster_log.fromDoeId AND s.toDoeId = foster_log.toDoeId
+        AND s.count = foster_log.count
+        AND substr(s.date, 1, 10) = substr(foster_log.date, 1, 10))`,
+    `DELETE FROM kindling_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM kindling_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = kindling_log.doeId
+        AND substr(s.kindlingDate, 1, 10) = substr(kindling_log.kindlingDate, 1, 10))`,
+    `DELETE FROM weaning_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM weaning_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = weaning_log.doeId
+        AND substr(s.weaningDate, 1, 10) = substr(weaning_log.weaningDate, 1, 10))`,
+    `DELETE FROM mating_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM mating_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = mating_log.doeId
+        AND substr(s.matingDate, 1, 10) = substr(mating_log.matingDate, 1, 10))`,
+    `DELETE FROM nest_box_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM nest_box_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = nest_box_log.doeId
+        AND substr(s.nestBoxDate, 1, 10) = substr(nest_box_log.nestBoxDate, 1, 10))`,
+    `DELETE FROM kit_death_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM kit_death_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = kit_death_log.doeId AND s.count = kit_death_log.count
+        AND substr(s.deathDate, 1, 10) = substr(kit_death_log.deathDate, 1, 10))`,
+    `DELETE FROM pregnancy_test_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM pregnancy_test_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = pregnancy_test_log.doeId AND s.result = pregnancy_test_log.result
+        AND substr(s.matingDate, 1, 10) = substr(pregnancy_test_log.matingDate, 1, 10))`,
+    `DELETE FROM resorption_log WHERE id LIKE 'local-%' AND EXISTS (
+       SELECT 1 FROM resorption_log AS s WHERE s.id NOT LIKE 'local-%'
+        AND s.doeId = resorption_log.doeId
+        AND substr(s.matingDate, 1, 10) = substr(resorption_log.matingDate, 1, 10))`,
   ];
   for (const sql of migrations) {
     try {

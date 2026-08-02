@@ -1410,28 +1410,56 @@ export async function transferKits(
   return applied;
 }
 
+/**
+ * The three KitStockMovement writers below all take the id the outbox injected
+ * (see CREATING_OP_TYPES) rather than minting a "local-" one. The server's
+ * replay writes the row under that same id, so the pull's INSERT OR REPLACE
+ * lands on top of the optimistic row instead of beside it.
+ *
+ * Minting a local id here is what made a بيع of 5 take 10 off المخزون المتاح.
+ * The pull has a fallback that deletes a leftover "local-" twin, but it matches
+ * on `date`, and a locally-written row stores "2026-08-02" where a pulled one
+ * stores the full ISO timestamp — so it never fired. `?? local-` stays only for
+ * ops queued by builds that predate the injection.
+ */
 export async function recordKitSale(
   db: SQLiteDBConnection,
-  payload: { date: string; count: number; weightKg: number | null; pricePerKg: number | null; notes: string | null }
+  payload: {
+    id?: string;
+    transactionId?: string;
+    date: string;
+    count: number;
+    weightGrams?: number | null;
+    pricePerKgCents?: number | null;
+    amountCents?: number | null;
+    // kg/عملة كاملة: the shape the page used to enqueue. Kept readable here so
+    // an op still sitting in this device's outbox from before the fix replays
+    // into the same numbers the server will compute for it.
+    weightKg?: number | null;
+    pricePerKg?: number | null;
+    notes: string | null;
+  }
 ): Promise<LocalOpOutcome> {
   const now = nowIso();
   const date = payload.date;
-  const weightGrams = payload.weightKg != null ? toGrams({ kg: payload.weightKg }, "kg") : null;
-  const pricePerKgCents = payload.pricePerKg != null ? Math.round(payload.pricePerKg * 100) : null;
-  const amountCents = (weightGrams != null && pricePerKgCents != null) ? Math.round((weightGrams * pricePerKgCents) / 1000) : null;
+  const weightGrams = payload.weightGrams ?? (payload.weightKg != null ? toGrams({ kg: payload.weightKg }, "kg") : null);
+  const pricePerKgCents = payload.pricePerKgCents ?? (payload.pricePerKg != null ? Math.round(payload.pricePerKg * 100) : null);
+  const amountCents =
+    payload.amountCents ??
+    ((weightGrams != null && pricePerKgCents != null) ? Math.round((weightGrams * pricePerKgCents) / 1000) : null);
 
   await run(
     db,
     `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
      VALUES (?, ?, 'sale', ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
-    [`local-${createId()}`, date, payload.count, weightGrams, pricePerKgCents, amountCents, `local-${createId()}`, payload.notes ?? null, now, now]
+    [payload.id ?? `local-${createId()}`, date, payload.count, weightGrams, pricePerKgCents, amountCents, payload.transactionId ?? `local-${createId()}`, payload.notes ?? null, now, now]
   );
   return applied;
 }
 
 export async function recordWeanedKitDeath(
   db: SQLiteDBConnection,
-  payload: { count: number; date?: string; notes?: string | null }
+  payload: { id?: string; count: number; date?: string; notes?: string | null }
 ): Promise<LocalOpOutcome> {
   const now = nowIso();
   const date = payload.date ?? todayIso();
@@ -1439,21 +1467,21 @@ export async function recordWeanedKitDeath(
     db,
     `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
      VALUES (?, ?, 'death', ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`,
-    [`local-${createId()}`, date, payload.count, payload.notes ?? null, now, now]
+    [payload.id ?? `local-${createId()}`, date, payload.count, payload.notes ?? null, now, now]
   );
   return applied;
 }
 
 export async function recordKitStockAdjustment(
   db: SQLiteDBConnection,
-  payload: { count: number; date: string; notes?: string | null }
+  payload: { id?: string; count: number; date: string; notes?: string | null }
 ): Promise<LocalOpOutcome> {
   const now = nowIso();
   await run(
     db,
     `INSERT INTO kit_stock_movement (id, date, type, count, weightGrams, pricePerKgCents, amountCents, transactionId, rabbitId, notes, createdAt, updatedAt)
      VALUES (?, ?, 'adjustment', ?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)`,
-    [`local-${createId()}`, payload.date, payload.count, payload.notes ?? null, now, now]
+    [payload.id ?? `local-${createId()}`, payload.date, payload.count, payload.notes ?? null, now, now]
   );
   return applied;
 }

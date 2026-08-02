@@ -398,7 +398,13 @@ export async function pull(): Promise<boolean> {
 
   for (const w of data.weightRecords) {
     set.push({
-      statement: "DELETE FROM weight_record WHERE id LIKE 'local-%' AND rabbitId = ? AND date = ?",
+      // substr(...,1,10) on both sides everywhere a placeholder is matched by
+      // date: a locally-written row stores "2026-08-02" while a pulled one
+      // carries the server's full ISO timestamp, so a raw `=` never matched and
+      // the placeholder outlived the row it was standing in for. See the
+      // kit_stock_movement block below — that seam is what let one بيع be
+      // counted twice.
+      statement: "DELETE FROM weight_record WHERE id LIKE 'local-%' AND rabbitId = ? AND substr(date, 1, 10) = substr(?, 1, 10)",
       values: [w.rabbitId, w.date],
     });
     set.push({
@@ -410,6 +416,16 @@ export async function pull(): Promise<boolean> {
 
   if (data.fosterLogs) {
     for (const f of data.fosterLogs) {
+      // foster_log had no placeholder cleanup at all, so local-ops' optimistic
+      // row (transferKits) stayed next to the server's forever and سجل التبني
+      // showed every adoption twice. Keyed on the pair of does + count + day:
+      // the same doe pair moving the same number of kits twice in one day is a
+      // correction, and the pull re-inserts both server rows anyway.
+      set.push({
+        statement:
+          "DELETE FROM foster_log WHERE id LIKE 'local-%' AND fromDoeId = ? AND toDoeId = ? AND count = ? AND substr(date, 1, 10) = substr(?, 1, 10)",
+        values: [f.fromDoeId, f.toDoeId, f.count, f.date],
+      });
       set.push({
         statement: `INSERT OR REPLACE INTO foster_log (id, fromDoeId, toDoeId, count, date, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -421,7 +437,13 @@ export async function pull(): Promise<boolean> {
   if (data.kitStockMovements) {
     for (const m of data.kitStockMovements) {
       set.push({
-        statement: "DELETE FROM kit_stock_movement WHERE id = ? OR (id LIKE 'local-%' AND type = ? AND date = ? AND count = ?)",
+        // substr(...,1,10) on both sides: a locally-written row stores
+        // "2026-08-02" and a pulled one the full ISO timestamp, so an `=` here
+        // never matched and every leftover "local-" twin survived — the reason
+        // a بيع used to be counted twice. The id match above is the real
+        // dedup now that these ops carry a client id; this is the fallback for
+        // rows written before that.
+        statement: "DELETE FROM kit_stock_movement WHERE id = ? OR (id LIKE 'local-%' AND type = ? AND substr(date, 1, 10) = substr(?, 1, 10) AND count = ?)",
         values: [m.id, m.type, m.date, m.count],
       });
       set.push({
@@ -438,7 +460,7 @@ export async function pull(): Promise<boolean> {
   if (data.healthRecords) {
     for (const h of data.healthRecords) {
       set.push({
-        statement: "DELETE FROM health_record WHERE id = ? OR (id LIKE 'local-%' AND rabbitId = ? AND date = ? AND type = ?)",
+        statement: "DELETE FROM health_record WHERE id = ? OR (id LIKE 'local-%' AND rabbitId = ? AND substr(date, 1, 10) = substr(?, 1, 10) AND type = ?)",
         values: [h.id, h.rabbitId, h.date, h.type],
       });
       set.push({
@@ -455,7 +477,7 @@ export async function pull(): Promise<boolean> {
   if (data.transactions) {
     for (const t of data.transactions) {
       set.push({
-        statement: "DELETE FROM transaction_ledger WHERE id = ? OR (id LIKE 'local-%' AND date = ? AND type = ? AND category = ? AND amountCents = ?)",
+        statement: "DELETE FROM transaction_ledger WHERE id = ? OR (id LIKE 'local-%' AND substr(date, 1, 10) = substr(?, 1, 10) AND type = ? AND category = ? AND amountCents = ?)",
         values: [t.id, t.date, t.type, t.category, t.amountCents],
       });
       set.push({
@@ -509,7 +531,7 @@ export async function pull(): Promise<boolean> {
       // rows, whose ids don't start with "local-".
       set.push({
         statement:
-          "DELETE FROM pregnancy_test_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ? AND result = ?",
+          "DELETE FROM pregnancy_test_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(matingDate, 1, 10) = substr(?, 1, 10) AND result = ?",
         values: [log.doeId, log.matingDate, log.result],
       });
       set.push({
@@ -584,7 +606,7 @@ export async function pull(): Promise<boolean> {
       // while a doe kindles at most once on a given date anyway.
       set.push({
         statement:
-          "DELETE FROM kindling_log WHERE id LIKE 'local-%' AND doeId = ? AND kindlingDate = ?",
+          "DELETE FROM kindling_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(kindlingDate, 1, 10) = substr(?, 1, 10)",
         values: [log.doeId, log.kindlingDate],
       });
     }
@@ -598,7 +620,7 @@ export async function pull(): Promise<boolean> {
       // weans at most once on a given date; weaningDate is NOT NULL).
       set.push({
         statement:
-          "DELETE FROM weaning_log WHERE id LIKE 'local-%' AND doeId = ? AND weaningDate = ?",
+          "DELETE FROM weaning_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(weaningDate, 1, 10) = substr(?, 1, 10)",
         values: [log.doeId, log.weaningDate],
       });
       set.push({
@@ -637,7 +659,7 @@ export async function pull(): Promise<boolean> {
       // belt-and-suspenders as pregnancyTestLogs above, keyed on doeId +
       // matingDate (a doe is mated at most once per day).
       set.push({
-        statement: "DELETE FROM mating_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ?",
+        statement: "DELETE FROM mating_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(matingDate, 1, 10) = substr(?, 1, 10)",
         values: [log.doeId, log.matingDate],
       });
       set.push({
@@ -654,7 +676,7 @@ export async function pull(): Promise<boolean> {
       // a row written before outbox started injecting nestBoxLogId, keyed on
       // doeId + nestBoxDate (one installation per doe per day).
       set.push({
-        statement: "DELETE FROM nest_box_log WHERE id LIKE 'local-%' AND doeId = ? AND nestBoxDate = ?",
+        statement: "DELETE FROM nest_box_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(nestBoxDate, 1, 10) = substr(?, 1, 10)",
         values: [log.doeId, log.nestBoxDate],
       });
       set.push({
@@ -672,7 +694,7 @@ export async function pull(): Promise<boolean> {
       // INSERT OR REPLACE can't reconcile it — the (doeId, matingDate) delete is
       // the primary path here, not a fallback.
       set.push({
-        statement: "DELETE FROM resorption_log WHERE id LIKE 'local-%' AND doeId = ? AND matingDate = ?",
+        statement: "DELETE FROM resorption_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(matingDate, 1, 10) = substr(?, 1, 10)",
         values: [log.doeId, log.matingDate],
       });
       set.push({
@@ -693,7 +715,7 @@ export async function pull(): Promise<boolean> {
       // (a second press the same day merges into one row for the farmer's eye).
       set.push({
         statement:
-          "DELETE FROM kit_death_log WHERE id LIKE 'local-%' AND doeId = ? AND deathDate = ? AND count = ?",
+          "DELETE FROM kit_death_log WHERE id LIKE 'local-%' AND doeId = ? AND substr(deathDate, 1, 10) = substr(?, 1, 10) AND count = ?",
         values: [log.doeId, log.deathDate, log.count],
       });
       set.push({

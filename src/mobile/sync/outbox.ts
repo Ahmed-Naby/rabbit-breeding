@@ -37,6 +37,12 @@ const CREATING_OP_TYPES = new Set([
   // "local-" row while the server minted a different one, so the next pull
   // brought the same نافق back a second time and رصيد الفطام lost a kit twice.
   "recordWeanedKitDeath",
+  // The other two writers of that same table, and they had exactly the bug the
+  // line above describes: a بيع of 5 took 10 off المخزون المتاح — five when the
+  // sale was recorded, five more when the server's copy of it was pulled back
+  // under a different id.
+  "recordKitSale",
+  "recordKitStockAdjustment",
 ]);
 
 // Ops that record a NEW mating also append a permanent MatingLog row. That row

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ShoppingCart, Skull, Layers, Rabbit, PawPrint } from "lucide-react";
 import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
@@ -7,7 +7,7 @@ import { getDb } from "../db/client";
 import { fetchWeaningSalesPageData, type LocalKitLedgerEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { enqueue } from "../sync/outbox";
-import { formatMoney, formatWeight, formatWeightTotal, fromCents } from "@/lib/units";
+import { formatMoney, formatWeight, formatWeightTotal, fromCents, toCents, toGrams } from "@/lib/units";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,29 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
 
+  // Which field the last rejected save blamed. A toast alone leaves the farmer
+  // hunting for the empty box, so the field itself is outlined and focused.
+  type SaleField = "count" | "weightKg" | "pricePerKg";
+  const [invalidField, setInvalidField] = useState<SaleField | null>(null);
+  const countRef = useRef<HTMLInputElement>(null);
+  const weightRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+
+  const rejectField = (field: SaleField, message: string) => {
+    setInvalidField(field);
+    const el =
+      field === "count"
+        ? countRef.current
+        : field === "weightKg"
+          ? weightRef.current
+          : priceRef.current;
+    el?.focus();
+    // The form sits at the top of the page, but the keyboard may already be up
+    // and covering it.
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    toast.error(message);
+  };
+
   const load = useCallback(async () => {
     const db = await getDb();
     const res = await fetchWeaningSalesPageData(db);
@@ -96,9 +119,33 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     // it); every other movement is a positive quantity.
     const invalidQty = type === "adjustment" ? isNaN(qty) || qty === 0 : isNaN(qty) || qty <= 0;
     if (invalidQty) {
-      toast.error(locale === "ar" ? "يرجى إدخال عدد صحيح" : "Please enter a valid count");
+      rejectField("count", locale === "ar" ? "يرجى إدخال عدد صحيح" : "Please enter a valid count");
       return;
     }
+
+    // A بيع is only a sale once it carries a weight and a price: the amount is
+    // derived from the two, and a movement missing either lands in the ledger
+    // with no revenue and drags متوسط الوزن down with it. The `required`
+    // attributes stop an empty field; this stops a zero or a stray "-". Each
+    // field is reported on its own, so the outline lands on the one at fault.
+    if (type === "sale") {
+      if (w == null || w <= 0) {
+        rejectField(
+          "weightKg",
+          locale === "ar" ? "أدخل الوزن الإجمالي لتسجيل البيع" : "Enter the total weight"
+        );
+        return;
+      }
+      if (p == null || p <= 0) {
+        rejectField(
+          "pricePerKg",
+          locale === "ar" ? "أدخل سعر الكيلو لتسجيل البيع" : "Enter the price per kg"
+        );
+        return;
+      }
+    }
+
+    setInvalidField(null);
 
     // The available-stock balance may never go negative. A sale or death
     // withdraws `qty`; a signed adjustment shifts by `qty`. Block anything
@@ -106,7 +153,8 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     // raises it, so it's never blocked).
     const balanceChange = type === "adjustment" ? qty : -qty;
     if (data && data.availableStock + balanceChange < 0) {
-      toast.error(
+      rejectField(
+        "count",
         locale === "ar"
           ? `العدد يتجاوز المخزون المتاح (${data.availableStock})`
           : `Count exceeds available stock (${data.availableStock})`
@@ -117,11 +165,20 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     setSubmitting(true);
     try {
       if (type === "sale") {
+        // Grams and cents, not kg and pounds: the server op (operation-registry's
+        // recordKitSale) reads weightGrams/pricePerKgCents, so sending the raw kg
+        // figures meant every synced بيع was stored with no weight and no price.
+        const weightGrams = w != null ? toGrams({ kg: w }, "kg") : null;
+        const pricePerKgCents = p != null ? toCents(p) : null;
         await enqueue("recordKitSale", {
           date,
           count: qty,
-          weightKg: w,
-          pricePerKg: p,
+          weightGrams,
+          pricePerKgCents,
+          amountCents:
+            weightGrams != null && pricePerKgCents != null
+              ? Math.round((weightGrams * pricePerKgCents) / 1000)
+              : null,
           notes: notes.trim() || null,
         });
       } else if (type === "death") {
@@ -269,11 +326,19 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 <Label htmlFor="count">{locale === "ar" ? "العدد" : "Count"}</Label>
                 <Input
                   id="count"
+                  ref={countRef}
                   type="number"
+                  required
                   min={type === "adjustment" ? undefined : 1}
                   placeholder={type === "adjustment" ? "+267" : "5"}
+                  aria-invalid={invalidField === "count"}
                   value={count}
-                  onChange={(e) => setCount(e.target.value)}
+                  onChange={(e) => {
+                    setCount(e.target.value);
+                    // The outline goes the moment the field is touched — it
+                    // marks what to fix, not what was once wrong.
+                    if (invalidField === "count") setInvalidField(null);
+                  }}
                   disabled={submitting}
                 />
                 {type === "adjustment" && (
@@ -296,8 +361,14 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                     step="0.01"
                     min={0}
                     placeholder="4.5"
+                    required
+                    ref={weightRef}
+                    aria-invalid={invalidField === "weightKg"}
                     value={weightKg}
-                    onChange={(e) => setWeightKg(e.target.value)}
+                    onChange={(e) => {
+                      setWeightKg(e.target.value);
+                      if (invalidField === "weightKg") setInvalidField(null);
+                    }}
                     disabled={submitting}
                   />
                 </div>
@@ -309,8 +380,14 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                     step="0.1"
                     min={0}
                     placeholder="250"
+                    required
+                    ref={priceRef}
+                    aria-invalid={invalidField === "pricePerKg"}
                     value={pricePerKg}
-                    onChange={(e) => setPricePerKg(e.target.value)}
+                    onChange={(e) => {
+                      setPricePerKg(e.target.value);
+                      if (invalidField === "pricePerKg") setInvalidField(null);
+                    }}
                     disabled={submitting}
                   />
                 </div>
