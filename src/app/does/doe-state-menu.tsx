@@ -297,6 +297,7 @@ export function MateCell({
   buckTagId,
   matingDate,
   locale,
+  oneLine,
 }: {
   breedingId: string | null;
   doeId: string;
@@ -304,6 +305,13 @@ export function MateCell({
   buckTagId: string | null;
   matingDate: string | Date | null;
   locale: Locale;
+  /**
+   * Date, رقم الذكر and تلقيح on a single line from md up. Only for التلقيح,
+   * where this cell is the point of the table and has the width to spread out —
+   * the does board carries a mating column beside six others, and there the
+   * stack is what keeps the whole table on screen.
+   */
+  oneLine?: boolean;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
   const [pending, startTransition] = useTransition();
@@ -381,70 +389,80 @@ export function MateCell({
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <input
-        type="date"
-        value={date}
-        disabled={!canMate || pending}
-        onChange={(e) => setDate(e.target.value)}
+      {/* flex-row-reverse rather than a reordered DOM: the narrow screen keeps
+          the التاريخ-then-buttons order it has always had, and the wide one
+          reads تلقيح ← رقم الذكر ← التاريخ, the order the row is filled in. */}
+      <div
         className={cn(
-          "h-7 w-38 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
-          canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
+          "flex flex-col items-center gap-1",
+          oneLine && "md:flex-row-reverse md:gap-1.5"
         )}
-      />
-      <div className="flex items-center gap-1.5">
-        {canMate ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canSubmit}
-            className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-            onClick={() =>
-              startTransition(async () => {
-                const buckTag = value.trim();
-                // Re-checked at submit time as a safety net against a buck
-                // being removed in the moment between the debounced check and
-                // the click; the disabled state above covers the normal case.
-                if (!buckTag || !(await buckExists(buckTag))) {
-                  setValid(false);
-                  toast.error(t.buckNotFoundToast(buckTag));
-                  return;
-                }
-                // Same safety net for the date: guard against a concurrent
-                // mating landing on the same day between the debounced check
-                // and the click.
-                if (await matingDateUsed(doeId, date)) {
-                  setDateUsed(true);
-                  toast.error(t.matingDateUsedToast);
-                  return;
-                }
-                if (breedingId) {
-                  await markMated(breedingId, doeId, buckTag, date);
-                } else {
-                  await startBreeding(doeId, buckTag, date);
-                }
-                toast.success(t.matedToast);
-              })
-            }
-          >
-            {t.mateButton}
-          </Button>
-        ) : (
-          <span className="inline-flex h-7 w-7 items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <Check className="h-4 w-4" />
-          </span>
-        )}
+      >
         <input
-          type="text"
-          inputMode="numeric"
-          placeholder={t.buckTagPlaceholder}
-          value={value}
+          type="date"
+          value={date}
           disabled={!canMate || pending}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => setDate(e.target.value)}
           className={cn(
-            "h-7 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
-            showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+            "h-7 w-38 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+            canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
           )}
         />
+        <div className="flex items-center gap-1.5">
+          {canMate ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canSubmit}
+              className="h-7 px-2 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+              onClick={() =>
+                startTransition(async () => {
+                  const buckTag = value.trim();
+                  // Re-checked at submit time as a safety net against a buck
+                  // being removed in the moment between the debounced check and
+                  // the click; the disabled state above covers the normal case.
+                  if (!buckTag || !(await buckExists(buckTag))) {
+                    setValid(false);
+                    toast.error(t.buckNotFoundToast(buckTag));
+                    return;
+                  }
+                  // Same safety net for the date: guard against a concurrent
+                  // mating landing on the same day between the debounced check
+                  // and the click.
+                  if (await matingDateUsed(doeId, date)) {
+                    setDateUsed(true);
+                    toast.error(t.matingDateUsedToast);
+                    return;
+                  }
+                  if (breedingId) {
+                    await markMated(breedingId, doeId, buckTag, date);
+                  } else {
+                    await startBreeding(doeId, buckTag, date);
+                  }
+                  toast.success(t.matedToast);
+                })
+              }
+            >
+              {t.mateButton}
+            </Button>
+          ) : (
+            <span className="inline-flex h-7 w-7 items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Check className="h-4 w-4" />
+            </span>
+          )}
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder={t.buckTagPlaceholder}
+            value={value}
+            disabled={!canMate || pending}
+            onChange={(e) => setValue(e.target.value)}
+            className={cn(
+              "h-7 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+              showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+            )}
+          />
+        </div>
       </div>
       {showInvalid ? (
         <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">

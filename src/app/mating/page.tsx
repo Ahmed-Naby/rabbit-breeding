@@ -143,6 +143,7 @@ export default async function MatingPage({
                         // select matingDate.
                         matingDate={null}
                         locale={locale}
+                        oneLine
                       />
                     </TableCell>
                   </TableRow>

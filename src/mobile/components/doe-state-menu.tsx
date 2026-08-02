@@ -303,6 +303,7 @@ export function MateCell({
   buckTagId,
   matingDate,
   locale,
+  oneLine,
   onDone,
 }: {
   breedingId: string | null;
@@ -311,6 +312,13 @@ export function MateCell({
   buckTagId: string | null;
   matingDate: Date | null;
   locale: Locale;
+  /**
+   * Date, رقم الذكر and تلقيح on a single line from md up. Only for التلقيح,
+   * where this cell is the point of the table and has the width to spread out —
+   * the does board carries a mating column beside six others, and there the
+   * stack is what keeps the whole table on screen.
+   */
+  oneLine?: boolean;
   onDone: () => void;
 }) {
   const t = getClientDictionary(locale).doeStateMenu;
@@ -381,66 +389,76 @@ export function MateCell({
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <input
-        type="date"
-        value={date}
-        disabled={!canMate || pending}
-        onChange={(e) => setDate(e.target.value)}
+      {/* flex-row-reverse rather than a reordered DOM: the phone keeps the
+          التاريخ-then-buttons order it has always had, and the wide screen
+          reads تلقيح ← رقم الذكر ← التاريخ, the order the row is filled in. */}
+      <div
         className={cn(
-          "h-8 w-36 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
-          canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
+          "flex flex-col items-start gap-1",
+          oneLine && "md:flex-row-reverse md:items-center md:gap-1.5"
         )}
-      />
-      <div className="flex items-center gap-1.5">
-        {canMate ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!canSubmit}
-            className="h-8 px-2.5 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-            onClick={async () => {
-              const buckTag = value.trim();
-              const db = await getDb();
-              if (!buckTag || !(await buckExistsLocally(db, buckTag))) {
-                setValid(false);
-                toast.error(t.buckNotFoundToast(buckTag));
-                return;
-              }
-              if (await matingDateUsedLocally(db, doeId, date)) {
-                setDateUsed(true);
-                toast.error(t.matingDateUsedToast);
-                return;
-              }
-              setPending(true);
-              if (breedingId) {
-                await enqueue("markMated", { breedingId, doeId, buckTagId: buckTag, matingDate: date });
-              } else {
-                await enqueue("startBreeding", { doeId, buckTagId: buckTag, matingDate: date });
-              }
-              toast.success(t.matedToast);
-              setPending(false);
-              onDone();
-            }}
-          >
-            {t.mateButton}
-          </Button>
-        ) : (
-          <span className="inline-flex h-8 w-8 items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <Check className="h-4 w-4" />
-          </span>
-        )}
+      >
         <input
-          type="text"
-          inputMode="numeric"
-          placeholder={t.buckTagPlaceholder}
-          value={value}
+          type="date"
+          value={date}
           disabled={!canMate || pending}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => setDate(e.target.value)}
           className={cn(
-            "h-8 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
-            showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+            "h-8 w-36 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+            canMate && dateUsed ? "border-red-400 dark:border-red-700" : "border-input"
           )}
         />
+        <div className="flex items-center gap-1.5">
+          {canMate ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!canSubmit}
+              className="h-8 px-2.5 text-xs border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+              onClick={async () => {
+                const buckTag = value.trim();
+                const db = await getDb();
+                if (!buckTag || !(await buckExistsLocally(db, buckTag))) {
+                  setValid(false);
+                  toast.error(t.buckNotFoundToast(buckTag));
+                  return;
+                }
+                if (await matingDateUsedLocally(db, doeId, date)) {
+                  setDateUsed(true);
+                  toast.error(t.matingDateUsedToast);
+                  return;
+                }
+                setPending(true);
+                if (breedingId) {
+                  await enqueue("markMated", { breedingId, doeId, buckTagId: buckTag, matingDate: date });
+                } else {
+                  await enqueue("startBreeding", { doeId, buckTagId: buckTag, matingDate: date });
+                }
+                toast.success(t.matedToast);
+                setPending(false);
+                onDone();
+              }}
+            >
+              {t.mateButton}
+            </Button>
+          ) : (
+            <span className="inline-flex h-8 w-8 items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Check className="h-4 w-4" />
+            </span>
+          )}
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder={t.buckTagPlaceholder}
+            value={value}
+            disabled={!canMate || pending}
+            onChange={(e) => setValue(e.target.value)}
+            className={cn(
+              "h-8 w-20 rounded-md border bg-transparent px-1.5 text-center text-xs disabled:opacity-50",
+              showInvalid ? "border-red-400 dark:border-red-700" : "border-input"
+            )}
+          />
+        </div>
       </div>
       {showInvalid ? (
         <span className="text-[10px] leading-tight text-red-600 dark:text-red-400">{t.tagNotFound(value.trim())}</span>
