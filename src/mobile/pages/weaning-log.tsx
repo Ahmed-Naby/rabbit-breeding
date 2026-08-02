@@ -74,16 +74,23 @@ export function WeaningLog({
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               {/* Banner over أحياء + نافق, mirroring the web log: the two are
                   live counts kept in step through nursing, not birth figures.
-                  Spans follow the header row below, hidden classes included,
-                  so the two rows stay aligned on a phone. */}
+                  One empty cell per column rather than one colSpan per run —
+                  a spanning filler draws a border only at its own two edges,
+                  which stopped every inner vertical rule at this row. The
+                  hidden classes follow the header row below so the two stay
+                  aligned on a phone. */}
               <tr className="[&>th]:border-x">
-                <th colSpan={2} />
-                <th colSpan={3} className="hidden md:table-cell" />
+                <th />
+                <th />
+                <th className="hidden md:table-cell" />
+                <th className="hidden md:table-cell" />
+                <th className="hidden md:table-cell" />
                 <th />
                 <th colSpan={2} className="px-2 py-2 md:px-4 md:py-3 text-center font-semibold">
                   {wt.groupNursingCount}
                 </th>
-                <th colSpan={2} />
+                <th />
+                <th />
                 <th className="hidden md:table-cell" />
               </tr>
               <tr className="[&>th]:border-x">

@@ -87,18 +87,26 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               {/* Banner over أحياء + نافق, same as سجل الفطام: the two are the
-                  kits under her care right now, so they add up. Spans follow
-                  the header row below, hidden classes included, so the two
-                  rows stay aligned on a phone. */}
+                  kits under her care right now, so they add up. One empty cell
+                  per column rather than one colSpan per run — a spanning
+                  filler draws a border only at its own two edges, which
+                  stopped every inner vertical rule at this row. The hidden
+                  classes follow the header row below so the two stay aligned
+                  on a phone. */}
               <tr className="[&>th]:border-x">
-                <th colSpan={2} />
-                <th colSpan={2} className="hidden md:table-cell" />
                 <th />
-                <th colSpan={2} className="hidden md:table-cell" />
+                <th />
+                <th className="hidden md:table-cell" />
+                <th className="hidden md:table-cell" />
+                <th />
+                <th className="hidden md:table-cell" />
+                <th className="hidden md:table-cell" />
                 <th colSpan={2} className="px-2 py-2 md:px-4 md:py-3 text-center font-semibold">
                   {t.weaning.groupNursingCount}
                 </th>
-                <th colSpan={3} />
+                <th />
+                <th />
+                <th />
               </tr>
               <tr className="[&>th]:border-x">
                 <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
