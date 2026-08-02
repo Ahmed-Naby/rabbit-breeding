@@ -35,6 +35,14 @@ export function MatingLog({
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا يوجد سجل تلقيح بعد." : "No mating log yet."}</p>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={matingLogSort.page}
+            total={matingLogSort.sorted.length}
+            pageSize={matingLogSort.pageSize}
+            onPageChange={matingLogSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full border-collapse text-sm text-left rtl:text-right [&_td]:border [&_td]:border-border [&_th]:border [&_th]:border-border">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr>

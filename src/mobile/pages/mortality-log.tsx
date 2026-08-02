@@ -90,6 +90,14 @@ export function MortalityLog({
         />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={kitSort.page}
+            total={kitSort.sorted.length}
+            pageSize={kitSort.pageSize}
+            onPageChange={kitSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
@@ -162,6 +170,14 @@ export function MortalityLog({
         />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={weanedKitSort.page}
+            total={weanedKitSort.sorted.length}
+            pageSize={weanedKitSort.pageSize}
+            onPageChange={weanedKitSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
@@ -223,6 +239,14 @@ export function MortalityLog({
         <EmptyState icon={Layers} title={emptyTitle} />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={sort.page}
+            total={sort.sorted.length}
+            pageSize={sort.pageSize}
+            onPageChange={sort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
@@ -290,6 +314,14 @@ export function MortalityLog({
         />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={stockSort.page}
+            total={stockSort.sorted.length}
+            pageSize={stockSort.pageSize}
+            onPageChange={stockSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">

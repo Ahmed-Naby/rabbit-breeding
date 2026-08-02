@@ -55,6 +55,14 @@ export function PregnancyTestLog({
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات جس بعد." : "No pregnancy test logs yet."}</p>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={testLogSort.page}
+            total={testLogSort.sorted.length}
+            pageSize={testLogSort.pageSize}
+            onPageChange={testLogSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">

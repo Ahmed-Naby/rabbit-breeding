@@ -33,6 +33,14 @@ export function ResorptionLog({
         </p>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={resorptionLogSort.page}
+            total={resorptionLogSort.sorted.length}
+            pageSize={resorptionLogSort.pageSize}
+            onPageChange={resorptionLogSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">

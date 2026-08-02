@@ -163,16 +163,25 @@ export function SortableTable({
 
   if (!paginate) return table;
 
+  // Two copies of the same controls, above and below: fifty rows are taller
+  // than the screen, so whichever end you finish reading at, the next page is
+  // right there without scrolling back.
+  const pager = (placement: "top" | "bottom") => (
+    <TablePager
+      page={safePage}
+      total={sorted.length}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      locale={locale}
+      placement={placement}
+    />
+  );
+
   return (
     <>
+      {pager("top")}
       {table}
-      <TablePager
-        page={safePage}
-        total={sorted.length}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        locale={locale}
-      />
+      {pager("bottom")}
     </>
   );
 }

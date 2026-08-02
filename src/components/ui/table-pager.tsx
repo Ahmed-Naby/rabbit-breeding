@@ -28,6 +28,7 @@ export function TablePager({
   pageSize = LOG_PAGE_SIZE,
   onPageChange,
   locale,
+  placement = "bottom",
   className,
 }: {
   /** Zero-based. */
@@ -36,6 +37,8 @@ export function TablePager({
   pageSize?: number;
   onPageChange: (page: number) => void;
   locale: Locale;
+  /** Which side of the table this copy sits on — only decides which edge it rules. */
+  placement?: "top" | "bottom";
   className?: string;
 }) {
   const pageCount = pageCountOf(total, pageSize);
@@ -51,7 +54,8 @@ export function TablePager({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm",
+        "flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm",
+        placement === "top" ? "border-b" : "border-t",
         className
       )}
     >
@@ -115,16 +119,25 @@ export function PagedList({
   const safePage = Math.min(page, pageCountOf(items.length, pageSize) - 1);
   const visible = items.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
+  // Two copies of the same controls, above and below: a full page is taller
+  // than the screen, so whichever end you finish reading at, the next page is
+  // right there without scrolling back.
+  const pager = (placement: "top" | "bottom") => (
+    <TablePager
+      page={safePage}
+      total={items.length}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      locale={locale}
+      placement={placement}
+    />
+  );
+
   return (
     <>
+      {pager("top")}
       <div className={className}>{visible.map((i) => i.node)}</div>
-      <TablePager
-        page={safePage}
-        total={items.length}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        locale={locale}
-      />
+      {pager("bottom")}
     </>
   );
 }

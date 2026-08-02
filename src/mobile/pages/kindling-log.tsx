@@ -51,6 +51,14 @@ export function KindlingLog({
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات ولادة بعد." : "No kindling logs yet."}</p>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={logSort.page}
+            total={logSort.sorted.length}
+            pageSize={logSort.pageSize}
+            onPageChange={logSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">

@@ -557,6 +557,14 @@ export function FinancePage({ locale }: { locale: Locale }) {
               </p>
             ) : (
               <div className="rounded-xl border bg-card overflow-x-auto">
+                <TablePager
+                  page={transactionsSort.page}
+                  total={transactionsSort.sorted.length}
+                  pageSize={transactionsSort.pageSize}
+                  onPageChange={transactionsSort.setPage}
+                  locale={locale}
+                  placement="top"
+                />
                 <table className="w-full text-sm text-left rtl:text-right border-collapse">
                   <thead className="bg-muted text-muted-foreground text-xs uppercase">
                     <tr className="border-b">

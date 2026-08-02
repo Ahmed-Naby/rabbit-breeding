@@ -275,6 +275,14 @@ export function HealthPage({ locale }: { locale: Locale }) {
                 </p>
               ) : (
                 <div className="rounded-xl border bg-card overflow-x-auto">
+                  <TablePager
+                    page={recordsSort.page}
+                    total={recordsSort.sorted.length}
+                    pageSize={recordsSort.pageSize}
+                    onPageChange={recordsSort.setPage}
+                    locale={locale}
+                    placement="top"
+                  />
                   <table className="w-full text-sm text-left rtl:text-right border-collapse">
                     <thead className="bg-muted text-muted-foreground text-xs uppercase">
                       <tr className="border-b">

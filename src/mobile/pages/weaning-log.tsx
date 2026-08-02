@@ -59,6 +59,14 @@ export function WeaningLog({
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات فطام بعد." : "No weaning logs yet."}</p>
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
+          <TablePager
+            page={weanedLogSort.page}
+            total={weanedLogSort.sorted.length}
+            pageSize={weanedLogSort.pageSize}
+            onPageChange={weanedLogSort.setPage}
+            locale={locale}
+            placement="top"
+          />
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
               <tr className="[&>th]:border-x">
