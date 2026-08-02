@@ -52,7 +52,7 @@ export function WeaningLog({
       <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight">
         {t.logHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
-        <LogCountBadge count={weaningLog.length} />
+        <LogCountBadge count={weaningLog.length} unit={t.countUnit} />
         {weaningLog.length > 0 && (
           <>
             <LogStatBadge label={t.totalWeanedBadge} value={totalWeaned.toLocaleString()} />

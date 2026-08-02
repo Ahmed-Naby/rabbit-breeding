@@ -272,8 +272,8 @@ export const ar = {
     colBornAlive: "أحياء",
     colBornDead: "نافق",
     // النتاج هنا = الأحياء فقط، من غير النافق — ومتوسط البطن على نفس الأساس.
-    totalKitsBadge: "إجمالي النتاج",
-    avgLitterBadge: "متوسط البطن",
+    totalKitsBadge: "إجمالي النتاج الحي",
+    avgLitterBadge: "متوسط البطن الحي",
   },
   validation: {
     invalidValue: "قيمة غير صالحة",
@@ -672,6 +672,8 @@ export const ar = {
     colWean: "فطام",
     weanButton: "فطام",
     // الصفوف اللي لسه ما اتسجّلش فيها عدد فطام (بتظهر «—») مش داخلة في المجموع.
+    // «عملية فطام» مش أرنب — البادج ده بيعدّ الصفوف جنب مجموع بيعدّ أرانب.
+    countUnit: "عملية فطام",
     totalWeanedBadge: "إجمالي المفطومين",
     avgWeanedBadge: "متوسط الفطام للأم",
     logHeading: "سجل الفطام",
@@ -692,7 +694,10 @@ export const ar = {
     availableStockLabel: "المخزون المتاح حاليًا",
     totalSoldLabel: "إجمالي المباع",
     totalDiedLabel: "إجمالي النافق",
-    totalRetainedLabel: "احتفاظ للتربية",
+    totalRetainedLabel: "احتفاظ للتربية (سلالات)",
+    soldWeightLabel: "الوزن",
+    avgSoldWeightLabel: "متوسط الوزن",
+    soldRevenueLabel: "الإجمالي",
     saleFormHeading: "تسجيل بيع",
     dateLabel: "التاريخ",
     countLabel: "العدد",
@@ -725,6 +730,8 @@ export const ar = {
     pageTitle: "عمليات التبني",
     description: "نقل رضع من أم إلى أخرى لموازنة أعداد البطون.",
     logTitle: "سجل عمليات التبني",
+    // الصف عملية نقل، مش رضيع — العدد جنب العنوان بيعدّ العمليات.
+    countUnit: "عملية تبني",
     emptyTitle: "لا توجد عمليات تبني مسجلة",
     emptyDescription: "سجل نقل الرضع بين الأمهات باستخدام النموذج أعلاه.",
     kitsUnit: (count: number) => `${count} رضيع`,

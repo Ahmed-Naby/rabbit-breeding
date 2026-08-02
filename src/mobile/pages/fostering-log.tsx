@@ -6,6 +6,7 @@ import { LocalDate } from "@/components/local-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/page-header";
 import { PagedList } from "@/components/ui/table-pager";
+import { LogCountBadge } from "@/components/log-count-badge";
 
 export function FosteringLog({
   logs,
@@ -21,9 +22,11 @@ export function FosteringLog({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           {t.fostering.logTitle}
           {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+          {/* Transfers, not kits — a row moving 3 رضيع is still one عملية. */}
+          <LogCountBadge count={logs.length} unit={t.fostering.countUnit} />
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">

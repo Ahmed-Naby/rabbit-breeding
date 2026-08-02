@@ -266,8 +266,8 @@ export const en: Dictionary = {
     colBornAlive: "Born alive",
     colBornDead: "Stillborn",
     // Kits here = born alive only, stillborn excluded — avg litter likewise.
-    totalKitsBadge: "Live kits",
-    avgLitterBadge: "Avg litter",
+    totalKitsBadge: "Total live kits",
+    avgLitterBadge: "Avg live litter",
   },
   validation: {
     invalidValue: "Invalid value",
@@ -668,6 +668,8 @@ export const en: Dictionary = {
     colWean: "Wean",
     weanButton: "Wean",
     // Rows with no weaned count yet (shown as "—") stay out of the total.
+    // A weaning is not a kit — this badge counts rows, next to a total of kits.
+    countUnit: "weanings",
     totalWeanedBadge: "Total weaned",
     avgWeanedBadge: "Avg weaned per doe",
     logHeading: "Weaning log",
@@ -688,6 +690,9 @@ export const en: Dictionary = {
     totalSoldLabel: "Total sold",
     totalDiedLabel: "Total died",
     totalRetainedLabel: "Kept for breeding",
+    soldWeightLabel: "Weight",
+    avgSoldWeightLabel: "Avg weight",
+    soldRevenueLabel: "Total",
     saleFormHeading: "Record a sale",
     dateLabel: "Date",
     countLabel: "Count",
@@ -721,6 +726,8 @@ export const en: Dictionary = {
     pageTitle: "Fostering",
     description: "Move nursing kits from one doe to another to balance litter sizes.",
     logTitle: "Fostering log",
+    // A row is a transfer, not a kit — the badge counts transfers.
+    countUnit: "transfers",
     emptyTitle: "No fostering events recorded",
     emptyDescription: "Record a kit transfer between does using the form above.",
     kitsUnit: (count: number) => `${count} kit${count === 1 ? "" : "s"}`,

@@ -4,6 +4,7 @@ import type { LocalDeceasedRabbit, LocalKitDeath } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
 import { TablePager } from "@/components/ui/table-pager";
+import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { EmptyState } from "@/components/page-header";
 import { LogTabs } from "@/components/log-tabs";
@@ -77,11 +78,8 @@ export function MortalityLog({
       <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "نافق النتاج" : "Nursing kit deaths"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
-        {sumKits(nursingKitDeaths) > 0 && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-bold tabular-nums text-primary">
-            {sumKits(nursingKitDeaths).toLocaleString()}
-          </span>
-        )}
+        {/* Kits, not rows — five kits lost in one press is one row. */}
+        <LogCountBadge count={sumKits(nursingKitDeaths)} showZero />
       </h2>
       {nursingKitDeaths.length === 0 ? (
         <EmptyState
@@ -157,11 +155,8 @@ export function MortalityLog({
       <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "نافق الفطام" : "Weaned kit deaths"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
-        {sumKits(weanedKitDeaths) > 0 && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-bold tabular-nums text-primary">
-            {sumKits(weanedKitDeaths).toLocaleString()}
-          </span>
-        )}
+        {/* Kits, not rows — see نافق النتاج above. */}
+        <LogCountBadge count={sumKits(weanedKitDeaths)} showZero />
       </h2>
       {weanedKitDeaths.length === 0 ? (
         <EmptyState
@@ -231,9 +226,12 @@ export function MortalityLog({
     sort: typeof motherSort
   ) => (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold">
         {heading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        {/* Rows, not kits — one dead doe is one row, so the sorted length is
+            the count. Reads the filtered rows so it follows the date range. */}
+        <LogCountBadge count={sort.sorted.length} showZero />
       </h2>
       {sort.sorted.length === 0 ? (
         <EmptyState icon={Layers} title={emptyTitle} />
@@ -303,9 +301,10 @@ export function MortalityLog({
   // السلالات النافقة — الأرانب من غير رقم، فالجنس بيقوم مقام الرقم
   const stockPanel = (
     <div className="space-y-3">
-      <h2 className="text-lg font-bold">
+      <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "السلالات النافقة" : "Deceased juveniles"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+        <LogCountBadge count={stockSort.sorted.length} showZero />
       </h2>
       {deceasedStock.length === 0 ? (
         <EmptyState
