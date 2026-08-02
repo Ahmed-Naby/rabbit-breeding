@@ -83,7 +83,10 @@ export function KitMovementTypeChoice({
               <span
                 aria-hidden
                 className={cn(
-                  "flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  // me-1.5 on top of the row's gap: the dot is the control and
+                  // the icon+label are what it selects, so it wants a touch
+                  // more air than the two of them keep between themselves.
+                  "me-1.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                   selected ? "border-current" : "border-muted-foreground/50"
                 )}
               >
