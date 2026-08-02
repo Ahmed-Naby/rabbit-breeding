@@ -5,7 +5,7 @@
  * page backed by the SQLite mirror; `OnlineOnlyPage` remains as a fallback
  * component but no active route currently uses it.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { Network } from "@capacitor/network";
@@ -227,6 +227,74 @@ export function AppShell() {
   const dir = locale === "ar" ? "rtl" : "ltr";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dbVersion, setDbVersion] = useState(0);
+
+  // Swipe-to-close for the mobile drawer. It slides in from the `end` edge, so
+  // dragging it back toward that edge dismisses it — the gesture a native
+  // drawer answers to, and the one a thumb reaches for before the ✕.
+  //
+  // Driven through a ref rather than state: a re-render per touchmove would
+  // stutter the panel, and the transform is pure presentation until the
+  // gesture is over.
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const swipeRef = useRef<{
+    x: number;
+    y: number;
+    /** How far it has been pulled toward the closing edge, never negative. */
+    dx: number;
+    /** Locked on the first real movement; "y" hands the gesture to the nav list. */
+    axis: "" | "x" | "y";
+    /** +1 when the closing edge is the right one (LTR), −1 in RTL. */
+    sign: number;
+  } | null>(null);
+
+  const handleDrawerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    swipeRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      dx: 0,
+      axis: "",
+      sign: dir === "rtl" ? -1 : 1,
+    };
+  };
+
+  const handleDrawerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const s = swipeRef.current;
+    const el = drawerRef.current;
+    if (!s || !el) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - s.x;
+    const dy = touch.clientY - s.y;
+    if (!s.axis) {
+      // Wait for a decisive movement before claiming the gesture; a fingertip
+      // never travels in a straight line for the first few pixels.
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      s.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (s.axis !== "x") return;
+    // Only the closing direction follows the finger — pulling the other way
+    // would tear the panel off the edge it is anchored to.
+    s.dx = Math.max(0, dx * s.sign);
+    el.style.transition = "none";
+    el.style.transform = `translateX(${s.dx * s.sign}px)`;
+  };
+
+  const handleDrawerTouchEnd = () => {
+    const s = swipeRef.current;
+    const el = drawerRef.current;
+    swipeRef.current = null;
+    if (!s || !el) return;
+    el.style.transition = "transform 180ms ease-out";
+    // Past a third of the panel the pull reads as a dismissal, not a nudge.
+    if (s.axis === "x" && s.dx > el.offsetWidth / 3) {
+      el.style.transform = `translateX(${100 * s.sign}%)`;
+      // Unmounted only after it has left the screen, so the drawer slides out
+      // instead of blinking away mid-gesture.
+      window.setTimeout(() => setMobileMenuOpen(false), 180);
+      return;
+    }
+    el.style.transform = "";
+  };
 
   // Auth gate: until the stored device token is loaded we render nothing;
   // with no token the login screen replaces the whole shell (no sync runs —
@@ -465,7 +533,16 @@ export function AppShell() {
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden
             />
-            <div className="animate-drawer-in fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl md:hidden">
+            <div
+              ref={drawerRef}
+              onTouchStart={handleDrawerTouchStart}
+              onTouchMove={handleDrawerTouchMove}
+              onTouchEnd={handleDrawerTouchEnd}
+              onTouchCancel={handleDrawerTouchEnd}
+              // touch-pan-y leaves vertical scrolling to the nav list and keeps
+              // the horizontal drag for the handlers above.
+              className="animate-drawer-in fixed inset-y-0 end-0 z-50 flex w-72 max-w-[80vw] touch-pan-y flex-col border-s border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl md:hidden"
+            >
               <div className="flex items-center justify-between border-b border-sidebar-border/60 px-4 py-3">
                 {brand("drawer")}
                 <button
