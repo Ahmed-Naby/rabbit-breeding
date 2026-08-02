@@ -3,8 +3,11 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { LocalDeceasedRabbit, LocalKitDeath } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { EmptyState } from "@/components/page-header";
+import { LogTabs } from "@/components/log-tabs";
+import { toDateInputValue } from "@/lib/dates";
 
 export function MortalityLog({
   deceasedRabbits,
@@ -29,20 +32,47 @@ export function MortalityLog({
     tag: { type: "tag", value: (r) => r.doeTag },
     count: { type: "number", value: (r) => r.count },
   });
-  const weanedKitSort = useSortableRows(weanedKitDeaths, {
+  // One row per day rather than per press: رصيد الفطام is a farm-wide pool, so
+  // two presses on the same day are the same day's loss with nothing to tell
+  // them apart — the log read as a column of 1s instead of a daily figure.
+  // Keyed by local calendar day, the same key isWithinDateRange() filters on.
+  const weanedByDay = weanedKitDeaths.reduce<{ day: string; date: string; count: number }[]>(
+    (days, r) => {
+      const day = toDateInputValue(new Date(r.date));
+      const existing = days.find((d) => d.day === day);
+      if (existing) existing.count += r.count;
+      else days.push({ day, date: r.date, count: r.count });
+      return days;
+    },
+    []
+  );
+  const weanedKitSort = useSortableRows(weanedByDay, {
     date: { type: "date", value: (r) => r.date },
     count: { type: "number", value: (r) => r.count },
   });
-  const deceasedSort = useSortableRows(deceasedRabbits, {
+  // Split the way the web log splits (see src/app/mortality/page.tsx): a
+  // deceased rabbit's tagId is cleared so the number can be reused, so "was
+  // this ever tagged" has to look at retiredTagId too — otherwise every doe
+  // that died would fall into the untagged سلالات bucket.
+  const wasTagged = (r: LocalDeceasedRabbit) => r.tagId != null || r.retiredTagId != null;
+  const deceasedMothers = deceasedRabbits.filter((r) => r.sex === "doe" && wasTagged(r));
+  const deceasedBucks = deceasedRabbits.filter((r) => r.sex === "buck" && wasTagged(r));
+  const deceasedStock = deceasedRabbits.filter((r) => !wasTagged(r));
+  const taggedSortSpec = {
+    date: { type: "date" as const, value: (r: LocalDeceasedRabbit) => r.updatedAt },
+    tag: { type: "tag" as const, value: (r: LocalDeceasedRabbit) => r.retiredTagId ?? r.tagId },
+    breed: { type: "string" as const, value: (r: LocalDeceasedRabbit) => r.breed },
+  };
+  const motherSort = useSortableRows(deceasedMothers, taggedSortSpec);
+  const buckSort = useSortableRows(deceasedBucks, taggedSortSpec);
+  const stockSort = useSortableRows(deceasedStock, {
     date: { type: "date", value: (r) => r.updatedAt },
-    tag: { type: "tag", value: (r) => r.retiredTagId ?? r.tagId },
     breed: { type: "string", value: (r) => r.breed },
     sex: { type: "string", value: (r) => r.sex },
   });
 
-  return (
-    <>
-    {/* نافق النتاج — الرضع عند الأم (kit_death_log) */}
+  // نافق النتاج — الرضع عند الأم (kit_death_log)
+  const nursingPanel = (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "نافق النتاج" : "Nursing kit deaths"}
@@ -90,7 +120,7 @@ export function MortalityLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {kitSort.sorted.map((entry) => (
+              {kitSort.paged.map((entry) => (
                 <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5">
                     <LocalDate date={new Date(entry.date)} />
@@ -101,11 +131,20 @@ export function MortalityLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={kitSort.page}
+            total={kitSort.sorted.length}
+            pageSize={kitSort.pageSize}
+            onPageChange={kitSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>
+  );
 
-    {/* نافق الفطام — خصم من رصيد الفطام (kit_stock_movement) */}
+  // نافق الفطام — خصم من رصيد الفطام (kit_stock_movement)
+  const weanedPanel = (
     <div className="space-y-3">
       <h2 className="flex items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "نافق الفطام" : "Weaned kit deaths"}
@@ -145,8 +184,8 @@ export function MortalityLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {weanedKitSort.sorted.map((entry) => (
-                <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+              {weanedKitSort.paged.map((entry) => (
+                <tr key={entry.day} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5">
                     <LocalDate date={new Date(entry.date)} />
                   </td>
@@ -155,19 +194,99 @@ export function MortalityLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={weanedKitSort.page}
+            total={weanedKitSort.sorted.length}
+            pageSize={weanedKitSort.pageSize}
+            onPageChange={weanedKitSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>
+  );
 
+  // The أمهات and ذكور logs are the same table down to the column widths — only
+  // the heading and the tag label differ — so one renderer serves both.
+  const taggedPanel = (
+    heading: string,
+    emptyTitle: string,
+    tagLabel: string,
+    sort: typeof motherSort
+  ) => (
     <div className="space-y-3">
       <h2 className="text-lg font-bold">
-        {locale === "ar" ? "سجل حالات النفوق" : "Mortality History Log"}
+        {heading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
       </h2>
-      {deceasedRabbits.length === 0 ? (
+      {sort.sorted.length === 0 ? (
+        <EmptyState icon={Layers} title={emptyTitle} />
+      ) : (
+        <div className="rounded-xl border bg-card overflow-x-auto">
+          <table className="w-full text-sm text-left rtl:text-right border-collapse">
+            <thead className="bg-muted text-muted-foreground text-xs uppercase">
+              <tr className="[&>th]:border-x">
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "التاريخ" : "Date"}
+                  sortKey="date"
+                  activeSortKey={sort.sortKey}
+                  direction={sort.direction}
+                  onSort={sort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={tagLabel}
+                  sortKey="tag"
+                  activeSortKey={sort.sortKey}
+                  direction={sort.direction}
+                  onSort={sort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "السلالة" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={sort.sortKey}
+                  direction={sort.direction}
+                  onSort={sort.toggleSort}
+                />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {sort.paged.map((entry) => (
+                <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                  <td className="px-4 py-3.5 text-center">
+                    <LocalDate date={new Date(entry.updatedAt)} />
+                  </td>
+                  <td className="px-4 py-3.5 font-bold">{entry.retiredTagId ?? entry.tagId ?? "—"}</td>
+                  <td className="px-4 py-3.5">{entry.breed ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <TablePager
+            page={sort.page}
+            total={sort.sorted.length}
+            pageSize={sort.pageSize}
+            onPageChange={sort.setPage}
+            locale={locale}
+          />
+        </div>
+      )}
+    </div>
+  );
+
+  // السلالات النافقة — الأرانب من غير رقم، فالجنس بيقوم مقام الرقم
+  const stockPanel = (
+    <div className="space-y-3">
+      <h2 className="text-lg font-bold">
+        {locale === "ar" ? "السلالات النافقة" : "Deceased juveniles"}
+        {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
+      </h2>
+      {deceasedStock.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title={locale === "ar" ? "لا توجد حالات نفوق مسجلة" : "No deceased records logged"}
+          title={locale === "ar" ? "لا توجد سلالات نافقة مسجلة" : "No deceased juveniles logged"}
         />
       ) : (
         <div className="rounded-xl border bg-card overflow-x-auto">
@@ -178,54 +297,104 @@ export function MortalityLog({
                   className="px-4 py-3 text-center"
                   label={locale === "ar" ? "التاريخ" : "Date"}
                   sortKey="date"
-                  activeSortKey={deceasedSort.sortKey}
-                  direction={deceasedSort.direction}
-                  onSort={deceasedSort.toggleSort}
-                />
-                <SortableTh
-                  className="px-4 py-3 text-center"
-                  label={locale === "ar" ? "رقم الأرنب" : "Rabbit Tag ID"}
-                  sortKey="tag"
-                  activeSortKey={deceasedSort.sortKey}
-                  direction={deceasedSort.direction}
-                  onSort={deceasedSort.toggleSort}
-                />
-                <SortableTh
-                  className="px-4 py-3 text-center"
-                  label={locale === "ar" ? "السلالة" : "Breed"}
-                  sortKey="breed"
-                  activeSortKey={deceasedSort.sortKey}
-                  direction={deceasedSort.direction}
-                  onSort={deceasedSort.toggleSort}
+                  activeSortKey={stockSort.sortKey}
+                  direction={stockSort.direction}
+                  onSort={stockSort.toggleSort}
                 />
                 <SortableTh
                   className="px-4 py-3 text-center"
                   label={locale === "ar" ? "الجنس" : "Sex"}
                   sortKey="sex"
-                  activeSortKey={deceasedSort.sortKey}
-                  direction={deceasedSort.direction}
-                  onSort={deceasedSort.toggleSort}
+                  activeSortKey={stockSort.sortKey}
+                  direction={stockSort.direction}
+                  onSort={stockSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-4 py-3 text-center"
+                  label={locale === "ar" ? "السلالة" : "Breed"}
+                  sortKey="breed"
+                  activeSortKey={stockSort.sortKey}
+                  direction={stockSort.direction}
+                  onSort={stockSort.toggleSort}
                 />
               </tr>
             </thead>
             <tbody className="divide-y">
-              {deceasedSort.sorted.map((entry) => (
+              {stockSort.paged.map((entry) => (
                 <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5 text-center">
                     <LocalDate date={new Date(entry.updatedAt)} />
                   </td>
-                  <td className="px-4 py-3.5 font-bold">{entry.retiredTagId ?? entry.tagId ?? "—"}</td>
-                  <td className="px-4 py-3.5">{entry.breed ?? "—"}</td>
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5 font-bold">
                     {entry.sex === "doe" ? (locale === "ar" ? "أنثى" : "Doe") : (locale === "ar" ? "ذكر" : "Buck")}
                   </td>
+                  <td className="px-4 py-3.5">{entry.breed ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={stockSort.page}
+            total={stockSort.sorted.length}
+            pageSize={stockSort.pageSize}
+            onPageChange={stockSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>
-    </>
+  );
+
+  // One tab per table instead of five stacked ones: they answer different
+  // questions (a litter loss, a stock deduction, a dead adult) and nobody reads
+  // them together — stacked, the last three were a scroll away from the strip.
+  // Same five tabs as the web log, split on the same tagged/untagged rule — and
+  // like it, the two kit tabs count kits rather than rows, since a row is one
+  // press and a الفطام row is a whole day.
+  return (
+    <LogTabs
+      tabs={[
+        {
+          key: "nursing",
+          label: locale === "ar" ? "نافق النتاج" : "Nursing kits",
+          count: sumKits(nursingKitDeaths),
+          node: nursingPanel,
+        },
+        {
+          key: "weaned",
+          label: locale === "ar" ? "نافق الفطام" : "Weaned kits",
+          count: sumKits(weanedKitDeaths),
+          node: weanedPanel,
+        },
+        {
+          key: "does",
+          label: locale === "ar" ? "الأمهات النافقة" : "Deceased does",
+          count: deceasedMothers.length,
+          node: taggedPanel(
+            locale === "ar" ? "الأمهات النافقة" : "Deceased does",
+            locale === "ar" ? "لا توجد أمهات نافقة مسجلة" : "No deceased does logged",
+            locale === "ar" ? "رقم الأم" : "Mother",
+            motherSort
+          ),
+        },
+        {
+          key: "bucks",
+          label: locale === "ar" ? "الذكور النافقة" : "Deceased bucks",
+          count: deceasedBucks.length,
+          node: taggedPanel(
+            locale === "ar" ? "الذكور النافقة" : "Deceased bucks",
+            locale === "ar" ? "لا توجد ذكور نافقة مسجلة" : "No deceased bucks logged",
+            locale === "ar" ? "رقم الذكر" : "Buck",
+            buckSort
+          ),
+        },
+        {
+          key: "strains",
+          label: locale === "ar" ? "السلالات النافقة" : "Deceased juveniles",
+          count: deceasedStock.length,
+          node: stockPanel,
+        },
+      ]}
+    />
   );
 }

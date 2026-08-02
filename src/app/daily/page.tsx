@@ -47,6 +47,11 @@ export default async function DailyPage({
   // deduction from the farm-wide رصيد الفطام with no mother to name.
   const nursingKitDeaths = log.kitDeaths.filter((r) => r.stage === "nursing");
   const weanedKitDeaths = log.kitDeaths.filter((r) => r.stage === "weaned");
+  // One number for the day, not a row per press: رصيد الفطام is a farm-wide
+  // pool, so a loss out of it has nothing to tell them apart by — three presses
+  // of 1 and one press of 3 are the same day's loss. The presses stay listed
+  // individually on صفحة النافق, where their times still matter.
+  const weanedKitDeathTotal = weanedKitDeaths.reduce((sum, r) => sum + r.count, 0);
 
   return (
     <div className="space-y-8">
@@ -392,7 +397,7 @@ export default async function DailyPage({
       {/* نافق الفطام */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          {dt.weanedKitDeathsHeading(weanedKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+          {dt.weanedKitDeathsHeading(weanedKitDeathTotal)}
         </h2>
         {weanedKitDeaths.length === 0 ? (
           <EmptyState icon={CalendarDays} title={dt.weanedKitDeathsEmpty} />
@@ -401,21 +406,21 @@ export default async function DailyPage({
             <SortableTable
               headerRowClassName="[&>th]:border-x"
               columns={[
-                { key: "index", label: dt.colIndex, className: "text-center", sortable: false },
-                { key: "count", label: dt.colCount, type: "number", className: "text-center" },
+                { key: "count", label: dt.colCount, className: "text-center", sortable: false },
               ]}
-              rows={weanedKitDeaths.map((r, i) => ({
-                key: r.id,
-                sortValues: { count: r.count },
-                node: (
-                  <TableRow key={r.id} className="[&>td]:border-x [&>td]:text-center">
-                    <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                    <TableCell className="font-semibold text-red-600 tabular-nums dark:text-red-400">
-                      {r.count}
-                    </TableCell>
-                  </TableRow>
-                ),
-              }))}
+              rows={[
+                {
+                  key: "weaned-total",
+                  sortValues: {},
+                  node: (
+                    <TableRow className="[&>td]:border-x [&>td]:text-center">
+                      <TableCell className="font-semibold text-red-600 tabular-nums dark:text-red-400">
+                        {weanedKitDeathTotal}
+                      </TableCell>
+                    </TableRow>
+                  ),
+                },
+              ]}
             />
           </div>
         )}

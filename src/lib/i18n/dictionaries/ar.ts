@@ -809,6 +809,13 @@ export const ar = {
     recordNursingDeathButton: "تسجيل نافق",
     deceasedToast: "تم تسجيل النافق",
     recordDeceasedButton: "تسجيل نافق",
+    // Tab labels over the five نافق tables — the count rides on the tab itself,
+    // so these stay bare names while the headings below keep their own.
+    logTabKitDeaths: "نافق النتاج",
+    logTabWeanedKitDeaths: "نافق الفطام",
+    logTabDeceasedMothers: "الأمهات النافقة",
+    logTabDeceasedBucks: "الذكور النافقة",
+    logTabDeceasedStrains: "السلالات النافقة",
     kitDeathsHeading: (count: number) => `نافق النتاج (${count})`,
     kitDeathsEmptyTitle: "لا يوجد نافق نتاج مسجل",
     weanedKitDeathsHeading: (count: number) => `نافق الفطام (${count})`,

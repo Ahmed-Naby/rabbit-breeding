@@ -108,9 +108,12 @@ export function DailyPage({ locale }: { locale: Locale }) {
     tag: { type: "tag", value: (r) => r.doeTag },
     count: { type: "number", value: (r) => r.count },
   });
-  const weanedKitDeathSort = useSortableRows(weanedKitDeaths, {
-    count: { type: "number", value: (r) => r.count },
-  });
+  // One number for the day, not a row per press: رصيد الفطام is a farm-wide
+  // pool, so a loss out of it has nothing to tell them apart by — three presses
+  // of 1 and one press of 3 are the same day's loss. The presses stay listed
+  // individually on صفحة النافق, where their times still matter. (No sort hook
+  // for it any more — a single row has nothing to sort.)
+  const weanedKitDeathTotal = weanedKitDeaths.reduce((sum, r) => sum + r.count, 0);
 
   if (!log) {
     return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
@@ -565,7 +568,7 @@ export function DailyPage({ locale }: { locale: Locale }) {
       {/* نافق الفطام */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          {dt.weanedKitDeathsHeading(weanedKitDeaths.reduce((sum, r) => sum + r.count, 0))}
+          {dt.weanedKitDeathsHeading(weanedKitDeathTotal)}
         </h2>
         {weanedKitDeaths.length === 0 ? (
           <EmptyBlock title={dt.weanedKitDeathsEmpty} />
@@ -574,26 +577,15 @@ export function DailyPage({ locale }: { locale: Locale }) {
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
                 <tr className="[&>th]:border-x">
-                  <th className="px-4 py-3 text-center">{dt.colIndex}</th>
-                  <SortableTh
-                    className="px-4 py-3 text-center"
-                    label={dt.colCount}
-                    sortKey="count"
-                    activeSortKey={weanedKitDeathSort.sortKey}
-                    direction={weanedKitDeathSort.direction}
-                    onSort={weanedKitDeathSort.toggleSort}
-                  />
+                  <th className="px-4 py-3 text-center">{dt.colCount}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {weanedKitDeathSort.sorted.map((r, i) => (
-                  <tr key={r.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-4 py-3 text-center text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-3 text-center font-bold tabular-nums text-red-600 dark:text-red-400">
-                      {r.count}
-                    </td>
-                  </tr>
-                ))}
+                <tr className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
+                  <td className="px-4 py-3 text-center font-bold tabular-nums text-red-600 dark:text-red-400">
+                    {weanedKitDeathTotal}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
