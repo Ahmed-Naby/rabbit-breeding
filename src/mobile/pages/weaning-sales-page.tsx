@@ -7,17 +7,19 @@ import { getDb } from "../db/client";
 import { fetchWeaningSalesPageData, type LocalKitLedgerEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { enqueue } from "../sync/outbox";
-import { formatMoney, formatWeight, fromCents } from "@/lib/units";
+import { formatMoney, formatWeight, formatWeightTotal, fromCents } from "@/lib/units";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toDateInputValue } from "@/lib/dates";
+import { isWithinDateRange, toDateInputValue } from "@/lib/dates";
+import { ledgerTotals } from "@/lib/kit-ledger";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
+import { LogStatBadge } from "@/components/log-count-badge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,6 +59,8 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   const [pricePerKg, setPricePerKg] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
 
   const load = useCallback(async () => {
     const db = await getDb();
@@ -153,7 +157,16 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   // deleteKitStockMovement op itself stays registered for ops already queued
   // by older builds. Use a تسوية to correct the balance instead.
 
-  const ledgerSort = useSortableRows(data?.ledger ?? [], {
+  // Filtered before sorting, so the pager and the cards below both see the
+  // same slice. Held in state rather than the URL: this page is a single view,
+  // and the mobile shell has no query string to share anyway.
+  const fullLedger = data?.ledger ?? [];
+  const ledgerRows =
+    rangeFrom || rangeTo
+      ? fullLedger.filter((e) => isWithinDateRange(e.date, rangeFrom, rangeTo))
+      : fullLedger;
+
+  const ledgerSort = useSortableRows(ledgerRows, {
     date: { type: "date", value: (r) => r.date },
     kind: { type: "string", value: (r) => r.kind },
     count: { type: "number", value: (r) => r.count },
@@ -167,17 +180,19 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
     return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;
   }
 
+  const { availableStock, currency, weightUnit } = data;
+
+  // The four period cards follow the filter; المخزون المتاح does not — it is a
+  // running balance, and every entry on this page is gated on it.
   const {
-    ledger,
     totalWeaned,
     totalSold,
     totalDied,
     totalRetained,
     totalRevenueCents,
-    availableStock,
-    currency,
-    weightUnit,
-  } = data;
+    totalSoldWeightGrams,
+    avgSoldWeightGrams,
+  } = ledgerTotals(ledgerRows);
 
   const toneCls = {
     neutral: "border-zinc-200 bg-zinc-50 text-zinc-950 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-50",
@@ -198,60 +213,25 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t.weaningSales.title}
+        title={
+          <>
+            {t.weaningSales.title}
+            {/* The one figure every entry on this page is gated on — a sale or
+                نافق is refused when it would push it below zero — so it stays
+                in view instead of only in the card row below. */}
+            <LogStatBadge
+              label={t.weaningSales.availableStockLabel}
+              value={availableStock.toLocaleString()}
+              tone="primary"
+            />
+          </>
+        }
         description={t.weaningSales.description}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card className={toneCls.neutral}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <Rabbit className="h-5 w-5 text-muted-foreground" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalWeanedLabel}</p>
-              <p className="text-lg font-bold">{totalWeaned}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={availableStock >= 0 ? toneCls.income : toneCls.expense}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <Layers className="h-5 w-5" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.availableStockLabel}</p>
-              <p className="text-lg font-bold">{availableStock}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={toneCls.income}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <ShoppingCart className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalSoldLabel}</p>
-              <p className="text-lg font-bold leading-tight">
-                {totalSold} <span className="text-xs font-normal text-muted-foreground">({formatMoney(totalRevenueCents, currency)})</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={toneCls.expense}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <Skull className="h-5 w-5 text-red-600 dark:text-red-400" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalDiedLabel}</p>
-              <p className="text-lg font-bold">{totalDied}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={toneCls.expense}>
-          <CardContent className="p-4 flex items-center gap-3">
-            <PawPrint className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalRetainedLabel}</p>
-              <p className="text-lg font-bold">{totalRetained}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
+      {/* The form comes first: this page is opened to record a sale or a نافق,
+          and the totals are what you check afterwards. المخزون المتاح — the one
+          figure needed *before* typing — rides on the header badge above. */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{locale === "ar" ? "تسجيل حركة" : "Record Movement"}</CardTitle>
@@ -349,12 +329,125 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
         </CardContent>
       </Card>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className={toneCls.neutral}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <Rabbit className="h-5 w-5 text-muted-foreground" />
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalWeanedLabel}</p>
+              <p className="text-lg font-bold">{totalWeaned}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={availableStock >= 0 ? toneCls.income : toneCls.expense}>
+          <CardContent className="p-4 flex items-center gap-3">
+            <Layers className="h-5 w-5" />
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.availableStockLabel}</p>
+              <p className="text-lg font-bold">{availableStock}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={toneCls.income}>
+          <CardContent className="p-4 flex items-start gap-3">
+            <ShoppingCart className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground">{t.weaningSales.totalSoldLabel}</p>
+              <p className="text-lg font-bold leading-tight">{totalSold}</p>
+              {/* A بيع carries a weight and a price as well as a head count,
+                  and the three together are what a sale is judged on. All of
+                  them follow the date filter. Label at one edge and figure at
+                  the other, so the three read as a column of values. */}
+              <div className="space-y-1 border-t border-border/60 pt-2 mt-3!">
+                <CardDetail
+                  label={t.weaningSales.soldWeightLabel}
+                  value={formatWeightTotal(totalSoldWeightGrams, "kg", locale)}
+                />
+                <CardDetail
+                  label={t.weaningSales.avgSoldWeightLabel}
+                  value={
+                    avgSoldWeightGrams != null
+                      ? formatWeightTotal(avgSoldWeightGrams, "kg", locale)
+                      : "—"
+                  }
+                />
+                <CardDetail
+                  label={t.weaningSales.soldRevenueLabel}
+                  value={formatMoney(totalRevenueCents, currency)}
+                  emphasis
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {/* النافق و احتفاظ للتربية share a card: both are heads that left the
+            weaning pen without being sold. Two lines, no combined total — the
+            sum of a death and a سلالة means nothing. */}
+        <Card className={toneCls.expense}>
+          <CardContent className="p-4 py-2 divide-y divide-border/60">
+            {[
+              { label: t.weaningSales.totalRetainedLabel, value: totalRetained, icon: PawPrint },
+              { label: t.weaningSales.totalDiedLabel, value: totalDied, icon: Skull },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center gap-3 py-2.5">
+                <row.icon className="h-5 w-5 shrink-0 text-red-600/70 dark:text-red-400/70" />
+                <span className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+                  {row.label}
+                </span>
+                <span className="text-lg font-bold tabular-nums">{row.value}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sits between the cards and the table because it governs both. */}
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="ledger-from">{t.records.fromLabel}</Label>
+              <Input
+                id="ledger-from"
+                type="date"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ledger-to">{t.records.toLabel}</Label>
+              <Input
+                id="ledger-to"
+                type="date"
+                value={rangeTo}
+                onChange={(e) => setRangeTo(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            {(rangeFrom || rangeTo) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRangeFrom("");
+                  setRangeTo("");
+                }}
+              >
+                {t.records.clearButton}
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{locale === "ar" ? "سجل الحركات" : "Ledger Log"}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {ledger.length === 0 ? (
+          {ledgerRows.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={Layers}
@@ -473,6 +566,33 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/** One line of the إجمالي المباع breakdown. Mirrors DetailRow on the web page. */
+function CardDetail({
+  label,
+  value,
+  emphasis,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "tabular-nums",
+          emphasis
+            ? "text-sm font-semibold text-emerald-600 dark:text-emerald-400"
+            : "text-xs font-medium text-foreground"
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }

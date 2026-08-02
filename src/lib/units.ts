@@ -51,6 +51,20 @@ export function formatWeight(grams: number, unit: WeightUnit, locale: Locale = "
   return `${lb} ${words.lb} ${oz} ${words.oz}`;
 }
 
+/**
+ * Same units as formatWeight, but grouped and rounded — for aggregate figures
+ * (إجمالي الوزن المباع، متوسط الوزن). formatWeight keeps three decimals because
+ * one rabbit is weighed to the gram; a total over hundreds of rabbits printed
+ * that way reads as an unbroken "1141.574".
+ */
+export function formatWeightTotal(grams: number, unit: WeightUnit, locale: Locale = "ar"): string {
+  if (unit !== "kg") return formatWeight(grams, unit, locale);
+  // Latin digits in both locales, matching formatWeight and formatMoney — the
+  // Arabic UI shows ١٬١٤١ nowhere else.
+  const kg = (grams / GRAMS_PER_KG).toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return `${kg} ${WEIGHT_UNIT_WORDS[locale].kg}`;
+}
+
 // --- Money ----------------------------------------------------------------
 // Canonical storage is integer cents.
 
