@@ -9,7 +9,7 @@ import { useSortableRows } from "@/lib/use-sortable-rows";
 // Shared with the web table rather than redefined here — this file used to
 // carry its own copy of the survival formula, which meant every change to the
 // rule had to be made twice.
-import { weaningSurvivalRate } from "@/lib/kit-mortality";
+import { deadDuringBreeding, weaningSurvivalRate } from "@/lib/kit-mortality";
 
 // Read-only archive (سجل الفطام): weaned count and weaning weight are entered
 // on the daily الأمهات board; each row here is frozen at weaning, never edited.
@@ -29,7 +29,10 @@ export function WeaningLog({
     kindlingDate: { type: "date", value: (r) => r.kindlingDate },
     weaningDate: { type: "date", value: (r) => r.weaningDate },
     alive: { type: "number", value: (r) => r.bornAlive },
-    dead: { type: "number", value: (r) => r.bornDead },
+    // Nursing deaths only — r.bornDead also holds the kindling's stillborns,
+    // which belong to the ولادة log, not to what she raised. Keeps أحياء +
+    // نافق adding up to the «عدد الرعاية» banner, as on the web log.
+    dead: { type: "number", value: (r) => deadDuringBreeding(r) },
     weanedCount: { type: "number", value: (r) => r.weaned },
     weaningWeight: { type: "number", value: (r) => r.weaningWeightGrams },
     survivalRate: { type: "number", value: (r) => weaningSurvivalRate(r) },
@@ -69,6 +72,20 @@ export function WeaningLog({
           />
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
+              {/* Banner over أحياء + نافق, mirroring the web log: the two are
+                  live counts kept in step through nursing, not birth figures.
+                  Spans follow the header row below, hidden classes included,
+                  so the two rows stay aligned on a phone. */}
+              <tr className="[&>th]:border-x">
+                <th colSpan={2} />
+                <th colSpan={3} className="hidden md:table-cell" />
+                <th />
+                <th colSpan={2} className="px-2 py-2 md:px-4 md:py-3 text-center font-semibold">
+                  {wt.groupNursingCount}
+                </th>
+                <th colSpan={2} />
+                <th className="hidden md:table-cell" />
+              </tr>
               <tr className="[&>th]:border-x">
                 <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                 <SortableTh
@@ -170,7 +187,7 @@ export function WeaningLog({
                       <LocalDate date={log.weaningDate} />
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornAlive}</td>
-                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.bornDead || "—"}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{deadDuringBreeding(log) || "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center font-bold">{log.weaned ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{log.weaningWeightGrams ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell text-center font-semibold">

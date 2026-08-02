@@ -5,7 +5,7 @@ import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
-import { weaningSurvivalRate } from "@/lib/kit-mortality";
+import { deadDuringBreeding, weaningSurvivalRate } from "@/lib/kit-mortality";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
@@ -68,6 +68,19 @@ export function WeaningLog({
             headerRowClassName="[&>th]:border-x"
             paginate
             locale={locale}
+            // Spans must stay in step with `columns` below, and the filler
+            // groups follow their columns' responsive classes so the banner
+            // row keeps step with the header row on a phone: 2 always-on,
+            // 3 sm-only, تاريخ الفطام, the banner over أحياء + نافق, 2
+            // always-on, then نسبة البقاء (sm-only).
+            columnGroups={[
+              { span: 2 },
+              { span: 3, className: "hidden sm:table-cell" },
+              { span: 1 },
+              { label: t.groupNursingCount, span: 2, className: "font-semibold" },
+              { span: 2 },
+              { span: 1, className: "hidden sm:table-cell" },
+            ]}
             columns={[
               { key: "index", label: t.colIndex, className: "text-center", sortable: false },
               { key: "doeTag", label: t.colMotherTag, type: "tag", className: "text-center" },
@@ -86,6 +99,11 @@ export function WeaningLog({
               // lost while nursing), not the surviving count — see
               // kit-mortality.ts. Null for cycles predating bornDeadAtKindling.
               const r = weaningSurvivalRate(l);
+              // Deaths *during nursing*, not l.bornDead — that field also
+              // carries the stillborns of the kindling itself, which have
+              // nothing to do with what she raised. This is what makes
+              // أحياء + نافق add up to the «عدد الرعاية» banner above them.
+              const dead = deadDuringBreeding(l);
               return {
                 key: l.id,
                 sortValues: {
@@ -95,7 +113,7 @@ export function WeaningLog({
                   kindlingDate: l.kindlingDate,
                   weaningDate: l.weaningDate,
                   alive: l.bornAlive,
-                  dead: l.bornDead,
+                  dead,
                   weanedCount: l.weaned,
                   weaningWeight: l.weaningWeightGrams,
                   survivalRate: r,
@@ -117,7 +135,7 @@ export function WeaningLog({
                       <LocalDate date={l.weaningDate} locale={locale} />
                     </TableCell>
                     <TableCell>{l.bornAlive}</TableCell>
-                    <TableCell>{l.bornDead || "—"}</TableCell>
+                    <TableCell>{dead || "—"}</TableCell>
                     <TableCell>{l.weaned ?? "—"}</TableCell>
                     <TableCell>{l.weaningWeightGrams ?? "—"}</TableCell>
                     <TableCell className="hidden sm:table-cell">

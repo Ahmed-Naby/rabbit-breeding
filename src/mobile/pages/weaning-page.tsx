@@ -13,6 +13,7 @@ import {
 } from "../components/doe-state-menu";
 import { weaningDueDate, isToday } from "@/lib/dates";
 import { weaningEntryComplete } from "@/lib/does-board";
+import { deadDuringBreeding } from "@/lib/kit-mortality";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { WeaningLog } from "./weaning-log";
@@ -53,7 +54,9 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
     dueDate: { type: "date", value: (r) => weaningDueDate(new Date(r.kindlingDate), weaningDays) },
     doeState: { type: "string", value: (r) => r.doeState },
     alive: { type: "number", value: (r) => r.bornAlive },
-    dead: { type: "number", value: (r) => r.bornDead },
+    // Nursing deaths only, as on the web board — r.bornDead also holds the
+    // stillborns of the birth itself, which she never raised.
+    dead: { type: "number", value: (r) => deadDuringBreeding(r) },
   }, { key: "doeTag" });
 
   if (!data) {
@@ -83,6 +86,20 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
         <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
+              {/* Banner over أحياء + نافق, same as سجل الفطام: the two are the
+                  kits under her care right now, so they add up. Spans follow
+                  the header row below, hidden classes included, so the two
+                  rows stay aligned on a phone. */}
+              <tr className="[&>th]:border-x">
+                <th colSpan={2} />
+                <th colSpan={2} className="hidden md:table-cell" />
+                <th />
+                <th colSpan={2} className="hidden md:table-cell" />
+                <th colSpan={2} className="px-2 py-2 md:px-4 md:py-3 text-center font-semibold">
+                  {t.weaning.groupNursingCount}
+                </th>
+                <th colSpan={3} />
+              </tr>
               <tr className="[&>th]:border-x">
                 <th className="px-2 py-2 md:px-4 md:py-3 w-8 md:w-12 text-center">{locale === "ar" ? "م" : "No."}</th>
                 <SortableTh
@@ -174,7 +191,7 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
                       <DoeStateBadge current={row.doeState} locale={locale} />
                     </td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornAlive}</td>
-                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{row.bornDead}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center">{deadDuringBreeding(row) || "—"}</td>
                     {/* Enabled before "فطام" is pressed — see the web page for
                         why the does board keeps the same inputs locked. */}
                     <td className="px-2 py-2 md:px-4 md:py-3.5">

@@ -16,6 +16,7 @@ import {
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { resolveNursingLitterRow, isWeaningCandidate } from "@/lib/breeding-filters";
 import { weaningEntryComplete } from "@/lib/does-board";
+import { deadDuringBreeding, resolveBornDeadAtKindling } from "@/lib/kit-mortality";
 import { WeaningLog } from "./weaning-log";
 
 export async function generateMetadata() {
@@ -102,6 +103,56 @@ export default async function WeaningPage({
       return { doe, litterRow, dueDate };
     })
     .filter((row): row is NonNullable<typeof row> => row != null);
+
+  // «نافق» on this board means kits lost *during nursing*, and the Litter row
+  // can't tell you that on its own — its bornDead is stillborns + nursing
+  // deaths added together. The frozen stillborn count lives on KindlingLog, so
+  // it's read here: one query for the whole board rather than one per doe.
+  const kindlingRows =
+    does.length === 0
+      ? []
+      : await prisma.kindlingLog.findMany({
+          where: { breedingId: { in: does.map(({ litterRow }) => litterRow.id) } },
+          // Newest first, so the first row per breedingId is the cycle on
+          // screen — a reused Breeding row carries one KindlingLog per cycle,
+          // and kindlingDate is a date (not a timestamp), so createdAt breaks
+          // a same-day tie. Same ordering as breeding-ops.ts.
+          orderBy: [{ kindlingDate: "desc" }, { createdAt: "desc" }],
+          select: { breedingId: true, bornDeadAtKindling: true },
+        });
+  const stillbornByBreeding = new Map<string, number>();
+  for (const k of kindlingRows) {
+    if (k.breedingId && !stillbornByBreeding.has(k.breedingId)) {
+      stillbornByBreeding.set(k.breedingId, k.bornDeadAtKindling);
+    }
+  }
+
+  // Second road for the cycles that first one couldn't answer: KitDeathLog
+  // holds the nursing deaths directly, one dated row per «تسجيل نافق» press.
+  // See resolveBornDeadAtKindling for why the two roads meet at the same
+  // number, and why zero rows must stay «—» rather than become zero deaths.
+  const unresolved = does.filter(
+    ({ litterRow }) => (stillbornByBreeding.get(litterRow.id) ?? -1) < 0 && litterRow.actualKindlingDate
+  );
+  const deathRows =
+    unresolved.length === 0
+      ? []
+      : await prisma.kitDeathLog.groupBy({
+          by: ["doeId", "kindlingDate"],
+          where: {
+            OR: unresolved.map(({ doe, litterRow }) => ({
+              doeId: doe.id,
+              kindlingDate: litterRow.actualKindlingDate,
+            })),
+          },
+          _sum: { count: true },
+        });
+  const cycleKey = (doeId: string, kindlingDate: Date | null) =>
+    `${doeId}|${kindlingDate?.getTime() ?? 0}`;
+  const deathsByCycle = new Map<string, number>(
+    deathRows.map((r) => [cycleKey(r.doeId, r.kindlingDate), r._sum.count ?? 0])
+  );
+
   const weaningLog = todayOnly
     ? weaningLogRaw.filter((row) => isToday(row.weaningDate))
     : weaningLogRaw;
@@ -126,6 +177,18 @@ export default async function WeaningPage({
           <SortableTable
             headerRowClassName="[&>th]:border-x"
             initialSortKey="doeTag"
+            // Same banner as سجل الفطام: أحياء + نافق are the kits under her
+            // care right now, so they add up. Spans must stay in step with
+            // `columns` below, fillers carrying their columns' responsive
+            // classes so the two header rows line up on a phone.
+            columnGroups={[
+              { span: 2 },
+              { span: 2, className: "hidden sm:table-cell" },
+              { span: 1 },
+              { span: 2, className: "hidden sm:table-cell" },
+              { label: t.weaning.groupNursingCount, span: 2, className: "font-semibold" },
+              { span: 3 },
+            ]}
             columns={[
               { key: "index", label: t.weaning.colIndex, className: "text-center", sortable: false },
               { key: "doeTag", label: t.weaning.colMotherTag, type: "tag", className: "text-center" },
@@ -140,7 +203,21 @@ export default async function WeaningPage({
               { key: "weaningWeight", label: t.weaning.colWeaningWeight, type: "number", className: "text-center" },
               { key: "wean", label: t.weaning.colWean, className: "text-center", sortable: false },
             ]}
-            rows={does.map(({ doe, litterRow, dueDate }, i) => ({
+            rows={does.map(({ doe, litterRow, dueDate }, i) => {
+              // Nursing deaths only — see the two maps built above. 0 (rendered
+              // «—») when neither road can supply the number.
+              const dead = litterRow.litter
+                ? deadDuringBreeding({
+                    bornDead: litterRow.litter.bornDead,
+                    bornDeadAtKindling: resolveBornDeadAtKindling({
+                      fromKindlingLog: stillbornByBreeding.get(litterRow.id),
+                      bornDead: litterRow.litter.bornDead,
+                      recordedKitDeaths:
+                        deathsByCycle.get(cycleKey(doe.id, litterRow.actualKindlingDate)) ?? null,
+                    }),
+                  })
+                : null;
+              return {
               key: doe.id,
               sortValues: {
                 doeTag: doe.tagId,
@@ -150,7 +227,7 @@ export default async function WeaningPage({
                 dueDate,
                 doeState: doe.doeState,
                 alive: litterRow.litter?.bornAlive,
-                dead: litterRow.litter?.bornDead,
+                dead,
                 weanedCount: litterRow.litter?.weaned,
                 weaningWeight: litterRow.litter?.weaningWeightGrams,
               },
@@ -174,7 +251,7 @@ export default async function WeaningPage({
                     <DoeStateBadge current={doe.doeState} locale={locale} />
                   </TableCell>
                   <TableCell>{litterRow.litter?.bornAlive ?? "—"}</TableCell>
-                  <TableCell>{litterRow.litter?.bornDead ?? "—"}</TableCell>
+                  <TableCell>{dead || "—"}</TableCell>
                   {/* Enabled here, unlike the does board where the same two
                       inputs stay locked until "فطام" is pressed: this row
                       disappears from the list the moment she's weaned, so the
@@ -210,7 +287,8 @@ export default async function WeaningPage({
                   </TableCell>
                 </TableRow>
               ),
-            }))}
+              };
+            })}
           />
         </div>
       )}

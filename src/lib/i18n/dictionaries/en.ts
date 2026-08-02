@@ -678,6 +678,7 @@ export const en: Dictionary = {
     colWeanedCount: "Weaned",
     colWeaningWeight: "Weight (g)",
     colSurvivalRate: "Survival rate",
+    groupNursingCount: "Under care",
   },
   weaningSales: {
     title: "Weaning & Sales",

@@ -10,7 +10,7 @@ import type { LocalSettings, LocalRabbit } from "./types";
 import { computeDoeBoardRow, rebreedCooldownElapsed, type DoeBoardBreeding } from "@/lib/does-board";
 import type { DoeState } from "@/lib/enums";
 import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
-import { weaningSurvivalRate } from "@/lib/kit-mortality";
+import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
 import {
   computeBreedingAverages,
@@ -935,6 +935,13 @@ export type WeaningLitterRow = {
   kindlingDate: string;
   bornAlive: number;
   bornDead: number;
+  /**
+   * Frozen stillborn count of this cycle, off kindling_log — the litter table
+   * has no such column, and bornDead above is stillborns + nursing deaths
+   * added together. Their gap is «نافق الرعاية», which is what the board
+   * shows. `-1` when no kindling row matches (see kit-mortality.ts).
+   */
+  bornDeadAtKindling: number;
   // Editable on the weaning page before "فطام" is pressed, same as the web.
   weaned: number | null;
   weaningWeightGrams: number | null;
@@ -1034,12 +1041,41 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
       ? await queryOne<{ tagId: string | null }>(db, "SELECT tagId FROM rabbit WHERE id = ?", [originalBreeding.buckId])
       : null;
 
+    // Newest first, so this is the cycle on screen: a reused breeding row
+    // carries one kindling_log row per cycle, and kindlingDate is a date (not
+    // a timestamp), so createdAt breaks a same-day tie.
+    const kindling = await queryOne<{ bornDeadAtKindling: number }>(
+      db,
+      `SELECT bornDeadAtKindling FROM kindling_log WHERE breedingId = ?
+       ORDER BY kindlingDate DESC, createdAt DESC LIMIT 1`,
+      [resolved.id]
+    );
+    // Second road when that row can't answer (a cycle whose kindling row was
+    // never linked to its breeding): the dated نافق presses are the nursing
+    // deaths directly. Date part only — a local row carries "YYYY-MM-DD" and a
+    // pulled one the server's full timestamp. See resolveBornDeadAtKindling.
+    const deaths =
+      kindling && kindling.bornDeadAtKindling >= 0
+        ? null
+        : await queryOne<{ n: number; total: number | null }>(
+            db,
+            `SELECT COUNT(*) AS n, SUM(count) AS total FROM kit_death_log
+             WHERE doeId = ? AND substr(kindlingDate, 1, 10) = substr(?, 1, 10)`,
+            [doe.id, originalBreeding.actualKindlingDate]
+          );
+
     litters.push({
       id: litRow?.id ?? "",
       breedingId: originalBreeding.id,
       kindlingDate: originalBreeding.actualKindlingDate!,
       bornAlive: resolved.litter!.bornAlive,
       bornDead: resolved.litter!.bornDead,
+      bornDeadAtKindling: resolveBornDeadAtKindling({
+        fromKindlingLog: kindling?.bornDeadAtKindling,
+        bornDead: resolved.litter!.bornDead,
+        // No rows is "no evidence", not "no deaths".
+        recordedKitDeaths: !deaths || deaths.n === 0 ? null : (deaths.total ?? 0),
+      }),
       weaned: litRow?.weaned ?? null,
       weaningWeightGrams: litRow?.weaningWeightGrams ?? null,
       doeId: doe.id,

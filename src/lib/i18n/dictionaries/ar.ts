@@ -681,6 +681,9 @@ export const ar = {
     colWeanedCount: "عدد الفطام",
     colWeaningWeight: "الوزن (جم)",
     colSurvivalRate: "نسبة البقاء",
+    // بانر فوق «أحياء» و«نافق»: الرقمين بيتحركوا طول الرعاية (كل نافق رضاعة
+    // بيخصم من أحياء ويزود نافق)، مش أرقام لحظة الولادة.
+    groupNursingCount: "عدد الرعاية",
   },
   weaningSales: {
     title: "الفطام والبيع",

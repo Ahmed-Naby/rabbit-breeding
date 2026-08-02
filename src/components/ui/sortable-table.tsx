@@ -129,7 +129,12 @@ export function SortableTable({
                 // column instead of a single spanning one — that keeps every
                 // vertical rule of the header row running to the top of the
                 // table rather than stopping under the banner.
-                Array.from({ length: g.span }, (_, j) => <TableHead key={`${i}-${j}`} />)
+                // `className` still applies to each of them, which is how a
+                // filler over responsive columns (hidden sm:table-cell) keeps
+                // the banner row in step with the header row on small screens.
+                Array.from({ length: g.span }, (_, j) => (
+                  <TableHead key={`${i}-${j}`} className={g.className} />
+                ))
               ) : (
                 <TableHead key={i} colSpan={g.span} className={cn("text-center", g.className)}>
                   {g.label}
