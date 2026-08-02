@@ -386,8 +386,12 @@ export async function fetchDashboardStats(db: SQLiteDBConnection): Promise<Dashb
   ] = await Promise.all([
     // Same filter as /stock: untagged juveniles not yet promoted to the breeding herd pen.
     queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE tagId IS NULL AND movedToHerdPen = 0 AND status NOT IN ('deceased', 'culled')"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
-    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled')"),
+    // status = 'active', not "not dead": these two cards say النشطة, and the web
+    // dashboard counts them that way (src/app/page.tsx). A مستريح buck is a real
+    // status of its own, so "not deceased and not culled" quietly counted him as
+    // active and the phone read 25 bucks against the web's 24.
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active'"),
+    queryOne<{ count: number }>(db, "SELECT COUNT(*) as count FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'active'"),
     countReadyForMating(db, settings),
     countReadyForPregnancyTest(db, settings),
     countExpectedKindlings(db, settings),
@@ -518,7 +522,7 @@ export async function fetchMatingPageData(db: SQLiteDBConnection): Promise<{
     wasNursingAtMating: number;
   }>(
     db,
-    "SELECT id, matingDate, doeId, buckId, wasNursingAtMating FROM mating_log ORDER BY matingDate DESC LIMIT 100"
+    "SELECT id, matingDate, doeId, buckId, wasNursingAtMating FROM mating_log ORDER BY matingDate DESC"
   );
 
   const matingLog: MatingLogEntry[] = [];
@@ -606,7 +610,7 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, testDate, result, doeId, buckId FROM pregnancy_test_log ORDER BY testDate DESC LIMIT 100"
+    "SELECT id, matingDate, testDate, result, doeId, buckId FROM pregnancy_test_log ORDER BY testDate DESC"
   );
 
   const testLog: PregnancyTestLogEntry[] = [];
@@ -653,7 +657,7 @@ export async function fetchResorptionPageData(db: SQLiteDBConnection): Promise<{
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, resorptionDate, doeId, buckId FROM resorption_log ORDER BY resorptionDate DESC LIMIT 100"
+    "SELECT id, matingDate, resorptionDate, doeId, buckId FROM resorption_log ORDER BY resorptionDate DESC"
   );
 
   const resorptionLog: ResorptionLogEntry[] = [];
@@ -775,7 +779,7 @@ export async function fetchNestBoxPageData(db: SQLiteDBConnection): Promise<{
     `SELECT id, matingDate, nestBoxDate, doeId, buckId 
      FROM breeding 
      WHERE nestBoxDate IS NOT NULL 
-     ORDER BY nestBoxDate DESC LIMIT 100`
+     ORDER BY nestBoxDate DESC`
   );
 
   const installedLog: LocalInstalledNestBoxLogEntry[] = [];
@@ -892,7 +896,7 @@ export async function fetchKindlingPageData(db: SQLiteDBConnection): Promise<{
     buckId: string | null;
   }>(
     db,
-    "SELECT id, matingDate, kindlingDate, breedingId, bornAliveAtKindling, bornDeadAtKindling, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC LIMIT 100"
+    "SELECT id, matingDate, kindlingDate, breedingId, bornAliveAtKindling, bornDeadAtKindling, doeId, buckId FROM kindling_log ORDER BY kindlingDate DESC"
   );
 
   const kindlingLog: KindlingLogEntry[] = [];
@@ -1067,7 +1071,7 @@ export async function fetchWeaningPageData(db: SQLiteDBConnection): Promise<{
     `SELECT id, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling,
             weaned, weaningWeightGrams, doeId, buckId
      FROM weaning_log
-     ORDER BY weaningDate DESC LIMIT 100`
+     ORDER BY weaningDate DESC`
   );
 
   const weanedLog: WeanedLitterLogEntry[] = [];
@@ -1194,7 +1198,7 @@ export async function fetchFosteringPageData(db: SQLiteDBConnection): Promise<{
     toDoeId: string;
     count: number;
     date: string;
-  }>(db, "SELECT id, fromDoeId, toDoeId, count, date FROM foster_log ORDER BY date DESC, createdAt DESC LIMIT 100");
+  }>(db, "SELECT id, fromDoeId, toDoeId, count, date FROM foster_log ORDER BY date DESC, createdAt DESC");
 
   const logs: LocalFosterLogEntry[] = [];
   for (const row of rows) {
@@ -1377,7 +1381,12 @@ export type LocalKitDeath = {
   kindlingDate: string | null;
 };
 
-/** نافق النتاج (رضاعة + فطام), newest first. */
+/** نافق النتاج (رضاعة + فطام), newest first.
+ *
+ * No LIMIT on either half: the web log (src/app/mortality/page.tsx) reads the
+ * whole table, so a cap here made the same farm show 100 نافق نتاج on the phone
+ * against 712 on the web — and the الفطام tab, which totals by day, understated
+ * the daily figures rather than just dropping old rows. */
 export async function fetchKitDeaths(db: SQLiteDBConnection): Promise<LocalKitDeath[]> {
   const nursing = await queryAll<{
     id: string;
@@ -1392,11 +1401,11 @@ export async function fetchKitDeaths(db: SQLiteDBConnection): Promise<LocalKitDe
     `SELECT k.id, k.deathDate, k.count, k.kindlingDate, k.doeId, r.tagId, r.retiredTagId
        FROM kit_death_log k
        LEFT JOIN rabbit r ON r.id = k.doeId
-      ORDER BY k.deathDate DESC LIMIT 100`
+      ORDER BY k.deathDate DESC`
   );
   const weaned = await queryAll<{ id: string; date: string; count: number }>(
     db,
-    "SELECT id, date, count FROM kit_stock_movement WHERE type = 'death' ORDER BY date DESC LIMIT 100"
+    "SELECT id, date, count FROM kit_stock_movement WHERE type = 'death' ORDER BY date DESC"
   );
 
   return [
@@ -1454,13 +1463,15 @@ export async function fetchMortalityPageData(db: SQLiteDBConnection): Promise<{
   // 4. Deceased rabbits log
   const deceasedRabbits = await queryAll<LocalDeceasedRabbit>(
     db,
-    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'deceased' ORDER BY updatedAt DESC LIMIT 100"
+    // Uncapped for the same reason as fetchKitDeaths: the النافق log splits
+    // these into أمهات/ذكور/سلالات and its counts are read against the web's.
+    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'deceased' ORDER BY updatedAt DESC"
   );
 
   // 4b. Culled rabbits log (استبعاد)
   const culledRabbits = await queryAll<LocalDeceasedRabbit>(
     db,
-    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'culled' ORDER BY updatedAt DESC LIMIT 100"
+    "SELECT id, tagId, retiredTagId, breed, sex, updatedAt FROM rabbit WHERE status = 'culled' ORDER BY updatedAt DESC"
   );
 
   // 5. Nursing does
@@ -1830,7 +1841,7 @@ export async function fetchHealthPageData(db: SQLiteDBConnection): Promise<{
     type: string;
     description: string;
     nextDueDate: string | null;
-  }>(db, "SELECT id, rabbitId, date, type, description, nextDueDate FROM health_record ORDER BY date DESC, createdAt DESC LIMIT 200");
+  }>(db, "SELECT id, rabbitId, date, type, description, nextDueDate FROM health_record ORDER BY date DESC, createdAt DESC");
 
   const records: LocalHealthRecord[] = [];
   for (const row of rows) {
@@ -1864,7 +1875,7 @@ export async function fetchFinancePageData(db: SQLiteDBConnection): Promise<{
   const settings = await getLocalSettings(db);
   const transactions = await queryAll<LocalTransaction>(
     db,
-    "SELECT id, date, type, category, amountCents, notes FROM transaction_ledger ORDER BY date DESC, createdAt DESC LIMIT 200"
+    "SELECT id, date, type, category, amountCents, notes FROM transaction_ledger ORDER BY date DESC, createdAt DESC"
   );
   // Its own query, not a filter over the list above: that one is capped at 200
   // rows, so on a busy farm an older posting would fall off the end and look
