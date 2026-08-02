@@ -14,6 +14,7 @@ import { getBreedOptions } from "@/lib/breeds";
 import { naturalCompare } from "@/lib/sortable";
 import { AddBuckForm } from "./add-buck-form";
 import { PendingBucksTable, type PendingBuckRow } from "./pending-bucks-table";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -87,7 +88,26 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
           description={t.bucks.emptyDescription}
         />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="space-y-3">
+          {/* Above the table rather than beside the page title: this board is
+              also rendered inside تسجيل القطيع والسلالات with its header hidden. */}
+          <div className="flex justify-end">
+            <ExportXlsxButton
+              locale={locale}
+              spec={{
+                kind: "herdBucks",
+                weightUnit: settings.weightUnit as "kg" | "lb_oz",
+                rows: bucks.map((buck) => ({
+                  tagId: buck.tagId,
+                  breed: buck.breed,
+                  acquiredDate: buck.acquiredDate,
+                  weightGrams: buck.weightRecords[0]?.weightGrams ?? null,
+                  status: buck.status,
+                })),
+              }}
+            />
+          </div>
+          <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
             columns={[
@@ -150,6 +170,7 @@ export default async function BucksPage({ hideHeader }: { hideHeader?: boolean }
               ),
             }))}
           />
+          </div>
         </div>
       )}
     </div>

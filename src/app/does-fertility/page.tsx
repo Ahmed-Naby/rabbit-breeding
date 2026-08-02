@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  Percent,
+  PawPrint,
   HeartPulse,
   HeartHandshake,
   ShieldCheck,
@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { DoeStateBadge } from "../does/doe-state-menu";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata() {
@@ -58,7 +59,16 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
       _count: { _all: true },
       _sum: { bornAlive: true, bornAliveAtKindling: true },
     }),
-    prisma.weaningLog.groupBy({ by: ["doeId"], _count: { _all: true }, _sum: { weaned: true } }),
+    // `weaned: { not: null }` on both sides: the count is nullable, and a row
+    // whose count was never filled used to land in the denominator while adding
+    // nothing to the numerator — every unfilled weaning dragged «متوسط عدد
+    // الفطام» down. Same rule the سجل الفطام banner already applies.
+    prisma.weaningLog.groupBy({
+      by: ["doeId"],
+      where: { weaned: { not: null } },
+      _count: { _all: true },
+      _sum: { weaned: true },
+    }),
     // «نسبة بقاء الفطام» needs its own pass, filtered to rows that predate
     // nothing: a -1 bornDeadAtKindling is a "unknown" sentinel, not a count, and
     // summing it would silently inflate every doe's denominator. Excluding those
@@ -66,7 +76,10 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     // predates the column simply has no rate, same as the per-row helper.
     prisma.weaningLog.groupBy({
       by: ["doeId"],
-      where: { bornDeadAtKindling: { gte: 0 } },
+      // `weaned: { not: null }` for the same reason as the pass above: an
+      // unfilled count would put its kits in underCare and nothing in weaned,
+      // reading as a litter that was raised and lost.
+      where: { bornDeadAtKindling: { gte: 0 }, weaned: { not: null } },
       _sum: { weaned: true, bornAlive: true, bornDead: true, bornDeadAtKindling: true },
     }),
     // «متوسط وزن الفطام»: Σ(وزن البطن) ÷ Σ(عدد الفطام) — the weight of one kit,
@@ -127,6 +140,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
   let overallBreedings = 0;
   let overallKindlings = 0;
   let overallBornAlive = 0;
+  let overallBornAtKindling = 0;
   let overallWeaned = 0;
   let overallWeanings = 0;
   let overallSurvivalWeaned = 0;
@@ -168,6 +182,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     overallBreedings += totalBreedings;
     overallKindlings += totalKindlings;
     overallBornAlive += bornAlive;
+    overallBornAtKindling += bornAtKindling;
     overallWeaned += weaned;
     overallWeanings += weanings;
     overallSurvivalWeaned += s?.weaned ?? 0;
@@ -193,6 +208,8 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
 
   const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
   const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
+  const overallAvgBornAtKindling =
+    overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
   const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
   const overallSurvival =
     overallUnderCare > 0
@@ -211,18 +228,51 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
       {does.length > 0 && (
         <Card className="glass-card border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">
               {t.doesFertility.statsHeading}
+              {/* Bare figure, no label — it's the fertility rate, and the card
+                  underneath names it. Its own span rather than LogStatBadge:
+                  that one is text-xs and always prints a label. */}
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-lg font-bold tabular-nums text-primary">
+                {overallFertility}%
+              </span>
+              {/* Here rather than beside the page title: this page is also
+                  embedded in التقارير with its header hidden. */}
+              <ExportXlsxButton
+                className="ms-auto"
+                locale={locale}
+                spec={{
+                  kind: "doesFertility",
+                  rows: rowData.map((r) => ({
+                    tagId: r.tagId,
+                    breed: r.breed,
+                    status: r.status,
+                    doeState: r.doeState,
+                    totalBreedings: r.totalBreedings,
+                    totalKindlings: r.totalKindlings,
+                    fertilityRate: r.fertilityRate,
+                    avgBornAtKindling: r.avgBornAtKindling,
+                    avgBorn: r.avgBorn,
+                    avgWeaned: r.avgWeaned,
+                    avgWeaningWeight: r.avgWeaningWeight,
+                    weaningSurvivalRate: r.weaningSurvivalRate,
+                  })),
+                }}
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+              {/* صف أول: تلقيح ← ولادة ← نسبة الحفاظ (النتيجة النهائية).
+                  صف تاني: البطن الحي ← الرعاية ← الفطام، على ترتيب رحلة
+                  الكتكوت من الولادة للفطام، فالنقص بين كل رقم واللي بعده
+                  يتقري من غير ما العين تنطّ. */}
               <StatCard
-                icon={Percent}
-                label={t.doesFertility.statFertilityRate}
-                value={`${overallFertility}%`}
-                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                icon={HeartHandshake}
+                label={t.doesFertility.statTotalBreedings}
+                value={overallBreedings.toString()}
+                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={HeartPulse}
@@ -231,28 +281,28 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
               />
               <StatCard
-                icon={HeartHandshake}
-                label={t.doesFertility.statTotalBreedings}
-                value={overallBreedings.toString()}
-                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              />
-              <StatCard
                 icon={ShieldCheck}
                 label={t.doesFertility.statWeaningSurvival}
                 value={`${overallSurvival}%`}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
-                icon={Baby}
-                label={t.doesFertility.statAvgWeaned}
-                value={overallAvgWeaned.toFixed(1)}
-                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                icon={PawPrint}
+                label={t.doesFertility.statAvgBornAtKindling}
+                value={overallAvgBornAtKindling.toFixed(1)}
+                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
               />
               <StatCard
                 icon={Layers}
                 label={t.doesFertility.statAvgBorn}
                 value={overallAvgBorn.toFixed(1)}
                 className="border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400"
+              />
+              <StatCard
+                icon={Baby}
+                label={t.doesFertility.statAvgWeaned}
+                value={overallAvgWeaned.toFixed(1)}
+                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
               />
             </div>
           </CardContent>

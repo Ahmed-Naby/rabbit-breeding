@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  Percent,
+  PawPrint,
   HeartPulse,
   HeartHandshake,
   ShieldCheck,
@@ -20,6 +20,8 @@ import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 type FertilityRow = {
   id: string;
@@ -50,6 +52,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     overallSurvival: number;
     overallAvgWeaned: number;
     overallAvgBorn: number;
+    overallAvgBornAtKindling: number;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -71,6 +74,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
     let overallBreedings = 0;
     let overallKindlings = 0;
     let overallBornAlive = 0;
+    let overallBornAtKindling = 0;
     let overallWeaned = 0;
     let overallWeanings = 0;
     let overallSurvivalWeaned = 0;
@@ -98,19 +102,24 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       );
       const weaningRow = await queryOne<{ c: number; weaned: number }>(
         db,
-        "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned FROM weaning_log WHERE doeId = ?",
+        // `weaned IS NOT NULL` on both sides, mirroring the web page: the count
+        // is nullable, and a row whose count was never filled used to land in
+        // the denominator while adding nothing to the numerator.
+        "SELECT COUNT(*) AS c, COALESCE(SUM(weaned), 0) AS weaned FROM weaning_log WHERE doeId = ? AND weaned IS NOT NULL",
         [doe.id]
       );
       // «نسبة بقاء الفطام» gets its own pass, mirroring the web page's second
       // groupBy: rows with the -1 "predates the column" sentinel are excluded
       // from BOTH sides, since summing the sentinel would inflate the
       // denominator. underCare = Σ(bornAlive + نافق الرعاية) — the kits she
-      // actually raised, not the ones that survived.
+      // actually raised, not the ones that survived. Rows with no count filled
+      // in are out too — they would read as a litter raised and wholly lost.
       const survivalRow = await queryOne<{ weaned: number; underCare: number }>(
         db,
         `SELECT COALESCE(SUM(weaned), 0) AS weaned,
                 COALESCE(SUM(bornAlive + bornDead - bornDeadAtKindling), 0) AS underCare
-           FROM weaning_log WHERE doeId = ? AND bornDeadAtKindling >= 0`,
+           FROM weaning_log
+          WHERE doeId = ? AND bornDeadAtKindling >= 0 AND weaned IS NOT NULL`,
         [doe.id]
       );
       // «متوسط وزن الفطام»: Σ(وزن البطن) ÷ Σ(عدد الفطام). Mirrors the web
@@ -160,6 +169,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       overallBreedings += totalBreedings;
       overallKindlings += totalKindlings;
       overallBornAlive += bornAlive;
+      overallBornAtKindling += bornAtKindling;
       overallWeaned += weaned;
       overallWeanings += weanings;
       overallSurvivalWeaned += survivalWeaned;
@@ -184,6 +194,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
 
     const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
+    const overallAvgBornAtKindling =
+      overallKindlings > 0 ? Number((overallBornAtKindling / overallKindlings).toFixed(1)) : 0;
     const overallAvgWeaned = overallWeanings > 0 ? Number((overallWeaned / overallWeanings).toFixed(1)) : 0;
     const overallSurvival =
       overallUnderCare > 0
@@ -198,6 +210,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       overallSurvival,
       overallAvgWeaned,
       overallAvgBorn,
+      overallAvgBornAtKindling,
     });
   }, []);
 
@@ -238,16 +251,31 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       {listRows.length > 0 && (
         <div className="rounded-xl border bg-card text-card-foreground shadow-xs">
           <div className="px-6 py-4 border-b">
-            <h3 className="text-base font-semibold leading-none tracking-tight">{t.statsHeading}</h3>
+            <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">
+              {t.statsHeading}
+              {/* Bare figure, no label — see the web page. */}
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-lg font-bold tabular-nums text-primary">
+                {data.overallFertility}%
+              </span>
+              {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+              <ExportXlsxButton
+                className="ms-auto"
+                locale={locale}
+                save={saveBinaryFile}
+                spec={{ kind: "doesFertility", rows: listRows }}
+              />
+            </h3>
           </div>
           <div className="p-6">
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {/* تلقيح ← ولادة ← نسبة الحفاظ، وبعدين البطن الحي ← الرعاية ←
+                  الفطام، زي صفحة الويب. */}
               <StatCard
-                icon={Percent}
-                label={t.statFertilityRate}
-                value={`${data.overallFertility}%`}
-                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                icon={HeartHandshake}
+                label={t.statTotalBreedings}
+                value={data.overallBreedings.toString()}
+                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={HeartPulse}
@@ -256,28 +284,28 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
               />
               <StatCard
-                icon={HeartHandshake}
-                label={t.statTotalBreedings}
-                value={data.overallBreedings.toString()}
-                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
-              />
-              <StatCard
                 icon={ShieldCheck}
                 label={t.statWeaningSurvival}
                 value={`${data.overallSurvival}%`}
                 className="border-rose-500/20 bg-rose-500/5 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400"
               />
               <StatCard
-                icon={Baby}
-                label={t.statAvgWeaned}
-                value={data.overallAvgWeaned.toFixed(1)}
-                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                icon={PawPrint}
+                label={t.statAvgBornAtKindling}
+                value={data.overallAvgBornAtKindling.toFixed(1)}
+                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
               />
               <StatCard
                 icon={Layers}
                 label={t.statAvgBorn}
                 value={data.overallAvgBorn.toFixed(1)}
                 className="border-sky-500/20 bg-sky-500/5 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400"
+              />
+              <StatCard
+                icon={Baby}
+                label={t.statAvgWeaned}
+                value={data.overallAvgWeaned.toFixed(1)}
+                className="border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
               />
             </div>
           </div>

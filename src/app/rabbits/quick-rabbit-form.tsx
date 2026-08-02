@@ -11,6 +11,7 @@ import { Field, TextField, SelectField, type Option } from "@/components/form-fi
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
 import { label } from "@/lib/enums";
@@ -217,8 +218,8 @@ export function QuickRabbitForm({
 
       {rows.length > 0 ? (
         <div className="space-y-3">
-          {rows.some((r) => !r.cage) && (
-            <div className="flex justify-end animate-fade-in-up">
+          <div className="flex flex-wrap items-center justify-end gap-2 animate-fade-in-up">
+            {rows.some((r) => !r.cage) && (
               <button
                 type="button"
                 onClick={() => void handleAssignRandomCages()}
@@ -232,8 +233,9 @@ export function QuickRabbitForm({
                     ? "توليد أرقام قفص عشوائية"
                     : "Generate random cage numbers"}
               </button>
-            </div>
-          )}
+            )}
+            <ExportXlsxButton locale={locale} spec={{ kind: "stock", rows }} />
+          </div>
           <div className="rounded-xl border bg-card">
             <SortableTable
               headerRowClassName="[&>th]:border-x"

@@ -40,6 +40,9 @@ export const en: Dictionary = {
     weightChartLabel: "Weight",
     noWeightRecords: "No weight records yet.",
     appDescription: "Rabbit breeding farm management",
+    exportExcel: "Export to Excel",
+    exporting: "Exporting…",
+    exportFailed: "Couldn't export the file",
   },
   settings: {
     title: "Settings",
@@ -747,6 +750,10 @@ export const en: Dictionary = {
     colCage: "Cage",
     colKindlingDate: "Kindling date",
     colKits: "Nursing kits",
+    // Export-only columns: the log itself reads as «from → to» on one line.
+    colDate: "Date",
+    colFromDoe: "From doe",
+    colToDoe: "To doe",
   },
   mortality: {
     title: "Mortality",
@@ -1279,7 +1286,7 @@ export const en: Dictionary = {
     colFertilityRate: "Fertility Rate",
     // True litter size: averaged from the frozen KindlingLog.bornAliveAtKindling,
     // so fostering and kit deaths can't move it.
-    colAvgBornAtKindling: "Avg Born",
+    colAvgBornAtKindling: "Avg Born Alive",
     // "Nursed", not "born": this report sums KindlingLog.bornAlive, the count
     // after fostering and kit deaths. The frozen birth count lives on the doe page.
     colAvgBorn: "Avg Nursed",
@@ -1288,8 +1295,8 @@ export const en: Dictionary = {
     colWeaningSurvivalRate: "Weaning Survival",
     emptyTitle: "No does registered",
     emptyDescription: "Register active does with a tag number to see them here.",
-    statsHeading: "Average Farm Fertility",
-    statFertilityRate: "Fertility Rate",
+    statsHeading: "Average Doe Fertility",
+    statAvgBornAtKindling: "Avg Born Alive",
     statTotalKindlings: "Total Births",
     statTotalBreedings: "Total Breedings",
     statWeaningSurvival: "Weaning Survival",
@@ -1312,8 +1319,7 @@ export const en: Dictionary = {
     colTotalBorn: "Total Offspring",
     emptyTitle: "No bucks registered",
     emptyDescription: "Register active bucks with a tag number to see them here.",
-    statsHeading: "Average Farm Fertility",
-    statFertilityRate: "Fertility Rate",
+    statsHeading: "Average Buck Fertility",
     statPregnancies: "Confirmed Pregnancies",
     statTotalBreedings: "Total Breedings",
     statTotalBorn: "Total Offspring",

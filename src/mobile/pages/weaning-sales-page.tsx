@@ -15,6 +15,9 @@ import { Label } from "@/components/ui/label";
 import { KitMovementTypeChoice, type KitMovementChoice } from "@/components/kit-movement-type-choice";
 import { isWithinDateRange, toDateInputValue } from "@/lib/dates";
 import { ledgerTotals } from "@/lib/kit-ledger";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
+import type { WeightUnit } from "@/lib/enums";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
@@ -498,6 +501,20 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 {t.records.clearButton}
               </Button>
             )}
+            {/* Beside the filter, and deliberately so: it exports the rows the
+                filter left on screen, not the whole ledger. saveBinaryFile
+                because on Android a Blob download silently does nothing. */}
+            <ExportXlsxButton
+              className="ms-auto"
+              locale={locale}
+              spec={{
+                kind: "kitLedger",
+                rows: ledgerRows,
+                currency: data?.currency ?? "EGP",
+                weightUnit: (data?.weightUnit ?? "kg") as WeightUnit,
+              }}
+              save={saveBinaryFile}
+            />
           </div>
         </CardContent>
       </Card>

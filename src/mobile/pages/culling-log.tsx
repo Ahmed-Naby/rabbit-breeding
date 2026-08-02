@@ -7,6 +7,8 @@ import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { EmptyState } from "@/components/page-header";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function CullingLog({
   culledRabbits,
@@ -26,10 +28,26 @@ export function CullingLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الاستبعادات" : "Culling Record"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         <LogCountBadge count={culledRabbits.length} />
+        {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "culled",
+            rows: culledRabbits.map((r) => ({
+              date: r.updatedAt,
+              // retiredTagId first: a culled rabbit's tag is freed for reuse.
+              tag: r.retiredTagId ?? r.tagId,
+              sex: r.sex,
+              breed: r.breed,
+            })),
+          }}
+        />
       </h2>
       {culledRabbits.length === 0 ? (
         <EmptyState icon={Layers} title={locale === "ar" ? "لا يوجد حيوانات مستبعدة" : "No culled rabbits"} />

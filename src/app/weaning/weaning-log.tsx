@@ -8,6 +8,7 @@ import { LocalDate } from "@/components/local-date";
 import { deadDuringBreeding, weaningSurvivalRate } from "@/lib/kit-mortality";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type WeaningLogRow = {
   id: string;
@@ -59,6 +60,27 @@ export function WeaningLog({
             {countedRows > 0 && <LogStatBadge label={t.avgWeanedBadge} value={avgWeaned.toFixed(1)} />}
           </>
         )}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "weaning",
+            // Same two derived figures the table shows — نافق is nursing
+            // deaths only, so أحياء + نافق still add up to «عدد الرعاية».
+            rows: weaningLog.map((l) => ({
+              doeTag: l.doe.tagId,
+              breed: l.doe.breed,
+              buckTag: l.buck?.tagId,
+              kindlingDate: l.kindlingDate,
+              weaningDate: l.weaningDate,
+              alive: l.bornAlive,
+              dead: deadDuringBreeding(l),
+              weaned: l.weaned,
+              weaningWeightGrams: l.weaningWeightGrams,
+              survivalRate: weaningSurvivalRate(l),
+            })),
+          }}
+        />
       </h2>
       {weaningLog.length === 0 ? (
         <EmptyState icon={Milk} title={t.logEmptyTitle} description={t.logEmptyDescription} />

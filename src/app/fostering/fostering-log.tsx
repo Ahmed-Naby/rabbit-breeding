@@ -7,6 +7,7 @@ import { PagedList } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type FosteringLogRow = {
   id: string;
@@ -36,6 +37,19 @@ export function FosteringLog({
           {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
           {/* Transfers, not kits — a row moving 3 رضيع is still one عملية. */}
           <LogCountBadge count={logs.length} unit={t.fostering.countUnit} />
+          <ExportXlsxButton
+            className="ms-auto"
+            locale={locale}
+            spec={{
+              kind: "fostering",
+              rows: logs.map((log) => ({
+                date: log.date,
+                fromTag: log.fromDoe.tagId,
+                toTag: log.toDoe.tagId,
+                count: log.count,
+              })),
+            }}
+          />
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">

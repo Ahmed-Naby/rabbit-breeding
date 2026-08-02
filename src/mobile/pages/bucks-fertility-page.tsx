@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  Percent,
   HeartPulse,
   HeartHandshake,
   Baby,
@@ -18,6 +17,8 @@ import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 type FertilityRow = {
   id: string;
@@ -170,28 +171,36 @@ export function BucksFertilityPage({ locale, hideHeader }: { locale: Locale; hid
       {listRows.length > 0 && (
         <div className="rounded-xl border bg-card text-card-foreground shadow-xs">
           <div className="px-6 py-4 border-b">
-            <h3 className="text-base font-semibold leading-none tracking-tight">{t.statsHeading}</h3>
+            <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">
+              {t.statsHeading}
+              {/* Bare figure, no label — same as تقرير خصوبة الأمهات. */}
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-lg font-bold tabular-nums text-primary">
+                {data.overallFertility}%
+              </span>
+              {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+              <ExportXlsxButton
+                className="ms-auto"
+                locale={locale}
+                save={saveBinaryFile}
+                spec={{ kind: "bucksFertility", rows: listRows }}
+              />
+            </h3>
           </div>
           <div className="p-6">
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {/* تلقيحات ← عشار، زي صفحة الويب. معدل الخصوبة بقى بادج. */}
               <StatCard
-                icon={Percent}
-                label={t.statFertilityRate}
-                value={`${data.overallFertility}%`}
-                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                icon={HeartHandshake}
+                label={t.statTotalBreedings}
+                value={data.overallBreedings.toString()}
+                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={HeartPulse}
                 label={t.statPregnancies}
                 value={data.overallPregnancies.toString()}
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
-              />
-              <StatCard
-                icon={HeartHandshake}
-                label={t.statTotalBreedings}
-                value={data.overallBreedings.toString()}
-                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={Layers}

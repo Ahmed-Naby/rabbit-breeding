@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback, useTransition, useRef } from "react";
 import { X, DownloadCloud, UploadCloud, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
-import { Share } from "@capacitor/share";
+import { saveTextFile } from "../lib/save-file";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -36,31 +34,8 @@ function backupFilename(): string {
   return `rabbittrack-backup-${date}.json`;
 }
 
-/** Android WebViews don't honor `<a download>`, so the file is written to
- * cache and handed to the native share sheet; Electron's renderer is plain
- * Chromium, where a Blob download works directly. */
-async function saveBackupFile(json: string, filename: string): Promise<void> {
-  if (Capacitor.getPlatform() === "android") {
-    await Filesystem.writeFile({
-      path: filename,
-      data: json,
-      directory: Directory.Cache,
-      encoding: Encoding.UTF8,
-    });
-    const { uri } = await Filesystem.getUri({ directory: Directory.Cache, path: filename });
-    await Share.share({ title: filename, url: uri });
-    return;
-  }
-
-  const blob = new Blob([json], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+function saveBackupFile(json: string, filename: string): Promise<void> {
+  return saveTextFile(json, filename, "application/json");
 }
 
 /**

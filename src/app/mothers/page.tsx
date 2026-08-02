@@ -15,6 +15,7 @@ import { naturalCompare } from "@/lib/sortable";
 import { DoeStateBadge } from "../does/doe-state-menu";
 import { AddMotherForm } from "./add-mother-form";
 import { PendingMothersTable, type PendingMotherRow } from "./pending-mothers-table";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export async function generateMetadata() {
@@ -89,7 +90,27 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
           description={t.mothers.emptyDescription}
         />
       ) : (
-        <div className="rounded-xl border bg-card">
+        <div className="space-y-3">
+          {/* Above the table rather than beside the page title: this board is
+              also rendered inside تسجيل القطيع والسلالات with its header hidden. */}
+          <div className="flex justify-end">
+            <ExportXlsxButton
+              locale={locale}
+              spec={{
+                kind: "herdDoes",
+                weightUnit: settings.weightUnit as "kg" | "lb_oz",
+                rows: does.map((doe) => ({
+                  tagId: doe.tagId,
+                  breed: doe.breed,
+                  acquiredDate: doe.acquiredDate,
+                  weightGrams: doe.weightRecords[0]?.weightGrams ?? null,
+                  status: doe.status,
+                  doeState: doe.doeState,
+                })),
+              }}
+            />
+          </div>
+          <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
             columns={[
@@ -157,6 +178,7 @@ export default async function MothersPage({ hideHeader }: { hideHeader?: boolean
               ),
             }))}
           />
+          </div>
         </div>
       )}
     </div>

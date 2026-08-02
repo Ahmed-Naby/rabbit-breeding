@@ -38,6 +38,9 @@ export const ar = {
     weightChartLabel: "الوزن",
     noWeightRecords: "لا توجد سجلات وزن بعد.",
     appDescription: "إدارة مزرعة تربية الأرانب",
+    exportExcel: "تصدير Excel",
+    exporting: "جارٍ التصدير…",
+    exportFailed: "تعذّر تصدير الملف",
   },
   settings: {
     title: "الإعدادات",
@@ -753,6 +756,10 @@ export const ar = {
     colCage: "القفص",
     colKindlingDate: "تاريخ الولادة",
     colKits: "عدد الرضاعة",
+    // Export-only columns: the log itself reads as «من ← إلى» in one line.
+    colDate: "التاريخ",
+    colFromDoe: "من الأم",
+    colToDoe: "إلى الأم",
   },
   mortality: {
     title: "حصر النافق",
@@ -1300,7 +1307,7 @@ export const ar = {
     colFertilityRate: "معدل الخصوبة",
     // متوسط البطون الحقيقي: بيتحسب من KindlingLog.bornAliveAtKindling الثابت
     // لحظة الولادة، فالتبني والنفوق مابيأثروش عليه.
-    colAvgBornAtKindling: "متوسط البطن",
+    colAvgBornAtKindling: "متوسط البطن الحي",
     // «الرعاية» مش «البطن»: التقرير ده بيجمع KindlingLog.bornAlive وهو العدد
     // بعد التبني والنفوق. «عدد البطن» الثابت لحظة الولادة في صفحة الأم.
     colAvgBorn: "متوسط عدد الرعاية",
@@ -1311,8 +1318,9 @@ export const ar = {
     colWeaningSurvivalRate: "نسبة بقاء الفطام",
     emptyTitle: "لا توجد أمهات مسجلة",
     emptyDescription: "سجل أمهات نشطة برقم وشم في المزرعة لتظهر هنا.",
-    statsHeading: "متوسط خصوبة المزرعة",
-    statFertilityRate: "معدل الخصوبة",
+    statsHeading: "متوسط خصوبة الأمهات",
+    // نفس رقم العمود بس على مستوى المزرعة — لازم يفضل بنفس الاسم.
+    statAvgBornAtKindling: "متوسط البطن الحي",
     statTotalKindlings: "عدد مرات الولادة",
     statTotalBreedings: "عدد مرات التلقيح",
     statWeaningSurvival: "نسبة الحفاظ على الفطام",
@@ -1335,8 +1343,7 @@ export const ar = {
     colTotalBorn: "إجمالي المواليد",
     emptyTitle: "لا توجد ذكور مسجلة",
     emptyDescription: "سجل ذكور نشطة برقم وشم في المزرعة لتظهر هنا.",
-    statsHeading: "متوسط خصوبة المزرعة",
-    statFertilityRate: "معدل الخصوبة",
+    statsHeading: "متوسط خصوبة الذكور",
     statPregnancies: "عدد العشار",
     statTotalBreedings: "عدد التلقيحات",
     statTotalBorn: "إجمالي المواليد",

@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type CulledRow = {
   id: string;
@@ -36,6 +37,20 @@ export function CullingLog({
         {t.mortality.culledHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         <LogCountBadge count={culledRabbits.length} />
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "culled",
+            rows: culledRabbits.map((r) => ({
+              date: r.updatedAt,
+              // retiredTagId first: a culled rabbit's tag is freed for reuse.
+              tag: r.retiredTagId ?? r.tagId,
+              sex: r.sex,
+              breed: r.breed,
+            })),
+          }}
+        />
       </h2>
       {culledRabbits.length === 0 ? (
         <EmptyState icon={Skull} title={t.mortality.culledEmptyTitle} />

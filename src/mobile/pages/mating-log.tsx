@@ -6,6 +6,8 @@ import { SortableTh } from "@/components/sortable-th";
 import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function MatingLog({
   matingLog,
@@ -26,10 +28,28 @@ export function MatingLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل التلقيح" : "Mating Log"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         <LogCountBadge count={matingLog.length} />
+        {/* saveBinaryFile, not a Blob download: on Android a <a download>
+            silently does nothing, so the file has to go through the share
+            sheet. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "mating",
+            rows: matingLog.map((r) => ({
+              doeTag: r.doeTagId,
+              breed: r.doeBreed,
+              buckTag: r.buckTagId,
+              matingDate: r.matingDate,
+              wasNursingAtMating: r.wasNursingAtMating,
+            })),
+          }}
+        />
       </h2>
       {matingLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا يوجد سجل تلقيح بعد." : "No mating log yet."}</p>

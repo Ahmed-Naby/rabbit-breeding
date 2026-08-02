@@ -9,6 +9,9 @@ import { useSortableRows } from "@/lib/use-sortable-rows";
 import { EmptyState } from "@/components/page-header";
 import { LogTabs } from "@/components/log-tabs";
 import { toDateInputValue } from "@/lib/dates";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
+import type { LogSheetSpec } from "@/lib/sheets/log-sheets";
 
 export function MortalityLog({
   deceasedRabbits,
@@ -72,6 +75,12 @@ export function MortalityLog({
     sex: { type: "string", value: (r) => r.sex },
   });
 
+  // saveBinaryFile: on Android a Blob download silently does nothing, so the
+  // file has to go out through the share sheet.
+  const exportButton = (spec: LogSheetSpec) => (
+    <ExportXlsxButton className="ms-auto" locale={locale} save={saveBinaryFile} spec={spec} />
+  );
+
   // نافق النتاج — الرضع عند الأم (kit_death_log)
   const nursingPanel = (
     <div className="space-y-3">
@@ -80,6 +89,10 @@ export function MortalityLog({
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         {/* Kits, not rows — five kits lost in one press is one row. */}
         <LogCountBadge count={sumKits(nursingKitDeaths)} showZero />
+        {exportButton({
+          kind: "nursingKitDeaths",
+          rows: nursingKitDeaths.map((r) => ({ date: r.date, doeTag: r.doeTag, count: r.count })),
+        })}
       </h2>
       {nursingKitDeaths.length === 0 ? (
         <EmptyState
@@ -157,6 +170,11 @@ export function MortalityLog({
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         {/* Kits, not rows — see نافق النتاج above. */}
         <LogCountBadge count={sumKits(weanedKitDeaths)} showZero />
+        {/* The by-day rollup the table shows, not the raw presses. */}
+        {exportButton({
+          kind: "weanedKitDeaths",
+          rows: weanedByDay.map((r) => ({ date: r.date, count: r.count })),
+        })}
       </h2>
       {weanedKitDeaths.length === 0 ? (
         <EmptyState
@@ -223,15 +241,25 @@ export function MortalityLog({
     heading: string,
     emptyTitle: string,
     tagLabel: string,
-    sort: typeof motherSort
+    sort: typeof motherSort,
+    kind: "deceasedDoes" | "deceasedBucks"
   ) => (
     <div className="space-y-3">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {heading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         {/* Rows, not kits — one dead doe is one row, so the sorted length is
             the count. Reads the filtered rows so it follows the date range. */}
         <LogCountBadge count={sort.sorted.length} showZero />
+        {exportButton({
+          kind,
+          rows: sort.sorted.map((r) => ({
+            date: r.updatedAt,
+            // retiredTagId first: a dead rabbit's tag is freed for reuse.
+            tag: r.retiredTagId ?? r.tagId,
+            breed: r.breed,
+          })),
+        })}
       </h2>
       {sort.sorted.length === 0 ? (
         <EmptyState icon={Layers} title={emptyTitle} />
@@ -305,6 +333,10 @@ export function MortalityLog({
         {locale === "ar" ? "السلالات النافقة" : "Deceased juveniles"}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         <LogCountBadge count={stockSort.sorted.length} showZero />
+        {exportButton({
+          kind: "deceasedStock",
+          rows: stockSort.sorted.map((r) => ({ date: r.updatedAt, sex: r.sex, breed: r.breed })),
+        })}
       </h2>
       {deceasedStock.length === 0 ? (
         <EmptyState
@@ -405,7 +437,8 @@ export function MortalityLog({
             locale === "ar" ? "الأمهات النافقة" : "Deceased does",
             locale === "ar" ? "لا توجد أمهات نافقة مسجلة" : "No deceased does logged",
             locale === "ar" ? "رقم الأم" : "Mother",
-            motherSort
+            motherSort,
+            "deceasedDoes"
           ),
         },
         {
@@ -416,7 +449,8 @@ export function MortalityLog({
             locale === "ar" ? "الذكور النافقة" : "Deceased bucks",
             locale === "ar" ? "لا توجد ذكور نافقة مسجلة" : "No deceased bucks logged",
             locale === "ar" ? "رقم الذكر" : "Buck",
-            buckSort
+            buckSort,
+            "deceasedBucks"
           ),
         },
         {

@@ -14,6 +14,8 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
 import { PageHeader } from "@/components/page-header";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).stock;
@@ -424,8 +426,8 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
       {/* Stock Table Section */}
       {rabbits.length > 0 && (
         <div className="space-y-3">
-          {rabbits.some((r) => !r.cage) && (
-            <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {rabbits.some((r) => !r.cage) && (
               <button
                 type="button"
                 onClick={() => void handleAssignRandomCages()}
@@ -439,8 +441,9 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
                     ? "توليد أرقام قفص عشوائية"
                     : "Generate random cage numbers"}
               </button>
-            </div>
-          )}
+            )}
+            <ExportXlsxButton locale={locale} save={saveBinaryFile} spec={{ kind: "stock", rows: rabbits }} />
+          </div>
           <div className="rounded-xl border bg-card overflow-x-auto">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">

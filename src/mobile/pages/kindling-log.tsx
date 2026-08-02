@@ -6,6 +6,8 @@ import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 // Read-only archive (سجل الولادة): counts are entered/adjusted on the daily
 // الأمهات board; each row here is frozen at the birth and never edited.
@@ -46,6 +48,24 @@ export function KindlingLog({
             <LogStatBadge label={kt.avgLitterBadge} value={avgLitter.toFixed(1)} />
           </>
         )}
+        {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "kindling",
+            rows: kindlingLog.map((r) => ({
+              doeTag: r.doeTagId,
+              breed: r.doeBreed,
+              buckTag: r.buckTagId,
+              matingDate: r.matingDate,
+              kindlingDate: r.kindlingDate,
+              bornAlive: r.bornAliveAtKindling,
+              bornDead: r.bornDeadAtKindling,
+            })),
+          }}
+        />
       </h2>
       {kindlingLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات ولادة بعد." : "No kindling logs yet."}</p>

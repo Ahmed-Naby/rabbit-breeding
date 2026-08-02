@@ -8,6 +8,7 @@ import { LocalDate } from "@/components/local-date";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { DoeStateBadge } from "../does/doe-state-menu";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type MatingLogRow = {
   id: string;
@@ -35,6 +36,20 @@ export function MatingLog({
         {t.logHeading}
         {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
         <LogCountBadge count={matingLog.length} />
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "mating",
+            rows: matingLog.map((row) => ({
+              doeTag: row.doe.tagId,
+              breed: row.doe.breed,
+              buckTag: row.buck?.tagId,
+              matingDate: row.matingDate,
+              wasNursingAtMating: row.wasNursingAtMating,
+            })),
+          }}
+        />
       </h2>
       {matingLog.length === 0 ? (
         <EmptyState icon={HeartHandshake} title={t.logEmptyTitle} description={t.logEmptyDescription} />

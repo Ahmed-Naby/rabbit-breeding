@@ -14,6 +14,8 @@ import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).bucks;
@@ -285,6 +287,26 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
         {bucks.length === 0 ? (
           <EmptyState icon={RabbitIcon} title={t.emptyTitle} description={t.emptyDescription} />
         ) : (
+          <>
+          {/* Above the table rather than beside the page title: this board is
+              also rendered inside تسجيل القطيع والسلالات with its header hidden. */}
+          <div className="flex justify-end">
+            <ExportXlsxButton
+              locale={locale}
+              save={saveBinaryFile}
+              spec={{
+                kind: "herdBucks",
+                weightUnit: settings.weightUnit as "kg" | "lb_oz",
+                rows: bucks.map((buck) => ({
+                  tagId: buck.tagId,
+                  breed: buck.breed,
+                  acquiredDate: buck.acquiredDate,
+                  weightGrams: buck.weightGrams,
+                  status: buck.status,
+                })),
+              }}
+            />
+          </div>
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm text-left rtl:text-right border-collapse">
               <thead className="bg-muted text-muted-foreground text-xs uppercase">
@@ -377,6 +399,7 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>

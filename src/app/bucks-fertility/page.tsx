@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  Percent,
   HeartPulse,
   HeartHandshake,
   ShieldCheck,
@@ -15,6 +14,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { StatusBadge } from "@/components/status-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata() {
@@ -129,30 +129,45 @@ export default async function BucksFertilityPage({ hideHeader }: { hideHeader?: 
       {bucks.length > 0 && (
         <Card className="glass-card border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold tracking-tight">
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base font-semibold tracking-tight">
               {t.bucksFertility.statsHeading}
+              {/* Bare figure, no label — same as تقرير خصوبة الأمهات. */}
+              <span className="rounded-full bg-primary/10 px-3 py-0.5 text-lg font-bold tabular-nums text-primary">
+                {overallFertility}%
+              </span>
+              {/* Here rather than beside the page title: this page is also
+                  embedded in التقارير with its header hidden. */}
+              <ExportXlsxButton
+                className="ms-auto"
+                locale={locale}
+                spec={{
+                  kind: "bucksFertility",
+                  rows: rowData.map(({ buck, ...r }) => ({
+                    tagId: buck.tagId!,
+                    breed: buck.breed,
+                    status: buck.status,
+                    ...r,
+                  })),
+                }}
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {/* تلقيحات ← عشار: السبب قبل النتيجة، زي تقرير الأمهات.
+                  معدل الخصوبة نفسه بقى بادج جنب العنوان. */}
               <StatCard
-                icon={Percent}
-                label={t.bucksFertility.statFertilityRate}
-                value={`${overallFertility}%`}
-                className="border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                icon={HeartHandshake}
+                label={t.bucksFertility.statTotalBreedings}
+                value={overallBreedings.toString()}
+                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={HeartPulse}
                 label={t.bucksFertility.statPregnancies}
                 value={overallPregnancies.toString()}
                 className="border-fuchsia-500/20 bg-fuchsia-500/5 dark:bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400"
-              />
-              <StatCard
-                icon={HeartHandshake}
-                label={t.bucksFertility.statTotalBreedings}
-                value={overallBreedings.toString()}
-                className="border-violet-500/20 bg-violet-500/5 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
               <StatCard
                 icon={Layers}

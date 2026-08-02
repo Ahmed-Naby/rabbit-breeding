@@ -5,6 +5,8 @@ import { SortableTh } from "@/components/sortable-th";
 import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function ResorptionLog({
   resorptionLog,
@@ -23,9 +25,25 @@ export function ResorptionLog({
 
   return (
     <div className="space-y-3">
-      <h2 className="flex items-center gap-2 text-lg font-bold">
+      <h2 className="flex flex-wrap items-center gap-2 text-lg font-bold">
         {locale === "ar" ? "سجل الامتصاص" : "Resorption Log"}
         <LogCountBadge count={resorptionLog.length} />
+        {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "resorption",
+            rows: resorptionLog.map((r) => ({
+              doeTag: r.doeTagId,
+              breed: r.doeBreed,
+              buckTag: r.buckTagId,
+              matingDate: r.matingDate,
+              resorptionDate: r.resorptionDate,
+            })),
+          }}
+        />
       </h2>
       {resorptionLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">

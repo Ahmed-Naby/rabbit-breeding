@@ -7,6 +7,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type KindlingLogRow = {
   id: string;
@@ -55,6 +56,22 @@ export function KindlingLog({
             <LogStatBadge label={t.avgLitterBadge} value={avgLitter.toFixed(1)} />
           </>
         )}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "kindling",
+            rows: kindlingLog.map((row) => ({
+              doeTag: row.doe.tagId,
+              breed: row.doe.breed,
+              buckTag: row.buck?.tagId,
+              matingDate: row.matingDate,
+              kindlingDate: row.kindlingDate,
+              bornAlive: row.bornAliveAtKindling,
+              bornDead: row.bornDeadAtKindling,
+            })),
+          }}
+        />
       </h2>
       {kindlingLog.length === 0 ? (
         <EmptyState icon={HeartPulse} title={t.logEmptyTitle} description={t.logEmptyDescription} />

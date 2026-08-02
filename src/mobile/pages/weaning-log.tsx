@@ -6,6 +6,8 @@ import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 // Shared with the web table rather than redefined here — this file used to
 // carry its own copy of the survival formula, which meant every change to the
 // rule had to be made twice.
@@ -57,6 +59,28 @@ export function WeaningLog({
             {countedRows > 0 && <LogStatBadge label={wt.avgWeanedBadge} value={avgWeaned.toFixed(1)} />}
           </>
         )}
+        {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "weaning",
+            // نافق is nursing deaths only, as in the table — see the web log.
+            rows: weanedLog.map((l) => ({
+              doeTag: l.doeTagId,
+              breed: l.doeBreed,
+              buckTag: l.buckTagId,
+              kindlingDate: l.kindlingDate,
+              weaningDate: l.weaningDate,
+              alive: l.bornAlive,
+              dead: deadDuringBreeding(l),
+              weaned: l.weaned,
+              weaningWeightGrams: l.weaningWeightGrams,
+              survivalRate: weaningSurvivalRate(l),
+            })),
+          }}
+        />
       </h2>
       {weanedLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات فطام بعد." : "No weaning logs yet."}</p>

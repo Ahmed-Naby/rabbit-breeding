@@ -7,6 +7,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type ResorptionLogRow = {
   id: string;
@@ -31,6 +32,20 @@ export function ResorptionLog({
       <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
         {t.logHeading}
         <LogCountBadge count={resorptionLog.length} />
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "resorption",
+            rows: resorptionLog.map((row) => ({
+              doeTag: row.doe.tagId,
+              breed: row.doe.breed,
+              buckTag: row.buck?.tagId,
+              matingDate: row.matingDate,
+              resorptionDate: row.resorptionDate,
+            })),
+          }}
+        />
       </h2>
       {resorptionLog.length === 0 ? (
         <EmptyState icon={Droplets} title={t.logEmptyTitle} description={t.logEmptyDescription} />

@@ -8,6 +8,7 @@ import { LocalDate } from "@/components/local-date";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 const RESULT_CLS: Record<string, string> = {
   positive:
@@ -55,6 +56,21 @@ export function PregnancyTestLog({
             <LogStatBadge label={t.fertilityRateBadge} value={`${fertilityRate.toFixed(0)}%`} />
           </>
         )}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          spec={{
+            kind: "pregnancyTest",
+            rows: testLog.map((row) => ({
+              doeTag: row.doe.tagId,
+              breed: row.doe.breed,
+              buckTag: row.buck?.tagId,
+              matingDate: row.matingDate,
+              testDate: row.testDate,
+              result: row.result,
+            })),
+          }}
+        />
       </h2>
       {testLog.length === 0 ? (
         <EmptyState icon={Microscope} title={t.logEmptyTitle} description={t.logEmptyDescription} />

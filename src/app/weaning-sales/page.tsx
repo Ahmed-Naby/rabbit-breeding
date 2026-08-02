@@ -8,6 +8,7 @@ import { LocalDate } from "@/components/local-date";
 import { formatMoney, formatWeight, formatWeightTotal } from "@/lib/units";
 import { isWithinDateRange } from "@/lib/dates";
 import { ledgerTotals } from "@/lib/kit-ledger";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -165,6 +166,18 @@ export default async function WeaningSalesPage({
                 <Link href="/weaning-sales">{t.records.clearButton}</Link>
               </Button>
             )}
+            {/* Inside the filter form, and deliberately so: it exports the rows
+                the filter left on screen, not the whole ledger. */}
+            <ExportXlsxButton
+              className="ms-auto"
+              locale={locale}
+              spec={{
+                kind: "kitLedger",
+                rows: ledger,
+                currency: settings.currency,
+                weightUnit: settings.weightUnit,
+              }}
+            />
           </form>
         </CardContent>
       </Card>

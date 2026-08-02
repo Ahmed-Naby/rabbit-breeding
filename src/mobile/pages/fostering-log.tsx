@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/page-header";
 import { PagedList } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 export function FosteringLog({
   logs,
@@ -27,6 +29,21 @@ export function FosteringLog({
           {todayOnly ? (locale === "ar" ? " النهاردة" : " (Today)") : ""}
           {/* Transfers, not kits — a row moving 3 رضيع is still one عملية. */}
           <LogCountBadge count={logs.length} unit={t.fostering.countUnit} />
+          {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+          <ExportXlsxButton
+            className="ms-auto"
+            locale={locale ?? "ar"}
+            save={saveBinaryFile}
+            spec={{
+              kind: "fostering",
+              rows: logs.map((log) => ({
+                date: log.date,
+                fromTag: log.fromDoeTag,
+                toTag: log.toDoeTag,
+                count: log.count,
+              })),
+            }}
+          />
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">

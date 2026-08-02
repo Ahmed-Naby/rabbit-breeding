@@ -10,6 +10,7 @@ import { toDateInputValue } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import type { KitDeathRow } from "./kit-deaths";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 
 export type DeceasedTaggedRow = {
   id: string;
@@ -91,6 +92,19 @@ export function MortalityLog({
               <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {t.mortality.kitDeathsHeading(sumKits(nursingKitDeaths))}
                 {suffix}
+                <ExportXlsxButton
+                  className="ms-auto"
+                  locale={locale}
+                  spec={{
+                    kind: "nursingKitDeaths",
+                    rows: nursingKitDeaths.map((r) => ({
+                      date: r.date,
+                      doeTag: r.doeTag,
+                      kindlingDate: r.kindlingDate,
+                      count: r.count,
+                    })),
+                  }}
+                />
               </h2>
               {nursingKitDeaths.length === 0 ? (
                 <EmptyState icon={Skull} title={t.mortality.kitDeathsEmptyTitle} />
@@ -153,6 +167,15 @@ export function MortalityLog({
               <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {t.mortality.weanedKitDeathsHeading(sumKits(weanedKitDeaths))}
                 {suffix}
+                <ExportXlsxButton
+                  className="ms-auto"
+                  locale={locale}
+                  spec={{
+                    kind: "weanedKitDeaths",
+                    // The by-day rollup the table shows, not the raw presses.
+                    rows: weanedByDay.map((r) => ({ date: r.date, count: r.count })),
+                  }}
+                />
               </h2>
               {weanedByDay.length === 0 ? (
                 <EmptyState icon={Skull} title={t.mortality.weanedKitDeathsEmptyTitle} />
@@ -192,9 +215,21 @@ export function MortalityLog({
           count: deceasedMothers.length,
           node: (
             <div className="space-y-3">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {t.mortality.deceasedMothersHeading(deceasedMothers.length)}
                 {suffix}
+                <ExportXlsxButton
+                  className="ms-auto"
+                  locale={locale}
+                  spec={{
+                    kind: "deceasedDoes",
+                    rows: deceasedMothers.map((r) => ({
+                      date: r.updatedAt,
+                      tag: r.retiredTagId ?? r.tagId,
+                      breed: r.breed,
+                    })),
+                  }}
+                />
               </h2>
               {deceasedMothers.length === 0 ? (
                 <EmptyState icon={Skull} title={t.mortality.deceasedMothersEmptyTitle} />
@@ -240,9 +275,21 @@ export function MortalityLog({
           count: deceasedBucks.length,
           node: (
             <div className="space-y-3">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {t.mortality.deceasedBucksHeading(deceasedBucks.length)}
                 {suffix}
+                <ExportXlsxButton
+                  className="ms-auto"
+                  locale={locale}
+                  spec={{
+                    kind: "deceasedBucks",
+                    rows: deceasedBucks.map((r) => ({
+                      date: r.updatedAt,
+                      tag: r.retiredTagId ?? r.tagId,
+                      breed: r.breed,
+                    })),
+                  }}
+                />
               </h2>
               {deceasedBucks.length === 0 ? (
                 <EmptyState icon={Skull} title={t.mortality.deceasedBucksEmptyTitle} />
@@ -288,9 +335,21 @@ export function MortalityLog({
           count: deceasedStock.length,
           node: (
             <div className="space-y-3">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {t.mortality.deceasedStrainsHeading(deceasedStock.length)}
                 {suffix}
+                <ExportXlsxButton
+                  className="ms-auto"
+                  locale={locale}
+                  spec={{
+                    kind: "deceasedStock",
+                    rows: deceasedStock.map((r) => ({
+                      date: r.updatedAt,
+                      sex: r.sex,
+                      breed: r.breed,
+                    })),
+                  }}
+                />
               </h2>
               {deceasedStock.length === 0 ? (
                 <EmptyState icon={Skull} title={t.mortality.deceasedStrainsEmptyTitle} />

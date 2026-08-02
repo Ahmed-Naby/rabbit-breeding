@@ -7,6 +7,8 @@ import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 
 const RESULT_CLS: Record<string, string> = {
   positive:
@@ -50,6 +52,23 @@ export function PregnancyTestLog({
             <LogStatBadge label={pt.fertilityRateBadge} value={`${fertilityRate.toFixed(0)}%`} />
           </>
         )}
+        {/* saveBinaryFile: on Android a Blob download silently does nothing. */}
+        <ExportXlsxButton
+          className="ms-auto"
+          locale={locale}
+          save={saveBinaryFile}
+          spec={{
+            kind: "pregnancyTest",
+            rows: testLog.map((r) => ({
+              doeTag: r.doeTagId,
+              breed: r.doeBreed,
+              buckTag: r.buckTagId,
+              matingDate: r.matingDate,
+              testDate: r.testDate,
+              result: r.result,
+            })),
+          }}
+        />
       </h2>
       {testLog.length === 0 ? (
         <p className="text-sm text-muted-foreground">{locale === "ar" ? "لا توجد سجلات جس بعد." : "No pregnancy test logs yet."}</p>
