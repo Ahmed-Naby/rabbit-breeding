@@ -60,9 +60,9 @@ export function SaleForm({
               error={e.date}
             />
 
-            {/* Two columns wide on a wide screen: the pair of buttons needs the
-                room a single field doesn't, and «تسوية المخزون» wraps mid-word
-                in a quarter of the row. */}
+            {/* Two columns wide on a wide screen: a pair of buttons needs the
+                room a single field doesn't, and in a quarter of the row
+                «تسوية المخزون» wraps onto a second line. */}
             <Field
               label={locale === "ar" ? "نوع الحركة" : "Movement Type"}
               error={e.type}

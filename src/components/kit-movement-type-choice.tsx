@@ -69,13 +69,26 @@ export function KitMovementTypeChoice({
               disabled={disabled}
               onClick={() => onChange(option.value)}
               className={cn(
-                "flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold transition-all cursor-pointer",
+                "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-all cursor-pointer",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 selected
                   ? cn(option.active, "shadow-xs")
                   : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               )}
             >
+              {/* The radio dot as well as the tint: colour alone says "this one
+                  is different", the dot says "this one is chosen, and the other
+                  is still there to choose". It takes the button's own text
+                  colour through currentColor, so it tints with it. */}
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  selected ? "border-current" : "border-muted-foreground/50"
+                )}
+              >
+                {selected && <span className="size-1.5 rounded-full bg-current" />}
+              </span>
               <Icon className={cn("size-4", selected ? option.icon_active : "text-muted-foreground")} />
               {option.label}
             </button>
