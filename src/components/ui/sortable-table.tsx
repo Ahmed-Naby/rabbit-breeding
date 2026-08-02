@@ -78,13 +78,15 @@ export function SortableTable({
   });
   const { key: sortKey, direction } = sort;
   const [page, setPage] = React.useState(0);
-  // Back to page 1 whenever the rows themselves change — a date filter that
-  // cuts 700 rows down to 12 would otherwise leave the table on page 8 of 1,
-  // i.e. blank. Adjusting state during render rather than in an effect: this
-  // is the same render, so the stale page is never painted.
-  const [renderedRows, setRenderedRows] = React.useState(rows);
-  if (renderedRows !== rows) {
-    setRenderedRows(rows);
+  // Back to page 1 whenever the list changes size — a date filter that cuts
+  // 700 rows down to 12 would otherwise leave the table on page 8 of 1, i.e.
+  // blank. Compared by count, never by array identity: callers build `rows`
+  // inline (log.map(...)), so a new array can arrive on every render and an
+  // identity check would set state forever. Adjusted during render rather than
+  // in an effect — this is the same render, so no stale page is painted.
+  const [renderedCount, setRenderedCount] = React.useState(rows.length);
+  if (renderedCount !== rows.length) {
+    setRenderedCount(rows.length);
     setPage(0);
   }
 

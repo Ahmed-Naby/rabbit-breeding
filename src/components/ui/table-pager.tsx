@@ -108,11 +108,13 @@ export function PagedList({
   className?: string;
 }) {
   const [page, setPage] = React.useState(0);
-  // Back to page 1 when the rows themselves change (the finance range filter),
-  // adjusted during render so the stale page is never painted.
-  const [rendered, setRendered] = React.useState(items);
-  if (rendered !== items) {
-    setRendered(items);
+  // Back to page 1 when the list changes size (the finance range filter),
+  // adjusted during render so no stale page is painted. By count, never by
+  // array identity — `items` is built inline by the caller, so a new array
+  // arrives on every render and an identity check would set state forever.
+  const [renderedCount, setRenderedCount] = React.useState(items.length);
+  if (renderedCount !== items.length) {
+    setRenderedCount(items.length);
     setPage(0);
   }
 
