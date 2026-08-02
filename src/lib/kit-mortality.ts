@@ -64,6 +64,38 @@ export function deadDuringBreeding(log: KitMortalitySource): number {
 }
 
 /**
+ * The frozen stillborn count for a cycle, reconstructed when the kindling row
+ * can't supply it.
+ *
+ * `bornDeadAtKindling` is not something the survival rate conceptually needs —
+ * the rate needs the kits under care and the ones lost while nursing. It is
+ * only involved because `bornDead` is a single merged counter (stillborns +
+ * nursing deaths), and subtracting the birth half is the only way to get the
+ * nursing half back out of it.
+ *
+ * So when the birth half is missing, take the *other* road: KitDeathLog holds
+ * one dated row per «تسجيل نافق» press, which is the nursing half directly.
+ *   bornDeadAtKindling = bornDead − (nursing deaths recorded)
+ *
+ * `recordedKitDeaths` must be null — not 0 — when the cycle has no death rows
+ * at all. Zero rows is "no evidence", and reconstructing from it would claim
+ * every kit in `bornDead` was stillborn; a doe whose losses were typed into
+ * «نافق» by hand (that path writes no KitDeathLog row) would then read as
+ * having raised everything she had. Those keep the -1 sentinel and render «—».
+ */
+export function resolveBornDeadAtKindling(args: {
+  /** From this cycle's KindlingLog row; null/-1 when there is none to read. */
+  fromKindlingLog: number | null | undefined;
+  bornDead: number;
+  /** Sum of the cycle's KitDeathLog rows, or null when it has none. */
+  recordedKitDeaths: number | null;
+}): number {
+  if (args.fromKindlingLog != null && args.fromKindlingLog >= 0) return args.fromKindlingLog;
+  if (args.recordedKitDeaths == null) return -1;
+  return Math.max(0, args.bornDead - args.recordedKitDeaths);
+}
+
+/**
  * The denominator for «نسبة بقاء الفطام» — how many kits were actually under
  * this doe's care, i.e. survivors plus the ones she lost while nursing.
  *

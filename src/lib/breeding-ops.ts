@@ -2,6 +2,7 @@ import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { expectedKindling } from "@/lib/dates";
 import { getSettings } from "@/lib/settings";
+import { resolveBornDeadAtKindling } from "@/lib/kit-mortality";
 import { BREEDING_OUTCOMES, type BreedingOutcome, PREGNANCY_TEST_RESULTS, type PregnancyTestResult, DOE_STATES, type DoeState } from "@/lib/enums";
 import type { OpResult } from "@/lib/op-result";
 import type { Breeding } from "@/generated/prisma/client";
@@ -637,9 +638,10 @@ export async function markKindledOp(
  * newest KindlingLog row wins: a Breeding is reused across cycles, so its logs
  * are chronological and the last one belongs to the litter being weaned now.
  *
- * Returns the -1 "unknown" sentinel when there is no kindling row at all — a
- * litter typed in before KindlingLog existed, or a weaning recorded without a
- * birth — so «نسبة بقاء الفطام» renders «—» instead of a rate built on a guess.
+ * With no usable kindling row it falls back to the cycle's KitDeathLog rows,
+ * which record the nursing deaths directly — see resolveBornDeadAtKindling for
+ * why that is the same number by another road. Only then does it return the -1
+ * "unknown" sentinel, so «نسبة بقاء الفطام» renders «—» rather than a guess.
  */
 async function currentBornDeadAtKindling(breedingId: string): Promise<number> {
   const log = await prisma.kindlingLog.findFirst({
@@ -653,7 +655,27 @@ async function currentBornDeadAtKindling(breedingId: string): Promise<number> {
     orderBy: [{ kindlingDate: "desc" }, { createdAt: "desc" }],
     select: { bornDeadAtKindling: true },
   });
-  return log?.bornDeadAtKindling ?? -1;
+  if (log && log.bornDeadAtKindling >= 0) return log.bornDeadAtKindling;
+
+  // Second road, and the only one open to a cycle whose kindling row was never
+  // linked to its breeding: the deaths themselves. Scoped by kindlingDate so a
+  // reused Breeding row's earlier cycles don't leak in.
+  const breeding = await prisma.breeding.findUnique({
+    where: { id: breedingId },
+    select: { doeId: true, litter: { select: { bornDead: true, kindlingDate: true } } },
+  });
+  if (!breeding?.litter) return -1;
+  const deaths = await prisma.kitDeathLog.aggregate({
+    where: { doeId: breeding.doeId, kindlingDate: breeding.litter.kindlingDate },
+    _sum: { count: true },
+    _count: true,
+  });
+  return resolveBornDeadAtKindling({
+    fromKindlingLog: log?.bornDeadAtKindling,
+    bornDead: breeding.litter.bornDead,
+    // No rows is "no evidence", not "no deaths" — see resolveBornDeadAtKindling.
+    recordedKitDeaths: deaths._count === 0 ? null : (deaths._sum.count ?? 0),
+  });
 }
 
 export async function markWeanedOp(breedingId: string, doeId: string): Promise<void> {

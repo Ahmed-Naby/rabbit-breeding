@@ -38,6 +38,7 @@ import {
   type RabbitStatus,
 } from "@/lib/enums";
 import { toGrams } from "@/lib/units";
+import { resolveBornDeadAtKindling } from "@/lib/kit-mortality";
 
 export type LocalOpOutcome = { status: "applied" } | { status: "rejected"; resultMessage: string };
 
@@ -204,6 +205,28 @@ async function insertWeaningLog(
     "SELECT bornDeadAtKindling FROM kindling_log WHERE breedingId = ? ORDER BY kindlingDate DESC, createdAt DESC LIMIT 1",
     [args.breedingId]
   );
+  // Second road when that row can't supply it (a cycle whose kindling row was
+  // never linked to its breeding): the dated نافق presses themselves, which
+  // are the nursing deaths directly. Scoped by kindlingDate so a reused
+  // breeding row's earlier cycles stay out. See resolveBornDeadAtKindling.
+  const deaths =
+    (kindling && kindling.bornDeadAtKindling >= 0) || !args.kindlingDate
+      ? null
+      : // Compared on the date part only: a locally-written row carries a plain
+        // "YYYY-MM-DD" while a pulled one carries the server's full timestamp,
+        // and a raw string equality would silently miss across that seam.
+        await queryOne<{ n: number; total: number | null }>(
+          db,
+          `SELECT COUNT(*) AS n, SUM(count) AS total FROM kit_death_log
+           WHERE doeId = ? AND substr(kindlingDate, 1, 10) = substr(?, 1, 10)`,
+          [args.doeId, args.kindlingDate]
+        );
+  const bornDeadAtKindling = resolveBornDeadAtKindling({
+    fromKindlingLog: kindling?.bornDeadAtKindling,
+    bornDead: args.bornDead,
+    // No rows is "no evidence", not "no deaths".
+    recordedKitDeaths: !deaths || deaths.n === 0 ? null : (deaths.total ?? 0),
+  });
   await run(
     db,
     `INSERT INTO weaning_log (id, doeId, buckId, breedingId, kindlingDate, weaningDate, bornAlive, bornDead, bornDeadAtKindling, weaned, weaningWeightGrams, createdAt)
@@ -217,7 +240,7 @@ async function insertWeaningLog(
       args.weaningDate,
       args.bornAlive,
       args.bornDead,
-      kindling?.bornDeadAtKindling ?? -1,
+      bornDeadAtKindling,
       args.weaned,
       args.weaningWeightGrams ?? null,
       now,
