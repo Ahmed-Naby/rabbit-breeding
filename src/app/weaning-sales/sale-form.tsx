@@ -40,9 +40,12 @@ export function SaleForm({
     }
   }, [state, locale]);
 
+  // «نافق فطام» is deliberately absent: deaths are entered on حصر النافق, which
+  // is where every other death on the farm is recorded and where the count is
+  // checked against the doe it belongs to. The movement type still exists — old
+  // rows render in the ledger below, and the mortality page writes new ones.
   const typeOptions = [
     { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
-    { value: "death", label: locale === "ar" ? "نافق فطام" : "Weaned Death" },
     { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
   ];
 

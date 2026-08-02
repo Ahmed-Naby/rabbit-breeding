@@ -295,17 +295,20 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="date">{locale === "ar" ? "التاريخ" : "Date"}</Label>
                 <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={submitting} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">{locale === "ar" ? "نوع الحركة" : "Movement Type"}</Label>
+                {/* «نافق فطام» is deliberately absent: deaths are entered on
+                    حصر النافق, which is where every other death on the farm is
+                    recorded. The type still exists — old rows render in the
+                    ledger below, and the mortality page writes new ones. */}
                 <Select
                   items={[
                     { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
-                    { value: "death", label: locale === "ar" ? "نافق فطام" : "Weaned Death" },
                     { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
                   ]}
                   value={type}
@@ -317,11 +320,17 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="sale">{locale === "ar" ? "بيع خلفات" : "Kit Sale"}</SelectItem>
-                    <SelectItem value="death">{locale === "ar" ? "نافق فطام" : "Weaned Death"}</SelectItem>
                     <SelectItem value="adjustment">{locale === "ar" ? "تسوية المخزون" : "Stock Adjustment"}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* العدد والوزن وسعر الكيلو on one line: they're the three numbers a
+                بيع is made of, and the farmer types them in that order without
+                the eye jumping to another row. Non-sale movements need only the
+                count, so the row collapses to a single column. */}
+            <div className={cn("grid grid-cols-1 gap-4", type === "sale" && "sm:grid-cols-3")}>
               <div className="space-y-2">
                 <Label htmlFor="count">{locale === "ar" ? "العدد" : "Count"}</Label>
                 <Input
@@ -349,50 +358,50 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                   </p>
                 )}
               </div>
-            </div>
 
-            {type === "sale" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="weightKg">{locale === "ar" ? `الوزن الإجمالي (كجم)` : "Total Weight (kg)"}</Label>
-                  <Input
-                    id="weightKg"
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    placeholder="4.5"
-                    required
-                    ref={weightRef}
-                    aria-invalid={invalidField === "weightKg"}
-                    value={weightKg}
-                    onChange={(e) => {
-                      setWeightKg(e.target.value);
-                      if (invalidField === "weightKg") setInvalidField(null);
-                    }}
-                    disabled={submitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pricePerKg">{locale === "ar" ? `سعر الكيلو (${currency})` : "Price per Kg"}</Label>
-                  <Input
-                    id="pricePerKg"
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    placeholder="250"
-                    required
-                    ref={priceRef}
-                    aria-invalid={invalidField === "pricePerKg"}
-                    value={pricePerKg}
-                    onChange={(e) => {
-                      setPricePerKg(e.target.value);
-                      if (invalidField === "pricePerKg") setInvalidField(null);
-                    }}
-                    disabled={submitting}
-                  />
-                </div>
-              </div>
-            )}
+              {type === "sale" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="weightKg">{locale === "ar" ? `الوزن الإجمالي (كجم)` : "Total Weight (kg)"}</Label>
+                    <Input
+                      id="weightKg"
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      placeholder="4.5"
+                      required
+                      ref={weightRef}
+                      aria-invalid={invalidField === "weightKg"}
+                      value={weightKg}
+                      onChange={(e) => {
+                        setWeightKg(e.target.value);
+                        if (invalidField === "weightKg") setInvalidField(null);
+                      }}
+                      disabled={submitting}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pricePerKg">{locale === "ar" ? `سعر الكيلو (${currency})` : "Price per Kg"}</Label>
+                    <Input
+                      id="pricePerKg"
+                      type="number"
+                      step="0.1"
+                      min={0}
+                      placeholder="250"
+                      required
+                      ref={priceRef}
+                      aria-invalid={invalidField === "pricePerKg"}
+                      value={pricePerKg}
+                      onChange={(e) => {
+                        setPricePerKg(e.target.value);
+                        if (invalidField === "pricePerKg") setInvalidField(null);
+                      }}
+                      disabled={submitting}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="notes">{locale === "ar" ? "ملاحظات" : "Notes"}</Label>
