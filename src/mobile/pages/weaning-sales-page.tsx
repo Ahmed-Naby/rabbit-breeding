@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { KitMovementTypeChoice, type KitMovementChoice } from "@/components/kit-movement-type-choice";
 import { isWithinDateRange, toDateInputValue } from "@/lib/dates";
 import { ledgerTotals } from "@/lib/kit-ledger";
 import { SortableTh } from "@/components/sortable-th";
@@ -53,7 +53,7 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
   } | null>(null);
 
   const [date, setDate] = useState(() => toDateInputValue(new Date()));
-  const [type, setType] = useState<"sale" | "death" | "adjustment">("sale");
+  const [type, setType] = useState<KitMovementChoice>("sale");
   const [count, setCount] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [pricePerKg, setPricePerKg] = useState("");
@@ -181,12 +181,6 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
               : null,
           notes: notes.trim() || null,
         });
-      } else if (type === "death") {
-        await enqueue("recordWeanedKitDeath", {
-          count: qty,
-          date,
-          notes: notes.trim() || null,
-        });
       } else {
         await enqueue("recordKitStockAdjustment", {
           count: qty,
@@ -301,28 +295,8 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} disabled={submitting} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="type">{locale === "ar" ? "نوع الحركة" : "Movement Type"}</Label>
-                {/* «نافق فطام» is deliberately absent: deaths are entered on
-                    حصر النافق, which is where every other death on the farm is
-                    recorded. The type still exists — old rows render in the
-                    ledger below, and the mortality page writes new ones. */}
-                <Select
-                  items={[
-                    { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
-                    { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
-                  ]}
-                  value={type}
-                  onValueChange={(v: any) => setType(v)}
-                  disabled={submitting}
-                >
-                  <SelectTrigger id="type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sale">{locale === "ar" ? "بيع خلفات" : "Kit Sale"}</SelectItem>
-                    <SelectItem value="adjustment">{locale === "ar" ? "تسوية المخزون" : "Stock Adjustment"}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>{locale === "ar" ? "نوع الحركة" : "Movement Type"}</Label>
+                <KitMovementTypeChoice value={type} onChange={setType} disabled={submitting} locale={locale} />
               </div>
             </div>
 

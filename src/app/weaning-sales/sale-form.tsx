@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TextField, SelectField } from "@/components/form-fields";
+import { TextField, Field } from "@/components/form-fields";
+import { KitMovementTypeChoice, type KitMovementChoice } from "@/components/kit-movement-type-choice";
 import { SubmitButton } from "@/components/submit-button";
 import { EMPTY_FORM_STATE } from "@/lib/form";
 import { toDateInputValue } from "@/lib/dates";
@@ -30,7 +31,7 @@ export function SaleForm({
   const e = state.errors ?? {};
   
   const [today] = useState(() => toDateInputValue(new Date()));
-  const [type, setType] = useState<"sale" | "death" | "adjustment">("sale");
+  const [type, setType] = useState<KitMovementChoice>("sale");
 
   useEffect(() => {
     if (state.ok) {
@@ -39,15 +40,6 @@ export function SaleForm({
       setType("sale");
     }
   }, [state, locale]);
-
-  // «نافق فطام» is deliberately absent: deaths are entered on حصر النافق, which
-  // is where every other death on the farm is recorded and where the count is
-  // checked against the doe it belongs to. The movement type still exists — old
-  // rows render in the ledger below, and the mortality page writes new ones.
-  const typeOptions = [
-    { value: "sale", label: locale === "ar" ? "بيع خلفات" : "Kit Sale" },
-    { value: "adjustment", label: locale === "ar" ? "تسوية المخزون" : "Stock Adjustment" },
-  ];
 
   return (
     <Card className="animate-fade-in-up">
@@ -68,14 +60,16 @@ export function SaleForm({
               error={e.date}
             />
 
-            <SelectField
-              name="type"
+            {/* Two columns wide on a wide screen: the pair of buttons needs the
+                room a single field doesn't, and «تسوية المخزون» wraps mid-word
+                in a quarter of the row. */}
+            <Field
               label={locale === "ar" ? "نوع الحركة" : "Movement Type"}
-              options={typeOptions}
-              defaultValue="sale"
-              onValueChange={(v) => setType(v as any)}
               error={e.type}
-            />
+              className="lg:col-span-2"
+            >
+              <KitMovementTypeChoice name="type" value={type} onChange={setType} locale={locale} />
+            </Field>
 
             <div className="space-y-1">
               <TextField
