@@ -35,6 +35,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     expenseAgg,
     feedExpenseAgg,
     lastKindlings,
+    firstKindling,
   ] = await Promise.all([
     getSettings(),
     // The denominator, and the same population the does board shows: tagged
@@ -94,11 +95,27 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
       by: ["doeId"],
       _max: { kindlingDate: true },
     }),
+    // The farm's very first kindling — the earliest point at which any of the
+    // rates below could have started accruing. See periodDays.
+    prisma.kindlingLog.aggregate({ _min: { kindlingDate: true } }),
   ]);
 
   const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, r._max.kindlingDate]));
 
-  const periodDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / DAY_MS));
+  // Clamped to the window that could actually hold events before it's used as
+  // a denominator: «إلغاء التصفية» asks for the whole record, which arrives here
+  // as 1970→2999, and annualising over a thousand years printed 0.0 دورة لكل أم
+  // on a farm doing perfectly well. The real span is from the first kindling to
+  // today — the future can't have produced anything yet, and neither could the
+  // years before the farm's first litter.
+  const now = new Date();
+  const firstEvent = firstKindling._min.kindlingDate;
+  const effectiveFrom = firstEvent && firstEvent > from ? firstEvent : from;
+  const effectiveTo = to > now ? now : to;
+  const periodDays = Math.max(
+    1,
+    Math.round((effectiveTo.getTime() - effectiveFrom.getTime()) / DAY_MS)
+  );
   const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
   const productivity = computeHerdProductivity({

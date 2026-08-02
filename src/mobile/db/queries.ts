@@ -2763,6 +2763,7 @@ export async function fetchHerdReport(
     expenseAgg,
     feedExpenseAgg,
     lastKindlings,
+    firstKindling,
   ] = await Promise.all([
     getLocalSettings(db),
     // The denominator, and the same population the does board shows: tagged
@@ -2833,14 +2834,27 @@ export async function fetchHerdReport(
       db,
       "SELECT doeId, MAX(kindlingDate) as lastKindlingDate FROM kindling_log GROUP BY doeId"
     ),
+    // The farm's very first kindling — the earliest point at which any of the
+    // rates below could have started accruing. See periodDays.
+    queryOne<{ firstKindlingDate: string | null }>(
+      db,
+      "SELECT MIN(kindlingDate) as firstKindlingDate FROM kindling_log"
+    ),
   ]);
 
   const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, toDate(r.lastKindlingDate)]));
 
-  const periodDays = Math.max(
-    1,
-    Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86_400_000)
-  );
+  // Clamped to the window that could actually hold events before it's used as a
+  // denominator: «إلغاء التصفية» asks for the whole record, which arrives here as
+  // 1970→2999, and annualising over a thousand years printed 0.0 دورة لكل أم on
+  // a farm doing perfectly well. Mirrors src/app/reports/herd-data.ts.
+  const nowMs = Date.now();
+  const firstEventMs = firstKindling?.firstKindlingDate
+    ? new Date(firstKindling.firstKindlingDate).getTime()
+    : null;
+  const fromMs = firstEventMs != null ? Math.max(firstEventMs, new Date(fromIso).getTime()) : new Date(fromIso).getTime();
+  const toMs = Math.min(new Date(toIso).getTime(), nowMs);
+  const periodDays = Math.max(1, Math.round((toMs - fromMs) / 86_400_000));
   const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
   const productivity = computeHerdProductivity({

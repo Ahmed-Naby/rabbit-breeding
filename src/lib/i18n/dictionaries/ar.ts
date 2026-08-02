@@ -862,6 +862,7 @@ export const ar = {
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "عرض التقرير",
+    clearFilterButton: "إلغاء التصفية",
     notTrackedNote: "بعض الحقول لا يوجد لها تتبع في النظام حاليًا وتظهر بعلامة (—).",
     allTimeBadge: "الرصيد الحالي",
     allTimeNote: "هذان الكارتان يعرضان الرصيد الحالي للمزرعة ولا يتأثران بالفترة المختارة بالأسفل.",
@@ -888,7 +889,11 @@ export const ar = {
     totalWeanedLabel: "إجمالي الفطام",
     soldLabel: "المباع",
     retainedLabel: "المحفوظ خلال الفترة",
-    remainingStockLabel: "باقي الفطام",
+    // السطر الوحيد في الكارت اللي مش مجموع فترة: رصيد تراكمي من أول يوم في
+    // المزرعة لحد نهاية الفترة، فالتاريخ مكتوب فيه عشان ما يتقريش غلط جنب
+    // «إجمالي الفطام» و«المباع» اللي فوقه.
+    remainingStockLabel: (date: string) => `رصيد الفطام المتاح يوم ${date}`,
+    remainingStockNowLabel: "رصيد الفطام المتاح حاليًا",
     sectionHealth: "الحالات الصحية",
     mangeStockLabel: "جرب السلالة",
     mangeDoesLabel: "جرب الأمهات",

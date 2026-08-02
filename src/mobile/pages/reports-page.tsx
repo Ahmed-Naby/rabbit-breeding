@@ -19,6 +19,13 @@ import { BucksFertilityPage } from "./bucks-fertility-page";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 
+// An empty date box means "no bound", not "today": «إلغاء التصفية» clears both
+// and the report then covers the whole record. The pair is wide enough for any
+// date a farm can enter — an animal acquired before the app existed, a movement
+// dated a month ahead. Mirrors src/app/reports/page.tsx.
+const ALL_TIME_FROM = "1970-01-01";
+const ALL_TIME_TO = "2999-12-31";
+
 function defaultRange(spanDays: number) {
   const to = new Date();
   to.setUTCHours(0, 0, 0, 0);
@@ -58,8 +65,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     setLoading(true);
     try {
       const db = await getDb();
-      const fromIso = fromDateInputValue(fromVal).toISOString();
-      const toIso = addDays(fromDateInputValue(toVal), 1).toISOString();
+      const fromIso = fromDateInputValue(fromVal || ALL_TIME_FROM).toISOString();
+      const toIso = addDays(fromDateInputValue(toVal || ALL_TIME_TO), 1).toISOString();
       const res = await fetchFollowUpReport(db, fromIso, toIso);
       setReport(res);
     } finally {
@@ -79,8 +86,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     setHerdLoading(true);
     try {
       const db = await getDb();
-      const fromIso = fromDateInputValue(fromVal).toISOString();
-      const toIso = addDays(fromDateInputValue(toVal), 1).toISOString();
+      const fromIso = fromDateInputValue(fromVal || ALL_TIME_FROM).toISOString();
+      const toIso = addDays(fromDateInputValue(toVal || ALL_TIME_TO), 1).toISOString();
       setHerd(await fetchHerdReport(db, fromIso, toIso));
     } finally {
       setHerdLoading(false);
@@ -100,6 +107,22 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     void load(fromInput, toInput);
+  };
+
+  // «إلغاء التصفية» empties both boxes and reloads over the whole record — the
+  // page opens on a window (a week here, 90 days for القطيع) but that's a
+  // starting point, not a floor. Disabled once they're already empty, so the
+  // button reads as done rather than as something still worth pressing.
+  const handleClearFilter = () => {
+    setFromInput("");
+    setToInput("");
+    void load("", "");
+  };
+
+  const handleClearHerdFilter = () => {
+    setHerdFromInput("");
+    setHerdToInput("");
+    void loadHerd("", "");
   };
 
   const dash = "—";
@@ -207,6 +230,15 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                 <Button type="submit" size="sm" disabled={loading}>
                   {rt.applyButton}
                 </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleClearFilter}
+                  disabled={loading || (!fromInput && !toInput)}
+                >
+                  {rt.clearFilterButton}
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -230,7 +262,14 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                 <Row label={rt.totalWeanedLabel} value={n(report.weaning.totalWeaned)} />
                 <Row label={rt.soldLabel} value={n(report.weaning.sold)} />
                 <Row label={rt.retainedLabel} value={n(report.weaning.retained)} />
-                <Row label={rt.remainingStockLabel} value={n(report.weaning.remainingStock)} />
+                {/* Dated, unlike the three rows above it: this one is a running
+                    balance as of the end of the period, not a total earned
+                    inside it. With the filter cleared there's no end date to
+                    print, and the balance is simply today's. */}
+                <Row
+                  label={toInput ? rt.remainingStockLabel(toInput) : rt.remainingStockNowLabel}
+                  value={n(report.weaning.remainingStock)}
+                />
               </Section>
 
               <Section title={rt.sectionHealth}>
@@ -276,6 +315,15 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                 </div>
                 <Button type="submit" size="sm" disabled={herdLoading}>
                   {rt.applyButton}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleClearHerdFilter}
+                  disabled={herdLoading || (!herdFromInput && !herdToInput)}
+                >
+                  {rt.clearFilterButton}
                 </Button>
               </form>
             </CardContent>

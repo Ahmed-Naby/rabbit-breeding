@@ -23,6 +23,12 @@ export async function generateMetadata() {
   return { title: `${t.reports.title} · RabbitTrack` };
 }
 
+// Wide enough to hold any record a farm can enter — a doe bought before the
+// app existed, a movement dated a month ahead — without pretending to be a
+// real boundary. The mobile reports page uses the same pair.
+const ALL_TIME_FROM = new Date("1970-01-01T00:00:00.000Z");
+const ALL_TIME_TO = new Date("2999-12-31T00:00:00.000Z");
+
 /**
  * `spanDays` is the inclusive window length. تقارير المتابعة is a *weekly*
  * report, so 7. إنتاجية القطيع defaults to 90 instead: its headline is cycles
@@ -41,14 +47,18 @@ function defaultRange(spanDays: number) {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; tab?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; tab?: string; all?: string }>;
 }) {
   const sp = await searchParams;
   const activeTab = sp.tab || "follow-up";
   const isHerdTab = activeTab === "herd";
   const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? 90 : 7);
-  const from = sp.from ? fromDateInputValue(sp.from) : defaultFrom;
-  const toSelected = sp.to ? fromDateInputValue(sp.to) : defaultTo;
+  // «إلغاء التصفية» lands here: no window at all, every record the farm has.
+  // A flag rather than empty from/to, because a missing range is what a plain
+  // /reports visit looks like and that one still opens on the default week.
+  const showAll = sp.all === "1";
+  const from = showAll ? ALL_TIME_FROM : sp.from ? fromDateInputValue(sp.from) : defaultFrom;
+  const toSelected = showAll ? ALL_TIME_TO : sp.to ? fromDateInputValue(sp.to) : defaultTo;
   const toExclusive = addDays(toSelected, 1);
 
   // Only the visible tab's data is fetched: the two reports have no overlap and
@@ -61,7 +71,9 @@ export default async function ReportsPage({
   ]);
   const rt = t.reports;
 
-  const rangeQuery = `${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
+  const rangeQuery = showAll
+    ? "&all=1"
+    : `${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`;
   const followUpHref = `/reports?tab=follow-up${rangeQuery}`;
   // The range carries over to إنتاجية القطيع too — a user who just filtered
   // تقارير المتابعة to a month means the same month here.
@@ -141,11 +153,11 @@ export default async function ReportsPage({
               selected period. */}
           <AveragesSection averages={report.averages} rt={rt} />
 
-          <RangeFilter tab="follow-up" from={from} to={toSelected} rt={rt} />
+          <RangeFilter tab="follow-up" from={from} to={toSelected} showAll={showAll} rt={rt} />
 
           <p className="text-xs text-muted-foreground">{rt.notTrackedNote}</p>
 
-          <ReportSections report={report} rt={rt} />
+          <ReportSections report={report} asOf={showAll ? null : toDateInputValue(toSelected)} rt={rt} />
         </div>
       )}
 
@@ -166,7 +178,7 @@ export default async function ReportsPage({
       {/* TAB 4: Herd Productivity — everything ÷ عدد الأمهات */}
       {herd && isHerdTab && (
         <div className="space-y-6 animate-fade-in">
-          <RangeFilter tab="herd" from={from} to={toSelected} rt={rt} />
+          <RangeFilter tab="herd" from={from} to={toSelected} showAll={showAll} rt={rt} />
           <HerdProductivitySection herd={herd} rt={rt} locale={locale} />
         </div>
       )}
@@ -178,11 +190,13 @@ function RangeFilter({
   tab,
   from,
   to,
+  showAll,
   rt,
 }: {
   tab: string;
   from: Date;
   to: Date;
+  showAll: boolean;
   rt: RT;
 }) {
   return (
@@ -192,15 +206,33 @@ function RangeFilter({
           <input type="hidden" name="tab" value={tab} />
           <label className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
-            <Input type="date" name="from" defaultValue={toDateInputValue(from)} className="w-40" />
+            {/* Empty, not the sentinel year: على السجل كله the two boxes read as
+                "no dates chosen", which is what إلغاء التصفية just did. */}
+            <Input type="date" name="from" defaultValue={showAll ? "" : toDateInputValue(from)} className="w-40" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
-            <Input type="date" name="to" defaultValue={toDateInputValue(to)} className="w-40" />
+            <Input type="date" name="to" defaultValue={showAll ? "" : toDateInputValue(to)} className="w-40" />
           </label>
           <Button type="submit" size="sm">
             {rt.applyButton}
           </Button>
+          {/* A link, not a form reset: the whole-record view is a URL of its
+              own (all=1), so it survives a refresh and can be shared — while
+              clearing the two inputs in place would just submit an empty
+              range, which the server reads as "no filter given" and answers
+              with the default week. */}
+          {showAll ? (
+            // A real disabled <button>, not a disabled prop on the link: `disabled`
+            // means nothing to an <a>, which would stay clickable.
+            <Button variant="outline" size="sm" disabled>
+              {rt.clearFilterButton}
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`?tab=${tab}&all=1`}>{rt.clearFilterButton}</Link>
+            </Button>
+          )}
         </form>
       </CardContent>
     </Card>
@@ -413,7 +445,7 @@ function AveragesTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ReportSections({ report, rt }: { report: FollowUpReport; rt: RT }) {
+function ReportSections({ report, asOf, rt }: { report: FollowUpReport; asOf: string | null; rt: RT }) {
   const dash = "—";
   const n = (v: number | null) => (v == null ? dash : v.toLocaleString());
 
@@ -434,7 +466,7 @@ function ReportSections({ report, rt }: { report: FollowUpReport; rt: RT }) {
         <Row label={rt.totalWeanedLabel} value={n(report.weaning.totalWeaned)} />
         <Row label={rt.soldLabel} value={n(report.weaning.sold)} />
         <Row label={rt.retainedLabel} value={n(report.weaning.retained)} />
-        <Row label={rt.remainingStockLabel} value={n(report.weaning.remainingStock)} />
+        <Row label={asOf ? rt.remainingStockLabel(asOf) : rt.remainingStockNowLabel} value={n(report.weaning.remainingStock)} />
       </Section>
 
       <Section title={rt.sectionHealth}>
