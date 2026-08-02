@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { ResorptionLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
@@ -79,9 +80,9 @@ export function ResorptionLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {resorptionLogSort.sorted.map((log, index) => (
+              {resorptionLogSort.paged.map((log, index) => (
                 <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{resorptionLogSort.page * resorptionLogSort.pageSize + index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                   <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                   <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
@@ -95,6 +96,13 @@ export function ResorptionLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={resorptionLogSort.page}
+            total={resorptionLogSort.sorted.length}
+            pageSize={resorptionLogSort.pageSize}
+            onPageChange={resorptionLogSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>

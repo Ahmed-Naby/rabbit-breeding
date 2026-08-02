@@ -3,6 +3,7 @@ import type { MatingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 
@@ -81,9 +82,9 @@ export function MatingLog({
               </tr>
             </thead>
             <tbody>
-              {matingLogSort.sorted.map((log, index) => (
+              {matingLogSort.paged.map((log, index) => (
                 <tr key={log.id} className="hover:bg-muted/40">
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{matingLogSort.page * matingLogSort.pageSize + index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                   <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                   <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
@@ -97,6 +98,13 @@ export function MatingLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={matingLogSort.page}
+            total={matingLogSort.sorted.length}
+            pageSize={matingLogSort.pageSize}
+            onPageChange={matingLogSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>

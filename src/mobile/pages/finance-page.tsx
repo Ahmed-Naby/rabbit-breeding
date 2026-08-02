@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toDateInputValue } from "@/lib/dates";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -603,7 +604,7 @@ export function FinancePage({ locale }: { locale: Locale }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {transactionsSort.sorted.map((tr) => (
+                    {transactionsSort.paged.map((tr) => (
                       <tr key={tr.id} className="hover:bg-muted/40">
                         <td className="px-4 py-3.5">
                           <LocalDate date={new Date(tr.date)} />
@@ -639,6 +640,13 @@ export function FinancePage({ locale }: { locale: Locale }) {
                     ))}
                   </tbody>
                 </table>
+                <TablePager
+                  page={transactionsSort.page}
+                  total={transactionsSort.sorted.length}
+                  pageSize={transactionsSort.pageSize}
+                  onPageChange={transactionsSort.setPage}
+                  locale={locale}
+                />
               </div>
             )}
           </CardContent>

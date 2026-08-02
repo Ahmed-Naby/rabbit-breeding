@@ -5,6 +5,7 @@ import { PageHeader, EmptyState } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { LocalDate } from "@/components/local-date";
+import { PagedList } from "@/components/ui/table-pager";
 import { formatMoney } from "@/lib/units";
 import { label } from "@/lib/enums";
 import { getSettings } from "@/lib/settings";
@@ -171,58 +172,63 @@ export default async function FinancePage({
               />
             </div>
           ) : (
-            <div className="divide-y">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between gap-4 px-6 py-3 text-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <StatusBadge value={tx.type} locale={locale} />
-                    <div>
-                      <p className="font-medium">
-                        {label(tx.category, locale)}
-                        {tx.notes ? (
-                          <span className="ms-2 font-normal text-muted-foreground">
-                            {tx.notes}
-                          </span>
-                        ) : null}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        <LocalDate date={tx.date} locale={locale} />
-                        {tx.rabbit ? (
-                          <>
-                            {" · "}
-                            <Link
-                              href={`/rabbits/${tx.rabbit.id}`}
-                              className="hover:underline"
-                            >
-                              {tx.rabbit.tagId ?? t.dashboard.stockFallback}
-                            </Link>
-                          </>
-                        ) : (
-                          t.finance.farmWideSuffix
+            <PagedList
+              locale={locale}
+              className="divide-y"
+              items={transactions.map((tx) => ({
+                key: tx.id,
+                node: (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between gap-4 px-6 py-3 text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <StatusBadge value={tx.type} locale={locale} />
+                      <div>
+                        <p className="font-medium">
+                          {label(tx.category, locale)}
+                          {tx.notes ? (
+                            <span className="ms-2 font-normal text-muted-foreground">
+                              {tx.notes}
+                            </span>
+                          ) : null}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <LocalDate date={tx.date} locale={locale} />
+                          {tx.rabbit ? (
+                            <>
+                              {" · "}
+                              <Link
+                                href={`/rabbits/${tx.rabbit.id}`}
+                                className="hover:underline"
+                              >
+                                {tx.rabbit.tagId ?? t.dashboard.stockFallback}
+                              </Link>
+                            </>
+                          ) : (
+                            t.finance.farmWideSuffix
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "font-medium tabular-nums",
+                          tx.type === "income"
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
                         )}
-                      </p>
+                      >
+                        {tx.type === "income" ? "+" : "−"}
+                        {formatMoney(tx.amountCents, settings.currency)}
+                      </span>
+                      <DeleteTransactionButton id={tx.id} locale={locale} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "font-medium tabular-nums",
-                        tx.type === "income"
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-red-600 dark:text-red-400"
-                      )}
-                    >
-                      {tx.type === "income" ? "+" : "−"}
-                      {formatMoney(tx.amountCents, settings.currency)}
-                    </span>
-                    <DeleteTransactionButton id={tx.id} locale={locale} />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ),
+              }))}
+            />
           )}
         </CardContent>
       </Card>

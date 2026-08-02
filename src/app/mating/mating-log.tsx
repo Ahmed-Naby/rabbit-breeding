@@ -42,6 +42,8 @@ export function MatingLog({
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            paginate
+            locale={locale}
             columns={[
               { key: "index", label: t.colIndex, className: "text-center", sortable: false },
               { key: "tag", label: t.colMotherTag, type: "tag", className: "text-center" },

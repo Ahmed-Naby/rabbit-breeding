@@ -3,6 +3,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { LocalDeceasedRabbit } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge } from "@/components/log-count-badge";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { EmptyState } from "@/components/page-header";
@@ -72,7 +73,7 @@ export function CullingLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {culledSort.sorted.map((entry) => (
+              {culledSort.paged.map((entry) => (
                 <tr key={entry.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
                   <td className="px-4 py-3.5 text-center">
                     <LocalDate date={new Date(entry.updatedAt)} />
@@ -86,6 +87,13 @@ export function CullingLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={culledSort.page}
+            total={culledSort.sorted.length}
+            pageSize={culledSort.pageSize}
+            onPageChange={culledSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>

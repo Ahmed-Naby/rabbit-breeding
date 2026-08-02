@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
@@ -145,12 +146,12 @@ export function WeaningLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {weanedLogSort.sorted.map((log, index) => {
+              {weanedLogSort.paged.map((log, index) => {
                 const rate = weaningSurvivalRate(log);
 
                 return (
                   <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                    <td className="px-2 py-2 md:px-4 md:py-3.5 text-center text-muted-foreground font-medium">{weanedLogSort.page * weanedLogSort.pageSize + index + 1}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                     <td className="px-2 py-2 md:px-4 md:py-3.5 hidden md:table-cell font-bold">{log.buckTagId ?? "—"}</td>
@@ -178,6 +179,13 @@ export function WeaningLog({
               })}
             </tbody>
           </table>
+          <TablePager
+            page={weanedLogSort.page}
+            total={weanedLogSort.sorted.length}
+            pageSize={weanedLogSort.pageSize}
+            onPageChange={weanedLogSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>

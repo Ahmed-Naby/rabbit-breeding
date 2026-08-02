@@ -43,6 +43,8 @@ export function CullingLog({
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
+            paginate
+            locale={locale}
             columns={[
               { key: "index", label: t.mortality.colIndex, className: "text-center", sortable: false },
               { key: "sex", label: t.mortality.colSex, type: "string", className: "text-center" },

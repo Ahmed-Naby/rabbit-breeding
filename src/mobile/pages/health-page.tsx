@@ -16,6 +16,7 @@ import type { LocalRabbit } from "../db/types";
 import { toDateInputValue } from "@/lib/dates";
 import { DISEASE_TYPES, diseaseTypeLabel, type DiseaseType } from "@/lib/health-conditions";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { PageHeader } from "@/components/page-header";
 
@@ -313,7 +314,7 @@ export function HealthPage({ locale }: { locale: Locale }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {recordsSort.sorted.map((r) => (
+                      {recordsSort.paged.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/40">
                           <td className="px-4 py-3.5">
                             <LocalDate date={new Date(r.date)} />
@@ -335,6 +336,13 @@ export function HealthPage({ locale }: { locale: Locale }) {
                       ))}
                     </tbody>
                   </table>
+                  <TablePager
+                    page={recordsSort.page}
+                    total={recordsSort.sorted.length}
+                    pageSize={recordsSort.pageSize}
+                    onPageChange={recordsSort.setPage}
+                    locale={locale}
+                  />
                 </div>
               )}
             </CardContent>

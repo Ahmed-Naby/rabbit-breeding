@@ -3,6 +3,7 @@ import { HeartHandshake } from "lucide-react";
 import { EmptyState } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocalDate } from "@/components/local-date";
+import { PagedList } from "@/components/ui/table-pager";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 
@@ -40,27 +41,32 @@ export function FosteringLog({
             <EmptyState icon={HeartHandshake} title={t.fostering.emptyTitle} description={t.fostering.emptyDescription} />
           </div>
         ) : (
-          <div className="divide-y">
-            {logs.map((log) => (
-              <div key={log.id} className="flex items-center justify-between gap-4 px-6 py-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <Link href={`/rabbits/${log.fromDoe.id}`} className="hover:underline">
-                    {log.fromDoe.tagId ?? t.dashboard.stockFallback}
-                  </Link>
-                  <span className="text-muted-foreground">→</span>
-                  <Link href={`/rabbits/${log.toDoe.id}`} className="hover:underline">
-                    {log.toDoe.tagId ?? t.dashboard.stockFallback}
-                  </Link>
+          <PagedList
+            locale={locale}
+            className="divide-y"
+            items={logs.map((log) => ({
+              key: log.id,
+              node: (
+                <div key={log.id} className="flex items-center justify-between gap-4 px-6 py-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Link href={`/rabbits/${log.fromDoe.id}`} className="hover:underline">
+                      {log.fromDoe.tagId ?? t.dashboard.stockFallback}
+                    </Link>
+                    <span className="text-muted-foreground">→</span>
+                    <Link href={`/rabbits/${log.toDoe.id}`} className="hover:underline">
+                      {log.toDoe.tagId ?? t.dashboard.stockFallback}
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium tabular-nums">{t.fostering.kitsUnit(log.count)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      <LocalDate date={log.date} locale={locale} />
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-medium tabular-nums">{t.fostering.kitsUnit(log.count)}</span>
-                  <span className="text-xs text-muted-foreground">
-                    <LocalDate date={log.date} locale={locale} />
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ),
+            }))}
+          />
         )}
       </CardContent>
     </Card>

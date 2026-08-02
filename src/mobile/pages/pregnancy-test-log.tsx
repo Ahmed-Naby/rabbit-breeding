@@ -3,6 +3,7 @@ import type { PregnancyTestLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { cn } from "@/lib/utils";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
@@ -109,9 +110,9 @@ export function PregnancyTestLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {testLogSort.sorted.map((log, index) => (
+              {testLogSort.paged.map((log, index) => (
                 <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{testLogSort.page * testLogSort.pageSize + index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                   <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                   <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
@@ -137,6 +138,13 @@ export function PregnancyTestLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={testLogSort.page}
+            total={testLogSort.sorted.length}
+            pageSize={testLogSort.pageSize}
+            onPageChange={testLogSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>

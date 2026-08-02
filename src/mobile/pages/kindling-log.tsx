@@ -2,6 +2,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import type { KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { SortableTh } from "@/components/sortable-th";
+import { TablePager } from "@/components/ui/table-pager";
 import { LogCountBadge, LogStatBadge } from "@/components/log-count-badge";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { useSortableRows } from "@/lib/use-sortable-rows";
@@ -113,9 +114,9 @@ export function KindlingLog({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {logSort.sorted.map((log, index) => (
+              {logSort.paged.map((log, index) => (
                 <tr key={log.id} className="hover:bg-muted/40 [&>td]:border-x [&>td]:text-center">
-                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{index + 1}</td>
+                  <td className="px-4 py-3.5 text-center text-muted-foreground font-medium">{logSort.page * logSort.pageSize + index + 1}</td>
                   <td className="px-4 py-3.5 font-bold">{log.doeTagId ?? "—"}</td>
                   <td className="px-4 py-3.5 hidden md:table-cell">{log.doeBreed ?? "—"}</td>
                   <td className="px-4 py-3.5 font-bold">{log.buckTagId ?? "—"}</td>
@@ -134,6 +135,13 @@ export function KindlingLog({
               ))}
             </tbody>
           </table>
+          <TablePager
+            page={logSort.page}
+            total={logSort.sorted.length}
+            pageSize={logSort.pageSize}
+            onPageChange={logSort.setPage}
+            locale={locale}
+          />
         </div>
       )}
     </div>
