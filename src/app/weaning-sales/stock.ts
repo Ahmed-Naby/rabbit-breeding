@@ -47,6 +47,48 @@ export async function getKitStockSummary() {
     else weanedByDay.set(key, { date: l.weaningDate, count: l.weaned });
   }
 
+  // نافق and احتفاظ للتربية are recorded one head at a time — each dead kit is
+  // its own press, each retained سلالة its own intake — so a day showed as a
+  // column of identical −1 rows that had to be counted by eye. Merged per day,
+  // the way weanings above already are. بيع/تسوية/مرتجع stay one row per press:
+  // each carries its own price, amount or reason, which a sum would erase.
+  const MERGED_PER_DAY = new Set(["death", "retained"]);
+  const movementRows: LedgerEntry[] = movements.map((m) => ({
+    key: `move-${m.id}`,
+    date: m.date,
+    kind: m.type as "sale" | "death" | "retained" | "adjustment" | "returned",
+    // Sale/death/retained withdraw (shown negative); a "returned" سلالة adds
+    // back; an adjustment carries its own sign and is shown as stored.
+    count: m.type === "adjustment" ? m.count : m.type === "returned" ? m.count : -m.count,
+    weightGrams: m.weightGrams,
+    pricePerKgCents: m.pricePerKgCents,
+    amountCents: m.amountCents,
+    notes: m.notes,
+    id: m.id,
+  }));
+
+  const mergedMovements: LedgerEntry[] = [];
+  const dayGroups = new Map<string, LedgerEntry>();
+  for (const row of movementRows) {
+    if (!MERGED_PER_DAY.has(row.kind)) {
+      mergedMovements.push(row);
+      continue;
+    }
+    const key = `move-day-${row.kind}-${row.date.toISOString().slice(0, 10)}`;
+    const existing = dayGroups.get(key);
+    if (!existing) {
+      // No id on a merged row: it stands for several movements, so nothing
+      // downstream may treat it as one — the delete button keys off id. Notes
+      // are kept and joined; they're all these rows carry besides the count.
+      const merged = { ...row, key, id: undefined };
+      dayGroups.set(key, merged);
+      mergedMovements.push(merged);
+      continue;
+    }
+    existing.count += row.count;
+    if (row.notes) existing.notes = existing.notes ? `${existing.notes}، ${row.notes}` : row.notes;
+  }
+
   const ledger: LedgerEntry[] = [
     ...Array.from(weanedByDay.entries()).map(([key, v]) => ({
       key: `wean-${key}`,
@@ -54,19 +96,7 @@ export async function getKitStockSummary() {
       kind: "wean" as const,
       count: v.count,
     })),
-    ...movements.map((m) => ({
-      key: `move-${m.id}`,
-      date: m.date,
-      kind: m.type as "sale" | "death" | "retained" | "adjustment" | "returned",
-      // Sale/death/retained withdraw (shown negative); a "returned" سلالة adds
-      // back; an adjustment carries its own sign and is shown as stored.
-      count: m.type === "adjustment" ? m.count : m.type === "returned" ? m.count : -m.count,
-      weightGrams: m.weightGrams,
-      pricePerKgCents: m.pricePerKgCents,
-      amountCents: m.amountCents,
-      notes: m.notes,
-      id: m.id,
-    })),
+    ...mergedMovements,
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const totalWeaned = Array.from(weanedByDay.values()).reduce((s, v) => s + v.count, 0);
