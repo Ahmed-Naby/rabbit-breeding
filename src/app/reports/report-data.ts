@@ -5,10 +5,12 @@ import {
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
   computeSalesPerDoe,
+  computeWeightPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
   type MonthlySales,
   type SalesPerDoe,
+  type WeightPerDoe,
 } from "@/lib/breeding-averages";
 import {
   buildKitStockSeries,
@@ -83,6 +85,8 @@ export type FollowUpReport = {
   soldPerWeaning: LaggedSoldPerWeaning;
   /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
   salesPerDoe: SalesPerDoe;
+  /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
+  weightPerDoe: WeightPerDoe;
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -309,7 +313,11 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       where: { weaned: { not: null } },
       select: { weaningDate: true, weaned: true },
     }),
-    prisma.kitStockMovement.findMany({ select: { date: true, type: true, count: true } }),
+    // weightGrams rides along for متوسط الوزن المباع لكل أم — the sale rows are
+    // already being read for the stock curve, so it costs nothing extra.
+    prisma.kitStockMovement.findMany({
+      select: { date: true, type: true, count: true, weightGrams: true },
+    }),
     // Enough of every doe's row to rebuild when she was on the farm — see
     // computeSalesPerDoe for why these particular fields stand in for dates the
     // schema does not keep.
@@ -333,7 +341,13 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
   const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
-  const saleEvents = saleRows.map((m) => ({ dateMs: m.date.getTime(), count: m.count }));
+  const saleEvents = saleRows.map((m) => ({
+    dateMs: m.date.getTime(),
+    count: m.count,
+    // A missing weight is 0 here and caught a level up: computeWeightPerDoe
+    // drops a month that sold head with no weight rather than scoring it 0.
+    grams: m.weightGrams ?? 0,
+  }));
 
   const firstMatingByDoe = new Map(
     firstMatings.map((g) => [g.doeId, g._min.matingDate?.getTime() ?? null])
@@ -392,6 +406,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
+    weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(
       saleEvents,
       // One row per weaning EVENT: the denominator is «عدد مرات الفطام», not

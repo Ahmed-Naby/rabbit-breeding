@@ -17,10 +17,12 @@ import {
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
   computeSalesPerDoe,
+  computeWeightPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
   type MonthlySales,
   type SalesPerDoe,
+  type WeightPerDoe,
   type AverageKindlingRow,
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
@@ -2539,6 +2541,8 @@ export type FollowUpReport = {
   soldPerWeaning: LaggedSoldPerWeaning;
   /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
   salesPerDoe: SalesPerDoe;
+  /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
+  weightPerDoe: WeightPerDoe;
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -2748,9 +2752,11 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       db,
       "SELECT weaningDate, weaned FROM weaning_log WHERE weaned IS NOT NULL"
     ),
-    queryAll<{ date: string; type: string; count: number }>(
+    // weightGrams rides along for متوسط الوزن المباع لكل أم — these rows are
+    // already read for the stock curve, so it costs nothing extra.
+    queryAll<{ date: string; type: string; count: number; weightGrams: number | null }>(
       db,
-      "SELECT date, type, count FROM kit_stock_movement"
+      "SELECT date, type, count, weightGrams FROM kit_stock_movement"
     ),
     // Enough of every doe's row to rebuild when she was on the farm — see
     // computeSalesPerDoe for why these stand in for dates the schema lacks.
@@ -2781,7 +2787,13 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
   const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
-  const saleEvents = saleRows.map((m) => ({ dateMs: new Date(m.date).getTime(), count: m.count }));
+  const saleEvents = saleRows.map((m) => ({
+    dateMs: new Date(m.date).getTime(),
+    count: m.count,
+    // A missing weight is 0 here and caught a level up: computeWeightPerDoe
+    // drops a month that sold head with no weight rather than scoring it 0.
+    grams: m.weightGrams ?? 0,
+  }));
 
   const firstMatingByDoe = new Map(firstMatings.map((g) => [g.doeId, g.firstMating]));
   const doePresence = doeRows.flatMap((d) => {
@@ -2838,6 +2850,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
+    weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(
       saleEvents,
       // One row per weaning EVENT — «عدد مرات الفطام», not head weaned.

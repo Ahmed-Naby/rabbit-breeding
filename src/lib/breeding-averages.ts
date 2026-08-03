@@ -203,6 +203,38 @@ export type SalesPerDoe = {
 /** A doe's stay on the farm. `toMs` null means she is still here. */
 export type DoePresence = { fromMs: number; toMs: number | null };
 
+/**
+ * Walks every scoreable month — from the first doe's arrival up to but not
+ * including the running one — handing back how many does stood on the 1st.
+ * Months with no does at all are skipped rather than reported as 0: there is
+ * nothing to divide by, which is not the same as having sold nothing.
+ */
+function forEachScoredMonth(
+  does: DoePresence[],
+  nowMs: number,
+  visit: (month: number, present: number) => void
+): void {
+  const currentMonth = monthIndex(nowMs);
+  const firstMonth = does.reduce(
+    (min, d) => Math.min(min, monthIndex(d.fromMs)),
+    Number.POSITIVE_INFINITY
+  );
+  if (!Number.isFinite(firstMonth)) return;
+
+  // The running month is excluded for the same reason as the lagged average:
+  // a few days of sales against a full herd would drag the mean down.
+  for (let month = firstMonth; month < currentMonth; month++) {
+    const monthStart = new Date(Math.floor(month / 12), month % 12, 1).getTime();
+    const present = does.filter(
+      (d) => d.fromMs <= monthStart && (d.toMs == null || d.toMs > monthStart)
+    ).length;
+    if (present === 0) continue;
+    visit(month, present);
+  }
+}
+
+const mean = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
+
 export function computeSalesPerDoe(
   sales: DatedCount[],
   does: DoePresence[],
@@ -214,32 +246,68 @@ export function computeSalesPerDoe(
     soldByMonth.set(m, (soldByMonth.get(m) ?? 0) + s.count);
   }
 
-  const currentMonth = monthIndex(nowMs);
-  const firstMonth = does.reduce(
-    (min, d) => Math.min(min, monthIndex(d.fromMs)),
-    Number.POSITIVE_INFINITY
-  );
-  if (!Number.isFinite(firstMonth)) return { months: 0, perDoe: null };
-
   const ratios: number[] = [];
-  // The running month is excluded for the same reason as the lagged average:
-  // a few days of sales against a full herd would drag the mean down.
-  for (let month = firstMonth; month < currentMonth; month++) {
-    const monthStart = new Date(Math.floor(month / 12), month % 12, 1).getTime();
-    const present = does.filter(
-      (d) => d.fromMs <= monthStart && (d.toMs == null || d.toMs > monthStart)
-    ).length;
-    // No mothers on the 1st — nothing to divide by. Not a zero.
-    if (present === 0) continue;
+  forEachScoredMonth(does, nowMs, (month, present) => {
     // Sold nothing that month IS a zero: the mothers were standing there.
     ratios.push((soldByMonth.get(month) ?? 0) / present);
-  }
+  });
 
   if (ratios.length === 0) return { months: 0, perDoe: null };
-  return {
-    months: ratios.length,
-    perDoe: ratios.reduce((s, r) => s + r, 0) / ratios.length,
-  };
+  return { months: ratios.length, perDoe: mean(ratios) };
+}
+
+/**
+ * متوسط الوزن المباع لكل أم شهريًا — the same month-by-month division as
+ * computeSalesPerDoe, weighed in grams instead of counted in head. It answers
+ * a different question: two farms can sell the same number of kits and ship
+ * very different weights.
+ *
+ * weightGrams is nullable on KitStockMovement (the sale form requires it, but
+ * imported and legacy rows may not carry it). A month that sold head with no
+ * recorded weight at all is therefore UNKNOWN, not zero — scoring it 0 would
+ * quietly drag the mean down — so it is dropped and counted in
+ * unknownWeightMonths for the UI to disclose. A month that sold nothing still
+ * scores a real 0.
+ */
+export type WeightPerDoe = {
+  /** How many monthly figures went into the mean; also the printed denominator. */
+  months: number;
+  /** Grams per doe per month, null until one month is scoreable. */
+  perDoeGrams: number | null;
+  /** Months dropped because head were sold with no weight on the record. */
+  unknownWeightMonths: number;
+};
+
+/** A sale with both its head count and its weight, so one can validate the other. */
+export type DatedSale = { dateMs: number; count: number; grams: number };
+
+export function computeWeightPerDoe(
+  sales: DatedSale[],
+  does: DoePresence[],
+  nowMs: number
+): WeightPerDoe {
+  const byMonth = new Map<number, { count: number; grams: number }>();
+  for (const s of sales) {
+    const m = monthIndex(s.dateMs);
+    const acc = byMonth.get(m) ?? { count: 0, grams: 0 };
+    acc.count += s.count;
+    acc.grams += s.grams;
+    byMonth.set(m, acc);
+  }
+
+  const ratios: number[] = [];
+  let unknownWeightMonths = 0;
+  forEachScoredMonth(does, nowMs, (month, present) => {
+    const sold = byMonth.get(month);
+    if (sold && sold.count > 0 && sold.grams === 0) {
+      unknownWeightMonths += 1;
+      return;
+    }
+    ratios.push((sold?.grams ?? 0) / present);
+  });
+
+  if (ratios.length === 0) return { months: 0, perDoeGrams: null, unknownWeightMonths };
+  return { months: ratios.length, perDoeGrams: mean(ratios), unknownWeightMonths };
 }
 
 /** The kindling fields the averages need; both platforms have all three. */

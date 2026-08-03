@@ -223,6 +223,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
               monthlySales={report.monthlySales}
               soldPerWeaning={report.soldPerWeaning}
               salesPerDoe={report.salesPerDoe}
+              weightPerDoe={report.weightPerDoe}
               rt={rt}
             />
           )}
@@ -394,12 +395,14 @@ function AveragesSection({
   monthlySales,
   soldPerWeaning,
   salesPerDoe,
+  weightPerDoe,
   rt,
 }: {
   averages: FollowUpReport["averages"];
   monthlySales: FollowUpReport["monthlySales"];
   soldPerWeaning: FollowUpReport["soldPerWeaning"];
   salesPerDoe: FollowUpReport["salesPerDoe"];
+  weightPerDoe: FollowUpReport["weightPerDoe"];
   rt: RT;
 }) {
   // One decimal: litter-sized quantities, where 7.3 says something 7 doesn't,
@@ -408,6 +411,12 @@ function AveragesSection({
     v == null ? "—" : v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   // Monthly sales run in the hundreds, where a decimal is noise, not precision.
   const whole = (v: number | null) => (v == null ? "—" : Math.round(v).toLocaleString());
+  // Stored in grams, read in kilos — the unit the sale form and the القطيع tab
+  // both use. Two decimals, like that tab's twin tile.
+  const kg = (grams: number | null) =>
+    grams == null
+      ? "—"
+      : (grams / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <Card>
@@ -456,6 +465,11 @@ function AveragesSection({
           <AveragesTile label={rt.avgSalesPerDoeLabel} value={avg(salesPerDoe.perDoe)} />
         </AveragesGroup>
 
+        {/* Weight, not head — see the web copy for why it gets its own basis. */}
+        <AveragesGroup basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}>
+          <AveragesTile label={rt.avgWeightPerDoeLabel} value={kg(weightPerDoe.perDoeGrams)} />
+        </AveragesGroup>
+
         {/* Its own group: a stock level, not an average — no denominator, and
             whole head counts rather than the one decimal the averages carry. */}
         <AveragesGroup basis={rt.avgLifetimeBasis}>
@@ -472,6 +486,12 @@ function AveragesSection({
           <p>{rt.avgSoldPerWeaningNote}</p>
           {/* The herd size on a past date is reconstructed, not recorded. */}
           <p>{rt.avgSalesPerDoeNote}</p>
+          {/* Only when weights are actually missing — see avgUnknownNursingNote. */}
+          {weightPerDoe.unknownWeightMonths > 0 && (
+            <p className="text-amber-600 dark:text-amber-400">
+              {rt.avgUnknownWeightMonthsNote(weightPerDoe.unknownWeightMonths)}
+            </p>
+          )}
           {/* Only when history is actually missing — a permanent caveat that is
               usually inapplicable teaches people to ignore the whole block. */}
           {averages.unknownNursingLitters > 0 && (

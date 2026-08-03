@@ -4,6 +4,7 @@ import {
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
   computeSalesPerDoe,
+  computeWeightPerDoe,
   type AverageKindlingRow,
   type AverageWeaningRow,
   type BreedingAveragesInput,
@@ -334,6 +335,82 @@ describe("computeSalesPerDoe", () => {
 
     expect(r.months).toBe(0);
     expect(r.perDoe).toBeNull();
+  });
+});
+
+describe("computeWeightPerDoe", () => {
+  /** A sale in month `month` of 2025 (1-based): `count` head weighing `grams`. */
+  const sale = (month: number, count: number, grams: number) => ({
+    dateMs: new Date(2025, month - 1, 10).getTime(),
+    count,
+    grams,
+  });
+  const doe = (from: number, to?: number) => ({
+    fromMs: new Date(2025, from - 1, 1).getTime(),
+    toMs: to == null ? null : new Date(2025, to - 1, 1).getTime(),
+  });
+  const nowIn = (month: number) => new Date(2025, month - 1, 15).getTime();
+
+  test("divides each month's weight by the does standing on the 1st", () => {
+    // Jan: 2 does share 20 kg → 10 kg | Feb: 2 does share 12 kg → 6 kg
+    const r = computeWeightPerDoe(
+      [sale(1, 10, 20_000), sale(2, 6, 12_000)],
+      [doe(1), doe(1)],
+      nowIn(3)
+    );
+
+    expect(r.months).toBe(2);
+    expect(r.perDoeGrams).toBe(8000); // (10000 + 6000) / 2
+    expect(r.unknownWeightMonths).toBe(0);
+  });
+
+  test("drops a month whose sales carry no weight rather than scoring it zero", () => {
+    // February sold 6 head with no weight on the record — unknown, not zero.
+    // Scoring it 0 would halve the average on a data gap.
+    const r = computeWeightPerDoe(
+      [sale(1, 10, 20_000), sale(2, 6, 0)],
+      [doe(1), doe(1)],
+      nowIn(3)
+    );
+
+    expect(r.months).toBe(1);
+    expect(r.perDoeGrams).toBe(10_000);
+    expect(r.unknownWeightMonths).toBe(1);
+  });
+
+  test("counts a month that sold nothing at all as a real zero", () => {
+    // No sale rows for February — the does were standing there and shipped
+    // nothing, which is a genuine 0 and not the missing-weight case above.
+    const r = computeWeightPerDoe([sale(1, 10, 20_000)], [doe(1), doe(1)], nowIn(3));
+
+    expect(r.months).toBe(2);
+    expect(r.perDoeGrams).toBe(5000); // (10000 + 0) / 2
+    expect(r.unknownWeightMonths).toBe(0);
+  });
+
+  test("skips a month with no does instead of dividing by zero", () => {
+    const r = computeWeightPerDoe([sale(3, 4, 8000)], [doe(3)], nowIn(4));
+
+    expect(r.months).toBe(1);
+    expect(r.perDoeGrams).toBe(8000);
+  });
+
+  test("excludes the running month", () => {
+    const r = computeWeightPerDoe(
+      [sale(1, 10, 20_000), sale(2, 1, 2000)],
+      [doe(1), doe(1)],
+      nowIn(2)
+    );
+
+    expect(r.months).toBe(1);
+    expect(r.perDoeGrams).toBe(10_000);
+  });
+
+  test("returns «—» for a farm with no does on record", () => {
+    const r = computeWeightPerDoe([sale(1, 10, 20_000)], [], nowIn(3));
+
+    expect(r.months).toBe(0);
+    expect(r.perDoeGrams).toBeNull();
   });
 });
 

@@ -907,6 +907,8 @@ export const en: Dictionary = {
     avgWeanedLabel: "Avg. kits weaned per litter",
     avgSoldPerWeaningLabel: "Avg. kits sold per litter",
     avgSalesPerDoeLabel: "Sales per doe on the farm",
+    // The unit lives in the label, as it does on the herd tab's twin tile.
+    avgWeightPerDoeLabel: "Avg. kg sold per doe per month",
     avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
     avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
@@ -920,6 +922,10 @@ export const en: Dictionary = {
       "Kits sold per litter is scored month by month: each month's sales divided by the number of weanings in the month before it, then those figures averaged with every month counting once whatever its size. The running month is excluded as incomplete, as is any month whose predecessor had no weanings.",
     avgSalesPerDoeBasis: (count: number) =>
       `Mean of ${count} months — sales in a month ÷ does on the farm on the 1st`,
+    avgWeightPerDoeBasis: (count: number) =>
+      `Mean of ${count} months — weight sold in a month ÷ does on the farm on the 1st`,
+    avgUnknownWeightMonthsNote: (count: number) =>
+      `${count} month(s) sold kits with no weight on the record and are excluded from the weight average rather than counted as zero.`,
     avgSalesPerDoeNote:
       "Sales per doe is scored month by month: each month's sales divided by the does on the farm on the 1st of that same month, then those figures averaged. The farm keeps no exit date per doe, so she counts from her purchase date — or her first mating — until the last edit to her record once she is no longer active.",
     avgAllTimeBadge: "All time",

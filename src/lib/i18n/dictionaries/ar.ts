@@ -917,6 +917,8 @@ export const ar = {
     avgWeanedLabel: "متوسط عدد الفطام لكل ولادة",
     avgSoldPerWeaningLabel: "متوسط الفطام المباع لكل ولادة",
     avgSalesPerDoeLabel: "معدل البيع لكل أم في المزرعة",
+    // The unit lives in the label, as it does on the القطيع tab's twin tile.
+    avgWeightPerDoeLabel: "متوسط الكجم المباع لكل أم شهريًا",
     avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
     avgRemainingStockLabel: "رصيد الفطام المتاح للبيع",
     avgMonthlySalesLabel: "متوسط البيع الشهري",
@@ -930,6 +932,10 @@ export const ar = {
       "متوسط الفطام المباع لكل ولادة يُحسب شهرًا بشهر: مبيعات كل شهر مقسومة على عدد مرات الفطام في الشهر الذي قبله، ثم متوسط هذه النسب وكل شهر يُحسب مرة واحدة مهما كان حجمه. الشهر الجاري مستبعد لأنه ناقص، وكذلك أي شهر لم يسبقه فطام.",
     avgSalesPerDoeBasis: (count: number) =>
       `متوسط ${count} شهر — مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
+    avgWeightPerDoeBasis: (count: number) =>
+      `متوسط ${count} شهر — وزن مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
+    avgUnknownWeightMonthsNote: (count: number) =>
+      `${count} شهر فيه مبيعات بدون وزن مسجل، واستُبعد من متوسط الوزن بدلًا من احتسابه صفرًا.`,
     avgSalesPerDoeNote:
       "معدل البيع لكل أم يُحسب شهرًا بشهر: مبيعات كل شهر مقسومة على عدد الأمهات الموجودات في المزرعة يوم 1 من نفس الشهر، ثم متوسط هذه النسب. المزرعة لا تحفظ تاريخ خروج كل أم، فتُحتسب الأم من تاريخ شرائها أو من أول تلقيح لها حتى آخر تعديل على سجلها إذا لم تعد نشطة.",
     avgAllTimeBadge: "منذ بداية العمل",
