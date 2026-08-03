@@ -2624,6 +2624,9 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     matings,
     pregnancyPositive,
     kindlingRows,
+    lifetimeKindlingRows,
+    lifetimeWeanings,
+    lifetimeWeanedStockDeathAgg,
   ] = await Promise.all([
     queryOne<{ total: number | null }>(
       db,
@@ -2700,6 +2703,21 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
        FROM kindling_log WHERE kindlingDate >= ? AND kindlingDate < ?`,
       [fromIso, toIso]
     ),
+    // «متوسطات الأداء» is a lifetime board — the date filter drives the period
+    // sections, but the averages describe the farm since it started, so a
+    // one-week window can no longer empty them out into «—».
+    queryAll<AverageKindlingRow>(
+      db,
+      "SELECT bornAliveAtKindling, bornDead, bornDeadAtKindling FROM kindling_log"
+    ),
+    queryAll<{ weaned: number | null }>(
+      db,
+      "SELECT weaned FROM weaning_log WHERE weaned IS NOT NULL"
+    ),
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death'"
+    ),
   ]);
 
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
@@ -2735,10 +2753,11 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       pregnancyPositive: pregnancyPositive?.count ?? 0,
       kindlings: kindlingRows.length,
     },
+    // Lifetime on every side — see the query note above.
     averages: computeBreedingAverages(
-      kindlingRows,
-      weaningsInRange,
-      weanedStockDeathAgg?.total ?? 0,
+      lifetimeKindlingRows,
+      lifetimeWeanings,
+      lifetimeWeanedStockDeathAgg?.total ?? 0,
       lifetimeRemainingStock
     ),
   };

@@ -382,6 +382,9 @@ function StatTile({
  * within a group, and printing all five in one flat list invites reading
  * «متوسط الفطام ÷ عدد مرات الفطام» against «متوسط البطن الحي ÷ عدد الولادات»
  * as if one minus the other were the losses.
+ *
+ * Every figure here is lifetime and the date filter below never touches it —
+ * hence the badge in the header.
  */
 function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"]; rt: RT }) {
   // One decimal: these are litter-sized quantities, so 7.3 says something 7
@@ -392,12 +395,20 @@ function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
-            <TrendingUp className="size-5" />
+        {/* The badge carries its weight here: this whole board is lifetime, so
+            a reader who just moved the date filter needs to see why it didn't
+            move — same badge the القطيع/السلالات balance cards wear. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+              <TrendingUp className="size-5" />
+            </span>
+            {rt.sectionAverages}
+          </CardTitle>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+            {rt.avgAllTimeBadge}
           </span>
-          {rt.sectionAverages}
-        </CardTitle>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>

@@ -41,20 +41,20 @@ describe("computeBreedingAverages", () => {
     expect(r.remainingStock).toBe(30);
   });
 
-  test("the stock balance ignores the period entirely", () => {
-    // Same farm, two different report windows. The balance card must not move.
-    const wide = computeBreedingAverages(
+  test("takes lifetime rows, so a quiet week cannot empty the board", () => {
+    // The caller passes every kindling and weaning the farm ever logged, never
+    // the rows inside the selected period — a week with no kindling used to
+    // print «÷ 0 ولادة» and «—» across the whole card.
+    const r = computeBreedingAverages(
       [litter(8, 0, 0), litter(6, 0, 0)],
       [weaning(7), weaning(5)],
       4,
       977
     );
-    const oneWeek = computeBreedingAverages([], [], 0, 977);
 
-    expect(wide.remainingStock).toBe(977);
-    expect(oneWeek.remainingStock).toBe(977);
-    // The period-bound averages DO collapse — only this one is immune.
-    expect(oneWeek.weaned).toBeNull();
+    expect(r.kindlings).toBe(2);
+    expect(r.bornAlive).toBe(7);
+    expect(r.remainingStock).toBe(977);
   });
 
   test("counts events, not does — a doe that kindled twice counts twice", () => {

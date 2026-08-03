@@ -10,35 +10,39 @@
 import { deadDuringBreeding, hasKnownSurvival } from "./kit-mortality";
 
 /**
+ * LIFETIME figures. Callers pass every kindling and weaning the farm has ever
+ * logged, NOT the rows inside the report's selected period — «متوسطات الأداء»
+ * describes the farm since it started and the date filter must not touch it.
+ * (It used to be period-bound, which printed «—» across the board whenever the
+ * chosen week happened to contain no kindling.)
+ *
  * TWO different denominators, deliberately:
  *
- *   bornAlive, nursingDeaths          ÷ عدد الولادات في الفترة
- *   weaned, weanedStockDeaths         ÷ عدد مرات الفطام في الفترة
+ *   bornAlive, nursingDeaths          ÷ عدد الولادات منذ بداية العمل
+ *   weaned, weanedStockDeaths         ÷ عدد مرات الفطام منذ بداية العمل
  *
- * They cannot share one denominator without lying. A litter born on the last
- * day of the period is never weaned inside it, and a weaning on the first day
- * came from a kindling ~30 days before it — dividing both halves of the cycle
- * by one count would measure each against a population that only did the other.
+ * They cannot share one denominator without lying. The two counts differ by
+ * every litter that was born but never weaned, so measuring the weaning figures
+ * against kindlings would score losses the weaning side never had a chance at.
  *
  * remainingStock is not an average at all — see its field doc.
  *
- * EVENTS, not does: a doe that kindles twice in the period counts twice on both
+ * EVENTS, not does: a doe that kindled ten times counts ten times on both
  * sides. That makes bornAlive a true litter size (comparable to the breed
- * standard) rather than "kits produced per doe over the period", which is what
- * a distinct-doe denominator would give — and would silently double for any doe
- * that completed two cycles in a long report window.
+ * standard) rather than "kits produced per doe", which is what a distinct-doe
+ * denominator would give.
  *
  * The last two numerators are farm-level ledger totals (KitStockMovement
  * carries no doeId or litter link at all), so the weaning count is simply the
  * best available proxy for "how much production this stock came from".
  *
- * `null` means the denominator was 0 — nothing of that kind happened in the
- * period — and must render «—», never 0.
+ * `null` means the denominator was 0 — a farm that has never done that thing at
+ * all — and must render «—», never 0.
  */
 export type BreedingAverages = {
-  /** Denominator for bornAlive: kindlings in range. */
+  /** Denominator for bornAlive: every kindling the farm ever logged. */
   kindlings: number;
-  /** Denominator for weaned/weanedStockDeaths: counted weanings in range. */
+  /** Denominator for weaned/weanedStockDeaths: every counted weaning, ever. */
   weanings: number;
   /** متوسط عدد البطن الحي — from bornAliveAtKindling, the frozen litter size. */
   bornAlive: number | null;
@@ -51,7 +55,7 @@ export type BreedingAverages = {
    */
   nursingDeathsLitters: number;
   /**
-   * Litters in range carrying the -1 sentinel (they predate bornDeadAtKindling,
+   * Litters carrying the -1 sentinel (they predate bornDeadAtKindling,
    * so their nursing losses are unrecoverable). Excluded from BOTH sides of
    * nursingDeaths rather than counted as zero losses — counting them would drag
    * the average down and flatter the herd, the exact trap kit-mortality.ts
@@ -63,12 +67,11 @@ export type BreedingAverages = {
   /** متوسط نافق الفطام — post-weaning deaths from the kit ledger. */
   weanedStockDeaths: number | null;
   /**
-   * رصيد الفطام المتاح للبيع — a TOTAL, not an average, and the only figure
-   * here the date filter never touches: the farm's whole running balance right
-   * now. It was briefly divided (first by the weanings in the period, which
-   * printed «497 لكل فطام», then by every weaning ever, which printed a
-   * meaningless 0.6) — a stock level has no denominator. It moves when old
-   * stock is sold even if nothing was weaned.
+   * رصيد الفطام المتاح للبيع — a TOTAL, not an average: the farm's whole
+   * running balance right now. It was briefly divided (first by the weanings in
+   * the period, which printed «497 لكل فطام», then by every weaning ever, which
+   * printed a meaningless 0.6) — a stock level has no denominator. It moves
+   * when old stock is sold even if nothing was weaned.
    */
   remainingStock: number;
 };
@@ -85,12 +88,12 @@ export type AverageKindlingRow = {
  *  denominator with nothing in the numerator and depress every average. */
 export type AverageWeaningRow = { weaned: number | null };
 
+/** Every argument is lifetime — see the note on BreedingAverages. */
 export function computeBreedingAverages(
   kindlings: AverageKindlingRow[],
   weanings: AverageWeaningRow[],
   weanedStockDeaths: number,
-  /** The farm's running balance right now, unfiltered by the report's period. */
-  lifetimeRemainingStock: number
+  remainingStock: number
 ): BreedingAverages {
   // Only litters whose losses are knowable, on both sides of the fraction.
   const knownNursing = kindlings.filter(hasKnownSurvival);
@@ -108,6 +111,6 @@ export function computeBreedingAverages(
     weaned: per(sum(weanings.map((w) => w.weaned ?? 0)), weanings.length),
     weanedStockDeaths: per(weanedStockDeaths, weanings.length),
     // Passed straight through — no denominator, so no null case either.
-    remainingStock: lifetimeRemainingStock,
+    remainingStock,
   };
 }

@@ -60,6 +60,7 @@ export type FollowUpReport = {
     pregnancyPositive: number;
     kindlings: number;
   };
+  /** Lifetime, unlike every field above it — see computeBreedingAverages. */
   averages: BreedingAverages;
 };
 
@@ -156,9 +157,10 @@ async function getKitStockBalanceAsOf(to?: Date): Promise<number> {
  * upper bound (start of the day after the selected end date) — callers should
  * pass the day after the last day they want included. Herd/stock counts are a
  * current snapshot (no historical point-in-time headcount exists); death,
- * sale, weaning, and breeding-event counts are bounded to [from, to). Fields
- * with no tracking anywhere in the app (mange, uterine infection, mastitis,
- * per-event newborn-kit death dates) are returned as null and must render "—".
+ * sale, weaning, and breeding-event counts are bounded to [from, to), while
+ * `averages` is lifetime and ignores both bounds. Fields with no tracking
+ * anywhere in the app (mange, uterine infection, mastitis, per-event
+ * newborn-kit death dates) are returned as null and must render "—".
  */
 export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpReport> {
   const dateRange = { gte: from, lt: to };
@@ -180,6 +182,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     matings,
     pregnancyPositive,
     kindlingRows,
+    lifetimeKindlingRows,
+    lifetimeWeanings,
+    lifetimeWeanedStockDeathAgg,
   ] = await Promise.all([
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.count({ where: { sex: "buck", tagId: { not: null }, status: "active" } }),
@@ -256,6 +261,21 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
         bornDeadAtKindling: true,
       },
     }),
+    // «متوسطات الأداء» is a lifetime board — the date filter above drives the
+    // period sections, but the averages describe the farm since it started, so
+    // a one-week window can no longer empty them out into «—».
+    prisma.kindlingLog.findMany({
+      select: {
+        bornAliveAtKindling: true,
+        bornDead: true,
+        bornDeadAtKindling: true,
+      },
+    }),
+    prisma.weaningLog.findMany({
+      where: { weaned: { not: null } },
+      select: { weaned: true },
+    }),
+    prisma.kitStockMovement.aggregate({ where: { type: "death" }, _sum: { count: true } }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -297,10 +317,11 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       mastitis: null,
     },
     breeding: { matings, pregnancyPositive, kindlings: kindlingRows.length },
+    // Lifetime on every side — see the query note above.
     averages: computeBreedingAverages(
-      kindlingRows,
-      weaningsInRange,
-      weanedStockDeaths,
+      lifetimeKindlingRows,
+      lifetimeWeanings,
+      lifetimeWeanedStockDeathAgg._sum.count ?? 0,
       lifetimeRemainingStock
     ),
   };
