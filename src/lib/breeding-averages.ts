@@ -181,6 +181,13 @@ export function computeLaggedSoldPerWeaning(
  * against the size of the working herd on the 1st of that month, then averaged
  * month by month like computeLaggedSoldPerWeaning.
  *
+ * Counting STARTS at the first month the farm sold anything. The months before
+ * it are the ramp-up — does bought, mated, carrying, nursing, with nothing
+ * weaned yet to sell — and scoring them as zeros measured the wait for the
+ * first litter rather than how the farm sells. On a farm seven months into that
+ * wait it dropped the average from 2.6 to 1.8. Once selling has begun a month
+ * that sold nothing is still a real 0: that one IS a bad month, not a ramp-up.
+ *
  * The herd size on a past date is NOT stored: Rabbit keeps a current status and
  * nothing else, so each doe's presence window is reconstructed from proxies the
  * report already relies on elsewhere. Both were chosen deliberately:
@@ -213,22 +220,22 @@ export function doesPresentOn(does: DoePresence[], ms: number): number {
 }
 
 /**
- * Walks every scoreable month — from the first doe's arrival up to but not
- * including the running one — handing back how many does stood on the 1st.
- * Months with no does at all are skipped rather than reported as 0: there is
- * nothing to divide by, which is not the same as having sold nothing.
+ * Walks every scoreable month — from `firstMonth` up to but not including the
+ * running one — handing back how many does stood on the 1st. Months with no
+ * does at all are skipped rather than reported as 0: there is nothing to divide
+ * by, which is not the same as having sold nothing.
+ *
+ * `firstMonth` is the caller's first selling month, NOT the first doe's
+ * arrival. See computeSalesPerDoe for why the ramp-up is excluded.
  */
 function forEachScoredMonth(
   does: DoePresence[],
+  firstMonth: number | null,
   nowMs: number,
   visit: (month: number, present: number) => void
 ): void {
+  if (firstMonth == null) return;
   const currentMonth = monthIndex(nowMs);
-  const firstMonth = does.reduce(
-    (min, d) => Math.min(min, monthIndex(d.fromMs)),
-    Number.POSITIVE_INFINITY
-  );
-  if (!Number.isFinite(firstMonth)) return;
 
   // The running month is excluded for the same reason as the lagged average:
   // a few days of sales against a full herd would drag the mean down.
@@ -242,6 +249,19 @@ function forEachScoredMonth(
 
 const mean = (ns: number[]) => ns.reduce((s, n) => s + n, 0) / ns.length;
 
+/**
+ * The month the farm first sold anything, or null if it never has. This is
+ * where both per-doe averages start counting — see computeSalesPerDoe.
+ */
+function firstSellingMonth(soldByMonth: Map<number, { count: number } | number>): number | null {
+  let first: number | null = null;
+  for (const [month, v] of soldByMonth) {
+    const count = typeof v === "number" ? v : v.count;
+    if (count > 0 && (first == null || month < first)) first = month;
+  }
+  return first;
+}
+
 export function computeSalesPerDoe(
   sales: DatedCount[],
   does: DoePresence[],
@@ -254,8 +274,9 @@ export function computeSalesPerDoe(
   }
 
   const ratios: number[] = [];
-  forEachScoredMonth(does, nowMs, (month, present) => {
-    // Sold nothing that month IS a zero: the mothers were standing there.
+  forEachScoredMonth(does, firstSellingMonth(soldByMonth), nowMs, (month, present) => {
+    // Sold nothing that month IS a zero: the mothers were standing there, and
+    // the farm was already a selling farm by then.
     ratios.push((soldByMonth.get(month) ?? 0) / present);
   });
 
@@ -275,6 +296,9 @@ export function computeSalesPerDoe(
  * quietly drag the mean down — so it is dropped and counted in
  * unknownWeightMonths for the UI to disclose. A month that sold nothing still
  * scores a real 0.
+ *
+ * Starts at the same first selling month computeSalesPerDoe starts at, so the
+ * head figure and the kilo figure always describe the same stretch of months.
  */
 export type WeightPerDoe = {
   /** How many monthly figures went into the mean; also the printed denominator. */
@@ -304,7 +328,10 @@ export function computeWeightPerDoe(
 
   const ratios: number[] = [];
   let unknownWeightMonths = 0;
-  forEachScoredMonth(does, nowMs, (month, present) => {
+  // Anchored on the first month that sold HEAD, not the first month with a
+  // weight on file: the two averages have to cover the same months, or the
+  // kilos would describe a different stretch of the farm's life than the count.
+  forEachScoredMonth(does, firstSellingMonth(byMonth), nowMs, (month, present) => {
     const sold = byMonth.get(month);
     if (sold && sold.count > 0 && sold.grams === 0) {
       unknownWeightMonths += 1;

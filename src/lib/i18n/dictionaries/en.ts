@@ -927,7 +927,7 @@ export const en: Dictionary = {
     avgUnknownWeightMonthsNote: (count: number) =>
       `${count} month(s) sold kits with no weight on the record and are excluded from the weight average rather than counted as zero.`,
     avgSalesPerDoeNote:
-      "Sales per doe is scored month by month: each month's sales divided by the does on the farm on the 1st of that same month, then those figures averaged. The farm keeps no exit date per doe, so she counts from her purchase date — or her first mating — until the last edit to her record once she is no longer active.",
+      "Sales per doe is scored month by month: each month's sales divided by the does on the farm on the 1st of that same month, then those figures averaged. Counting starts at the first month the farm sold anything — the ramp-up before that first sale (buying, mating, gestation, nursing, with nothing yet to sell) is left out — while a month that sells nothing after selling has begun still counts as a real zero. Weight sold per doe starts at the same month, so both describe the same stretch. The farm keeps no exit date per doe, so she counts from her purchase date — or her first mating — until the last edit to her record once she is no longer active.",
     avgAllTimeBadge: "All time",
     avgUnknownNursingNote: (count: number) =>
       `${count} litter(s) predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,
@@ -944,7 +944,7 @@ export const en: Dictionary = {
     salesChartAxesNote:
       "Both bars share one scale, so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
     salesChartRatioNote:
-      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The bars start at the first doe rather than the first sale, so the ramp-up months show up with zero sales — those months really do count in «sales per doe», which is why averaging the figures above the bars lands on the number in the card.",
+      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The bars start at the first month with a sale, the same month «sales per doe» starts averaging at — which is why averaging the figures above the bars lands on the number in the card.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",

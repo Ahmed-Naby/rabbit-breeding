@@ -129,30 +129,30 @@ describe("buildMonthlySalesSeries", () => {
     expect(counts(points)).toEqual([30]);
   });
 
-  test("starts at the first sale when no does are on file", () => {
+  test("starts at the first sale, not at the first of the year", () => {
     const points = buildMonthlySalesSeries([sale(5, 30)], [], nowIn(7));
 
     expect(points).toHaveLength(2); // May and June
     expect(new Date(points[0].monthMs).getMonth()).toBe(4);
   });
 
-  test("starts at the first doe, so the ramp-up months are not hidden", () => {
-    // A doe standing since February with nothing sold until May: those three
-    // empty months are real zeros to computeSalesPerDoe, so averaging the
-    // figures printed over these bars has to see them too.
+  test("leaves out the ramp-up months before the first sale", () => {
+    // Does standing since February, first sale in May. computeSalesPerDoe
+    // starts averaging in May too, so the figures drawn over these bars
+    // average to exactly what the «معدل البيع لكل أم» card shows.
     const points = buildMonthlySalesSeries([sale(5, 30)], [doe(2)], nowIn(7));
 
-    expect(new Date(points[0].monthMs).getMonth()).toBe(1); // February
-    expect(counts(points)).toEqual([0, 0, 0, 30, 0]);
+    expect(new Date(points[0].monthMs).getMonth()).toBe(4); // May
+    expect(counts(points)).toEqual([30, 0]);
   });
 
-  test("still opens at a sale dated before the first doe", () => {
-    // Imported history can carry a sale with no doe behind it — dropping that
-    // bar would lose head the farm really shipped.
-    const points = buildMonthlySalesSeries([sale(1, 30)], [doe(4)], nowIn(5));
+  test("does not let a sale row of zero head open the series", () => {
+    // A 0-head row is not a selling month to computeSalesPerDoe either; opening
+    // on it would put a bar on the chart the card never averaged.
+    const points = buildMonthlySalesSeries([sale(1, 0), sale(3, 30)], [doe(1)], nowIn(4));
 
-    expect(new Date(points[0].monthMs).getMonth()).toBe(0); // January
-    expect(points.map((p) => p.does)).toEqual([0, 0, 0, 1]);
+    expect(new Date(points[0].monthMs).getMonth()).toBe(2); // March
+    expect(counts(points)).toEqual([30]);
   });
 
   test("crosses the year boundary", () => {

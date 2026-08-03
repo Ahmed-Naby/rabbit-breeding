@@ -295,12 +295,41 @@ describe("computeSalesPerDoe", () => {
   });
 
   test("skips a month with no does instead of dividing by zero", () => {
-    // The farm's first doe arrives in March; January and February have no
-    // denominator at all, which is not the same as having sold nothing.
-    const r = computeSalesPerDoe([sale(3, 8)], [doe(3)], nowIn(4));
+    // Imported history sells in January, but the first doe on record arrives in
+    // March: January and February have no denominator at all, which is not the
+    // same as having sold nothing.
+    const r = computeSalesPerDoe([sale(1, 8), sale(3, 8)], [doe(3)], nowIn(4));
 
     expect(r.months).toBe(1);
     expect(r.perDoe).toBe(8);
+  });
+
+  test("starts at the first month with a sale, not at the first doe", () => {
+    // Does bought in January, first sale in March: the intervening months are
+    // the wait for the first litter to reach weight, not months the farm sold
+    // badly. Scoring them 0 would measure the ramp-up instead of the selling.
+    const r = computeSalesPerDoe([sale(3, 10), sale(4, 6)], [doe(1), doe(1)], nowIn(5));
+
+    expect(r.months).toBe(2); // March and April only
+    expect(r.perDoe).toBe(4); // (5 + 3) / 2
+  });
+
+  test("counts a barren month AFTER selling has begun as a real zero", () => {
+    // The distinction the rule above turns on: once the farm has sold, a month
+    // that ships nothing is a bad month and belongs in the average.
+    const r = computeSalesPerDoe([sale(1, 10), sale(3, 10)], [doe(1), doe(1)], nowIn(4));
+
+    expect(r.months).toBe(3); // Jan, the empty Feb, and Mar
+    expect(r.perDoe).toBe(10 / 3); // (5 + 0 + 5) / 3
+  });
+
+  test("returns «—» for a farm that has never sold", () => {
+    // Nothing to anchor on: a herd that has not sold yet has no selling rate,
+    // which is not the same as a rate of zero.
+    const r = computeSalesPerDoe([], [doe(1), doe(1)], nowIn(4));
+
+    expect(r.months).toBe(0);
+    expect(r.perDoe).toBeNull();
   });
 
   test("excludes the running month, which is only part of a month of sales", () => {
@@ -321,13 +350,16 @@ describe("computeSalesPerDoe", () => {
 
   test("crosses the year boundary", () => {
     const r = computeSalesPerDoe(
-      [{ dateMs: new Date(2025, 0, 10).getTime(), count: 12 }],
+      [
+        { dateMs: new Date(2024, 11, 10).getTime(), count: 6 },
+        { dateMs: new Date(2025, 0, 10).getTime(), count: 12 },
+      ],
       [{ fromMs: new Date(2024, 11, 1).getTime(), toMs: null }],
       nowIn(2)
     );
 
-    expect(r.months).toBe(2); // December 2024 (0 sold) and January 2025
-    expect(r.perDoe).toBe(6);
+    expect(r.months).toBe(2); // December 2024 and January 2025
+    expect(r.perDoe).toBe(9);
   });
 
   test("returns «—» for a farm with no does on record", () => {
@@ -404,6 +436,30 @@ describe("computeWeightPerDoe", () => {
 
     expect(r.months).toBe(1);
     expect(r.perDoeGrams).toBe(10_000);
+  });
+
+  test("starts at the first month with a sale, not at the first doe", () => {
+    // Same rule as computeSalesPerDoe, so the kilos and the head describe the
+    // same stretch of the farm's life.
+    const r = computeWeightPerDoe([sale(3, 4, 8000)], [doe(1)], nowIn(5));
+
+    expect(r.months).toBe(2); // March and the empty April
+    expect(r.perDoeGrams).toBe(4000);
+  });
+
+  test("anchors on the first month that sold head, even with no weight on it", () => {
+    // January sold with no weight recorded — unknown, so it is dropped from the
+    // mean — but it is still where the farm started selling, so February's
+    // barren follow-on month counts.
+    const r = computeWeightPerDoe(
+      [sale(1, 10, 0), sale(3, 5, 10_000)],
+      [doe(1)],
+      nowIn(4)
+    );
+
+    expect(r.unknownWeightMonths).toBe(1);
+    expect(r.months).toBe(2); // the empty February and March
+    expect(r.perDoeGrams).toBe(5000); // (0 + 10000) / 2
   });
 
   test("returns «—» for a farm with no does on record", () => {
