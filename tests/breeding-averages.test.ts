@@ -3,6 +3,7 @@ import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
+  computeSalesPerDoe,
   type AverageKindlingRow,
   type AverageWeaningRow,
   type BreedingAveragesInput,
@@ -240,6 +241,99 @@ describe("computeLaggedSoldPerWeaning", () => {
 
     expect(r.months).toBe(0);
     expect(r.perWeaning).toBeNull();
+  });
+});
+
+describe("computeSalesPerDoe", () => {
+  /** Sales in month `month` of 2025 (1-based), day 10. */
+  const sale = (month: number, count: number) => ({
+    dateMs: new Date(2025, month - 1, 10).getTime(),
+    count,
+  });
+  /** A doe present from the 1st of `from` until the 1st of `to` (exclusive). */
+  const doe = (from: number, to?: number) => ({
+    fromMs: new Date(2025, from - 1, 1).getTime(),
+    toMs: to == null ? null : new Date(2025, to - 1, 1).getTime(),
+  });
+  const nowIn = (month: number) => new Date(2025, month - 1, 15).getTime();
+
+  test("divides each month's sales by the does standing on the 1st", () => {
+    // Jan: 2 does, 10 sold → 5.0
+    // Feb: 2 does, 6 sold  → 3.0   mean = 4.0
+    const r = computeSalesPerDoe([sale(1, 10), sale(2, 6)], [doe(1), doe(1)], nowIn(3));
+
+    expect(r.months).toBe(2);
+    expect(r.perDoe).toBe(4);
+  });
+
+  test("counts a doe from the 1st she is present, not before", () => {
+    // The second doe joins mid-February, so she is absent on Feb 1 and only
+    // counts from March — otherwise a doe bought yesterday would deflate
+    // months she never worked.
+    const does = [doe(1), { fromMs: new Date(2025, 1, 14).getTime(), toMs: null }];
+    // Jan: 1 doe, 4 sold → 4.0 | Feb: 1 doe, 4 sold → 4.0 | Mar: 2 does, 4 → 2.0
+    const r = computeSalesPerDoe([sale(1, 4), sale(2, 4), sale(3, 4)], does, nowIn(4));
+
+    expect(r.months).toBe(3);
+    expect(r.perDoe).toBe(10 / 3); // (4 + 4 + 2) / 3
+  });
+
+  test("drops a doe once she has left", () => {
+    // She exits on Feb 1, so February is scored against the one doe left.
+    const r = computeSalesPerDoe([sale(1, 10), sale(2, 10)], [doe(1), doe(1, 2)], nowIn(3));
+
+    expect(r.perDoe).toBe(7.5); // (10/2 + 10/1) / 2
+  });
+
+  test("counts a month that sold nothing as a real zero", () => {
+    // The does were standing there — dropping the month would flatter the farm.
+    const r = computeSalesPerDoe([sale(1, 10)], [doe(1), doe(1)], nowIn(3));
+
+    expect(r.months).toBe(2);
+    expect(r.perDoe).toBe(2.5); // (5 + 0) / 2
+  });
+
+  test("skips a month with no does instead of dividing by zero", () => {
+    // The farm's first doe arrives in March; January and February have no
+    // denominator at all, which is not the same as having sold nothing.
+    const r = computeSalesPerDoe([sale(3, 8)], [doe(3)], nowIn(4));
+
+    expect(r.months).toBe(1);
+    expect(r.perDoe).toBe(8);
+  });
+
+  test("excludes the running month, which is only part of a month of sales", () => {
+    const r = computeSalesPerDoe([sale(1, 10), sale(2, 1)], [doe(1), doe(1)], nowIn(2));
+
+    expect(r.months).toBe(1); // January only
+    expect(r.perDoe).toBe(5);
+  });
+
+  test("averages the monthly figures unweighted — a big herd counts once", () => {
+    // Jan: 1 doe sells 6 → 6.0 | Feb: 100 does sell 100 → 1.0 → mean 3.5.
+    // Pooling the totals would say 106/101 ≈ 1.05 instead.
+    const does = [doe(1), ...Array.from({ length: 99 }, () => doe(2))];
+    const r = computeSalesPerDoe([sale(1, 6), sale(2, 100)], does, nowIn(3));
+
+    expect(r.perDoe).toBe(3.5);
+  });
+
+  test("crosses the year boundary", () => {
+    const r = computeSalesPerDoe(
+      [{ dateMs: new Date(2025, 0, 10).getTime(), count: 12 }],
+      [{ fromMs: new Date(2024, 11, 1).getTime(), toMs: null }],
+      nowIn(2)
+    );
+
+    expect(r.months).toBe(2); // December 2024 (0 sold) and January 2025
+    expect(r.perDoe).toBe(6);
+  });
+
+  test("returns «—» for a farm with no does on record", () => {
+    const r = computeSalesPerDoe([sale(1, 10)], [], nowIn(3));
+
+    expect(r.months).toBe(0);
+    expect(r.perDoe).toBeNull();
   });
 });
 

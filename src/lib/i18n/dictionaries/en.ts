@@ -906,6 +906,7 @@ export const en: Dictionary = {
     avgNursingDeathsLabel: "Avg. kits lost during nursing",
     avgWeanedLabel: "Avg. kits weaned per litter",
     avgSoldPerWeaningLabel: "Avg. kits sold per litter",
+    avgSalesPerDoeLabel: "Sales per doe on the farm",
     avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
     avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
@@ -917,6 +918,10 @@ export const en: Dictionary = {
       `Mean of ${count} months — sales in a month ÷ weanings in the month before`,
     avgSoldPerWeaningNote:
       "Kits sold per litter is scored month by month: each month's sales divided by the number of weanings in the month before it, then those figures averaged with every month counting once whatever its size. The running month is excluded as incomplete, as is any month whose predecessor had no weanings.",
+    avgSalesPerDoeBasis: (count: number) =>
+      `Mean of ${count} months — sales in a month ÷ does on the farm on the 1st`,
+    avgSalesPerDoeNote:
+      "Sales per doe is scored month by month: each month's sales divided by the does on the farm on the 1st of that same month, then those figures averaged. The farm keeps no exit date per doe, so she counts from her purchase date — or her first mating — until the last edit to her record once she is no longer active.",
     avgAllTimeBadge: "All time",
     avgUnknownNursingNote: (count: number) =>
       `${count} litter(s) predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,

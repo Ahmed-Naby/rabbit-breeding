@@ -222,6 +222,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
               averages={report.averages}
               monthlySales={report.monthlySales}
               soldPerWeaning={report.soldPerWeaning}
+              salesPerDoe={report.salesPerDoe}
               rt={rt}
             />
           )}
@@ -392,11 +393,13 @@ function AveragesSection({
   averages,
   monthlySales,
   soldPerWeaning,
+  salesPerDoe,
   rt,
 }: {
   averages: FollowUpReport["averages"];
   monthlySales: FollowUpReport["monthlySales"];
   soldPerWeaning: FollowUpReport["soldPerWeaning"];
+  salesPerDoe: FollowUpReport["salesPerDoe"];
   rt: RT;
 }) {
   // One decimal: litter-sized quantities, where 7.3 says something 7 doesn't,
@@ -447,6 +450,12 @@ function AveragesSection({
           <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(soldPerWeaning.perWeaning)} />
         </AveragesGroup>
 
+        {/* Same monthly sales, a different denominator: the working herd rather
+            than last month's weanings. */}
+        <AveragesGroup basis={rt.avgSalesPerDoeBasis(salesPerDoe.months)}>
+          <AveragesTile label={rt.avgSalesPerDoeLabel} value={avg(salesPerDoe.perDoe)} />
+        </AveragesGroup>
+
         {/* Its own group: a stock level, not an average — no denominator, and
             whole head counts rather than the one decimal the averages carry. */}
         <AveragesGroup basis={rt.avgLifetimeBasis}>
@@ -461,6 +470,8 @@ function AveragesSection({
           {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
               litter — most of that gap is stock still standing in the barn. */}
           <p>{rt.avgSoldPerWeaningNote}</p>
+          {/* The herd size on a past date is reconstructed, not recorded. */}
+          <p>{rt.avgSalesPerDoeNote}</p>
           {/* Only when history is actually missing — a permanent caveat that is
               usually inapplicable teaches people to ignore the whole block. */}
           {averages.unknownNursingLitters > 0 && (

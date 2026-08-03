@@ -176,6 +176,72 @@ export function computeLaggedSoldPerWeaning(
   };
 }
 
+/**
+ * معدل البيع لكل أم في المزرعة — the same monthly sales figures, this time
+ * against the size of the working herd on the 1st of that month, then averaged
+ * month by month like computeLaggedSoldPerWeaning.
+ *
+ * The herd size on a past date is NOT stored: Rabbit keeps a current status and
+ * nothing else, so each doe's presence window is reconstructed from proxies the
+ * report already relies on elsewhere. Both were chosen deliberately:
+ *
+ *   IN  — acquiredDate for a bought doe, otherwise her first mating. A
+ *         farm-born doe joins the count when she enters service, not when she
+ *         was born, so juveniles never inflate the denominator. A doe with
+ *         neither date has never worked and is left out entirely.
+ *   OUT — updatedAt once her status leaves "active", the same proxy «نافق
+ *         الأمهات» uses. It moves forward if someone edits an old record, which
+ *         is the known cost of having no exit date on the row.
+ */
+export type SalesPerDoe = {
+  /** How many monthly figures went into the mean; also the printed denominator. */
+  months: number;
+  /** null until at least one month has both does and a full month of sales. */
+  perDoe: number | null;
+};
+
+/** A doe's stay on the farm. `toMs` null means she is still here. */
+export type DoePresence = { fromMs: number; toMs: number | null };
+
+export function computeSalesPerDoe(
+  sales: DatedCount[],
+  does: DoePresence[],
+  nowMs: number
+): SalesPerDoe {
+  const soldByMonth = new Map<number, number>();
+  for (const s of sales) {
+    const m = monthIndex(s.dateMs);
+    soldByMonth.set(m, (soldByMonth.get(m) ?? 0) + s.count);
+  }
+
+  const currentMonth = monthIndex(nowMs);
+  const firstMonth = does.reduce(
+    (min, d) => Math.min(min, monthIndex(d.fromMs)),
+    Number.POSITIVE_INFINITY
+  );
+  if (!Number.isFinite(firstMonth)) return { months: 0, perDoe: null };
+
+  const ratios: number[] = [];
+  // The running month is excluded for the same reason as the lagged average:
+  // a few days of sales against a full herd would drag the mean down.
+  for (let month = firstMonth; month < currentMonth; month++) {
+    const monthStart = new Date(Math.floor(month / 12), month % 12, 1).getTime();
+    const present = does.filter(
+      (d) => d.fromMs <= monthStart && (d.toMs == null || d.toMs > monthStart)
+    ).length;
+    // No mothers on the 1st — nothing to divide by. Not a zero.
+    if (present === 0) continue;
+    // Sold nothing that month IS a zero: the mothers were standing there.
+    ratios.push((soldByMonth.get(month) ?? 0) / present);
+  }
+
+  if (ratios.length === 0) return { months: 0, perDoe: null };
+  return {
+    months: ratios.length,
+    perDoe: ratios.reduce((s, r) => s + r, 0) / ratios.length,
+  };
+}
+
 /** The kindling fields the averages need; both platforms have all three. */
 export type AverageKindlingRow = {
   bornAliveAtKindling: number;

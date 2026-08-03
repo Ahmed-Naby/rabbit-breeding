@@ -4,9 +4,11 @@ import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
+  computeSalesPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
   type MonthlySales,
+  type SalesPerDoe,
 } from "@/lib/breeding-averages";
 import {
   buildKitStockSeries,
@@ -79,6 +81,8 @@ export type FollowUpReport = {
   monthlySales: MonthlySales;
   /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
   soldPerWeaning: LaggedSoldPerWeaning;
+  /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
+  salesPerDoe: SalesPerDoe;
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -206,6 +210,8 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     lifetimeWeanedStockDeathAgg,
     historyWeanings,
     historyMovements,
+    doeRows,
+    firstMatings,
   ] = await Promise.all([
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.count({ where: { sex: "buck", tagId: { not: null }, status: "active" } }),
@@ -304,6 +310,14 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       select: { weaningDate: true, weaned: true },
     }),
     prisma.kitStockMovement.findMany({ select: { date: true, type: true, count: true } }),
+    // Enough of every doe's row to rebuild when she was on the farm — see
+    // computeSalesPerDoe for why these particular fields stand in for dates the
+    // schema does not keep.
+    prisma.rabbit.findMany({
+      where: { sex: "doe" },
+      select: { id: true, status: true, acquiredDate: true, updatedAt: true },
+    }),
+    prisma.matingLog.groupBy({ by: ["doeId"], _min: { matingDate: true } }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -319,6 +333,19 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
   const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
+  const saleEvents = saleRows.map((m) => ({ dateMs: m.date.getTime(), count: m.count }));
+
+  const firstMatingByDoe = new Map(
+    firstMatings.map((g) => [g.doeId, g._min.matingDate?.getTime() ?? null])
+  );
+  const doePresence = doeRows.flatMap((d) => {
+    // Bought does start at purchase; farm-born ones at their first mating. A
+    // doe with neither has never entered service — leaving her out entirely is
+    // the point, not an oversight.
+    const fromMs = d.acquiredDate?.getTime() ?? firstMatingByDoe.get(d.id) ?? null;
+    if (fromMs == null) return [];
+    return [{ fromMs, toMs: d.status === "active" ? null : d.updatedAt.getTime() }];
+  });
 
   return {
     from,
@@ -364,8 +391,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       remainingStock: lifetimeRemainingStock,
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(
-      saleRows.map((m) => ({ dateMs: m.date.getTime(), count: m.count })),
+      saleEvents,
       // One row per weaning EVENT: the denominator is «عدد مرات الفطام», not
       // how many head those weanings produced.
       historyWeanings.map((w) => ({ dateMs: w.weaningDate.getTime(), count: 1 })),

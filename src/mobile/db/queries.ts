@@ -16,9 +16,11 @@ import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
+  computeSalesPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
   type MonthlySales,
+  type SalesPerDoe,
   type AverageKindlingRow,
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
@@ -2535,6 +2537,8 @@ export type FollowUpReport = {
   monthlySales: MonthlySales;
   /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
   soldPerWeaning: LaggedSoldPerWeaning;
+  /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
+  salesPerDoe: SalesPerDoe;
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -2645,6 +2649,8 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     lifetimeWeanedStockDeathAgg,
     historyWeanings,
     historyMovements,
+    doeRows,
+    firstMatings,
   ] = await Promise.all([
     queryOne<{ total: number | null }>(
       db,
@@ -2746,6 +2752,16 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       db,
       "SELECT date, type, count FROM kit_stock_movement"
     ),
+    // Enough of every doe's row to rebuild when she was on the farm — see
+    // computeSalesPerDoe for why these stand in for dates the schema lacks.
+    queryAll<{ id: string; status: string; acquiredDate: string | null; updatedAt: string }>(
+      db,
+      "SELECT id, status, acquiredDate, updatedAt FROM rabbit WHERE sex = 'doe'"
+    ),
+    queryAll<{ doeId: string; firstMating: string }>(
+      db,
+      "SELECT doeId, MIN(matingDate) as firstMating FROM mating_log GROUP BY doeId"
+    ),
   ]);
 
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
@@ -2765,6 +2781,22 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
   const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
+  const saleEvents = saleRows.map((m) => ({ dateMs: new Date(m.date).getTime(), count: m.count }));
+
+  const firstMatingByDoe = new Map(firstMatings.map((g) => [g.doeId, g.firstMating]));
+  const doePresence = doeRows.flatMap((d) => {
+    // Bought does start at purchase; farm-born ones at their first mating. A
+    // doe with neither has never entered service — leaving her out is the
+    // point, not an oversight.
+    const from = d.acquiredDate ?? firstMatingByDoe.get(d.id) ?? null;
+    if (from == null) return [];
+    return [
+      {
+        fromMs: new Date(from).getTime(),
+        toMs: d.status === "active" ? null : new Date(d.updatedAt).getTime(),
+      },
+    ];
+  });
 
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
@@ -2805,8 +2837,9 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       remainingStock: lifetimeRemainingStock,
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(
-      saleRows.map((m) => ({ dateMs: new Date(m.date).getTime(), count: m.count })),
+      saleEvents,
       // One row per weaning EVENT — «عدد مرات الفطام», not head weaned.
       historyWeanings.map((w) => ({ dateMs: new Date(w.weaningDate).getTime(), count: 1 })),
       Date.now()
