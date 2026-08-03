@@ -1,7 +1,18 @@
 import Link from "next/link";
 import { addDays } from "date-fns";
-import { FileText, Venus, Mars, Rabbit, Layers, TrendingUp, Gauge, ChartArea } from "lucide-react";
+import {
+  FileText,
+  Venus,
+  Mars,
+  Rabbit,
+  Layers,
+  TrendingUp,
+  Gauge,
+  ChartArea,
+  ChartColumn,
+} from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
+import { MonthlySalesChart } from "@/components/monthly-sales-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -159,6 +170,10 @@ export default async function ReportsPage({
             weightPerDoe={report.weightPerDoe}
             rt={rt}
           />
+
+          {/* Sales first, then the stock they came out of: the bars explain the
+              dips in the curve below them. */}
+          <SalesChartSection points={report.monthlySalesHistory} rt={rt} locale={locale} />
 
           {/* The same رصيد الفطام number the card above ends on, drawn back to
               the farm's first weaning. Lifetime too — hence its place here. */}
@@ -564,6 +579,48 @@ function StockChartSection({
           emptyText={rt.stockChartEmpty}
         />
         <p className="text-xs text-muted-foreground">{rt.stockChartNote}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The البيع الشهري bars — the balance curve's counterpart: that one shows what
+ * is standing in the barn, this one what left it. No bucket badge: the bars are
+ * always calendar months, however long the farm has been running.
+ */
+function SalesChartSection({
+  points,
+  rt,
+  locale,
+}: {
+  points: FollowUpReport["monthlySalesHistory"];
+  rt: RT;
+  locale: Locale;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+              <ChartColumn className="size-5" />
+            </span>
+            {rt.sectionSalesChart}
+          </CardTitle>
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+            {rt.avgAllTimeBadge}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <MonthlySalesChart
+          points={points}
+          locale={locale}
+          label={rt.salesChartSeriesLabel}
+          emptyText={rt.salesChartEmpty}
+        />
+        <p className="text-xs text-muted-foreground">{rt.salesChartNote}</p>
       </CardContent>
     </Card>
   );

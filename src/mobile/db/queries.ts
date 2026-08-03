@@ -28,9 +28,11 @@ import {
 } from "@/lib/breeding-averages";
 import {
   buildKitStockSeries,
+  buildMonthlySalesSeries,
   movementDelta,
   type KitStockBucket,
   type KitStockPoint,
+  type MonthlySalesPoint,
 } from "@/lib/kit-stock-series";
 import {
   computeHerdProductivity,
@@ -2545,6 +2547,8 @@ export type FollowUpReport = {
   weightPerDoe: WeightPerDoe;
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
+  /** One bar per calendar month of sales — see buildMonthlySalesSeries. */
+  monthlySalesHistory: MonthlySalesPoint[];
 };
 
 /** A "month" is 30 days here — calendar months would make the buckets uneven. */
@@ -2861,6 +2865,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       stockEvents,
       Date.now()
     ),
+    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, Date.now()),
   };
 }
 

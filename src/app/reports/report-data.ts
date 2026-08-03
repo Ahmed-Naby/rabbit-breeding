@@ -14,9 +14,11 @@ import {
 } from "@/lib/breeding-averages";
 import {
   buildKitStockSeries,
+  buildMonthlySalesSeries,
   movementDelta,
   type KitStockBucket,
   type KitStockPoint,
+  type MonthlySalesPoint,
 } from "@/lib/kit-stock-series";
 
 /**
@@ -89,6 +91,8 @@ export type FollowUpReport = {
   weightPerDoe: WeightPerDoe;
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
+  /** One bar per calendar month of sales — see buildMonthlySalesSeries. */
+  monthlySalesHistory: MonthlySalesPoint[];
 };
 
 /** A "month" here is 30 days — calendar months would make the buckets uneven. */
@@ -415,5 +419,6 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       Date.now()
     ),
     kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),
+    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, Date.now()),
   };
 }

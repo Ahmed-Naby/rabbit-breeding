@@ -100,6 +100,51 @@ export function buildKitStockSeries(
   return { points, bucket };
 }
 
+/** One calendar month's sales. `monthMs` is midnight on the 1st. */
+export type MonthlySalesPoint = { monthMs: number; count: number };
+
+/**
+ * Sales bucketed into calendar months, one bar per month — the counterpart to
+ * the balance curve: that one shows what is standing in the barn, this one
+ * shows what left it.
+ *
+ * NOT bucketed like buildKitStockSeries. A month is the unit the user asked
+ * for and the unit every sales average on this page already uses, so a farm
+ * five years in gets 60 bars rather than a coarser width.
+ *
+ * Months with no sales are emitted as 0 rather than skipped: a gap on the axis
+ * would compress the timeline and make a quiet spring look like it never
+ * happened. The running month is left out for the same reason the averages
+ * leave it out — a few days of sales next to full months reads as a collapse.
+ */
+export function buildMonthlySalesSeries(
+  sales: { dateMs: number; count: number }[],
+  nowMs: number
+): MonthlySalesPoint[] {
+  if (sales.length === 0) return [];
+
+  const byMonth = new Map<number, number>();
+  for (const s of sales) {
+    const d = new Date(s.dateMs);
+    const key = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    byMonth.set(key, (byMonth.get(key) ?? 0) + s.count);
+  }
+
+  const firstMs = Math.min(...byMonth.keys());
+  const now = new Date(nowMs);
+  const currentMonthMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const points: MonthlySalesPoint[] = [];
+  for (
+    let cursor = new Date(firstMs);
+    cursor.getTime() < currentMonthMs;
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+  ) {
+    points.push({ monthMs: cursor.getTime(), count: byMonth.get(cursor.getTime()) ?? 0 });
+  }
+  return points;
+}
+
 /**
  * Movement types that ADD to the balance. Everything else in KitStockMovement
  * takes away — see getKitStockBalanceAsOf, whose signs these mirror exactly.

@@ -935,6 +935,12 @@ export const en: Dictionary = {
       "Every figure in performance averages covers the farm since it started and ignores the date filter below. Weaned stock available to sell is a total rather than an average — it moves when older stock is sold even if nothing was weaned.",
 
     // ——— Weaned stock curve ———
+    sectionSalesChart: "Monthly sales since the farm started",
+    salesChartSeriesLabel: "Sold",
+    salesChartEmpty: "No sales in a completed month yet.",
+    salesChartNote:
+      "Rabbits sold in each calendar month. A month that sold nothing shows an empty bar so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
+
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",
     stockChartEmpty: "No weanings or stock movements recorded yet.",
