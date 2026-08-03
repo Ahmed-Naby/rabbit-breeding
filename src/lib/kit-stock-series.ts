@@ -123,10 +123,13 @@ export type MonthlySalesPoint = { monthMs: number; count: number; does: number }
  * happened. The running month is left out for the same reason the averages
  * leave it out — a few days of sales next to full months reads as a collapse.
  *
- * The series still STARTS at the first sale, not at the first doe. Does bought
- * during a long ramp-up before the farm's first sale belong to a different
- * story than «البيع الشهري», and leading with a row of empty sale bars would
- * bury the part being asked about.
+ * The series STARTS at the first doe, not the first sale. It used to start at
+ * the first sale, which hid the ramp-up months — does already standing, nothing
+ * sold yet — and those months are real zeros to computeSalesPerDoe. Averaging
+ * the per-month figures printed over these bars therefore disagreed with the
+ * «معدل البيع لكل أم» card by exactly the months the chart was hiding. A sale
+ * dated before any doe (imported history) still opens the series, so no bar is
+ * ever dropped.
  */
 export function buildMonthlySalesSeries(
   sales: { dateMs: number; count: number }[],
@@ -135,14 +138,21 @@ export function buildMonthlySalesSeries(
 ): MonthlySalesPoint[] {
   if (sales.length === 0) return [];
 
+  const monthStartOf = (ms: number) => {
+    const d = new Date(ms);
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  };
+
   const byMonth = new Map<number, number>();
   for (const s of sales) {
-    const d = new Date(s.dateMs);
-    const key = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+    const key = monthStartOf(s.dateMs);
     byMonth.set(key, (byMonth.get(key) ?? 0) + s.count);
   }
 
-  const firstMs = Math.min(...byMonth.keys());
+  const firstMs = does.reduce(
+    (min, d) => Math.min(min, monthStartOf(d.fromMs)),
+    Math.min(...byMonth.keys())
+  );
   const now = new Date(nowMs);
   const currentMonthMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 

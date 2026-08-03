@@ -944,7 +944,7 @@ export const en: Dictionary = {
     salesChartAxesNote:
       "Both bars share one scale, so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
     salesChartRatioNote:
-      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined.",
+      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The bars start at the first doe rather than the first sale, so the ramp-up months show up with zero sales — those months really do count in «sales per doe», which is why averaging the figures above the bars lands on the number in the card.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",
