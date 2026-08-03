@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
   computeBreedingAverages,
+  computeLaggedSoldPerWeaning,
   computeMonthlySales,
   type AverageKindlingRow,
   type AverageWeaningRow,
@@ -32,7 +33,6 @@ function averagesOf(input: Partial<BreedingAveragesInput>) {
     weanings: [],
     weanedStockDeaths: 0,
     remainingStock: 0,
-    totalSold: 0,
     ...input,
   });
 }
@@ -44,7 +44,6 @@ describe("computeBreedingAverages", () => {
       weanings: [weaning(7), weaning(5)],
       weanedStockDeaths: 4,
       remainingStock: 30,
-      totalSold: 9,
     });
 
     expect(r.kindlings).toBe(2);
@@ -52,8 +51,6 @@ describe("computeBreedingAverages", () => {
     expect(r.bornAlive).toBe(7); // (8 + 6) / 2
     expect(r.weaned).toBe(6); // (7 + 5) / 2
     expect(r.weanedStockDeaths).toBe(2); // 4 / 2
-    // Sales share the weaning denominator, so it pairs with `weaned` above.
-    expect(r.soldPerWeaning).toBe(4.5); // 9 / 2
     // Never divided: a stock level has no denominator.
     expect(r.remainingStock).toBe(30);
   });
@@ -124,7 +121,7 @@ describe("computeBreedingAverages", () => {
 
   test("returns null for every average whose denominator is zero", () => {
     // A farm with stock on the books but not a single counted weaning yet.
-    const r = averagesOf({ weanedStockDeaths: 9, remainingStock: 40, totalSold: 5 });
+    const r = averagesOf({ weanedStockDeaths: 9, remainingStock: 40 });
 
     expect(r.kindlings).toBe(0);
     expect(r.weanings).toBe(0);
@@ -132,8 +129,6 @@ describe("computeBreedingAverages", () => {
     expect(r.nursingDeaths).toBeNull();
     // نافق الفطام is farm-level but still divided — nothing to divide by, «—».
     expect(r.weanedStockDeaths).toBeNull();
-    // Same for sales: 5 head sold out of stock that predates any weaning here.
-    expect(r.soldPerWeaning).toBeNull();
     // The balance is exempt: it is a total, and 40 head are 40 head even in a
     // period that saw no weaning at all.
     expect(r.remainingStock).toBe(40);
@@ -165,18 +160,86 @@ describe("computeBreedingAverages", () => {
     expect(r.nursingDeaths).toBe(0);
   });
 
-  test("reports sales per litter below weaned per litter while stock is unsold", () => {
-    // The realistic shape: 2 litters weaned 12 head, 8 have been sold and 4 are
-    // still standing. The 6.0/4.0 gap is the balance, not a loss — the note
-    // under the card exists to say so.
-    const r = averagesOf({
-      weanings: [weaning(7), weaning(5)],
-      totalSold: 8,
-      remainingStock: 4,
-    });
+});
 
-    expect(r.weaned).toBe(6);
-    expect(r.soldPerWeaning).toBe(4);
+describe("computeLaggedSoldPerWeaning", () => {
+  /** Month `m` of 2025 (1-based), day 10 — safely inside the month. */
+  const m = (month: number, count = 1) => ({
+    dateMs: new Date(2025, month - 1, 10).getTime(),
+    count,
+  });
+  /** «Now» inside month `month`, so months strictly before it are scoreable. */
+  const nowIn = (month: number) => new Date(2025, month - 1, 15).getTime();
+
+  test("scores each month against the weanings of the month before it", () => {
+    // Jan: 2 weanings → Feb sells 10 → 5.0
+    // Feb: 4 weanings → Mar sells 8  → 2.0   mean = 3.5
+    const r = computeLaggedSoldPerWeaning(
+      [m(2, 10), m(3, 8)],
+      [m(1), m(1), m(2), m(2), m(2), m(2)],
+      nowIn(4)
+    );
+
+    expect(r.months).toBe(2);
+    expect(r.perWeaning).toBe(3.5);
+  });
+
+  test("averages the monthly figures unweighted — a big month counts once", () => {
+    // Jan: 1 weaning → Feb sells 6 → 6.0
+    // Feb: 100 weanings → Mar sells 100 → 1.0
+    // Unweighted that is 3.5; pooling the totals would say 106/101 ≈ 1.05.
+    const r = computeLaggedSoldPerWeaning(
+      [m(2, 6), m(3, 100)],
+      [m(1), ...Array.from({ length: 100 }, () => m(2))],
+      nowIn(4)
+    );
+
+    expect(r.perWeaning).toBe(3.5);
+  });
+
+  test("counts a month that sold nothing as a real zero", () => {
+    // Feb sold nothing after a January that weaned 2 litters. Dropping the
+    // month would quietly flatter the farm.
+    const r = computeLaggedSoldPerWeaning([m(3, 8)], [m(1), m(1), m(2), m(2)], nowIn(4));
+
+    expect(r.months).toBe(2);
+    expect(r.perWeaning).toBe(2); // (0 + 4) / 2
+  });
+
+  test("excludes the running month, which is only part of a month of sales", () => {
+    // Sales so far in March would otherwise be divided by all of February's
+    // weanings and drag the mean down every time the report is opened.
+    const r = computeLaggedSoldPerWeaning([m(2, 10), m(3, 1)], [m(1), m(1), m(2)], nowIn(3));
+
+    expect(r.months).toBe(1); // February only
+    expect(r.perWeaning).toBe(5);
+  });
+
+  test("skips months whose predecessor weaned nothing instead of dividing by zero", () => {
+    // A gap month: nothing weaned in February, so March is unscoreable.
+    const r = computeLaggedSoldPerWeaning([m(2, 10), m(3, 99)], [m(1), m(1)], nowIn(5));
+
+    expect(r.months).toBe(1);
+    expect(r.perWeaning).toBe(5);
+  });
+
+  test("crosses the year boundary", () => {
+    // December 2024's weanings must score January 2025's sales.
+    const r = computeLaggedSoldPerWeaning(
+      [{ dateMs: new Date(2025, 0, 10).getTime(), count: 12 }],
+      [{ dateMs: new Date(2024, 11, 10).getTime(), count: 1 }],
+      nowIn(3)
+    );
+
+    expect(r.months).toBe(1);
+    expect(r.perWeaning).toBe(12);
+  });
+
+  test("returns «—» before any month can be scored", () => {
+    const r = computeLaggedSoldPerWeaning([], [], nowIn(6));
+
+    expect(r.months).toBe(0);
+    expect(r.perWeaning).toBeNull();
   });
 });
 

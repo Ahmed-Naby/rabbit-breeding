@@ -151,7 +151,12 @@ export default async function ReportsPage({
           {/* Lifetime like the two cards above, so it also belongs ahead of the
               date filter. Each group still prints its own denominator, which is
               what says how many kindlings/weanings the average stands on. */}
-          <AveragesSection averages={report.averages} monthlySales={report.monthlySales} rt={rt} />
+          <AveragesSection
+            averages={report.averages}
+            monthlySales={report.monthlySales}
+            soldPerWeaning={report.soldPerWeaning}
+            rt={rt}
+          />
 
           {/* The same رصيد الفطام number the card above ends on, drawn back to
               the farm's first weaning. Lifetime too — hence its place here. */}
@@ -392,10 +397,12 @@ function StatTile({
 function AveragesSection({
   averages,
   monthlySales,
+  soldPerWeaning,
   rt,
 }: {
   averages: FollowUpReport["averages"];
   monthlySales: FollowUpReport["monthlySales"];
+  soldPerWeaning: FollowUpReport["soldPerWeaning"];
   rt: RT;
 }) {
   // One decimal: these are litter-sized quantities, so 7.3 says something 7
@@ -431,9 +438,6 @@ function AveragesSection({
 
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
           <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
-          {/* Beside عدد الفطام on purpose — same denominator, so the two read
-              as one pair and the gap between them is legible. */}
-          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(averages.soldPerWeaning)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
@@ -441,6 +445,14 @@ function AveragesSection({
             is, which is why it cannot join either of the two above. */}
         <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
           <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
+        </AveragesGroup>
+
+        {/* Its own basis line because it is a mean OF MONTHLY RATIOS, not a
+            single division — the month count here is smaller than the one
+            above (a month whose predecessor weaned nothing cannot be scored,
+            and the running month is excluded as incomplete). */}
+        <AveragesGroup basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}>
+          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(soldPerWeaning.perWeaning)} />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and

@@ -218,7 +218,12 @@ export function ReportsPage({ locale }: { locale: Locale }) {
               date filter. Each group still prints its own denominator, which is
               what says how many kindlings/weanings the average stands on. */}
           {report && (
-            <AveragesSection averages={report.averages} monthlySales={report.monthlySales} rt={rt} />
+            <AveragesSection
+              averages={report.averages}
+              monthlySales={report.monthlySales}
+              soldPerWeaning={report.soldPerWeaning}
+              rt={rt}
+            />
           )}
 
           {/* The same رصيد الفطام number the card above ends on, drawn back to
@@ -386,10 +391,12 @@ const TONE_TILE = {
 function AveragesSection({
   averages,
   monthlySales,
+  soldPerWeaning,
   rt,
 }: {
   averages: FollowUpReport["averages"];
   monthlySales: FollowUpReport["monthlySales"];
+  soldPerWeaning: FollowUpReport["soldPerWeaning"];
   rt: RT;
 }) {
   // One decimal: litter-sized quantities, where 7.3 says something 7 doesn't,
@@ -425,9 +432,6 @@ function AveragesSection({
 
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
           <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
-          {/* Beside عدد الفطام on purpose — same denominator, so the two read
-              as one pair and the gap between them is legible. */}
-          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(averages.soldPerWeaning)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
@@ -435,6 +439,12 @@ function AveragesSection({
             is, which is why it cannot join either of the two above. */}
         <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
           <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
+        </AveragesGroup>
+
+        {/* Its own basis line because it is a mean OF MONTHLY RATIOS, not a
+            single division — see the web copy for the full reasoning. */}
+        <AveragesGroup basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}>
+          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(soldPerWeaning.perWeaning)} />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and

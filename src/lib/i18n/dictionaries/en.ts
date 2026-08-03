@@ -913,8 +913,10 @@ export const en: Dictionary = {
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",
+    avgLaggedMonthsBasis: (count: number) =>
+      `Mean of ${count} months — sales in a month ÷ weanings in the month before`,
     avgSoldPerWeaningNote:
-      "The gap between kits weaned and kits sold is not all loss: sales lag weaning, so the newest litters count in the denominator while the stock they produced is still alive in the weaned-stock balance.",
+      "Kits sold per litter is scored month by month: each month's sales divided by the number of weanings in the month before it, then those figures averaged with every month counting once whatever its size. The running month is excluded as incomplete, as is any month whose predecessor had no weanings.",
     avgAllTimeBadge: "All time",
     avgUnknownNursingNote: (count: number) =>
       `${count} litter(s) predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,

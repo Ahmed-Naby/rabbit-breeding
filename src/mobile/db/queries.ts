@@ -14,8 +14,10 @@ import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortal
 import { naturalCompare } from "@/lib/sortable";
 import {
   computeBreedingAverages,
+  computeLaggedSoldPerWeaning,
   computeMonthlySales,
   type BreedingAverages,
+  type LaggedSoldPerWeaning,
   type MonthlySales,
   type AverageKindlingRow,
   type AverageWeaningRow,
@@ -2531,6 +2533,8 @@ export type FollowUpReport = {
   averages: BreedingAverages;
   /** متوسط البيع الشهري, also lifetime — see computeMonthlySales. */
   monthlySales: MonthlySales;
+  /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
+  soldPerWeaning: LaggedSoldPerWeaning;
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -2759,9 +2763,8 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     })),
   ];
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
-  const lifetimeSold = historyMovements
-    .filter((m) => m.type === "sale")
-    .reduce((s, m) => s + m.count, 0);
+  const saleRows = historyMovements.filter((m) => m.type === "sale");
+  const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
 
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
@@ -2800,9 +2803,14 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       weanings: lifetimeWeanings,
       weanedStockDeaths: lifetimeWeanedStockDeathAgg?.total ?? 0,
       remainingStock: lifetimeRemainingStock,
-      totalSold: lifetimeSold,
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    soldPerWeaning: computeLaggedSoldPerWeaning(
+      saleRows.map((m) => ({ dateMs: new Date(m.date).getTime(), count: m.count })),
+      // One row per weaning EVENT — «عدد مرات الفطام», not head weaned.
+      historyWeanings.map((w) => ({ dateMs: new Date(w.weaningDate).getTime(), count: 1 })),
+      Date.now()
+    ),
     kitStockHistory: buildKitStockSeries(
       stockEvents,
       Date.now()

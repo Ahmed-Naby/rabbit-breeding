@@ -2,8 +2,10 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
   computeBreedingAverages,
+  computeLaggedSoldPerWeaning,
   computeMonthlySales,
   type BreedingAverages,
+  type LaggedSoldPerWeaning,
   type MonthlySales,
 } from "@/lib/breeding-averages";
 import {
@@ -75,6 +77,8 @@ export type FollowUpReport = {
   averages: BreedingAverages;
   /** متوسط البيع الشهري, also lifetime — see computeMonthlySales. */
   monthlySales: MonthlySales;
+  /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
+  soldPerWeaning: LaggedSoldPerWeaning;
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -313,9 +317,8 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     ...historyMovements.map((m) => ({ dateMs: m.date.getTime(), delta: movementDelta(m.type, m.count) })),
   ];
   const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
-  const lifetimeSold = historyMovements
-    .filter((m) => m.type === "sale")
-    .reduce((s, m) => s + m.count, 0);
+  const saleRows = historyMovements.filter((m) => m.type === "sale");
+  const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
 
   return {
     from,
@@ -359,9 +362,15 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       weanings: lifetimeWeanings,
       weanedStockDeaths: lifetimeWeanedStockDeathAgg._sum.count ?? 0,
       remainingStock: lifetimeRemainingStock,
-      totalSold: lifetimeSold,
     }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    soldPerWeaning: computeLaggedSoldPerWeaning(
+      saleRows.map((m) => ({ dateMs: m.date.getTime(), count: m.count })),
+      // One row per weaning EVENT: the denominator is «عدد مرات الفطام», not
+      // how many head those weanings produced.
+      historyWeanings.map((w) => ({ dateMs: w.weaningDate.getTime(), count: 1 })),
+      Date.now()
+    ),
     kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),
   };
 }

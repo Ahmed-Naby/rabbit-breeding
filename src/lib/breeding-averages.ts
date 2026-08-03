@@ -67,17 +67,6 @@ export type BreedingAverages = {
   /** متوسط نافق الفطام — post-weaning deaths from the kit ledger. */
   weanedStockDeaths: number | null;
   /**
-   * متوسط الفطام المباع لكل ولادة — lifetime sales over the same weaning count
-   * `weaned` uses, so the two tiles sit side by side and the gap between them
-   * is what the farm weaned but has not sold.
-   *
-   * It reads LOW by construction and that is not a bug: sales lag weaning, so
-   * the newest litters are counted in the denominator while the stock they
-   * produced is still alive in the balance. Reading the gap as pure loss would
-   * be wrong — most of it is remainingStock.
-   */
-  soldPerWeaning: number | null;
-  /**
    * رصيد الفطام المتاح للبيع — a TOTAL, not an average: the farm's whole
    * running balance right now. It was briefly divided (first by the weanings in
    * the period, which printed «497 لكل فطام», then by every weaning ever, which
@@ -125,6 +114,68 @@ export function computeMonthlySales(
   return { totalSold, months, perMonth: totalSold / months };
 }
 
+/**
+ * متوسط الفطام المباع لكل ولادة, matched to the litters that produced the sale.
+ *
+ * NOT lifetime sales ÷ lifetime weanings. That divides today's sales by litters
+ * weaned last week whose stock has not been sold yet, so it slides downward for
+ * no reason other than the farm being busy lately. Instead each month is scored
+ * on its own — sales in the month ÷ weaning events in the month BEFORE it — and
+ * those monthly figures are averaged, each month counting once regardless of
+ * its size.
+ */
+export type LaggedSoldPerWeaning = {
+  /** How many monthly figures went into the mean; also the printed denominator. */
+  months: number;
+  /** null when no month has a scoreable predecessor yet. */
+  perWeaning: number | null;
+};
+
+/** One dated quantity. For weanings the caller passes one row per event. */
+export type DatedCount = { dateMs: number; count: number };
+
+/** Calendar months as a single comparable number, so m-1 crosses years safely. */
+function monthIndex(ms: number): number {
+  const d = new Date(ms);
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+export function computeLaggedSoldPerWeaning(
+  sales: DatedCount[],
+  weanings: DatedCount[],
+  nowMs: number
+): LaggedSoldPerWeaning {
+  const soldByMonth = new Map<number, number>();
+  for (const s of sales) {
+    const m = monthIndex(s.dateMs);
+    soldByMonth.set(m, (soldByMonth.get(m) ?? 0) + s.count);
+  }
+  const weanedByMonth = new Map<number, number>();
+  for (const w of weanings) {
+    const m = monthIndex(w.dateMs);
+    weanedByMonth.set(m, (weanedByMonth.get(m) ?? 0) + w.count);
+  }
+
+  const currentMonth = monthIndex(nowMs);
+  const ratios: number[] = [];
+  for (const [month, weaned] of weanedByMonth) {
+    const scored = month + 1;
+    // The running month is excluded: three days of sales against a full month
+    // of weanings would drag the mean down every time the report is opened.
+    if (weaned <= 0 || scored >= currentMonth) continue;
+    // A month that sold nothing after a productive one scores a real 0 — it is
+    // not missing data, and dropping it would flatter the farm.
+    ratios.push((soldByMonth.get(scored) ?? 0) / weaned);
+  }
+
+  if (ratios.length === 0) return { months: 0, perWeaning: null };
+  // Unweighted: every month counts once, whatever its volume.
+  return {
+    months: ratios.length,
+    perWeaning: ratios.reduce((s, r) => s + r, 0) / ratios.length,
+  };
+}
+
 /** The kindling fields the averages need; both platforms have all three. */
 export type AverageKindlingRow = {
   bornAliveAtKindling: number;
@@ -151,8 +202,6 @@ export type BreedingAveragesInput = {
   weanedStockDeaths: number;
   /** رصيد الفطام — the running balance, reported as-is. */
   remainingStock: number;
-  /** Every head ever sold out of the ledger. */
-  totalSold: number;
 };
 
 export function computeBreedingAverages({
@@ -160,7 +209,6 @@ export function computeBreedingAverages({
   weanings,
   weanedStockDeaths,
   remainingStock,
-  totalSold,
 }: BreedingAveragesInput): BreedingAverages {
   // Only litters whose losses are knowable, on both sides of the fraction.
   const knownNursing = kindlings.filter(hasKnownSurvival);
@@ -177,7 +225,6 @@ export function computeBreedingAverages({
     unknownNursingLitters: kindlings.length - knownNursing.length,
     weaned: per(sum(weanings.map((w) => w.weaned ?? 0)), weanings.length),
     weanedStockDeaths: per(weanedStockDeaths, weanings.length),
-    soldPerWeaning: per(totalSold, weanings.length),
     // Passed straight through — no denominator, so no null case either.
     remainingStock,
   };
