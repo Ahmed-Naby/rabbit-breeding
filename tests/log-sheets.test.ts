@@ -237,6 +237,31 @@ describe("buildLogSheet", () => {
     expect(sheet.rows[0]).toEqual([new Date("2026-01-05T00:00:00.000Z"), "أنثى", "بوسكات", "0104", 2.25]);
   });
 
+  it("blanks the last-kindling date for a doe who never kindled", () => {
+    const sheet = buildLogSheet(
+      {
+        kind: "idleDoes",
+        rows: [
+          {
+            tagId: "24",
+            breed: "كاليفورنيا",
+            lastKindlingDate: "2025-10-29T00:00:00.000Z",
+            neverKindled: false,
+            idleDays: 277,
+          },
+          { tagId: "163", breed: null, lastKindlingDate: null, neverKindled: true, idleDays: 127 },
+        ],
+      },
+      "ar"
+    );
+
+    expect(sheet.columns).toHaveLength(sheet.rows[0].length);
+    expect(sheet.sheetName).toBe("الأمهات الخاملة");
+    expect(sheet.rows[0]).toEqual(["24", "كاليفورنيا", new Date("2025-10-29T00:00:00.000Z"), 277]);
+    // A date column stays a date — «لم تلد إطلاقًا» has no place in it.
+    expect(sheet.rows[1]).toEqual(["163", null, null, 127]);
+  });
+
   it("names the file after the sheet and the day", () => {
     const day = new Date().toISOString().slice(0, 10);
     expect(logSheetFilename("سجل التلقيح")).toBe(`rabbittrack-سجل-التلقيح-${day}.xlsx`);

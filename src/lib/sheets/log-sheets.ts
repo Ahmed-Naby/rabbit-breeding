@@ -175,6 +175,16 @@ export type HerdSheetRow = {
   doeState?: string;
 };
 
+/** A doe past a full cycle without kindling — the استبعاد shortlist. */
+export type IdleDoeSheetRow = {
+  tagId?: string | null;
+  breed?: string | null;
+  lastKindlingDate: DateLike;
+  /** True when she has no kindling at all; the date column then goes out blank. */
+  neverKindled: boolean;
+  idleDays: number;
+};
+
 /** An untagged juvenile still on the السلالات intake table. */
 export type StockSheetRow = {
   date: DateLike;
@@ -207,6 +217,7 @@ export type LogSheetSpec =
   | { kind: "herdDoes"; rows: HerdSheetRow[]; weightUnit: WeightUnit }
   | { kind: "herdBucks"; rows: HerdSheetRow[]; weightUnit: WeightUnit }
   | { kind: "stock"; rows: StockSheetRow[] }
+  | { kind: "idleDoes"; rows: IdleDoeSheetRow[] }
   | { kind: "kitLedger"; rows: KitLedgerSheetRow[]; currency: string; weightUnit: WeightUnit };
 
 // ── builders ─────────────────────────────────────────────────────────────────
@@ -553,6 +564,27 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
           r.breed ?? null,
           r.cage ?? null,
           r.weightKg,
+        ])
+      );
+    }
+
+    case "idleDoes": {
+      const t = d.reports;
+      return sheet(
+        t.herdSectionIdle,
+        [
+          { header: t.herdColTag, format: "text", width: TAG },
+          { header: t.herdColBreed, format: "text" },
+          { header: t.herdColLastKindling, format: "date", width: DATE },
+          { header: t.herdColIdleDays, format: "number", width: 16 },
+        ],
+        spec.rows.map((r) => [
+          r.tagId ?? null,
+          r.breed ?? null,
+          // A date column stays a date, so «لم تلد إطلاقًا» goes out blank
+          // rather than as text; أيام بلا ولادة still carries her number.
+          r.neverKindled ? null : asDate(r.lastKindlingDate),
+          r.idleDays,
         ])
       );
     }

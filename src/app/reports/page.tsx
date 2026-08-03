@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { TableRow, TableCell } from "@/components/ui/table";
 import { SortableTable } from "@/components/ui/sortable-table";
 import { LocalDate } from "@/components/local-date";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { formatMoney } from "@/lib/units";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { getFollowUpReport, type FollowUpReport } from "./report-data";
@@ -742,6 +743,22 @@ function HerdProductivitySection({
           {herd.idleDoes.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.herdIdleEmpty}</p>
           ) : (
+            <>
+            <div className="flex justify-end">
+              <ExportXlsxButton
+                locale={locale}
+                spec={{
+                  kind: "idleDoes",
+                  rows: herd.idleDoes.map((doe) => ({
+                    tagId: doe.tagId,
+                    breed: doe.breed,
+                    lastKindlingDate: doe.lastKindlingDate,
+                    neverKindled: doe.neverKindled,
+                    idleDays: doe.idleDays,
+                  })),
+                }}
+              />
+            </div>
             <div className="overflow-hidden rounded-xl border">
               <SortableTable
                 headerRowClassName="[&>th]:border-x"
@@ -788,6 +805,7 @@ function HerdProductivitySection({
                 }))}
               />
             </div>
+            </>
           )}
         </div>
       </Section>

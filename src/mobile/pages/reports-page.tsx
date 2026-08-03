@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LocalDate } from "@/components/local-date";
+import { SortableTh } from "@/components/sortable-th";
+import { useSortableRows } from "@/lib/use-sortable-rows";
+import { ExportXlsxButton } from "@/components/export-xlsx-button";
+import { saveBinaryFile } from "../lib/save-file";
 import { DoesFertilityPage } from "./does-fertility-page";
 import { BucksFertilityPage } from "./bucks-fertility-page";
 import { cn } from "@/lib/utils";
@@ -418,11 +422,6 @@ function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"
  * Mirrors the web HerdProductivitySection (src/app/reports/page.tsx). Both are
  * fed by computeHerdProductivity/findIdleDoes, so only the presentation is
  * duplicated here — never the arithmetic.
- *
- * The one deliberate difference: the idle list is a plain table rather than the
- * web's SortableTable. findIdleDoes already returns worst-first, which is the
- * order that matters (the top rows are the استبعاد shortlist), and no other
- * mobile screen ships column sorting.
  */
 function HerdProductivitySection({
   herd,
@@ -444,6 +443,19 @@ function HerdProductivitySection({
   const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
 
   const idleShare = p.doeCount > 0 ? herd.idleDoes.length / p.doeCount : null;
+
+  // Worst first, matching what findIdleDoes already returns: the top rows are
+  // the استبعاد shortlist and should need no clicking.
+  const idleSort = useSortableRows(
+    herd.idleDoes,
+    {
+      tag: { type: "tag", value: (r) => r.tagId },
+      breed: { type: "string", value: (r) => r.breed },
+      last: { type: "date", value: (r) => r.lastKindlingDate },
+      idleDays: { type: "number", value: (r) => r.idleDays },
+    },
+    { key: "idleDays", direction: "desc" }
+  );
 
   return (
     <div className="space-y-6">
@@ -630,19 +642,61 @@ function HerdProductivitySection({
           {herd.idleDoes.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.herdIdleEmpty}</p>
           ) : (
+            <>
+            <div className="flex justify-end">
+              <ExportXlsxButton
+                locale={locale}
+                save={saveBinaryFile}
+                spec={{
+                  kind: "idleDoes",
+                  rows: herd.idleDoes.map((doe) => ({
+                    tagId: doe.tagId,
+                    breed: doe.breed,
+                    lastKindlingDate: doe.lastKindlingDate,
+                    neverKindled: doe.neverKindled,
+                    idleDays: doe.idleDays,
+                  })),
+                }}
+              />
+            </div>
             <div className="overflow-x-auto rounded-xl border">
               <Table>
                 <TableHeader>
                   <TableRow className="[&>th]:text-center">
                     <TableHead>{rt.herdColIndex}</TableHead>
-                    <TableHead>{rt.herdColTag}</TableHead>
-                    <TableHead className="hidden sm:table-cell">{rt.herdColBreed}</TableHead>
-                    <TableHead>{rt.herdColLastKindling}</TableHead>
-                    <TableHead>{rt.herdColIdleDays}</TableHead>
+                    <SortableTh
+                      label={rt.herdColTag}
+                      sortKey="tag"
+                      activeSortKey={idleSort.sortKey}
+                      direction={idleSort.direction}
+                      onSort={idleSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="hidden sm:table-cell"
+                      label={rt.herdColBreed}
+                      sortKey="breed"
+                      activeSortKey={idleSort.sortKey}
+                      direction={idleSort.direction}
+                      onSort={idleSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.herdColLastKindling}
+                      sortKey="last"
+                      activeSortKey={idleSort.sortKey}
+                      direction={idleSort.direction}
+                      onSort={idleSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.herdColIdleDays}
+                      sortKey="idleDays"
+                      activeSortKey={idleSort.sortKey}
+                      direction={idleSort.direction}
+                      onSort={idleSort.toggleSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {herd.idleDoes.map((doe, i) => (
+                  {idleSort.sorted.map((doe, i) => (
                     <TableRow key={doe.id} className="[&>td]:text-center">
                       <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                       <TableCell className="font-medium">
@@ -666,6 +720,7 @@ function HerdProductivitySection({
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </div>
       </Section>
