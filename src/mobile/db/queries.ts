@@ -2719,7 +2719,8 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     getLocalKitStockBalanceAsOf(db),
     queryOne<{ count: number }>(
       db,
-      "SELECT COUNT(*) as count FROM breeding WHERE matingDate >= ? AND matingDate < ?",
+      // mating_log, not breeding — see the note on the web query this mirrors.
+      "SELECT COUNT(*) as count FROM mating_log WHERE matingDate >= ? AND matingDate < ?",
       [fromIso, toIso]
     ),
     queryOne<{ count: number }>(

@@ -1007,21 +1007,68 @@ for (let day = 0; day <= SIM_DAYS; day += 30) {
   }
 }
 
-/* ────────── phase 5: each doe's CURRENT cycle (Breeding/Litter) ── */
+/* ────────────── phase 5: the Breeding/Litter rows ──────────────── */
 
 /**
- * One Breeding row per doe, holding only her latest cycle — the real app reuses
- * that row and overwrites matingDate/actualKindlingDate on every mating, which
- * is exactly why all the history above went into the *Log tables instead.
- * Her doeState is derived from where today falls inside that last cycle, so the
- * does board, عمليات المزرعة and «أمهات جاهزة للتلقيح» all have live work to show.
+ * The app opens a NEW Breeding row whenever a doe is mated while nursing, and
+ * only reuses her existing row when she was already dry (see markMatedOp). On a
+ * farm that rebreeds before weaning — this one does, 20 days after kindling
+ * against a 40-day weaning — she is nursing at every service, so every cycle
+ * gets its own row and its own Litter, and her history is as long as her *Log
+ * archive. A dry rebreed instead overwrites the row it finds, which is why the
+ * archives above stay the source of truth for anything counted over time.
+ *
+ * Only her latest row carries live state: doeState is derived from where today
+ * falls inside that cycle, so the does board, عمليات المزرعة and «أمهات جاهزة
+ * للتلقيح» all have work to show.
  */
 const doeStateById = new Map<string, string>();
+
+/** A closed cycle, written the way the app leaves one behind. */
+function pushHistoricalBreeding(cycle: Cycle, breedingId: string) {
+  breedings.push({
+    id: breedingId,
+    buckId: cycle.buckId,
+    doeId: cycle.doe.id,
+    matingDate: iso(cycle.matingDate),
+    expectedKindlingDate: iso(addDays(cycle.matingDate, GESTATION_DAYS)),
+    actualKindlingDate: cycle.kindlingDate ? iso(cycle.kindlingDate) : null,
+    nestBoxDate: cycle.nestBoxDate && cycle.nestBoxDate <= TODAY ? iso(cycle.nestBoxDate) : null,
+    // Confirmed by palpation only where there was something to feel.
+    palpationConfirmedDate: cycle.conceived ? iso(addDays(cycle.matingDate, 15)) : null,
+    outcome: cycle.kindlingDate ? "successful" : cycle.conceived ? "failed" : "not_pregnant",
+    pregnancyTestResult: cycle.conceived ? "positive" : "negative",
+    notes: null,
+    createdAt: iso(cycle.matingDate),
+    updatedAt: iso(cycle.weaningDate ?? cycle.kindlingDate ?? cycle.resorptionDate ?? cycle.testDate),
+  });
+  if (!cycle.kindlingDate) return;
+  litters.push({
+    id: id(),
+    breedingId,
+    kindlingDate: iso(cycle.kindlingDate),
+    bornAlive: cycle.bornAlive,
+    bornDead: cycle.bornDead,
+    weaned: cycle.weaned,
+    weaningDate: cycle.weaningDate ? iso(cycle.weaningDate) : null,
+    weaningWeightGrams: cycle.weaningWeightGrams,
+    notes: null,
+    createdAt: iso(cycle.kindlingDate),
+    updatedAt: iso(cycle.weaningDate ?? cycle.kindlingDate),
+  });
+}
 
 for (const doe of does) {
   const mine = cycles.filter((c) => c.doe.id === doe.id);
   const last = mine[mine.length - 1];
   const breedingId = id();
+
+  // Everything before her current cycle, one row each — except where a dry
+  // rebreed would have overwritten the previous row instead of adding one.
+  for (let i = 0; i < mine.length - 1; i++) {
+    if (!mine[i + 1].wasNursingAtMating) continue;
+    pushHistoricalBreeding(mine[i], id());
+  }
 
   if (!last) {
     // Never mated — a doe bought in days ago, or one of the idle tier that

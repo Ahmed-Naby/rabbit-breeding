@@ -283,7 +283,16 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     // «رصيد الفطام المتاح للبيع» on the averages card: the farm's balance right
     // now, unfiltered on purpose — see computeBreedingAverages.
     getKitStockBalanceAsOf(),
-    prisma.breeding.count({ where: { matingDate: dateRange } }),
+    // MatingLog, not Breeding: Breeding holds the doe's CURRENT cycle and the
+    // app only opens a second row when she is mated while nursing — a doe
+    // rebred after weaning has markMatedOp overwrite her existing row's
+    // matingDate, so counting Breeding counts does-mated-lately, not matings.
+    // The archive row next to it is the one written once per mating and never
+    // rewritten, which is what this tile says. Reading Breeding was also why
+    // the farm printed 129 matings against 2,127 kindlings: it was counting
+    // the does standing with a live matingDate, and dropping every row whose
+    // date had been cleared back to null after weaning.
+    prisma.matingLog.count({ where: { matingDate: dateRange } }),
     prisma.pregnancyTestLog.count({ where: { result: "positive", testDate: dateRange } }),
     // findMany, not count: the averages need the per-litter counts anyway, and
     // `kindlings` below is just this array's length — so this stays one round
