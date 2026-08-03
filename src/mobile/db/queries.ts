@@ -2621,7 +2621,6 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     retainedAgg,
     remainingStock,
     lifetimeRemainingStock,
-    lifetimeWeanings,
     matings,
     pregnancyPositive,
     kindlingRows,
@@ -2680,14 +2679,9 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       [fromIso, toIso]
     ),
     getLocalKitStockBalanceAsOf(db, toIso),
-    // Both sides of «متوسط رصيد الفطام»: the whole farm's running balance over
-    // every weaning it ever counted. Unfiltered on purpose — see
-    // computeBreedingAverages.
+    // «رصيد الفطام المتاح للبيع» on the averages card: the farm's balance right
+    // now, unfiltered on purpose — see computeBreedingAverages.
     getLocalKitStockBalanceAsOf(db),
-    queryOne<{ count: number }>(
-      db,
-      "SELECT COUNT(*) as count FROM weaning_log WHERE weaned IS NOT NULL"
-    ),
     queryOne<{ count: number }>(
       db,
       "SELECT COUNT(*) as count FROM breeding WHERE matingDate >= ? AND matingDate < ?",
@@ -2745,7 +2739,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       kindlingRows,
       weaningsInRange,
       weanedStockDeathAgg?.total ?? 0,
-      { remainingStock: lifetimeRemainingStock, weanings: lifetimeWeanings?.count ?? 0 }
+      lifetimeRemainingStock
     ),
   };
 }

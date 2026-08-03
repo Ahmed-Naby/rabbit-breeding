@@ -177,7 +177,6 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     retainedAgg,
     remainingStock,
     lifetimeRemainingStock,
-    lifetimeWeanings,
     matings,
     pregnancyPositive,
     kindlingRows,
@@ -241,11 +240,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       _sum: { count: true },
     }),
     getKitStockBalanceAsOf(to),
-    // Both sides of «متوسط رصيد الفطام»: the whole farm's running balance over
-    // every weaning it ever counted. Unfiltered on purpose — see
-    // computeBreedingAverages.
+    // «رصيد الفطام المتاح للبيع» on the averages card: the farm's balance right
+    // now, unfiltered on purpose — see computeBreedingAverages.
     getKitStockBalanceAsOf(),
-    prisma.weaningLog.count({ where: { weaned: { not: null } } }),
     prisma.breeding.count({ where: { matingDate: dateRange } }),
     prisma.pregnancyTestLog.count({ where: { result: "positive", testDate: dateRange } }),
     // findMany, not count: the averages need the per-litter counts anyway, and
@@ -304,7 +301,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       kindlingRows,
       weaningsInRange,
       weanedStockDeaths,
-      { remainingStock: lifetimeRemainingStock, weanings: lifetimeWeanings }
+      lifetimeRemainingStock
     ),
   };
 }

@@ -10,22 +10,17 @@
 import { deadDuringBreeding, hasKnownSurvival } from "./kit-mortality";
 
 /**
- * THREE different denominators, deliberately:
+ * TWO different denominators, deliberately:
  *
  *   bornAlive, nursingDeaths          ÷ عدد الولادات في الفترة
  *   weaned, weanedStockDeaths         ÷ عدد مرات الفطام في الفترة
- *   remainingStock                    ÷ عدد مرات الفطام منذ بداية العمل
  *
- * The first two cannot share one denominator without lying. A litter born on
- * the last day of the period is never weaned inside it, and a weaning on the
- * first day came from a kindling ~30 days before it — dividing both halves of
- * the cycle by one count would measure each against a population that only did
- * the other.
+ * They cannot share one denominator without lying. A litter born on the last
+ * day of the period is never weaned inside it, and a weaning on the first day
+ * came from a kindling ~30 days before it — dividing both halves of the cycle
+ * by one count would measure each against a population that only did the other.
  *
- * remainingStock stands apart from both: its numerator is the farm's whole
- * running balance, so a period denominator divided a lifetime by a week and
- * printed «497 رأس لكل فطام». It is a lifetime-over-lifetime figure now, and
- * the date filter does not touch either side of it.
+ * remainingStock is not an average at all — see its field doc.
  *
  * EVENTS, not does: a doe that kindles twice in the period counts twice on both
  * sides. That makes bornAlive a true litter size (comparable to the breed
@@ -45,8 +40,6 @@ export type BreedingAverages = {
   kindlings: number;
   /** Denominator for weaned/weanedStockDeaths: counted weanings in range. */
   weanings: number;
-  /** Denominator for remainingStock: every counted weaning the farm ever did. */
-  lifetimeWeanings: number;
   /** متوسط عدد البطن الحي — from bornAliveAtKindling, the frozen litter size. */
   bornAlive: number | null;
   /** متوسط نافق النتاج أثناء الرعاية — see nursingDeathsLitters for its denominator. */
@@ -70,13 +63,14 @@ export type BreedingAverages = {
   /** متوسط نافق الفطام — post-weaning deaths from the kit ledger. */
   weanedStockDeaths: number | null;
   /**
-   * متوسط رصيد الفطام المتاح للبيع — the farm's whole life, both sides. The
-   * numerator is the current running balance and the denominator every weaning
-   * ever counted, so the selected period changes neither: this says "stock on
-   * hand per weaning the farm has done", and it moves when old stock is sold
-   * even if nothing was weaned.
+   * رصيد الفطام المتاح للبيع — a TOTAL, not an average, and the only figure
+   * here the date filter never touches: the farm's whole running balance right
+   * now. It was briefly divided (first by the weanings in the period, which
+   * printed «497 لكل فطام», then by every weaning ever, which printed a
+   * meaningless 0.6) — a stock level has no denominator. It moves when old
+   * stock is sold even if nothing was weaned.
    */
-  remainingStock: number | null;
+  remainingStock: number;
 };
 
 /** The kindling fields the averages need; both platforms have all three. */
@@ -95,8 +89,8 @@ export function computeBreedingAverages(
   kindlings: AverageKindlingRow[],
   weanings: AverageWeaningRow[],
   weanedStockDeaths: number,
-  /** Both lifetime figures, unfiltered by the report's period. */
-  lifetime: { remainingStock: number; weanings: number }
+  /** The farm's running balance right now, unfiltered by the report's period. */
+  lifetimeRemainingStock: number
 ): BreedingAverages {
   // Only litters whose losses are knowable, on both sides of the fraction.
   const knownNursing = kindlings.filter(hasKnownSurvival);
@@ -107,13 +101,13 @@ export function computeBreedingAverages(
   return {
     kindlings: kindlings.length,
     weanings: weanings.length,
-    lifetimeWeanings: lifetime.weanings,
     bornAlive: per(sum(kindlings.map((k) => k.bornAliveAtKindling)), kindlings.length),
     nursingDeaths: per(sum(knownNursing.map(deadDuringBreeding)), knownNursing.length),
     nursingDeathsLitters: knownNursing.length,
     unknownNursingLitters: kindlings.length - knownNursing.length,
     weaned: per(sum(weanings.map((w) => w.weaned ?? 0)), weanings.length),
     weanedStockDeaths: per(weanedStockDeaths, weanings.length),
-    remainingStock: per(lifetime.remainingStock, lifetime.weanings),
+    // Passed straight through — no denominator, so no null case either.
+    remainingStock: lifetimeRemainingStock,
   };
 }

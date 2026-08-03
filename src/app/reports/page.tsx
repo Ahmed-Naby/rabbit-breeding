@@ -410,10 +410,13 @@ function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
-        {/* Its own group: lifetime over lifetime, so the period basis printed
-            above would misstate both halves of this one. */}
-        <AveragesGroup basis={rt.avgLifetimeWeaningBasis(averages.lifetimeWeanings)}>
-          <AveragesTile label={rt.avgRemainingStockLabel} value={avg(averages.remainingStock)} />
+        {/* Its own group: a stock level, not an average — no denominator, and
+            whole head counts rather than the one decimal the averages carry. */}
+        <AveragesGroup basis={rt.avgLifetimeBasis}>
+          <AveragesTile
+            label={rt.avgRemainingStockLabel}
+            value={averages.remainingStock.toLocaleString()}
+          />
         </AveragesGroup>
 
         <div className="space-y-1 text-xs text-muted-foreground">
