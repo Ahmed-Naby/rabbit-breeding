@@ -914,7 +914,7 @@ export const ar = {
     sectionAverages: "متوسطات الأداء",
     avgBornAliveLabel: "متوسط عدد البطن الحي",
     avgNursingDeathsLabel: "متوسط نافق النتاج أثناء الرعاية",
-    avgWeanedLabel: "متوسط عدد الفطام",
+    avgWeanedLabel: "متوسط عدد الفطام لكل ولادة",
     avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
     avgRemainingStockLabel: "رصيد الفطام المتاح للبيع",
     avgMonthlySalesLabel: "متوسط البيع الشهري",

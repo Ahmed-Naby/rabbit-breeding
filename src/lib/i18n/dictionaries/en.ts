@@ -904,7 +904,7 @@ export const en: Dictionary = {
     sectionAverages: "Averages",
     avgBornAliveLabel: "Avg. live litter size",
     avgNursingDeathsLabel: "Avg. kits lost during nursing",
-    avgWeanedLabel: "Avg. kits weaned",
+    avgWeanedLabel: "Avg. kits weaned per litter",
     avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
     avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
