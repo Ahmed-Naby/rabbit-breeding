@@ -823,6 +823,7 @@ function HerdProductivitySection({
           />
         </div>
         <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
+          <p>{rt.herdMonthlyRuleNote}</p>
           <p>{rt.herdCostNote}</p>
           {p.netPerDoePerMonthCents != null && (
             <p

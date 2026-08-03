@@ -983,6 +983,8 @@ export const en: Dictionary = {
     herdRevenuePerMonthLabel: "Income per doe per month",
     herdCostPerMonthLabel: "Allocated cost per doe per month",
     herdNetPerMonthLabel: "Net per doe per month",
+    herdMonthlyRuleNote:
+      "Each figure is a true monthly mean: every month's total is divided by the does standing that same month, then the months are averaged. Only calendar months wholly inside the period count, starting at the first month with activity — so a range that holds no complete month shows «—».",
     herdCostNote:
       "Feed and vet costs are farm-level, not recorded per doe, so the cost here is allocated evenly across the does and includes their share of keeping the bucks and replacement stock. Read it as an allocation, not a measurement.",
     herdNetPositiveNote: "Net is positive: on average a doe covers her keep and more.",

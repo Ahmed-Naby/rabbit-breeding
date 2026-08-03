@@ -31,6 +31,10 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     weanings,
     weanedStockDeathAgg,
     saleAgg,
+    saleRows,
+    transactionRows,
+    allDoeRows,
+    firstMatings,
     incomeAgg,
     expenseAgg,
     feedExpenseAgg,
@@ -59,7 +63,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     }),
     prisma.weaningLog.findMany({
       where: { weaningDate: dateRange, weaned: { not: null } },
-      select: { weaned: true },
+      select: { weaningDate: true, weaned: true },
     }),
     prisma.kitStockMovement.aggregate({
       where: { type: "death", date: dateRange },
@@ -69,6 +73,23 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
       where: { type: "sale", date: dateRange },
       _sum: { count: true, weightGrams: true, amountCents: true },
     }),
+    // The same sales again, dated: «كجم مباع لكل أم شهريًا» averages them month
+    // by month and an aggregate has no months in it.
+    prisma.kitStockMovement.findMany({
+      where: { type: "sale", date: dateRange },
+      select: { date: true, count: true, weightGrams: true },
+    }),
+    prisma.transaction.findMany({
+      where: { date: dateRange },
+      select: { date: true, type: true, amountCents: true },
+    }),
+    // Enough of every doe — not just the tagged, active ones above — to rebuild
+    // when she stood on the farm. See computeSalesPerDoe for the proxies.
+    prisma.rabbit.findMany({
+      where: { sex: "doe" },
+      select: { id: true, status: true, acquiredDate: true, updatedAt: true },
+    }),
+    prisma.matingLog.groupBy({ by: ["doeId"], _min: { matingDate: true } }),
     // Transaction, not the sale movements' amountCents: the farm may also sell
     // culled does, bucks, or manure, and every one of those is real income the
     // does' cages helped produce. The kit-sale rows are mirrored into
@@ -118,9 +139,40 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
   );
   const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
+  // Every doe who ever worked, not just today's herd: the monthly tiles divide
+  // each month by the does standing THAT month, and a doe sold last spring was
+  // standing then. See computeSalesPerDoe for why these fields stand in for
+  // dates the schema does not keep.
+  const firstMatingByDoe = new Map(
+    firstMatings.map((g) => [g.doeId, g._min.matingDate?.getTime() ?? null])
+  );
+  const does = allDoeRows.flatMap((d) => {
+    const fromMs = d.acquiredDate?.getTime() ?? firstMatingByDoe.get(d.id) ?? null;
+    if (fromMs == null) return [];
+    return [{ fromMs, toMs: d.status === "active" ? null : d.updatedAt.getTime() }];
+  });
+
   const productivity = computeHerdProductivity({
     doeCount: doeRows.length,
     periodDays,
+    does,
+    fromMs: effectiveFrom.getTime(),
+    toMs: effectiveTo.getTime(),
+    weaningEvents: weanings.map((w) => ({
+      dateMs: w.weaningDate.getTime(),
+      value: w.weaned ?? 0,
+    })),
+    saleEvents: saleRows.map((m) => ({
+      dateMs: m.date.getTime(),
+      count: m.count,
+      grams: m.weightGrams ?? 0,
+    })),
+    incomeEvents: transactionRows
+      .filter((t) => t.type === "income")
+      .map((t) => ({ dateMs: t.date.getTime(), value: t.amountCents })),
+    expenseEvents: transactionRows
+      .filter((t) => t.type === "expense")
+      .map((t) => ({ dateMs: t.date.getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
     kindlings,

@@ -2895,6 +2895,10 @@ export async function fetchHerdReport(
     weanings,
     weanedStockDeathAgg,
     saleAgg,
+    saleRows,
+    transactionRows,
+    allDoeRows,
+    firstMatings,
     incomeAgg,
     expenseAgg,
     feedExpenseAgg,
@@ -2923,9 +2927,10 @@ export async function fetchHerdReport(
        WHERE kindlingDate >= ? AND kindlingDate < ?`,
       [fromIso, toIso]
     ),
-    queryAll<{ weaned: number | null }>(
+    queryAll<{ weaningDate: string; weaned: number | null }>(
       db,
-      "SELECT weaned FROM weaning_log WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL",
+      `SELECT weaningDate, weaned FROM weaning_log
+        WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL`,
       [fromIso, toIso]
     ),
     queryOne<{ total: number | null }>(
@@ -2939,6 +2944,29 @@ export async function fetchHerdReport(
          FROM kit_stock_movement
        WHERE type = 'sale' AND date >= ? AND date < ?`,
       [fromIso, toIso]
+    ),
+    // The same sales again, dated: «كجم مباع لكل أم شهريًا» averages them month
+    // by month and a SUM has no months in it.
+    queryAll<{ date: string; count: number; weightGrams: number | null }>(
+      db,
+      `SELECT date, count, weightGrams FROM kit_stock_movement
+        WHERE type = 'sale' AND date >= ? AND date < ?`,
+      [fromIso, toIso]
+    ),
+    queryAll<{ date: string; type: string; amountCents: number }>(
+      db,
+      "SELECT date, type, amountCents FROM transaction_ledger WHERE date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    // Every doe who ever worked, not just today's herd — the monthly tiles
+    // divide each month by the does standing THAT month.
+    queryAll<{ id: string; status: string; acquiredDate: string | null; updatedAt: string }>(
+      db,
+      "SELECT id, status, acquiredDate, updatedAt FROM rabbit WHERE sex = 'doe'"
+    ),
+    queryAll<{ doeId: string; firstMatingDate: string | null }>(
+      db,
+      "SELECT doeId, MIN(matingDate) as firstMatingDate FROM mating_log GROUP BY doeId"
     ),
     // The ledger, not the sale movements' amountCents: the farm may also sell
     // culled does, bucks, or manure, and every one of those is real income the
@@ -2993,9 +3021,49 @@ export async function fetchHerdReport(
   const periodDays = Math.max(1, Math.round((toMs - fromMs) / 86_400_000));
   const { cycleDays, targetCyclesPerYear } = rebreedTarget(settings.rebreedAfterKindlingDays);
 
+  // Every doe who ever worked, not just today's herd: the monthly tiles divide
+  // each month by the does standing THAT month, and a doe sold last spring was
+  // standing then. Same proxies as the web — see computeSalesPerDoe.
+  const firstMatingByDoe = new Map(
+    firstMatings.map((g) => [
+      g.doeId,
+      g.firstMatingDate ? new Date(g.firstMatingDate).getTime() : null,
+    ])
+  );
+  const does = allDoeRows.flatMap((d) => {
+    const fromMsOfDoe = d.acquiredDate
+      ? new Date(d.acquiredDate).getTime()
+      : (firstMatingByDoe.get(d.id) ?? null);
+    if (fromMsOfDoe == null) return [];
+    return [
+      {
+        fromMs: fromMsOfDoe,
+        toMs: d.status === "active" ? null : new Date(d.updatedAt).getTime(),
+      },
+    ];
+  });
+
   const productivity = computeHerdProductivity({
     doeCount: doeRows.length,
     periodDays,
+    does,
+    fromMs,
+    toMs,
+    weaningEvents: weanings.map((w) => ({
+      dateMs: new Date(w.weaningDate).getTime(),
+      value: w.weaned ?? 0,
+    })),
+    saleEvents: saleRows.map((m) => ({
+      dateMs: new Date(m.date).getTime(),
+      count: m.count,
+      grams: m.weightGrams ?? 0,
+    })),
+    incomeEvents: transactionRows
+      .filter((t) => t.type === "income")
+      .map((t) => ({ dateMs: new Date(t.date).getTime(), value: t.amountCents })),
+    expenseEvents: transactionRows
+      .filter((t) => t.type === "expense")
+      .map((t) => ({ dateMs: new Date(t.date).getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
     kindlings,

@@ -23,6 +23,10 @@
  */
 
 import { rebreedSystemBand, type RebreedSystemBand } from "./does-board";
+import { doesPresentOn, type DoePresence } from "./breeding-averages";
+
+/** A dated amount to be averaged month by month — head, grams, or cents. */
+export type DatedValue = { dateMs: number; value: number };
 
 /** Kindling fields needed here; every KindlingLog row on both platforms has them. */
 export type HerdKindlingRow = {
@@ -37,8 +41,20 @@ export type HerdKindlingRow = {
 export type HerdProductivityInput = {
   /** THE denominator: tagged, active does currently in the herd. */
   doeCount: number;
-  /** Length of the selected period in days, used to annualise/monthlyise. */
+  /** Length of the selected period in days, used to annualise the yearly rates. */
   periodDays: number;
+  /** Every doe's stay on the farm — the denominators for «العائد الشهري لكل أم». */
+  does: DoePresence[];
+  /** The period, clamped exactly as periodDays is. `toMs` is EXCLUSIVE. */
+  fromMs: number;
+  toMs: number;
+  /** Weanings in range, dated, for the monthly mean. `value` is head weaned. */
+  weaningEvents: DatedValue[];
+  /** Sales in range, dated: head anchors the window, grams feed the mean. */
+  saleEvents: { dateMs: number; count: number; grams: number }[];
+  /** Transactions in range, dated, in cents. */
+  incomeEvents: DatedValue[];
+  expenseEvents: DatedValue[];
   /** One full reproductive cycle in days — see rebreedTarget. */
   cycleDays: number;
   /** Cycles a year the configured system promises — see rebreedTarget. */
@@ -113,8 +129,6 @@ export type HerdProductivity = {
   feedConversionRatio: number | null;
 };
 
-/** A 30-day month, matching the rest of the reports (see report-data.ts). */
-const MONTH_DAYS = 30;
 const YEAR_DAYS = 365;
 
 /**
@@ -165,6 +179,79 @@ export function rebreedTarget(rebreedAfterKindlingDays: number): RebreedTarget {
 
 const sum = (ns: number[]) => ns.reduce((s, n) => s + n, 0);
 
+const monthOf = (ms: number) => {
+  const d = new Date(ms);
+  return d.getFullYear() * 12 + d.getMonth();
+};
+const startOfMonth = (month: number) =>
+  new Date(Math.floor(month / 12), month % 12, 1).getTime();
+
+const bucketByMonth = (values: DatedValue[]) => {
+  const byMonth = new Map<number, number>();
+  for (const v of values) {
+    const m = monthOf(v.dateMs);
+    byMonth.set(m, (byMonth.get(m) ?? 0) + v.value);
+  }
+  return byMonth;
+};
+
+/**
+ * «لكل أم شهريًا» — the mean of (this month's total ÷ the does standing on the
+ * 1st of it), the same rule computeSalesPerDoe uses on the follow-up report.
+ *
+ * It replaced `total ÷ today's doe count × 30/periodDays`, which divided every
+ * month of a growing farm's history by the herd it happens to have today and
+ * spread the total over days rather than months. On a farm that grew from 173
+ * does to 218 the two answers were 4.82 and 5.69 kg for the same period, which
+ * is not a rounding difference — it is a different question being answered.
+ *
+ * Three rules make the figure reproducible from the chart on the other tab:
+ *
+ *   - Only calendar months lying WHOLLY inside the period are scored. A month
+ *     the filter cuts in half would put part of a month's output over a whole
+ *     month's herd. The running month is excluded by the same test, since the
+ *     period end is clamped to today.
+ *   - Counting starts at the first month `anchor` is non-zero. The ramp-up
+ *     before a farm's first sale is the wait for its first litter, not months
+ *     it sold badly; scoring them 0 measures the wait.
+ *   - A month with no does at all is skipped, not scored 0: there is nothing to
+ *     divide by, which is not the same as having produced nothing.
+ *
+ * Returns null — never 0 — when no month qualifies, so a range shorter than one
+ * calendar month renders «—» rather than a number nobody can reproduce.
+ */
+function meanPerDoePerMonth(
+  values: DatedValue[],
+  anchor: DatedValue[],
+  does: DoePresence[],
+  fromMs: number,
+  toMs: number
+): number | null {
+  let first = monthOf(fromMs);
+  if (startOfMonth(first) < fromMs) first += 1;
+  // toMs is exclusive, so the month it falls in is never fully covered.
+  const last = monthOf(toMs) - 1;
+
+  const anchored = bucketByMonth(anchor);
+  let start: number | null = null;
+  for (let m = first; m <= last; m++) {
+    if ((anchored.get(m) ?? 0) !== 0) {
+      start = m;
+      break;
+    }
+  }
+  if (start == null) return null;
+
+  const totals = bucketByMonth(values);
+  const ratios: number[] = [];
+  for (let m = start; m <= last; m++) {
+    const present = doesPresentOn(does, startOfMonth(m));
+    if (present === 0) continue;
+    ratios.push((totals.get(m) ?? 0) / present);
+  }
+  return ratios.length > 0 ? sum(ratios) / ratios.length : null;
+}
+
 export function computeHerdProductivity(input: HerdProductivityInput): HerdProductivity {
   const { doeCount, periodDays, targetCyclesPerYear } = input;
 
@@ -172,10 +259,15 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
   // zero-length range must render «—» so nobody reads "0 kits per doe" off a
   // farm that simply has no does on file yet.
   const perDoe = (total: number) => (doeCount > 0 ? total / doeCount : null);
-  // Per doe per 30 days. Guards on periodDays too: a same-day from/to would
-  // otherwise blow every monthly figure up to Infinity.
-  const perDoePerMonth = (total: number) =>
-    doeCount > 0 && periodDays > 0 ? (total / doeCount) * (MONTH_DAYS / periodDays) : null;
+
+  // The «العائد الشهري لكل أم» family, every one of them scored month by month
+  // against that month's own herd — see meanPerDoePerMonth.
+  const perMonth = (values: DatedValue[], anchor: DatedValue[]) =>
+    meanPerDoePerMonth(values, anchor, input.does, input.fromMs, input.toMs);
+  // Revenue, cost and net share one anchor so the three always cover exactly
+  // the same months: a net that spanned different months than its two halves
+  // would not be their difference.
+  const moneyAnchor = [...input.incomeEvents, ...input.expenseEvents];
 
   const cyclesPerDoePerYear =
     doeCount > 0 && periodDays > 0
@@ -245,17 +337,28 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
     kitDeathsPerDoe: perDoe(kitDeaths),
     weanedPerDoe: perDoe(weanedTotal),
 
-    weanedPerDoePerMonth: perDoePerMonth(weanedTotal),
-    kgSoldPerDoePerMonth: perDoePerMonth(input.soldWeightGrams / 1000),
+    weanedPerDoePerMonth: perMonth(input.weaningEvents, input.weaningEvents),
+    kgSoldPerDoePerMonth: perMonth(
+      input.saleEvents.map((s) => ({ dateMs: s.dateMs, value: s.grams / 1000 })),
+      // Anchored on head sold, not on kilos: a month that shipped rabbits with
+      // no weight typed in still started the farm's selling life.
+      input.saleEvents.map((s) => ({ dateMs: s.dateMs, value: s.count }))
+    ),
     // Farm-wide income and expense ALLOCATED over the does, not measured per
     // doe: feed and vet Transactions are farm-level (rabbitId is optional and
     // in practice unset), so there is no per-doe cost to read. The share a doe
     // carries here therefore includes the bucks' and the السلالات' keep too.
     // That is the honest reading of "what does a cage of mother cost me", but
     // the UI must say it is an allocation — see herdCostNote.
-    revenuePerDoePerMonthCents: perDoePerMonth(input.incomeCents),
-    costPerDoePerMonthCents: perDoePerMonth(input.expenseCents),
-    netPerDoePerMonthCents: perDoePerMonth(input.incomeCents - input.expenseCents),
+    revenuePerDoePerMonthCents: perMonth(input.incomeEvents, moneyAnchor),
+    costPerDoePerMonthCents: perMonth(input.expenseEvents, moneyAnchor),
+    netPerDoePerMonthCents: perMonth(
+      [
+        ...input.incomeEvents,
+        ...input.expenseEvents.map((e) => ({ dateMs: e.dateMs, value: -e.value })),
+      ],
+      moneyAnchor
+    ),
 
     incomeCents: input.incomeCents,
     expenseCents: input.expenseCents,
