@@ -2527,8 +2527,15 @@ export type FollowUpReport = {
 const DAY_MS = 86_400_000;
 const MONTH_DAYS = 30;
 
-/** Weaned-stock ledger balance as of (exclusive) a point in time — running total, not period-bound. */
-async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string): Promise<number> {
+/**
+ * Weaned-stock ledger balance as of (exclusive) a point in time — running total,
+ * not period-bound. Omit `toIso` for the balance right now, with no upper bound
+ * at all: that is what «متوسط رصيد الفطام» divides, and it ignores the report's
+ * date filter. Mirrors the server's getKitStockBalanceAsOf.
+ */
+async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso?: string): Promise<number> {
+  // An always-true bound keeps one SQL string for both calls.
+  const bound = toIso ?? "9999-12-31T00:00:00.000Z";
   const weanedSum = await queryOne<{ total: number | null }>(
     db,
     // weaning_log, not litter — the litter row is recycled by the next
@@ -2537,12 +2544,12 @@ async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso: string
     // source as computeAvailableWeanedStock and the server's
     // getKitStockBalanceAsOf.
     "SELECT SUM(weaned) as total FROM weaning_log WHERE weaningDate < ? AND weaned IS NOT NULL",
-    [toIso]
+    [bound]
   );
   const movements = await queryAll<{ type: string; total: number }>(
     db,
     "SELECT type, SUM(count) as total FROM kit_stock_movement WHERE date < ? GROUP BY type",
-    [toIso]
+    [bound]
   );
   let sold = 0, died = 0, retained = 0, returned = 0, adjustment = 0;
   for (const m of movements) {
@@ -2613,6 +2620,8 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     soldAgg,
     retainedAgg,
     remainingStock,
+    lifetimeRemainingStock,
+    lifetimeWeanings,
     matings,
     pregnancyPositive,
     kindlingRows,
@@ -2671,6 +2680,14 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       [fromIso, toIso]
     ),
     getLocalKitStockBalanceAsOf(db, toIso),
+    // Both sides of «متوسط رصيد الفطام»: the whole farm's running balance over
+    // every weaning it ever counted. Unfiltered on purpose — see
+    // computeBreedingAverages.
+    getLocalKitStockBalanceAsOf(db),
+    queryOne<{ count: number }>(
+      db,
+      "SELECT COUNT(*) as count FROM weaning_log WHERE weaned IS NOT NULL"
+    ),
     queryOne<{ count: number }>(
       db,
       "SELECT COUNT(*) as count FROM breeding WHERE matingDate >= ? AND matingDate < ?",
@@ -2728,7 +2745,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       kindlingRows,
       weaningsInRange,
       weanedStockDeathAgg?.total ?? 0,
-      remainingStock
+      { remainingStock: lifetimeRemainingStock, weanings: lifetimeWeanings?.count ?? 0 }
     ),
   };
 }

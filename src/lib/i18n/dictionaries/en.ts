@@ -909,10 +909,11 @@ export const en: Dictionary = {
     avgRemainingStockLabel: "Avg. weaned stock available to sell",
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings in the period`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings in the period`,
+    avgLifetimeWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgUnknownNursingNote: (count: number) =>
       `${count} litter(s) in this period predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,
     avgRemainingStockNote:
-      "Weaned stock available to sell is a running balance as of the period end, not what the period produced — it moves when older stock is sold even if nothing was weaned.",
+      "Avg. weaned stock available to sell covers the farm's whole life and ignores the date filter: the current balance over every weaning ever counted — it moves when older stock is sold even if nothing was weaned.",
 
     // ——— Herd productivity ———
     herdTitle: "Herd Productivity",

@@ -400,6 +400,11 @@ function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
           <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
+        </AveragesGroup>
+
+        {/* Its own group: lifetime over lifetime, so the period basis printed
+            above would misstate both halves of this one. */}
+        <AveragesGroup basis={rt.avgLifetimeWeaningBasis(averages.lifetimeWeanings)}>
           <AveragesTile label={rt.avgRemainingStockLabel} value={avg(averages.remainingStock)} />
         </AveragesGroup>
 

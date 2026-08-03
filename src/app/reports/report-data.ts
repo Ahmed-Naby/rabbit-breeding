@@ -112,17 +112,23 @@ function bucketByStockAge(rabbits: StockRabbitForAge[], sex: string, asOf: Date)
   return bracket;
 }
 
-/** Weaned-stock ledger balance as of (exclusive) a point in time (running total, not period-bound). */
-async function getKitStockBalanceAsOf(to: Date): Promise<number> {
+/**
+ * Weaned-stock ledger balance as of (exclusive) a point in time (running total,
+ * not period-bound). Omit `to` for the balance right now, with no upper bound at
+ * all — that is what «متوسط رصيد الفطام» divides, and it must ignore the report's
+ * date filter.
+ */
+async function getKitStockBalanceAsOf(to?: Date): Promise<number> {
+  const upTo = to ? { lt: to } : undefined;
   const [weanings, movements] = await Promise.all([
     // WeaningLog, not Litter — the Litter row is recycled by the next kindling,
     // so counting it made this balance drop past weanings. See getKitStockSummary.
     prisma.weaningLog.findMany({
-      where: { weaningDate: { lt: to }, weaned: { not: null } },
+      where: { weaningDate: upTo, weaned: { not: null } },
       select: { weaned: true },
     }),
     prisma.kitStockMovement.findMany({
-      where: { date: { lt: to } },
+      where: { date: upTo },
       select: { type: true, count: true },
     }),
   ]);
@@ -170,6 +176,8 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     soldAgg,
     retainedAgg,
     remainingStock,
+    lifetimeRemainingStock,
+    lifetimeWeanings,
     matings,
     pregnancyPositive,
     kindlingRows,
@@ -233,6 +241,11 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       _sum: { count: true },
     }),
     getKitStockBalanceAsOf(to),
+    // Both sides of «متوسط رصيد الفطام»: the whole farm's running balance over
+    // every weaning it ever counted. Unfiltered on purpose — see
+    // computeBreedingAverages.
+    getKitStockBalanceAsOf(),
+    prisma.weaningLog.count({ where: { weaned: { not: null } } }),
     prisma.breeding.count({ where: { matingDate: dateRange } }),
     prisma.pregnancyTestLog.count({ where: { result: "positive", testDate: dateRange } }),
     // findMany, not count: the averages need the per-litter counts anyway, and
@@ -291,7 +304,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       kindlingRows,
       weaningsInRange,
       weanedStockDeaths,
-      remainingStock
+      { remainingStock: lifetimeRemainingStock, weanings: lifetimeWeanings }
     ),
   };
 }
