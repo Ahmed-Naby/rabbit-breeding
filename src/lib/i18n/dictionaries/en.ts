@@ -905,6 +905,7 @@ export const en: Dictionary = {
     avgBornAliveLabel: "Avg. live litter size",
     avgNursingDeathsLabel: "Avg. kits lost during nursing",
     avgWeanedLabel: "Avg. kits weaned per litter",
+    avgSoldPerWeaningLabel: "Avg. kits sold per litter",
     avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
     avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
@@ -912,6 +913,8 @@ export const en: Dictionary = {
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",
+    avgSoldPerWeaningNote:
+      "The gap between kits weaned and kits sold is not all loss: sales lag weaning, so the newest litters count in the denominator while the stock they produced is still alive in the weaned-stock balance.",
     avgAllTimeBadge: "All time",
     avgUnknownNursingNote: (count: number) =>
       `${count} litter(s) predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,

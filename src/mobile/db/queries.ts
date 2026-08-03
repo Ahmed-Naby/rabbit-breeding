@@ -2795,12 +2795,13 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       kindlings: kindlingRows.length,
     },
     // Lifetime on every side — see the query note above.
-    averages: computeBreedingAverages(
-      lifetimeKindlingRows,
-      lifetimeWeanings,
-      lifetimeWeanedStockDeathAgg?.total ?? 0,
-      lifetimeRemainingStock
-    ),
+    averages: computeBreedingAverages({
+      kindlings: lifetimeKindlingRows,
+      weanings: lifetimeWeanings,
+      weanedStockDeaths: lifetimeWeanedStockDeathAgg?.total ?? 0,
+      remainingStock: lifetimeRemainingStock,
+      totalSold: lifetimeSold,
+    }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
     kitStockHistory: buildKitStockSeries(
       stockEvents,

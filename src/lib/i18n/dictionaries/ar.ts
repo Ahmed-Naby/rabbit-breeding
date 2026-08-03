@@ -915,6 +915,7 @@ export const ar = {
     avgBornAliveLabel: "متوسط عدد البطن الحي",
     avgNursingDeathsLabel: "متوسط نافق النتاج أثناء الرعاية",
     avgWeanedLabel: "متوسط عدد الفطام لكل ولادة",
+    avgSoldPerWeaningLabel: "متوسط الفطام المباع لكل ولادة",
     avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
     avgRemainingStockLabel: "رصيد الفطام المتاح للبيع",
     avgMonthlySalesLabel: "متوسط البيع الشهري",
@@ -922,6 +923,8 @@ export const ar = {
     avgKindlingBasis: (count: number) => `÷ ${count} ولادة منذ بداية العمل`,
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgLifetimeBasis: "الرصيد التراكمي للمزرعة حتى الآن",
+    avgSoldPerWeaningNote:
+      "الفرق بين متوسط الفطام ومتوسط المباع ليس فاقدًا كله: البيع يتأخر عن الفطام، فآخر البطون داخلة في القسمة بينما نتاجها ما زال حيًّا ضمن رصيد الفطام المتاح للبيع.",
     avgAllTimeBadge: "منذ بداية العمل",
     avgUnknownNursingNote: (count: number) =>
       `${count} ولادة لا يمكن حساب نافق الرعاية فيها (سجلات أُنشئت قبل إضافة هذا الحقل)، واستُبعدت من المتوسط بدلًا من احتسابها صفرًا.`,

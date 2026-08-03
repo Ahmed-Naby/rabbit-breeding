@@ -67,6 +67,17 @@ export type BreedingAverages = {
   /** متوسط نافق الفطام — post-weaning deaths from the kit ledger. */
   weanedStockDeaths: number | null;
   /**
+   * متوسط الفطام المباع لكل ولادة — lifetime sales over the same weaning count
+   * `weaned` uses, so the two tiles sit side by side and the gap between them
+   * is what the farm weaned but has not sold.
+   *
+   * It reads LOW by construction and that is not a bug: sales lag weaning, so
+   * the newest litters are counted in the denominator while the stock they
+   * produced is still alive in the balance. Reading the gap as pure loss would
+   * be wrong — most of it is remainingStock.
+   */
+  soldPerWeaning: number | null;
+  /**
    * رصيد الفطام المتاح للبيع — a TOTAL, not an average: the farm's whole
    * running balance right now. It was briefly divided (first by the weanings in
    * the period, which printed «497 لكل فطام», then by every weaning ever, which
@@ -126,13 +137,31 @@ export type AverageKindlingRow = {
  *  denominator with nothing in the numerator and depress every average. */
 export type AverageWeaningRow = { weaned: number | null };
 
-/** Every argument is lifetime — see the note on BreedingAverages. */
-export function computeBreedingAverages(
-  kindlings: AverageKindlingRow[],
-  weanings: AverageWeaningRow[],
-  weanedStockDeaths: number,
-  remainingStock: number
-): BreedingAverages {
+/**
+ * Every field is lifetime — see the note on BreedingAverages.
+ *
+ * An object rather than positional arguments: the three scalars are all large
+ * head counts, so a swapped pair would compile silently and quietly report the
+ * balance as deaths.
+ */
+export type BreedingAveragesInput = {
+  kindlings: AverageKindlingRow[];
+  weanings: AverageWeaningRow[];
+  /** نافق الفطام — post-weaning deaths, farm-level ledger total. */
+  weanedStockDeaths: number;
+  /** رصيد الفطام — the running balance, reported as-is. */
+  remainingStock: number;
+  /** Every head ever sold out of the ledger. */
+  totalSold: number;
+};
+
+export function computeBreedingAverages({
+  kindlings,
+  weanings,
+  weanedStockDeaths,
+  remainingStock,
+  totalSold,
+}: BreedingAveragesInput): BreedingAverages {
   // Only litters whose losses are knowable, on both sides of the fraction.
   const knownNursing = kindlings.filter(hasKnownSurvival);
 
@@ -148,6 +177,7 @@ export function computeBreedingAverages(
     unknownNursingLitters: kindlings.length - knownNursing.length,
     weaned: per(sum(weanings.map((w) => w.weaned ?? 0)), weanings.length),
     weanedStockDeaths: per(weanedStockDeaths, weanings.length),
+    soldPerWeaning: per(totalSold, weanings.length),
     // Passed straight through — no denominator, so no null case either.
     remainingStock,
   };

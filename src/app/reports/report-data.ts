@@ -354,12 +354,13 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     },
     breeding: { matings, pregnancyPositive, kindlings: kindlingRows.length },
     // Lifetime on every side — see the query note above.
-    averages: computeBreedingAverages(
-      lifetimeKindlingRows,
-      lifetimeWeanings,
-      lifetimeWeanedStockDeathAgg._sum.count ?? 0,
-      lifetimeRemainingStock
-    ),
+    averages: computeBreedingAverages({
+      kindlings: lifetimeKindlingRows,
+      weanings: lifetimeWeanings,
+      weanedStockDeaths: lifetimeWeanedStockDeathAgg._sum.count ?? 0,
+      remainingStock: lifetimeRemainingStock,
+      totalSold: lifetimeSold,
+    }),
     monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
     kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),
   };

@@ -431,6 +431,9 @@ function AveragesSection({
 
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
           <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
+          {/* Beside عدد الفطام on purpose — same denominator, so the two read
+              as one pair and the gap between them is legible. */}
+          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(averages.soldPerWeaning)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
@@ -451,6 +454,9 @@ function AveragesSection({
 
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>{rt.avgRemainingStockNote}</p>
+          {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
+              litter — most of that gap is stock still standing in the barn. */}
+          <p>{rt.avgSoldPerWeaningNote}</p>
           {/* Only when history is actually missing — a permanent caveat that is
               usually inapplicable teaches people to ignore the whole block. */}
           {averages.unknownNursingLitters > 0 && (

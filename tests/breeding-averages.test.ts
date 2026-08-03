@@ -4,6 +4,7 @@ import {
   computeMonthlySales,
   type AverageKindlingRow,
   type AverageWeaningRow,
+  type BreedingAveragesInput,
 } from "@/lib/breeding-averages";
 
 /** A litter whose nursing losses ARE knowable: bornDeadAtKindling >= 0. */
@@ -24,20 +25,35 @@ function weaning(weaned: number | null): AverageWeaningRow {
   return { weaned };
 }
 
+/** computeBreedingAverages with everything the test does not care about zeroed. */
+function averagesOf(input: Partial<BreedingAveragesInput>) {
+  return computeBreedingAverages({
+    kindlings: [],
+    weanings: [],
+    weanedStockDeaths: 0,
+    remainingStock: 0,
+    totalSold: 0,
+    ...input,
+  });
+}
+
 describe("computeBreedingAverages", () => {
   test("divides litter size by kindlings, and weaning figures by weanings", () => {
-    const r = computeBreedingAverages(
-      [litter(8, 1, 1), litter(6, 0, 0)],
-      [weaning(7), weaning(5)],
-      4, // نافق الفطام
-      30 // رصيد الفطام — a total, passed straight through
-    );
+    const r = averagesOf({
+      kindlings: [litter(8, 1, 1), litter(6, 0, 0)],
+      weanings: [weaning(7), weaning(5)],
+      weanedStockDeaths: 4,
+      remainingStock: 30,
+      totalSold: 9,
+    });
 
     expect(r.kindlings).toBe(2);
     expect(r.weanings).toBe(2);
     expect(r.bornAlive).toBe(7); // (8 + 6) / 2
     expect(r.weaned).toBe(6); // (7 + 5) / 2
     expect(r.weanedStockDeaths).toBe(2); // 4 / 2
+    // Sales share the weaning denominator, so it pairs with `weaned` above.
+    expect(r.soldPerWeaning).toBe(4.5); // 9 / 2
     // Never divided: a stock level has no denominator.
     expect(r.remainingStock).toBe(30);
   });
@@ -46,12 +62,12 @@ describe("computeBreedingAverages", () => {
     // The caller passes every kindling and weaning the farm ever logged, never
     // the rows inside the selected period — a week with no kindling used to
     // print «÷ 0 ولادة» and «—» across the whole card.
-    const r = computeBreedingAverages(
-      [litter(8, 0, 0), litter(6, 0, 0)],
-      [weaning(7), weaning(5)],
-      4,
-      977
-    );
+    const r = averagesOf({
+      kindlings: [litter(8, 0, 0), litter(6, 0, 0)],
+      weanings: [weaning(7), weaning(5)],
+      weanedStockDeaths: 4,
+      remainingStock: 977,
+    });
 
     expect(r.kindlings).toBe(2);
     expect(r.bornAlive).toBe(7);
@@ -62,12 +78,12 @@ describe("computeBreedingAverages", () => {
     // The whole point of the event denominator: bornAlive stays a real litter
     // size (comparable to the breed standard) instead of doubling into
     // "kits produced per doe over the period".
-    const r = computeBreedingAverages(
-      [litter(8, 0, 0), litter(6, 0, 0)],
-      [weaning(7), weaning(5)],
-      6,
-      12
-    );
+    const r = averagesOf({
+      kindlings: [litter(8, 0, 0), litter(6, 0, 0)],
+      weanings: [weaning(7), weaning(5)],
+      weanedStockDeaths: 6,
+      remainingStock: 12,
+    });
 
     expect(r.kindlings).toBe(2);
     expect(r.weanings).toBe(2);
@@ -78,7 +94,7 @@ describe("computeBreedingAverages", () => {
 
   test("averages nursing deaths from the gap between bornDead and bornDeadAtKindling", () => {
     // First litter lost 3 while nursing (5 - 2), the second lost 1 (1 - 0).
-    const r = computeBreedingAverages([litter(9, 5, 2), litter(7, 1, 0)], [], 0, 0);
+    const r = averagesOf({ kindlings: [litter(9, 5, 2), litter(7, 1, 0)] });
 
     expect(r.nursingDeaths).toBe(2); // (3 + 1) / 2
     expect(r.nursingDeathsLitters).toBe(2);
@@ -88,7 +104,7 @@ describe("computeBreedingAverages", () => {
   test("excludes legacy litters from BOTH sides of the nursing average rather than scoring them zero", () => {
     // Counting the legacy row as "lost nothing" would report 4/2 = 2.0 and
     // flatter the herd; excluding it reports the 4 losses we can actually see.
-    const r = computeBreedingAverages([litter(9, 6, 2), legacyLitter(7, 3)], [], 0, 0);
+    const r = averagesOf({ kindlings: [litter(9, 6, 2), legacyLitter(7, 3)] });
 
     expect(r.nursingDeaths).toBe(4); // 4 / 1, not 4 / 2
     expect(r.nursingDeathsLitters).toBe(1);
@@ -99,7 +115,7 @@ describe("computeBreedingAverages", () => {
   });
 
   test("returns null, not 0, for nursing deaths when every litter is legacy", () => {
-    const r = computeBreedingAverages([legacyLitter(8, 2), legacyLitter(6, 1)], [], 0, 0);
+    const r = averagesOf({ kindlings: [legacyLitter(8, 2), legacyLitter(6, 1)] });
 
     expect(r.nursingDeaths).toBeNull();
     expect(r.unknownNursingLitters).toBe(2);
@@ -108,7 +124,7 @@ describe("computeBreedingAverages", () => {
 
   test("returns null for every average whose denominator is zero", () => {
     // A farm with stock on the books but not a single counted weaning yet.
-    const r = computeBreedingAverages([], [], 9, 40);
+    const r = averagesOf({ weanedStockDeaths: 9, remainingStock: 40, totalSold: 5 });
 
     expect(r.kindlings).toBe(0);
     expect(r.weanings).toBe(0);
@@ -116,6 +132,8 @@ describe("computeBreedingAverages", () => {
     expect(r.nursingDeaths).toBeNull();
     // نافق الفطام is farm-level but still divided — nothing to divide by, «—».
     expect(r.weanedStockDeaths).toBeNull();
+    // Same for sales: 5 head sold out of stock that predates any weaning here.
+    expect(r.soldPerWeaning).toBeNull();
     // The balance is exempt: it is a total, and 40 head are 40 head even in a
     // period that saw no weaning at all.
     expect(r.remainingStock).toBe(40);
@@ -124,12 +142,12 @@ describe("computeBreedingAverages", () => {
   test("the two denominators move independently", () => {
     // A litter born near the period end is never weaned inside it, so it must
     // not drag the weaning average down.
-    const r = computeBreedingAverages(
-      [litter(8, 0, 0), litter(10, 0, 0)],
-      [weaning(7)],
-      2,
-      20
-    );
+    const r = averagesOf({
+      kindlings: [litter(8, 0, 0), litter(10, 0, 0)],
+      weanings: [weaning(7)],
+      weanedStockDeaths: 2,
+      remainingStock: 20,
+    });
 
     expect(r.kindlings).toBe(2);
     expect(r.weanings).toBe(1);
@@ -142,9 +160,23 @@ describe("computeBreedingAverages", () => {
   test("never counts a nursing correction as negative losses", () => {
     // «نافق» hand-edited downward below the frozen stillborn count: the frozen
     // value is the wrong one, and deadDuringBreeding floors at 0.
-    const r = computeBreedingAverages([litter(8, 1, 4)], [], 0, 0);
+    const r = averagesOf({ kindlings: [litter(8, 1, 4)] });
 
     expect(r.nursingDeaths).toBe(0);
+  });
+
+  test("reports sales per litter below weaned per litter while stock is unsold", () => {
+    // The realistic shape: 2 litters weaned 12 head, 8 have been sold and 4 are
+    // still standing. The 6.0/4.0 gap is the balance, not a loss — the note
+    // under the card exists to say so.
+    const r = averagesOf({
+      weanings: [weaning(7), weaning(5)],
+      totalSold: 8,
+      remainingStock: 4,
+    });
+
+    expect(r.weaned).toBe(6);
+    expect(r.soldPerWeaning).toBe(4);
   });
 });
 
