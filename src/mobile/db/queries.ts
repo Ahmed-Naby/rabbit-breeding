@@ -14,7 +14,9 @@ import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortal
 import { naturalCompare } from "@/lib/sortable";
 import {
   computeBreedingAverages,
+  computeMonthlySales,
   type BreedingAverages,
+  type MonthlySales,
   type AverageKindlingRow,
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
@@ -2527,6 +2529,8 @@ export type FollowUpReport = {
   };
   breeding: { matings: number; pregnancyPositive: number; kindlings: number };
   averages: BreedingAverages;
+  /** متوسط البيع الشهري, also lifetime — see computeMonthlySales. */
+  monthlySales: MonthlySales;
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -2742,6 +2746,23 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
 
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
+  // Every dated change to the weaned-stock balance, ever — same derivation as
+  // the server's, so the curve and متوسط البيع الشهري match across bundles.
+  const stockEvents = [
+    ...historyWeanings.map((w) => ({
+      dateMs: new Date(w.weaningDate).getTime(),
+      delta: w.weaned ?? 0,
+    })),
+    ...historyMovements.map((m) => ({
+      dateMs: new Date(m.date).getTime(),
+      delta: movementDelta(m.type, m.count),
+    })),
+  ];
+  const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
+  const lifetimeSold = historyMovements
+    .filter((m) => m.type === "sale")
+    .reduce((s, m) => s + m.count, 0);
+
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
     stock: { males, females },
@@ -2780,17 +2801,9 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       lifetimeWeanedStockDeathAgg?.total ?? 0,
       lifetimeRemainingStock
     ),
+    monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
     kitStockHistory: buildKitStockSeries(
-      [
-        ...historyWeanings.map((w) => ({
-          dateMs: new Date(w.weaningDate).getTime(),
-          delta: w.weaned ?? 0,
-        })),
-        ...historyMovements.map((m) => ({
-          dateMs: new Date(m.date).getTime(),
-          delta: movementDelta(m.type, m.count),
-        })),
-      ],
+      stockEvents,
       Date.now()
     ),
   };

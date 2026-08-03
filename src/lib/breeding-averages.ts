@@ -76,6 +76,44 @@ export type BreedingAverages = {
   remainingStock: number;
 };
 
+/**
+ * متوسط البيع الشهري — lifetime sales spread over the months the farm has been
+ * running. Its own type because its denominator is time, not an event count:
+ * nothing in BreedingAverages divides by months.
+ */
+export type MonthlySales = {
+  /** Every head ever sold out of the weaned-stock ledger. */
+  totalSold: number;
+  /** Whole months the farm has been running. Also the printed denominator. */
+  months: number;
+  /** null only for a farm with no history at all. */
+  perMonth: number | null;
+};
+
+/** The mean Gregorian month. Calendar months would make «÷ 20 شهر» ambiguous. */
+const AVG_MONTH_MS = 30.436875 * 86_400_000;
+
+/**
+ * Months are counted from the farm's FIRST recorded event, not its first sale:
+ * a farm that took three months to sell its first batch really did average less
+ * per month over its life, and starting the clock at the first sale would hide
+ * exactly that.
+ *
+ * The quotient uses the same rounded month count that gets printed, so the
+ * displayed «÷ N شهر» always reproduces the number beside it.
+ */
+export function computeMonthlySales(
+  totalSold: number,
+  firstEventMs: number | null,
+  nowMs: number
+): MonthlySales {
+  if (firstEventMs == null) return { totalSold, months: 0, perMonth: null };
+  // At least one month: a farm two weeks old would otherwise divide by a
+  // fraction and claim a monthly rate it has never actually sustained.
+  const months = Math.max(1, Math.round((nowMs - firstEventMs) / AVG_MONTH_MS));
+  return { totalSold, months, perMonth: totalSold / months };
+}
+
 /** The kindling fields the averages need; both platforms have all three. */
 export type AverageKindlingRow = {
   bornAliveAtKindling: number;

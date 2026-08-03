@@ -1,6 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { computeBreedingAverages, type BreedingAverages } from "@/lib/breeding-averages";
+import {
+  computeBreedingAverages,
+  computeMonthlySales,
+  type BreedingAverages,
+  type MonthlySales,
+} from "@/lib/breeding-averages";
 import {
   buildKitStockSeries,
   movementDelta,
@@ -68,6 +73,8 @@ export type FollowUpReport = {
   };
   /** Lifetime, unlike every field above it — see computeBreedingAverages. */
   averages: BreedingAverages;
+  /** متوسط البيع الشهري, also lifetime — see computeMonthlySales. */
+  monthlySales: MonthlySales;
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
@@ -298,6 +305,18 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
+  // Every dated change to the weaned-stock balance, ever. The curve replays it
+  // and متوسط البيع الشهري measures its sales against its own span, so both
+  // read the same history and neither costs an extra query.
+  const stockEvents = [
+    ...historyWeanings.map((w) => ({ dateMs: w.weaningDate.getTime(), delta: w.weaned ?? 0 })),
+    ...historyMovements.map((m) => ({ dateMs: m.date.getTime(), delta: movementDelta(m.type, m.count) })),
+  ];
+  const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
+  const lifetimeSold = historyMovements
+    .filter((m) => m.type === "sale")
+    .reduce((s, m) => s + m.count, 0);
+
   return {
     from,
     to,
@@ -341,18 +360,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       lifetimeWeanedStockDeathAgg._sum.count ?? 0,
       lifetimeRemainingStock
     ),
-    kitStockHistory: buildKitStockSeries(
-      [
-        ...historyWeanings.map((w) => ({
-          dateMs: w.weaningDate.getTime(),
-          delta: w.weaned ?? 0,
-        })),
-        ...historyMovements.map((m) => ({
-          dateMs: m.date.getTime(),
-          delta: movementDelta(m.type, m.count),
-        })),
-      ],
-      Date.now()
-    ),
+    monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),
   };
 }

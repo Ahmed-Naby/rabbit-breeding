@@ -151,7 +151,7 @@ export default async function ReportsPage({
           {/* Lifetime like the two cards above, so it also belongs ahead of the
               date filter. Each group still prints its own denominator, which is
               what says how many kindlings/weanings the average stands on. */}
-          <AveragesSection averages={report.averages} rt={rt} />
+          <AveragesSection averages={report.averages} monthlySales={report.monthlySales} rt={rt} />
 
           {/* The same رصيد الفطام number the card above ends on, drawn back to
               the farm's first weaning. Lifetime too — hence its place here. */}
@@ -389,11 +389,21 @@ function StatTile({
  * Every figure here is lifetime and the date filter below never touches it —
  * hence the badge in the header.
  */
-function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"]; rt: RT }) {
+function AveragesSection({
+  averages,
+  monthlySales,
+  rt,
+}: {
+  averages: FollowUpReport["averages"];
+  monthlySales: FollowUpReport["monthlySales"];
+  rt: RT;
+}) {
   // One decimal: these are litter-sized quantities, so 7.3 says something 7
   // doesn't, while a second decimal is false precision on a handful of does.
   const avg = (v: number | null) =>
     v == null ? "—" : v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  // Monthly sales run in the hundreds, where a decimal is noise, not precision.
+  const whole = (v: number | null) => (v == null ? "—" : Math.round(v).toLocaleString());
 
   return (
     <Card>
@@ -422,6 +432,12 @@ function AveragesSection({ averages, rt }: { averages: FollowUpReport["averages"
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
           <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
+        </AveragesGroup>
+
+        {/* Divided by TIME, not by an event count — the only group here that
+            is, which is why it cannot join either of the two above. */}
+        <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
+          <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and

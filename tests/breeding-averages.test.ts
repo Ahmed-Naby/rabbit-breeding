@@ -1,6 +1,7 @@
 import { describe, test, expect } from "vitest";
 import {
   computeBreedingAverages,
+  computeMonthlySales,
   type AverageKindlingRow,
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
@@ -144,5 +145,53 @@ describe("computeBreedingAverages", () => {
     const r = computeBreedingAverages([litter(8, 1, 4)], [], 0, 0);
 
     expect(r.nursingDeaths).toBe(0);
+  });
+});
+
+describe("computeMonthlySales", () => {
+  const DAY = 86_400_000;
+  const start = Date.UTC(2025, 0, 1);
+  const after = (days: number) => start + days * DAY;
+
+  test("spreads lifetime sales over the months the farm has run", () => {
+    // ~12 months in, 2400 sold → 200 a month.
+    const r = computeMonthlySales(2400, start, after(365));
+    expect(r.months).toBe(12);
+    expect(r.perMonth).toBe(200);
+    expect(r.totalSold).toBe(2400);
+  });
+
+  test("divides by exactly the month count it reports", () => {
+    // The UI prints «÷ N شهر» beside the quotient; if the function divided by
+    // an unrounded span, the reader could not reproduce the number shown.
+    const r = computeMonthlySales(1000, start, after(400));
+    expect(r.perMonth).toBe(1000 / r.months);
+  });
+
+  test("counts from the farm's first event, not its first sale", () => {
+    // Three silent months then 300 sold in the fourth is 75/month over its
+    // life, not 300 — the caller passes the first weaning, and this is why.
+    const r = computeMonthlySales(300, start, after(121));
+    expect(r.months).toBe(4);
+    expect(r.perMonth).toBe(75);
+  });
+
+  test("never divides by a fraction of a month", () => {
+    // A farm two weeks old with 50 sold has not proven a 100/month rate.
+    const r = computeMonthlySales(50, start, after(14));
+    expect(r.months).toBe(1);
+    expect(r.perMonth).toBe(50);
+  });
+
+  test("returns «—» rather than a rate for a farm with no history", () => {
+    const r = computeMonthlySales(0, null, after(0));
+    expect(r.months).toBe(0);
+    expect(r.perMonth).toBeNull();
+  });
+
+  test("reports zero, not «—», for a farm that has sold nothing yet", () => {
+    // It has run for months and sold none — that is a real 0, not missing data.
+    const r = computeMonthlySales(0, start, after(90));
+    expect(r.perMonth).toBe(0);
   });
 });
