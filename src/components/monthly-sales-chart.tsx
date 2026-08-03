@@ -5,6 +5,7 @@ import {
   BarChart,
   ResponsiveContainer,
   CartesianGrid,
+  LabelList,
   Legend,
   XAxis,
   YAxis,
@@ -24,6 +25,9 @@ import type { Locale } from "@/lib/i18n/locales";
  * and does in the dozens, so the herd bar is short here — but two scales made
  * the bar heights mean nothing to each other, and being able to see the small
  * number against the big one is the point of putting them side by side.
+ *
+ * Above each month sits its own sold ÷ does, which is the one thing the two
+ * bars are there to be compared for and the hardest to read off their heights.
  *
  * Both bundles render this same component; each builds its points with
  * buildMonthlySalesSeries.
@@ -57,6 +61,10 @@ export function MonthlySalesChart({
     }),
     [label]: p.count,
     [doesLabel]: p.does,
+    // The month's own «معدل البيع لكل أم», printed over its bars so the reader
+    // does not have to divide two bar heights by eye. A month with no does on
+    // file has no ratio at all — printing 0 there would read as "sold nothing".
+    ratio: p.does > 0 ? p.count / p.does : null,
   }));
 
   if (data.length === 0) {
@@ -70,7 +78,8 @@ export function MonthlySalesChart({
   return (
     <div className="h-72 w-full" dir="ltr">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 4, left: -12, bottom: 0 }}>
+        {/* Extra headroom on top: the ratio label sits above the tallest bar. */}
+        <BarChart data={data} margin={{ top: 20, right: 4, left: -12, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
           <XAxis
             dataKey="month"
@@ -92,7 +101,16 @@ export function MonthlySalesChart({
             }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
-          <Bar dataKey={label} fill="var(--chart-2)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+          <Bar dataKey={label} fill="var(--chart-2)" radius={[4, 4, 0, 0]} maxBarSize={28}>
+            <LabelList
+              dataKey="ratio"
+              position="top"
+              offset={6}
+              fontSize={10}
+              className="fill-muted-foreground"
+              formatter={(v: unknown) => (typeof v === "number" ? v.toFixed(1) : "")}
+            />
+          </Bar>
           {/* Same axis as the sales bar, so a month's herd is read against the
               head it shipped rather than against its own private scale. */}
           <Bar dataKey={doesLabel} fill="var(--chart-6)" radius={[4, 4, 0, 0]} maxBarSize={28} />

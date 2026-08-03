@@ -943,6 +943,8 @@ export const en: Dictionary = {
       "Rabbits sold in each calendar month, with the blue bar showing the does on the farm on the 1st of that same month — the very denominator «sales per doe» divides by. A month that sold nothing shows an empty bar so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
     salesChartAxesNote:
       "Both bars share one scale, so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
+    salesChartRatioNote:
+      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",

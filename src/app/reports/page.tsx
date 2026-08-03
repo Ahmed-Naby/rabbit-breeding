@@ -625,6 +625,7 @@ function SalesChartSection({
           <p>{rt.salesChartNote}</p>
           {/* One scale, so the short blue bar needs explaining, not warning about. */}
           <p>{rt.salesChartAxesNote}</p>
+          <p>{rt.salesChartRatioNote}</p>
         </div>
       </CardContent>
     </Card>
