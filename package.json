@@ -45,7 +45,9 @@
     "pack:electron": "npm run build:mobile && electron-builder build --windows",
     "test": "vitest run",
     "demo:generate": "tsx scripts/generate-demo-farm.mts demo-farm.json",
-    "demo:load": "tsx scripts/load-demo-farm.mts demo-farm.json"
+    "demo:load": "tsx scripts/load-demo-farm.mts demo-farm.json",
+    "sim24:generate": "tsx scripts/generate-demo-farm.mts sim-farm-24m.json --days=730 --does=200 --bucks=30 --ramp=120 --start-share=0.4 --rebreed=20 --wean=40 --wean-weight=700 --fatten=50 --sale-weight=1750 --litter=6.55 --retain=0.19 --ration-idle=140 --ration-pregnant=180 --ration-nursing=300 --ration-buck=180 --ration-juvenile=120 --ration-grower=72 --seed=424242",
+    "sim24:load": "tsx scripts/load-demo-farm.mts sim-farm-24m.json --farm=farm_sim24_0000000000001 --name=\"مزرعة محاكاة ٢٤ شهر (٢٠٠ أم)\""
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -43,6 +43,14 @@ const OUT_FILE = args.find((a) => !a.startsWith("--")) ?? "demo-farm.json";
 const SEED = flag("seed", 20260727);
 const ACTIVE_DOES = flag("does", 200);
 /**
+ * Everything below is a knob because a farm is not one shape. The DEFAULTS
+ * reproduce the original demo dataset byte for byte at a given seed — a second
+ * farm is made by passing flags, never by editing these numbers, so the two
+ * datasets stay comparable and this file stays the single simulator.
+ */
+/** Bucks. Default: one for every eight does, the usual working ratio. */
+const BUCK_COUNT = flag("bucks", Math.max(8, Math.round(ACTIVE_DOES / 8)));
+/**
  * Simulated horizon. Deliberately longer than a year even though nobody reads
  * an 18-month report: a farm started from an empty barn sells nothing for its
  * first three months while the first litters are still growing, and any window
@@ -53,13 +61,39 @@ const ACTIVE_DOES = flag("does", 200);
  */
 const SIM_DAYS = flag("days", 550);
 
+/**
+ * How the herd is built. 0 (the default) means the barn was already full before
+ * the window opens. A positive value founds the farm inside the window instead:
+ * `startShare` of the does on day one, the rest bought in over `ramp` days.
+ * That start is more honest for "a farm that has been running 24 months" — and
+ * it deliberately produces the ramp-up months (does standing, first litters not
+ * yet weaned, nothing sold) that every average in the app now anchors past.
+ */
+const RAMP_DAYS = flag("ramp", 0);
+const RAMP_START_SHARE = flag("start-share", 0.4);
+
 /** The farm's own settings — these drive what the report calls "المستهدف". */
 const GESTATION_DAYS = 31;
-const REBREED_AFTER_KINDLING_DAYS = 10; // نصف مكثف → 8 دورات في السنة
-const WEANING_DAYS = 28;
+const REBREED_AFTER_KINDLING_DAYS = flag("rebreed", 10); // 10 = نصف مكثف → 8 دورات في السنة
+const WEANING_DAYS = flag("wean", 28);
 const PREGNANCY_TEST_DAYS = 10;
 const NEST_BOX_DAYS = 27;
 const CURRENCY = "EGP";
+
+/**
+ * Mean live kits at kindling. The tiers below are written for ~6.3; anything
+ * above that is added as a fractional extra kit spread over the litters, which
+ * keeps each tier's shape (a weak doe still throws a small litter) instead of
+ * lifting the floor and making the herd uniformly good.
+ */
+const LITTER_TARGET = flag("litter", 6.3);
+/** Mean grams per kit at weaning, and per head at sale. */
+const WEANING_WEIGHT_G = flag("wean-weight", 660);
+const SALE_WEIGHT_G = flag("sale-weight", 2_150);
+/** Days from weaning to sale — the fattening phase. */
+const FATTENING_DAYS = flag("fatten", 52);
+/** Weanings that keep one kit as سلالة. Tune it to land the standing count. */
+const RETAIN_CHANCE = flag("retain", 0.07);
 
 /**
  * Market assumptions, in the smallest currency unit (piastres), at real
@@ -69,11 +103,10 @@ const CURRENCY = "EGP";
  * a farm buying feed at 19,000/ton has already spent 66–76 of the 100 it gets
  * back before rent, wages, medicine or a single dead kit.
  */
-const PRICE_PER_KG_CENTS = 10_000; // 100 ج.م/كجم قائم
-const FEED_PRICE_PER_TON_CENTS = 1_900_000; // 19,000 ج.م/طن
-const KIT_SALE_WEIGHT_G = [1_900, 2_400] as const;
+const PRICE_PER_KG_CENTS = flag("price-per-kg", 10_000); // 100 ج.م/كجم قائم
+const FEED_PRICE_PER_TON_CENTS = flag("feed-per-ton", 1_900_000); // 19,000 ج.م/طن
 const FEED_POSTING_INTERVAL_DAYS = 15;
-const VET_COST_PER_MONTH_CENTS = 300_000; // 3,000 ج.م
+const VET_COST_PER_MONTH_CENTS = flag("vet-per-month", 300_000); // 3,000 ج.م
 
 /**
  * Daily ration per head, in grams, by animal class — the same six numbers the
@@ -84,12 +117,15 @@ const VET_COST_PER_MONTH_CENTS = 300_000; // 3,000 ج.م
  * money for reasons no report could explain.
  */
 const RATIONS = {
-  doeIdle: 150,
-  doePregnant: 200,
-  doeNursing: 275, // هي وخلفتها
-  buck: 200,
-  grower: 100, // بعد الفطام وحتى البيع
-  juvenile: 150, // سلالة
+  doeIdle: flag("ration-idle", 150),
+  doePregnant: flag("ration-pregnant", 200),
+  // هي وخلفتها. Rises with the weaning age: the litter starts on solid feed at
+  // ~18 days and eats out of its mother's trough until it is taken off her, so
+  // a farm that weans at 40 days pays for twelve more days of a whole litter.
+  doeNursing: flag("ration-nursing", 275),
+  buck: flag("ration-buck", 200),
+  grower: flag("ration-grower", 100), // بعد الفطام وحتى البيع
+  juvenile: flag("ration-juvenile", 150), // سلالة
 } as const;
 
 /**
@@ -129,6 +165,8 @@ const SIM_START = new Date(TODAY.getTime() - SIM_DAYS * DAY_MS);
 
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * DAY_MS);
 const daysAgo = (n: number) => addDays(TODAY, -n);
+/** Nothing that already happened may be dated tomorrow. */
+const notFuture = (d: Date) => (d.getTime() > TODAY.getTime() ? TODAY : d);
 const iso = (d: Date) => d.toISOString();
 
 /* ───────────────────────────── ids ─────────────────────────────── */
@@ -165,11 +203,12 @@ const breeds: Row[] = BREED_NAMES.map((name) => ({
 
 /* ─────────────────────────── the herd ──────────────────────────── */
 
-const BUCK_COUNT = Math.max(8, Math.round(ACTIVE_DOES / 8));
-
 const buckIds: string[] = [];
 for (let i = 1; i <= BUCK_COUNT; i++) {
-  const acquired = daysAgo(int(SIM_DAYS + 20, SIM_DAYS + 90));
+  // The bucks are in place before the first doe is served, ramp or no ramp:
+  // a farm buys its males with — or just before — its first females.
+  const acquired =
+    RAMP_DAYS > 0 ? addDays(SIM_START, -int(5, 20)) : daysAgo(int(SIM_DAYS + 20, SIM_DAYS + 90));
   const buckId = id();
   buckIds.push(buckId);
   rabbits.push({
@@ -217,6 +256,13 @@ const TIERS = [
   { name: "idle", share: 0.1, conception: 0.25, litter: [2, 5] as const, restDays: [25, 90] as const },
 ];
 
+/**
+ * The tiers above average ~6.3 live kits per litter once each doe's own cycle
+ * count is taken into account. A higher target is delivered as a fractional
+ * extra kit rather than by widening the ranges — see LITTER_TARGET.
+ */
+const LITTER_EXTRA_CHANCE = Math.max(0, LITTER_TARGET - 6.3);
+
 function rollTier() {
   const r = rng();
   let acc = 0;
@@ -249,28 +295,49 @@ for (let i = 1; i <= ACTIVE_DOES + DECEASED_COUNT + CULLED_COUNT; i++) {
   const isDeceased = i > ACTIVE_DOES && i <= ACTIVE_DOES + DECEASED_COUNT;
   const isCulled = i > ACTIVE_DOES + DECEASED_COUNT;
 
-  // Most of the herd predates the simulation window; the rest are bought in
-  // during the year, so the report has does with only a partial history —
-  // which is exactly the case a naive "÷ number of does" would treat unfairly.
-  const enteredAt = chance(0.8)
-    ? daysAgo(int(SIM_DAYS + 10, SIM_DAYS + 120))
-    : daysAgo(int(40, SIM_DAYS - 30));
+  // Without a ramp: most of the herd predates the window and the rest are
+  // bought in during it, so the report has does with only a partial history —
+  // exactly the case a naive "÷ number of does" treats unfairly.
+  //
+  // With one: the farm is FOUNDED inside the window. The opening batch arrives
+  // in the first few days and the barn is filled over `ramp` days, which is how
+  // a real farm starts — nobody buys two hundred does in one morning.
+  const rampIndex = (i - 1) / (ACTIVE_DOES + DECEASED_COUNT + CULLED_COUNT);
+  const enteredAt =
+    RAMP_DAYS > 0
+      ? rampIndex < RAMP_START_SHARE
+        ? addDays(SIM_START, int(0, 4))
+        : addDays(SIM_START, int(5, RAMP_DAYS))
+      : chance(0.8)
+        ? daysAgo(int(SIM_DAYS + 10, SIM_DAYS + 120))
+        : daysAgo(int(40, SIM_DAYS - 30));
 
-  const exitAt = isDeceased || isCulled ? daysAgo(int(10, SIM_DAYS - 60)) : null;
+  // She has to have worked before she can leave: at least two months on the
+  // farm, and gone at least ten days ago. A doe bought at the end of the ramp
+  // simply has no room to die inside the window, and stays active.
+  const earliestExit = addDays(enteredAt, 60).getTime();
+  const latestExit = daysAgo(10).getTime();
+  const exitAt =
+    (isDeceased || isCulled) && earliestExit < latestExit
+      ? new Date(earliestExit + Math.floor(rng() * (latestExit - earliestExit)))
+      : null;
 
   // Leaving the herd frees the number for reuse: setRabbitStatusOp nulls tagId
   // and parks the old one in retiredTagId, for نافقة and مستبعدة alike. So an
   // exited doe here has to be untagged too — otherwise the demo farm shows
   // fourteen numbered does the real app could never produce.
   const originalTag = String(i);
+  // No exit date, no exit: she was earmarked to leave but arrived too late in
+  // the ramp for it to have happened yet, so she is simply still working.
+  const exitStatus = exitAt ? (isDeceased ? "deceased" : "culled") : null;
   does.push({
     id: id(),
-    tagId: isDeceased || isCulled ? null : originalTag,
+    tagId: exitStatus ? null : originalTag,
     originalTag,
     tier: rollTier(),
     enteredAt,
     exitAt,
-    exitStatus: isDeceased ? "deceased" : isCulled ? "culled" : null,
+    exitStatus,
   });
 }
 
@@ -394,7 +461,7 @@ for (const doe of does) {
 
     cycle.kindlingDate = kindlingDate;
     const [lo, hi] = doe.tier.litter;
-    cycle.bornAliveAtKindling = int(lo, hi);
+    cycle.bornAliveAtKindling = int(lo, hi) + (chance(LITTER_EXTRA_CHANCE) ? 1 : 0);
     // ~0.5 stillborn per litter. The old 45%×(1–3) averaged 1.9, which is a
     // figure you see in a herd with a real problem, not in a working barn.
     cycle.bornDeadAtKindling = chance(0.3) ? int(1, 2) : 0;
@@ -526,12 +593,20 @@ for (const cycle of cycles) {
     deathCursor = addDays(deathCursor, int(2, 7));
   }
 
-  const weaningDate = addDays(cycle.kindlingDate, WEANING_DAYS + int(0, 4));
+  // Around the target age, not always after it: a farm weans on the round it
+  // does that morning, so half the litters come off a day early.
+  const weaningDate = addDays(cycle.kindlingDate, WEANING_DAYS + int(-1, 2));
   const weanedNow = weaningDate <= TODAY && weaningDate <= (doe.exitAt ?? TODAY);
   if (weanedNow) {
     cycle.weaningDate = weaningDate;
     cycle.weaned = cycle.bornAlive;
-    cycle.weaningWeightGrams = cycle.weaned > 0 ? cycle.weaned * int(560, 760) : null;
+    // A TOTAL for the litter, the way the weaning press records it — ±15% per
+    // head, because a batch weighed on one scale on one morning is never flat.
+    const spread = Math.round(WEANING_WEIGHT_G * 0.15);
+    cycle.weaningWeightGrams =
+      cycle.weaned > 0
+        ? cycle.weaned * int(WEANING_WEIGHT_G - spread, WEANING_WEIGHT_G + spread)
+        : null;
   }
 
   kindlingLogs.push({
@@ -656,7 +731,9 @@ function retainStockKit(cycle: Cycle, retainedAt: Date): Date {
     id: id(),
     rabbitId,
     date: iso(retainedAt),
-    weightGrams: int(1_800, 2_400),
+    // She is picked out of the fattening batch, so she weighs what that batch
+    // weighs — a farm selling at 1.75 kg does not have 2.4 kg kits to choose from.
+    weightGrams: int(Math.round(SALE_WEIGHT_G * 0.85), Math.round(SALE_WEIGHT_G * 1.15)),
     notes: null,
     createdAt: iso(retainedAt),
     updatedAt: iso(retainedAt),
@@ -716,9 +793,11 @@ for (const cycle of cycles) {
   const died = chance(0.25) ? Math.min(left, int(1, 2)) : 0;
   if (died > 0) {
     left -= died;
+    // One draw, used for both fields: a death recorded on the day it happened.
+    const diedAt = iso(notFuture(addDays(weanedAt, int(2, 20))));
     kitStockMovements.push({
       id: id(),
-      date: iso(addDays(weanedAt, int(2, 20))),
+      date: diedAt,
       type: "death",
       count: died,
       weightGrams: null,
@@ -727,7 +806,7 @@ for (const cycle of cycles) {
       transactionId: null,
       rabbitId: null,
       notes: null,
-      createdAt: iso(addDays(weanedAt, int(2, 20))),
+      createdAt: diedAt,
     });
   }
 
@@ -744,7 +823,7 @@ for (const cycle of cycles) {
   // per year, each one eating a سلالة ration for months and then leaving at a
   // young-breeder price. That single number was quietly costing the demo farm
   // more than its rent.
-  const retained = chance(0.07) ? Math.min(left, 1) : 0;
+  const retained = chance(RETAIN_CHANCE) ? Math.min(left, 1) : 0;
   for (let k = 0; k < retained; k++) {
     left -= 1;
     const retainedAt = addDays(weanedAt, int(25, 45));
@@ -768,7 +847,7 @@ for (const cycle of cycles) {
   // Nothing is held back on purpose either: the standing رصيد الفطام comes from
   // the batches whose sale date simply hasn't arrived yet, which is where a
   // real farm's balance comes from too.
-  const saleDate = addDays(weanedAt, int(45, 60));
+  const saleDate = addDays(weanedAt, FATTENING_DAYS + int(-5, 5));
   const sold = saleDate <= TODAY ? left : 0;
   growerSpans.push({
     from: weanedAt,
@@ -777,7 +856,9 @@ for (const cycle of cycles) {
     ration: RATIONS.grower,
   });
   if (sold > 0) {
-    const weightGrams = sold * int(...KIT_SALE_WEIGHT_G);
+    // Per head, ±12%: a batch goes out at one price but never at one weight.
+    const saleSpread = Math.round(SALE_WEIGHT_G * 0.12);
+    const weightGrams = sold * int(SALE_WEIGHT_G - saleSpread, SALE_WEIGHT_G + saleSpread);
     const amountCents = Math.round((weightGrams * PRICE_PER_KG_CENTS) / 1000);
     const transactionId = id();
     transactions.push({
@@ -1239,11 +1320,31 @@ const kgSold = sum(yearSales, "weightGrams") / 1000;
 const feedKg = (feedCents / FEED_PRICE_PER_TON_CENTS) * 1000;
 const breakEven = kgSold > 0 ? (expense - (income - saleCents)) / kgSold : 0;
 
+// The spec figures, measured back off the rows rather than restated from the
+// knobs — a flag that silently failed to reach the herd shows up here.
+const bornAlive = sum(kindlingLogs, "bornAliveAtKindling");
+const avgLitter = kindlingLogs.length > 0 ? bornAlive / kindlingLogs.length : 0;
+const weighedWeanings = weaningLogs.filter((w) => w.weaningWeightGrams != null);
+const avgWeaningWeight =
+  sum(weighedWeanings, "weaned") > 0
+    ? sum(weighedWeanings, "weaningWeightGrams") / sum(weighedWeanings, "weaned")
+    : 0;
+const allSales = kitStockMovements.filter((m) => m.type === "sale");
+const avgSaleWeight =
+  sum(allSales, "count") > 0 ? sum(allSales, "weightGrams") / sum(allSales, "count") : 0;
+const standingStock = rabbits.filter(
+  (r) => stockKitIds.has(r.id as string) && r.status === "active"
+).length;
+
 console.log(`✔ ${OUT_FILE}`);
 console.table({
   "أمهات (نشطة)": ACTIVE_DOES,
-  "أمهات نافقة/مستبعدة": DECEASED_COUNT + CULLED_COUNT,
+  "أمهات نافقة/مستبعدة": does.filter((d) => d.exitStatus).length,
   ذكور: BUCK_COUNT,
+  "سلالات واقفة الآن": standingStock,
+  "متوسط الخلفة الحية": +avgLitter.toFixed(2),
+  "متوسط وزن الفطام (جم)": Math.round(avgWeaningWeight),
+  "متوسط وزن البيع (جم)": Math.round(avgSaleWeight),
   تلقيحات: matingLogs.length,
   ولادات: kindlingLogs.length,
   "مرات فطام": weaningLogs.length,

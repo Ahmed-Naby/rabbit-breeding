@@ -62,3 +62,4 @@ android/keystore.properties
 /public/app/
 *.log
 demo-farm.json
+sim-farm-24m.json

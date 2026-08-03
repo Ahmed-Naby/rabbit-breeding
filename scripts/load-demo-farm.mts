@@ -29,7 +29,8 @@ const flag = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.spl
 const IN_FILE = args.find((a) => !a.startsWith("--")) ?? "demo-farm.json";
 /** Fixed and distinct from DEFAULT_FARM_ID ("farm_default_000000000001"). */
 const DEMO_FARM_ID = flag("farm") ?? "farm_demo_00000000000001";
-const DEMO_FARM_NAME = "مزرعة تجريبية (بيانات محاكاة)";
+/** Two simulated farms can live side by side, so each needs its own name. */
+const DEMO_FARM_NAME = flag("name") ?? "مزرعة تجريبية (بيانات محاكاة)";
 
 type Row = Record<string, unknown>;
 type Data = Record<string, Row[]> & { settings: Row };
