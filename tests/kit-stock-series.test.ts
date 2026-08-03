@@ -1,0 +1,90 @@
+import { describe, test, expect } from "vitest";
+import {
+  buildKitStockSeries,
+  movementDelta,
+  pickBucket,
+  type KitStockEvent,
+} from "@/lib/kit-stock-series";
+
+const DAY = 86_400_000;
+const at = (dayOffset: number, delta: number): KitStockEvent => ({
+  dateMs: Date.UTC(2026, 0, 1) + dayOffset * DAY,
+  delta,
+});
+const now = (dayOffset: number) => Date.UTC(2026, 0, 1) + dayOffset * DAY;
+const last = <T>(xs: T[]) => xs[xs.length - 1];
+
+describe("movementDelta", () => {
+  test("mirrors the signs getKitStockBalanceAsOf uses", () => {
+    expect(movementDelta("returned", 5)).toBe(5);
+    // A signed manual correction: stored negative stays negative.
+    expect(movementDelta("adjustment", -3)).toBe(-3);
+    expect(movementDelta("sale", 20)).toBe(-20);
+    expect(movementDelta("death", 4)).toBe(-4);
+    expect(movementDelta("retained", 2)).toBe(-2);
+  });
+
+  test("leaves the balance alone for a type it does not know", () => {
+    // A new movement type shipped to the DB before this file learns about it
+    // should not silently push the curve in a guessed direction.
+    expect(movementDelta("teleported", 9)).toBe(0);
+  });
+});
+
+describe("pickBucket", () => {
+  test("stays daily while the farm is young", () => {
+    expect(pickBucket(30 * DAY)).toBe("day");
+    expect(pickBucket(59 * DAY)).toBe("day");
+  });
+
+  test("widens to weekly, then monthly, as history piles up", () => {
+    expect(pickBucket(60 * DAY)).toBe("week");
+    expect(pickBucket(413 * DAY)).toBe("week");
+    expect(pickBucket(414 * DAY)).toBe("month");
+  });
+});
+
+describe("buildKitStockSeries", () => {
+  test("replays events as a running total, not a per-bucket sum", () => {
+    const { points } = buildKitStockSeries([at(0, 30), at(1, -10), at(2, 5)], now(3));
+    expect(points.map((p) => p.balance)).toEqual([30, 20, 25, 25]);
+  });
+
+  test("ends on the current balance, so the curve agrees with the رصيد card", () => {
+    const events = [at(0, 100), at(5, -40), at(9, 12)];
+    const { points } = buildKitStockSeries(events, now(10));
+    expect(last(points).balance).toBe(72);
+    expect(last(points).dateMs).toBe(now(10));
+  });
+
+  test("counts events dated in the future into the final balance", () => {
+    // Back-dating works both ways: a sale entered with tomorrow's date must not
+    // fall off the end of the series.
+    const { points } = buildKitStockSeries([at(0, 50), at(20, -10)], now(3));
+    expect(last(points).balance).toBe(40);
+  });
+
+  test("keeps flat buckets rather than skipping them", () => {
+    // Nothing happened between day 0 and day 4 — that is information.
+    const { points } = buildKitStockSeries([at(0, 8), at(4, -3)], now(4));
+    expect(points.map((p) => p.balance)).toEqual([8, 8, 8, 8, 5]);
+  });
+
+  test("caps the point count once the span outgrows daily resolution", () => {
+    const { points, bucket } = buildKitStockSeries([at(0, 1000)], now(413));
+    expect(bucket).toBe("week");
+    expect(points.length).toBeLessThanOrEqual(60);
+    expect(last(points).balance).toBe(1000);
+  });
+
+  test("returns nothing to draw for a farm with no weanings yet", () => {
+    expect(buildKitStockSeries([], now(0))).toEqual({ points: [], bucket: "month" });
+  });
+
+  test("does not depend on the caller sorting its events", () => {
+    const shuffled = [at(2, 5), at(0, 30), at(1, -10)];
+    expect(buildKitStockSeries(shuffled, now(3)).points.map((p) => p.balance)).toEqual([
+      30, 20, 25, 25,
+    ]);
+  });
+});

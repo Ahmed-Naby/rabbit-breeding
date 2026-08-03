@@ -916,6 +916,16 @@ export const en: Dictionary = {
     avgRemainingStockNote:
       "Every figure in performance averages covers the farm since it started and ignores the date filter below. Weaned stock available to sell is a total rather than an average — it moves when older stock is sold even if nothing was weaned.",
 
+    // ——— Weaned stock curve ———
+    sectionStockChart: "Weaned stock since the farm started",
+    stockChartSeriesLabel: "Weaned stock",
+    stockChartEmpty: "No weanings or stock movements recorded yet.",
+    stockChartNote:
+      "The running balance available to sell at each point in time: it rises with every weaning and falls with sales, deaths, and stock retained for breeding. Unaffected by the date filter below.",
+    stockChartBucketDay: "Daily",
+    stockChartBucketWeek: "Weekly",
+    stockChartBucketMonth: "Monthly",
+
     // ——— Herd productivity ———
     herdTitle: "Herd Productivity",
     herdDescription:

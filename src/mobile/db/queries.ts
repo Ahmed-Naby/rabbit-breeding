@@ -19,6 +19,12 @@ import {
   type AverageWeaningRow,
 } from "@/lib/breeding-averages";
 import {
+  buildKitStockSeries,
+  movementDelta,
+  type KitStockBucket,
+  type KitStockPoint,
+} from "@/lib/kit-stock-series";
+import {
   computeHerdProductivity,
   findIdleDoes,
   rebreedTarget,
@@ -2521,6 +2527,8 @@ export type FollowUpReport = {
   };
   breeding: { matings: number; pregnancyPositive: number; kindlings: number };
   averages: BreedingAverages;
+  /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
+  kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
 
 /** A "month" is 30 days here — calendar months would make the buckets uneven. */
@@ -2627,6 +2635,8 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     lifetimeKindlingRows,
     lifetimeWeanings,
     lifetimeWeanedStockDeathAgg,
+    historyWeanings,
+    historyMovements,
   ] = await Promise.all([
     queryOne<{ total: number | null }>(
       db,
@@ -2718,6 +2728,16 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       db,
       "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death'"
     ),
+    // Dated rows for the balance curve. Same two tables and the same signs as
+    // getLocalKitStockBalanceAsOf, replayed in order instead of summed once.
+    queryAll<{ weaningDate: string; weaned: number | null }>(
+      db,
+      "SELECT weaningDate, weaned FROM weaning_log WHERE weaned IS NOT NULL"
+    ),
+    queryAll<{ date: string; type: string; count: number }>(
+      db,
+      "SELECT date, type, count FROM kit_stock_movement"
+    ),
   ]);
 
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
@@ -2759,6 +2779,19 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       lifetimeWeanings,
       lifetimeWeanedStockDeathAgg?.total ?? 0,
       lifetimeRemainingStock
+    ),
+    kitStockHistory: buildKitStockSeries(
+      [
+        ...historyWeanings.map((w) => ({
+          dateMs: new Date(w.weaningDate).getTime(),
+          delta: w.weaned ?? 0,
+        })),
+        ...historyMovements.map((m) => ({
+          dateMs: new Date(m.date).getTime(),
+          delta: movementDelta(m.type, m.count),
+        })),
+      ],
+      Date.now()
     ),
   };
 }

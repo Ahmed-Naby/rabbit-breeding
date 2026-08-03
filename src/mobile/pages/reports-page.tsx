@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { addDays } from "date-fns";
-import { FileText, TrendingUp, Venus, Mars, Rabbit, Layers, Gauge } from "lucide-react";
+import { FileText, TrendingUp, Venus, Mars, Rabbit, Layers, Gauge, ChartArea } from "lucide-react";
+import { KitStockChart } from "@/components/kit-stock-chart";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
@@ -213,12 +214,14 @@ export function ReportsPage({ locale }: { locale: Locale }) {
               have no effect on them. */}
           {report && <BalanceCards report={report} rt={rt} />}
 
-          {/* The averages, unlike the two cards above, ARE bounded by the date
-              filter below — they sit here because they're the headline of the
-              report, not because the range doesn't reach them. Each group
-              prints its own denominator, which is what ties it back to the
-              selected period. */}
+          {/* Lifetime like the two cards above, so it also belongs ahead of the
+              date filter. Each group still prints its own denominator, which is
+              what says how many kindlings/weanings the average stands on. */}
           {report && <AveragesSection averages={report.averages} rt={rt} />}
+
+          {/* The same رصيد الفطام number the card above ends on, drawn back to
+              the farm's first weaning. Lifetime too — hence its place here. */}
+          {report && <StockChartSection history={report.kitStockHistory} rt={rt} locale={locale} />}
 
           <Card>
             <CardContent className="py-4">
@@ -768,6 +771,53 @@ function HerdTile({
       <div className={cn("text-xs", tone ? "opacity-80" : "text-muted-foreground")}>{label}</div>
       <div className={cn("mt-1 font-bold tabular-nums", strong ? "text-2xl" : "text-xl")}>{value}</div>
     </div>
+  );
+}
+
+/** Mirrors the web StockChartSection (src/app/reports/page.tsx). */
+function StockChartSection({
+  history,
+  rt,
+  locale,
+}: {
+  history: FollowUpReport["kitStockHistory"];
+  rt: RT;
+  locale: Locale;
+}) {
+  const bucketLabel = {
+    day: rt.stockChartBucketDay,
+    week: rt.stockChartBucketWeek,
+    month: rt.stockChartBucketMonth,
+  }[history.bucket];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+              <ChartArea className="size-5" />
+            </span>
+            {rt.sectionStockChart}
+          </CardTitle>
+          {/* The bucket is chosen for the reader, so say which one they got —
+              a flat month on a monthly chart is not a flat month in reality. */}
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+            {bucketLabel}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <KitStockChart
+          points={history.points}
+          bucket={history.bucket}
+          locale={locale}
+          label={rt.stockChartSeriesLabel}
+          emptyText={rt.stockChartEmpty}
+        />
+        <p className="text-xs text-muted-foreground">{rt.stockChartNote}</p>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -1,6 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { computeBreedingAverages, type BreedingAverages } from "@/lib/breeding-averages";
+import {
+  buildKitStockSeries,
+  movementDelta,
+  type KitStockBucket,
+  type KitStockPoint,
+} from "@/lib/kit-stock-series";
 
 /**
  * السلالات split by how long they have been IN السلالات, not by weight.
@@ -62,6 +68,8 @@ export type FollowUpReport = {
   };
   /** Lifetime, unlike every field above it — see computeBreedingAverages. */
   averages: BreedingAverages;
+  /** The رصيد الفطام curve since the farm started; also lifetime. */
+  kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
 };
 
 /** A "month" here is 30 days — calendar months would make the buckets uneven. */
@@ -185,6 +193,8 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     lifetimeKindlingRows,
     lifetimeWeanings,
     lifetimeWeanedStockDeathAgg,
+    historyWeanings,
+    historyMovements,
   ] = await Promise.all([
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.count({ where: { sex: "buck", tagId: { not: null }, status: "active" } }),
@@ -276,6 +286,13 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       select: { weaned: true },
     }),
     prisma.kitStockMovement.aggregate({ where: { type: "death" }, _sum: { count: true } }),
+    // Dated rows for the balance curve. Same two tables and the same signs as
+    // getKitStockBalanceAsOf, replayed in order instead of summed once.
+    prisma.weaningLog.findMany({
+      where: { weaned: { not: null } },
+      select: { weaningDate: true, weaned: true },
+    }),
+    prisma.kitStockMovement.findMany({ select: { date: true, type: true, count: true } }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -323,6 +340,19 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       lifetimeWeanings,
       lifetimeWeanedStockDeathAgg._sum.count ?? 0,
       lifetimeRemainingStock
+    ),
+    kitStockHistory: buildKitStockSeries(
+      [
+        ...historyWeanings.map((w) => ({
+          dateMs: w.weaningDate.getTime(),
+          delta: w.weaned ?? 0,
+        })),
+        ...historyMovements.map((m) => ({
+          dateMs: m.date.getTime(),
+          delta: movementDelta(m.type, m.count),
+        })),
+      ],
+      Date.now()
     ),
   };
 }
