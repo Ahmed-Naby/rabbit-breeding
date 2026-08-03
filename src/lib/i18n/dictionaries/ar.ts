@@ -922,7 +922,7 @@ export const ar = {
     avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
     avgRemainingStockLabel: "رصيد الفطام المتاح للبيع",
     avgMonthlySalesLabel: "متوسط البيع الشهري",
-    avgMonthsBasis: (count: number) => `÷ ${count} شهر منذ بداية العمل`,
+    avgMonthsBasis: (count: number) => `÷ ${count} شهر منذ أول شهر بيع`,
     avgKindlingBasis: (count: number) => `÷ ${count} ولادة منذ بداية العمل`,
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgLifetimeBasis: "الرصيد التراكمي للمزرعة حتى الآن",

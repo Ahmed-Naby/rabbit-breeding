@@ -77,40 +77,49 @@ export type BreedingAverages = {
 };
 
 /**
- * متوسط البيع الشهري — lifetime sales spread over the months the farm has been
- * running. Its own type because its denominator is time, not an event count:
- * nothing in BreedingAverages divides by months.
+ * متوسط البيع الشهري — sales spread over the months the farm has been selling.
+ * Its own type because its denominator is time, not an event count: nothing in
+ * BreedingAverages divides by months.
  */
 export type MonthlySales = {
-  /** Every head ever sold out of the weaned-stock ledger. */
+  /** Head sold in the scored months — see below; not necessarily the lifetime total. */
   totalSold: number;
-  /** Whole months the farm has been running. Also the printed denominator. */
+  /** Whole months scored. Also the printed denominator. */
   months: number;
-  /** null only for a farm with no history at all. */
+  /** null until one complete month has been sold through. */
   perMonth: number | null;
 };
 
-/** The mean Gregorian month. Calendar months would make «÷ 20 شهر» ambiguous. */
-const AVG_MONTH_MS = 30.436875 * 86_400_000;
-
 /**
- * Months are counted from the farm's FIRST recorded event, not its first sale:
- * a farm that took three months to sell its first batch really did average less
- * per month over its life, and starting the clock at the first sale would hide
- * exactly that.
+ * Counting STARTS at the first month the farm sold anything, and the running
+ * month is left out — the same window computeSalesPerDoe and the sales chart
+ * use, so the three figures can be read against each other.
  *
- * The quotient uses the same rounded month count that gets printed, so the
- * displayed «÷ N شهر» always reproduces the number beside it.
+ * It used to run from the farm's first recorded event, which folded the
+ * ramp-up — does bought, mated, carrying, nursing, nothing weaned yet to sell
+ * — into the denominator and measured the wait for the first litter rather
+ * than how the farm sells. Once selling has begun a month that sold nothing is
+ * still a real 0: that one IS a bad month.
  */
-export function computeMonthlySales(
-  totalSold: number,
-  firstEventMs: number | null,
-  nowMs: number
-): MonthlySales {
-  if (firstEventMs == null) return { totalSold, months: 0, perMonth: null };
-  // At least one month: a farm two weeks old would otherwise divide by a
-  // fraction and claim a monthly rate it has never actually sustained.
-  const months = Math.max(1, Math.round((nowMs - firstEventMs) / AVG_MONTH_MS));
+export function computeMonthlySales(sales: DatedCount[], nowMs: number): MonthlySales {
+  const soldByMonth = new Map<number, number>();
+  for (const s of sales) {
+    const m = monthIndex(s.dateMs);
+    soldByMonth.set(m, (soldByMonth.get(m) ?? 0) + s.count);
+  }
+
+  let firstMonth: number | null = null;
+  for (const [month, count] of soldByMonth) {
+    if (count > 0 && (firstMonth == null || month < firstMonth)) firstMonth = month;
+  }
+  // The running month is excluded, so a farm still inside its first selling
+  // month has no complete month to average yet.
+  const lastMonth = monthIndex(nowMs) - 1;
+  if (firstMonth == null || lastMonth < firstMonth) return { totalSold: 0, months: 0, perMonth: null };
+
+  let totalSold = 0;
+  for (let m = firstMonth; m <= lastMonth; m++) totalSold += soldByMonth.get(m) ?? 0;
+  const months = lastMonth - firstMonth + 1;
   return { totalSold, months, perMonth: totalSold / months };
 }
 

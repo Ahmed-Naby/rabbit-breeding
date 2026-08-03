@@ -335,16 +335,12 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
-  // Every dated change to the weaned-stock balance, ever. The curve replays it
-  // and متوسط البيع الشهري measures its sales against its own span, so both
-  // read the same history and neither costs an extra query.
+  // Every dated change to the weaned-stock balance, ever — the curve replays it.
   const stockEvents = [
     ...historyWeanings.map((w) => ({ dateMs: w.weaningDate.getTime(), delta: w.weaned ?? 0 })),
     ...historyMovements.map((m) => ({ dateMs: m.date.getTime(), delta: movementDelta(m.type, m.count) })),
   ];
-  const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
-  const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
   const saleEvents = saleRows.map((m) => ({
     dateMs: m.date.getTime(),
     count: m.count,
@@ -408,7 +404,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       weanedStockDeaths: lifetimeWeanedStockDeathAgg._sum.count ?? 0,
       remainingStock: lifetimeRemainingStock,
     }),
-    monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    monthlySales: computeMonthlySales(saleEvents, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(

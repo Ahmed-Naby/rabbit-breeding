@@ -2777,7 +2777,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
   // Every dated change to the weaned-stock balance, ever — same derivation as
-  // the server's, so the curve and متوسط البيع الشهري match across bundles.
+  // the server's, so the curve matches across bundles.
   const stockEvents = [
     ...historyWeanings.map((w) => ({
       dateMs: new Date(w.weaningDate).getTime(),
@@ -2788,9 +2788,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       delta: movementDelta(m.type, m.count),
     })),
   ];
-  const farmStartMs = stockEvents.length > 0 ? Math.min(...stockEvents.map((e) => e.dateMs)) : null;
   const saleRows = historyMovements.filter((m) => m.type === "sale");
-  const lifetimeSold = saleRows.reduce((s, m) => s + m.count, 0);
   const saleEvents = saleRows.map((m) => ({
     dateMs: new Date(m.date).getTime(),
     count: m.count,
@@ -2852,7 +2850,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       weanedStockDeaths: lifetimeWeanedStockDeathAgg?.total ?? 0,
       remainingStock: lifetimeRemainingStock,
     }),
-    monthlySales: computeMonthlySales(lifetimeSold, farmStartMs, Date.now()),
+    monthlySales: computeMonthlySales(saleEvents, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
     soldPerWeaning: computeLaggedSoldPerWeaning(

@@ -912,7 +912,7 @@ export const en: Dictionary = {
     avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
     avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
-    avgMonthsBasis: (count: number) => `÷ ${count} months since the farm started`,
+    avgMonthsBasis: (count: number) => `÷ ${count} months since the first selling month`,
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",

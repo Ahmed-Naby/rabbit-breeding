@@ -471,49 +471,63 @@ describe("computeWeightPerDoe", () => {
 });
 
 describe("computeMonthlySales", () => {
-  const DAY = 86_400_000;
-  const start = Date.UTC(2025, 0, 1);
-  const after = (days: number) => start + days * DAY;
-
-  test("spreads lifetime sales over the months the farm has run", () => {
-    // ~12 months in, 2400 sold → 200 a month.
-    const r = computeMonthlySales(2400, start, after(365));
-    expect(r.months).toBe(12);
-    expect(r.perMonth).toBe(200);
-    expect(r.totalSold).toBe(2400);
-  });
+  /** A sale of `count` head in month `m` of 2025 (1-based). */
+  const sold = (m: number, count: number) => ({ dateMs: new Date(2025, m - 1, 12).getTime(), count });
+  const now = new Date(2025, 6, 5).getTime(); // 5 July 2025 — June is the last full month.
 
   test("divides by exactly the month count it reports", () => {
-    // The UI prints «÷ N شهر» beside the quotient; if the function divided by
-    // an unrounded span, the reader could not reproduce the number shown.
-    const r = computeMonthlySales(1000, start, after(400));
-    expect(r.perMonth).toBe(1000 / r.months);
+    // The UI prints «÷ N شهر» beside the quotient; the reader must be able to
+    // reproduce the number shown from the two figures on screen.
+    const r = computeMonthlySales([sold(1, 300), sold(2, 100), sold(3, 200)], now);
+    expect(r.months).toBe(6);
+    expect(r.totalSold).toBe(600);
+    expect(r.perMonth).toBe(100);
   });
 
-  test("counts from the farm's first event, not its first sale", () => {
-    // Three silent months then 300 sold in the fourth is 75/month over its
-    // life, not 300 — the caller passes the first weaning, and this is why.
-    const r = computeMonthlySales(300, start, after(121));
-    expect(r.months).toBe(4);
-    expect(r.perMonth).toBe(75);
+  test("counts from the first month with a sale, not from the farm's first event", () => {
+    // Selling starts in April: three months (April, May, June), 900 head → 300.
+    // Counting the silent ramp-up months would have printed 150.
+    const r = computeMonthlySales([sold(4, 500), sold(5, 400)], now);
+    expect(r.months).toBe(3);
+    expect(r.perMonth).toBe(300);
   });
 
-  test("never divides by a fraction of a month", () => {
-    // A farm two weeks old with 50 sold has not proven a 100/month rate.
-    const r = computeMonthlySales(50, start, after(14));
+  test("counts a barren month after selling has begun as a real zero", () => {
+    const r = computeMonthlySales([sold(5, 300), sold(6, 300)], new Date(2025, 7, 5).getTime());
+    // May, June, July — July sold nothing, and that is a bad month, not missing data.
+    expect(r.months).toBe(3);
+    expect(r.perMonth).toBe(200);
+  });
+
+  test("leaves the running month out", () => {
+    // July's few days are not a month's selling and would drag the mean down
+    // every time the report is opened.
+    const r = computeMonthlySales([sold(6, 300), sold(7, 20)], now);
     expect(r.months).toBe(1);
-    expect(r.perMonth).toBe(50);
+    expect(r.perMonth).toBe(300);
   });
 
-  test("returns «—» rather than a rate for a farm with no history", () => {
-    const r = computeMonthlySales(0, null, after(0));
+  test("returns «—» for a farm that has never sold", () => {
+    const r = computeMonthlySales([], now);
     expect(r.months).toBe(0);
     expect(r.perMonth).toBeNull();
   });
 
-  test("reports zero, not «—», for a farm that has sold nothing yet", () => {
-    // It has run for months and sold none — that is a real 0, not missing data.
-    const r = computeMonthlySales(0, start, after(90));
-    expect(r.perMonth).toBe(0);
+  test("returns «—» while the farm is still inside its first selling month", () => {
+    const r = computeMonthlySales([sold(7, 40)], now);
+    expect(r.months).toBe(0);
+    expect(r.perMonth).toBeNull();
+  });
+
+  test("crosses the year boundary", () => {
+    const r = computeMonthlySales(
+      [
+        { dateMs: new Date(2024, 11, 10).getTime(), count: 6 },
+        { dateMs: new Date(2025, 0, 10).getTime(), count: 12 },
+      ],
+      new Date(2025, 1, 5).getTime()
+    );
+    expect(r.months).toBe(2);
+    expect(r.perMonth).toBe(9);
   });
 });
