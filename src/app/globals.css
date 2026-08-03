@@ -67,6 +67,7 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-chart-6: var(--chart-6);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -121,6 +122,9 @@
   --chart-3: oklch(0.65 0.16 40);
   --chart-4: oklch(0.55 0.1 150);
   --chart-5: oklch(0.45 0.08 70);
+  /* The only blue in a palette of greens and ambers. Added for the doe-count
+     bars, which must not read as another shade of the production series. */
+  --chart-6: oklch(0.58 0.14 250);
   --radius: 0.75rem;
   --sidebar: oklch(0.26 0.045 155);
   --sidebar-foreground: oklch(0.96 0.01 95);
@@ -156,6 +160,8 @@
   --chart-3: oklch(0.65 0.16 40);
   --chart-4: oklch(0.55 0.1 150);
   --chart-5: oklch(0.6 0.08 70);
+  /* Lifted for the dark card — see the light-theme note. */
+  --chart-6: oklch(0.68 0.13 250);
   --sidebar: oklch(0.2 0.03 155);
   --sidebar-foreground: oklch(0.95 0.01 95);
   --sidebar-primary: oklch(0.78 0.14 75);

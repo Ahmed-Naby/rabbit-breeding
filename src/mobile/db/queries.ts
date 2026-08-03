@@ -2865,7 +2865,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       stockEvents,
       Date.now()
     ),
-    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, Date.now()),
+    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, doePresence, Date.now()),
   };
 }
 

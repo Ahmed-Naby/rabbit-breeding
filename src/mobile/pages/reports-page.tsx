@@ -931,9 +931,14 @@ function SalesChartSection({
           points={points}
           locale={locale}
           label={rt.salesChartSeriesLabel}
+          doesLabel={rt.salesChartDoesLabel}
           emptyText={rt.salesChartEmpty}
         />
-        <p className="text-xs text-muted-foreground">{rt.salesChartNote}</p>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>{rt.salesChartNote}</p>
+          {/* Two scales on one chart is a real trap — say it plainly. */}
+          <p>{rt.salesChartAxesNote}</p>
+        </div>
       </CardContent>
     </Card>
   );

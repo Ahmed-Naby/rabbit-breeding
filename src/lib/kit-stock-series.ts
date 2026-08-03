@@ -8,6 +8,8 @@
  * adjustments on top — replayed as a running total instead of summed once.
  */
 
+import { doesPresentOn, type DoePresence } from "./breeding-averages";
+
 /** One dated change to the balance. `delta` is already signed by the caller. */
 export type KitStockEvent = { dateMs: number; delta: number };
 
@@ -100,13 +102,17 @@ export function buildKitStockSeries(
   return { points, bucket };
 }
 
-/** One calendar month's sales. `monthMs` is midnight on the 1st. */
-export type MonthlySalesPoint = { monthMs: number; count: number };
+/**
+ * One calendar month. `monthMs` is midnight on the 1st, which is also the
+ * instant `does` is measured at — the same instant معدل البيع لكل أم divides by.
+ */
+export type MonthlySalesPoint = { monthMs: number; count: number; does: number };
 
 /**
- * Sales bucketed into calendar months, one bar per month — the counterpart to
- * the balance curve: that one shows what is standing in the barn, this one
- * shows what left it.
+ * Sales bucketed into calendar months, one bar per month, with the herd that
+ * produced them alongside — the counterpart to the balance curve: that one
+ * shows what is standing in the barn, this one shows what left it and how many
+ * mothers it took.
  *
  * NOT bucketed like buildKitStockSeries. A month is the unit the user asked
  * for and the unit every sales average on this page already uses, so a farm
@@ -116,9 +122,15 @@ export type MonthlySalesPoint = { monthMs: number; count: number };
  * would compress the timeline and make a quiet spring look like it never
  * happened. The running month is left out for the same reason the averages
  * leave it out — a few days of sales next to full months reads as a collapse.
+ *
+ * The series still STARTS at the first sale, not at the first doe. Does bought
+ * during a long ramp-up before the farm's first sale belong to a different
+ * story than «البيع الشهري», and leading with a row of empty sale bars would
+ * bury the part being asked about.
  */
 export function buildMonthlySalesSeries(
   sales: { dateMs: number; count: number }[],
+  does: DoePresence[],
   nowMs: number
 ): MonthlySalesPoint[] {
   if (sales.length === 0) return [];
@@ -140,7 +152,14 @@ export function buildMonthlySalesSeries(
     cursor.getTime() < currentMonthMs;
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
   ) {
-    points.push({ monthMs: cursor.getTime(), count: byMonth.get(cursor.getTime()) ?? 0 });
+    const monthMs = cursor.getTime();
+    points.push({
+      monthMs,
+      count: byMonth.get(monthMs) ?? 0,
+      // Measured on the 1st, exactly as computeSalesPerDoe measures it, so a
+      // reader can divide one bar by the other and land on that average.
+      does: doesPresentOn(does, monthMs),
+    });
   }
   return points;
 }

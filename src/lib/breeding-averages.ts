@@ -204,6 +204,15 @@ export type SalesPerDoe = {
 export type DoePresence = { fromMs: number; toMs: number | null };
 
 /**
+ * How many does stood on the farm at `ms`. Exported so the البيع الشهري chart
+ * can draw the same herd line these averages divide by — two answers to "how
+ * many mothers were there in March" on one page would be indefensible.
+ */
+export function doesPresentOn(does: DoePresence[], ms: number): number {
+  return does.filter((d) => d.fromMs <= ms && (d.toMs == null || d.toMs > ms)).length;
+}
+
+/**
  * Walks every scoreable month — from the first doe's arrival up to but not
  * including the running one — handing back how many does stood on the 1st.
  * Months with no does at all are skipped rather than reported as 0: there is
@@ -225,9 +234,7 @@ function forEachScoredMonth(
   // a few days of sales against a full herd would drag the mean down.
   for (let month = firstMonth; month < currentMonth; month++) {
     const monthStart = new Date(Math.floor(month / 12), month % 12, 1).getTime();
-    const present = does.filter(
-      (d) => d.fromMs <= monthStart && (d.toMs == null || d.toMs > monthStart)
-    ).length;
+    const present = doesPresentOn(does, monthStart);
     if (present === 0) continue;
     visit(month, present);
   }

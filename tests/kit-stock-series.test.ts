@@ -96,12 +96,18 @@ describe("buildMonthlySalesSeries", () => {
     dateMs: new Date(2025, month - 1, 10).getTime(),
     count,
   });
+  /** A doe present from the 1st of `from` until the 1st of `to` (exclusive). */
+  const doe = (from: number, to?: number) => ({
+    fromMs: new Date(2025, from - 1, 1).getTime(),
+    toMs: to == null ? null : new Date(2025, to - 1, 1).getTime(),
+  });
   const nowIn = (month: number) => new Date(2025, month - 1, 15).getTime();
   const counts = (points: { count: number }[]) => points.map((p) => p.count);
 
   test("sums every sale in a calendar month into one bar", () => {
     const points = buildMonthlySalesSeries(
       [sale(1, 30), sale(1, 12), sale(2, 40)],
+      [],
       nowIn(3)
     );
 
@@ -112,19 +118,19 @@ describe("buildMonthlySalesSeries", () => {
   test("emits a zero bar for a month that sold nothing", () => {
     // Skipping February would put January and March side by side and make a
     // quiet month look like it never happened.
-    const points = buildMonthlySalesSeries([sale(1, 30), sale(3, 20)], nowIn(4));
+    const points = buildMonthlySalesSeries([sale(1, 30), sale(3, 20)], [], nowIn(4));
 
     expect(counts(points)).toEqual([30, 0, 20]);
   });
 
   test("leaves out the running month, which is only part of a month", () => {
-    const points = buildMonthlySalesSeries([sale(1, 30), sale(2, 3)], nowIn(2));
+    const points = buildMonthlySalesSeries([sale(1, 30), sale(2, 3)], [], nowIn(2));
 
     expect(counts(points)).toEqual([30]);
   });
 
   test("starts at the first sale, not at the first of the year", () => {
-    const points = buildMonthlySalesSeries([sale(5, 30)], nowIn(7));
+    const points = buildMonthlySalesSeries([sale(5, 30)], [], nowIn(7));
 
     expect(points).toHaveLength(2); // May and June
     expect(new Date(points[0].monthMs).getMonth()).toBe(4);
@@ -133,6 +139,7 @@ describe("buildMonthlySalesSeries", () => {
   test("crosses the year boundary", () => {
     const points = buildMonthlySalesSeries(
       [{ dateMs: new Date(2024, 10, 10).getTime(), count: 5 }, sale(1, 7)],
+      [],
       nowIn(2)
     );
 
@@ -140,11 +147,36 @@ describe("buildMonthlySalesSeries", () => {
   });
 
   test("returns nothing for a farm that has never sold", () => {
-    expect(buildMonthlySalesSeries([], nowIn(6))).toEqual([]);
+    expect(buildMonthlySalesSeries([], [], nowIn(6))).toEqual([]);
   });
 
   test("returns nothing when every sale is in the incomplete running month", () => {
     // One partial month is not a chart — the card shows its empty text instead.
-    expect(buildMonthlySalesSeries([sale(6, 12)], nowIn(6))).toEqual([]);
+    expect(buildMonthlySalesSeries([sale(6, 12)], [], nowIn(6))).toEqual([]);
+  });
+
+  test("counts the does standing on the 1st of each month", () => {
+    // A doe arriving mid-February is absent on Feb 1 and present on Mar 1 —
+    // the same rule computeSalesPerDoe divides by, so a reader can take one
+    // bar over the other and land on «معدل البيع لكل أم».
+    const does = [doe(1), { fromMs: new Date(2025, 1, 14).getTime(), toMs: null }];
+    const points = buildMonthlySalesSeries([sale(1, 30)], does, nowIn(4));
+
+    expect(points.map((p) => p.does)).toEqual([1, 1, 2]);
+  });
+
+  test("drops a doe from the months after she leaves", () => {
+    const points = buildMonthlySalesSeries([sale(1, 30)], [doe(1), doe(1, 3)], nowIn(4));
+
+    expect(points.map((p) => p.does)).toEqual([2, 2, 1]);
+  });
+
+  test("reports zero does rather than skipping the month", () => {
+    // The bar still belongs on the axis: a month with sales and no does on
+    // file is a data problem worth seeing, not a month to hide.
+    const points = buildMonthlySalesSeries([sale(1, 30)], [doe(3)], nowIn(4));
+
+    expect(points.map((p) => p.does)).toEqual([0, 0, 1]);
+    expect(counts(points)).toEqual([30, 0, 0]);
   });
 });

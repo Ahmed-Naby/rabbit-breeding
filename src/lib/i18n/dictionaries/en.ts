@@ -937,9 +937,12 @@ export const en: Dictionary = {
     // ——— Weaned stock curve ———
     sectionSalesChart: "Monthly sales since the farm started",
     salesChartSeriesLabel: "Sold",
+    salesChartDoesLabel: "Active does",
     salesChartEmpty: "No sales in a completed month yet.",
     salesChartNote:
-      "Rabbits sold in each calendar month. A month that sold nothing shows an empty bar so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
+      "Rabbits sold in each calendar month, with the blue bar showing the does on the farm on the 1st of that same month — the very denominator «sales per doe» divides by. A month that sold nothing shows an empty bar so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
+    salesChartAxesNote:
+      "Each colour has its own scale: sales on the left axis, does on the right, so the two bar heights cannot be compared — read the blue bars for their trend, not their size.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",
