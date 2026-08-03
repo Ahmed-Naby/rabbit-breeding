@@ -936,7 +936,7 @@ function SalesChartSection({
         />
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>{rt.salesChartNote}</p>
-          {/* Two scales on one chart is a real trap — say it plainly. */}
+          {/* One scale, so the short blue bar needs explaining, not warning about. */}
           <p>{rt.salesChartAxesNote}</p>
         </div>
       </CardContent>

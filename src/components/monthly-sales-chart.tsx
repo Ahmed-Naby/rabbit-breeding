@@ -20,10 +20,10 @@ import type { Locale } from "@/lib/i18n/locales";
  * Bars, not a line: months are discrete buckets that are summed, and a line
  * between them would suggest a rate sliding from one month into the next.
  *
- * TWO axes, deliberately. Sales run in the hundreds and does in the dozens, so
- * on one scale the herd bar would be a blue smudge along the floor. The cost is
- * that bar HEIGHTS across the two series mean nothing to each other — hence a
- * tick colour per axis matching its series, and the note under the card.
+ * ONE shared axis, by request. It was briefly split — sales run in the hundreds
+ * and does in the dozens, so the herd bar is short here — but two scales made
+ * the bar heights mean nothing to each other, and being able to see the small
+ * number against the big one is the point of putting them side by side.
  *
  * Both bundles render this same component; each builds its points with
  * buildMonthlySalesSeries.
@@ -79,21 +79,7 @@ export function MonthlySalesChart({
             axisLine={false}
             minTickGap={16}
           />
-          <YAxis
-            yAxisId="sales"
-            tick={{ fontSize: 11, fill: "var(--chart-2)" }}
-            tickLine={false}
-            axisLine={false}
-            width={44}
-          />
-          <YAxis
-            yAxisId="does"
-            orientation="right"
-            tick={{ fontSize: 11, fill: "var(--chart-6)" }}
-            tickLine={false}
-            axisLine={false}
-            width={36}
-          />
+          <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
           <Tooltip
             formatter={(v, name) => [Number(v).toLocaleString(), name]}
             // The default hover fill is a grey block that swallows the bars.
@@ -106,20 +92,10 @@ export function MonthlySalesChart({
             }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
-          <Bar
-            yAxisId="sales"
-            dataKey={label}
-            fill="var(--chart-2)"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={28}
-          />
-          <Bar
-            yAxisId="does"
-            dataKey={doesLabel}
-            fill="var(--chart-6)"
-            radius={[4, 4, 0, 0]}
-            maxBarSize={28}
-          />
+          <Bar dataKey={label} fill="var(--chart-2)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+          {/* Same axis as the sales bar, so a month's herd is read against the
+              head it shipped rather than against its own private scale. */}
+          <Bar dataKey={doesLabel} fill="var(--chart-6)" radius={[4, 4, 0, 0]} maxBarSize={28} />
         </BarChart>
       </ResponsiveContainer>
     </div>
