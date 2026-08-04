@@ -941,13 +941,13 @@ export const en: Dictionary = {
     salesChartDoesLabel: "Active does",
     salesChartEmpty: "No sales in a completed month yet.",
     salesChartNote:
-      "Rabbits sold in each calendar month, with the blue bar showing the does on the farm on the 1st of that same month — the very denominator «sales per doe» divides by. A month that sold nothing shows an empty bar so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
+      "The amber line is rabbits sold in each calendar month, with the blue bar showing the does on the farm on the 1st of that same month — the very denominator «sales per doe» divides by. Every dot is a month measured on its own; the segment between two of them is a join, not a reading. A month that sold nothing drops to zero so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
     salesChartBalanceNote:
       "The green line is the weaned stock available to sell on the last day of each month — what was still standing after that month's selling. Measured at the month's close rather than its start so it sits over the bars that emptied it. A dip under a tall bar means selling outran weaning; a dip under a short one means deaths or does kept back for breeding.",
     salesChartAxesNote:
-      "Both bars share one scale, so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
+      "All three share one scale because they share one unit (head of rabbit), so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
     salesChartRatioNote:
-      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The bars start at the first month with a sale, the same month «sales per doe» starts averaging at — which is why averaging the figures above the bars lands on the number in the card.",
+      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The chart starts at the first month with a sale, the same month «sales per doe» starts averaging at — which is why averaging the figures above the points lands on the number in the card.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",
