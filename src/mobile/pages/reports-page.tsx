@@ -8,7 +8,6 @@ import {
   Rabbit,
   Layers,
   Gauge,
-  ChartArea,
   ChartColumn,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
@@ -239,13 +238,16 @@ export function ReportsPage({ locale }: { locale: Locale }) {
             />
           )}
 
-          {/* Sales first, then the stock they came out of: the bars explain the
-              dips in the curve below them. */}
-          {report && <SalesChartSection points={report.monthlySalesHistory} rt={rt} locale={locale} />}
-
-          {/* The same رصيد الفطام number the card above ends on, drawn back to
-              the farm's first weaning. Lifetime too — hence its place here. */}
-          {report && <StockChartSection history={report.kitStockHistory} rt={rt} locale={locale} />}
+          {/* The month's selling and the stock it came out of, on one pair of
+              axes. Lifetime, whatever the range filter below says. */}
+          {report && (
+            <SalesChartSection
+              points={report.monthlySalesHistory}
+              history={report.kitStockHistory}
+              rt={rt}
+              locale={locale}
+            />
+          )}
 
           <Card>
             <CardContent className="py-4">
@@ -855,16 +857,19 @@ function HerdTile({
   );
 }
 
-/** Mirrors the web StockChartSection (src/app/reports/page.tsx). */
-function StockChartSection({
+/** Mirrors the web SalesChartSection (src/app/reports/page.tsx). */
+function SalesChartSection({
+  points,
   history,
   rt,
   locale,
 }: {
+  points: FollowUpReport["monthlySalesHistory"];
   history: FollowUpReport["kitStockHistory"];
   rt: RT;
   locale: Locale;
 }) {
+  const empty = points.length === 0;
   const bucketLabel = {
     day: rt.stockChartBucketDay,
     week: rt.stockChartBucketWeek,
@@ -877,69 +882,44 @@ function StockChartSection({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
-              <ChartArea className="size-5" />
-            </span>
-            {rt.sectionStockChart}
-          </CardTitle>
-          {/* The bucket is chosen for the reader, so say which one they got —
-              a flat month on a monthly chart is not a flat month in reality. */}
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-            {bucketLabel}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <KitStockChart
-          points={history.points}
-          bucket={history.bucket}
-          locale={locale}
-          label={rt.stockChartSeriesLabel}
-          emptyText={rt.stockChartEmpty}
-        />
-        <p className="text-xs text-muted-foreground">{rt.stockChartNote}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** Mirrors the web SalesChartSection (src/app/reports/page.tsx). */
-function SalesChartSection({
-  points,
-  rt,
-  locale,
-}: {
-  points: FollowUpReport["monthlySalesHistory"];
-  rt: RT;
-  locale: Locale;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
               <ChartColumn className="size-5" />
             </span>
-            {rt.sectionSalesChart}
+            {empty ? rt.sectionStockChart : rt.sectionSalesStockChart}
           </CardTitle>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-            {rt.avgAllTimeBadge}
+            {empty ? bucketLabel : rt.avgAllTimeBadge}
           </span>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <MonthlySalesChart
-          points={points}
-          locale={locale}
-          label={rt.salesChartSeriesLabel}
-          doesLabel={rt.salesChartDoesLabel}
-          emptyText={rt.salesChartEmpty}
-        />
+        {empty ? (
+          <KitStockChart
+            points={history.points}
+            bucket={history.bucket}
+            locale={locale}
+            label={rt.stockChartSeriesLabel}
+            emptyText={rt.stockChartEmpty}
+          />
+        ) : (
+          <MonthlySalesChart
+            points={points}
+            locale={locale}
+            label={rt.salesChartSeriesLabel}
+            doesLabel={rt.salesChartDoesLabel}
+            balanceLabel={rt.stockChartSeriesLabel}
+            emptyText={rt.salesChartEmpty}
+          />
+        )}
         <div className="space-y-1 text-xs text-muted-foreground">
-          <p>{rt.salesChartNote}</p>
-          {/* One scale, so the short blue bar needs explaining, not warning about. */}
-          <p>{rt.salesChartAxesNote}</p>
-          <p>{rt.salesChartRatioNote}</p>
+          <p>{empty ? rt.stockChartNote : rt.salesChartNote}</p>
+          {!empty && (
+            <>
+              <p>{rt.salesChartBalanceNote}</p>
+              {/* One scale, so the short blue bar needs explaining, not warning about. */}
+              <p>{rt.salesChartAxesNote}</p>
+              <p>{rt.salesChartRatioNote}</p>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

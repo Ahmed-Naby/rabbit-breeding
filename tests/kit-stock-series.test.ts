@@ -198,4 +198,55 @@ describe("buildMonthlySalesSeries", () => {
     expect(points.map((p) => p.does)).toEqual([0, 0, 1]);
     expect(counts(points)).toEqual([30, 0, 0]);
   });
+
+  /** A stock event of `delta` head on the 5th of month `month` in 2025. */
+  const move = (month: number, delta: number): KitStockEvent => ({
+    dateMs: new Date(2025, month - 1, 5).getTime(),
+    delta,
+  });
+
+  test("closes each month on the balance standing at its end", () => {
+    // +50 in January, -30 in February: the line reads 50 over the January bar
+    // and 20 over February's, not the other way round.
+    const points = buildMonthlySalesSeries(
+      [sale(1, 30)],
+      [],
+      nowIn(3),
+      [move(1, 50), move(2, -30)]
+    );
+
+    expect(points.map((p) => p.balance)).toEqual([50, 20]);
+  });
+
+  test("carries in what was standing before the first bar", () => {
+    // The farm weaned in January and did not sell until March. The March bar
+    // opens on stock that already existed, so the line must not restart at 0.
+    const points = buildMonthlySalesSeries([sale(3, 10)], [], nowIn(4), [move(1, 40)]);
+
+    expect(points.map((p) => p.balance)).toEqual([40]);
+  });
+
+  test("holds the level through a month with no movement at all", () => {
+    const points = buildMonthlySalesSeries([sale(1, 10)], [], nowIn(4), [move(1, 25)]);
+
+    expect(points.map((p) => p.balance)).toEqual([25, 25, 25]);
+  });
+
+  test("leaves the balance null when no events are given", () => {
+    // The chart draws no line rather than a flat zero, which would read as an
+    // empty barn instead of an unanswered question.
+    const points = buildMonthlySalesSeries([sale(1, 30)], [], nowIn(3));
+
+    expect(points.map((p) => p.balance)).toEqual([null, null]);
+  });
+
+  test("agrees with the balance curve on the same events", () => {
+    // Both are replays of one event list, so the last month's close must equal
+    // what buildKitStockSeries carries into today.
+    const events = [move(1, 60), move(2, -25), move(3, -10)];
+    const points = buildMonthlySalesSeries([sale(1, 30)], [], nowIn(4), events);
+    const { points: curve } = buildKitStockSeries(events, nowIn(4));
+
+    expect(points[points.length - 1].balance).toBe(curve[curve.length - 1].balance);
+  });
 });

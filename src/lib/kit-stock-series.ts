@@ -106,7 +106,18 @@ export function buildKitStockSeries(
  * One calendar month. `monthMs` is midnight on the 1st, which is also the
  * instant `does` is measured at — the same instant معدل البيع لكل أم divides by.
  */
-export type MonthlySalesPoint = { monthMs: number; count: number; does: number };
+export type MonthlySalesPoint = {
+  monthMs: number;
+  count: number;
+  does: number;
+  /**
+   * رصيد الفطام at the CLOSE of this month — what was still standing in the
+   * barn after the month's bar had left it. Measured at the end and not on the
+   * 1st like `does`, because a balance read before the month's own weanings and
+   * sales would belong to the bar to its left. null when no events are given.
+   */
+  balance: number | null;
+};
 
 /**
  * Sales bucketed into calendar months, one bar per month, with the herd that
@@ -132,7 +143,13 @@ export type MonthlySalesPoint = { monthMs: number; count: number; does: number }
 export function buildMonthlySalesSeries(
   sales: { dateMs: number; count: number }[],
   does: DoePresence[],
-  nowMs: number
+  nowMs: number,
+  /**
+   * The same events buildKitStockSeries replays. Given them, each month also
+   * carries its closing رصيد الفطام, so the barn's standing stock can be drawn
+   * over the bars that emptied it instead of on a second pair of axes.
+   */
+  stockEvents: KitStockEvent[] = []
 ): MonthlySalesPoint[] {
   if (sales.length === 0) return [];
 
@@ -155,6 +172,14 @@ export function buildMonthlySalesSeries(
   const now = new Date(nowMs);
   const currentMonthMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
+  // Replayed in order against the month edges below, so the whole balance
+  // series costs one pass over the events rather than one pass per month.
+  const sortedEvents = stockEvents.slice().sort((a, b) => a.dateMs - b.dateMs);
+  // The balance a month closes on includes everything that ever happened up to
+  // it, so the run-up before the first bar has to be carried in, not skipped.
+  let balance = 0;
+  let cursorEvent = 0;
+
   const points: MonthlySalesPoint[] = [];
   for (
     let cursor = new Date(firstMs);
@@ -162,12 +187,18 @@ export function buildMonthlySalesSeries(
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
   ) {
     const monthMs = cursor.getTime();
+    const monthEnd = endOfMonth(monthMs);
+    while (cursorEvent < sortedEvents.length && sortedEvents[cursorEvent].dateMs <= monthEnd) {
+      balance += sortedEvents[cursorEvent].delta;
+      cursorEvent++;
+    }
     points.push({
       monthMs,
       count: byMonth.get(monthMs) ?? 0,
       // Measured on the 1st, exactly as computeSalesPerDoe measures it, so a
       // reader can divide one bar by the other and land on that average.
       does: doesPresentOn(does, monthMs),
+      balance: sortedEvents.length > 0 ? balance : null,
     });
   }
   return points;

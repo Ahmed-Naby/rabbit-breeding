@@ -2,7 +2,8 @@
 
 import {
   Bar,
-  BarChart,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   CartesianGrid,
   LabelList,
@@ -29,6 +30,13 @@ import type { Locale } from "@/lib/i18n/locales";
  * Above each month sits its own sold ÷ does, which is the one thing the two
  * bars are there to be compared for and the hardest to read off their heights.
  *
+ * The رصيد الفطام curve rides on the SAME axis as a line — it used to be a
+ * second card below with its own scale, where the eye could not tell whether a
+ * dip in the balance was the month's selling or its weaning. Both are head of
+ * rabbit, so they belong on one axis; a line rather than a third bar because a
+ * balance is a level that carries from month to month, not a bucket summed
+ * inside one.
+ *
  * Both bundles render this same component; each builds its points with
  * buildMonthlySalesSeries.
  */
@@ -37,6 +45,7 @@ export function MonthlySalesChart({
   locale,
   label,
   doesLabel,
+  balanceLabel,
   emptyText,
 }: {
   points: MonthlySalesPoint[];
@@ -45,6 +54,8 @@ export function MonthlySalesChart({
   label: string;
   /** Same, for the herd bars, e.g. «الأمهات النشطة». */
   doesLabel: string;
+  /** Same, for the balance line, e.g. «رصيد الفطام». */
+  balanceLabel: string;
   emptyText: string;
 }) {
   // The year only earns axis space once the farm crosses into a second one —
@@ -61,6 +72,7 @@ export function MonthlySalesChart({
     }),
     [label]: p.count,
     [doesLabel]: p.does,
+    [balanceLabel]: p.balance,
     // The month's own «معدل البيع لكل أم», printed over its bars so the reader
     // does not have to divide two bar heights by eye. A month with no does on
     // file has no ratio at all — printing 0 there would read as "sold nothing".
@@ -79,7 +91,7 @@ export function MonthlySalesChart({
     <div className="h-72 w-full" dir="ltr">
       <ResponsiveContainer width="100%" height="100%">
         {/* Extra headroom on top: the ratio label sits above the tallest bar. */}
-        <BarChart data={data} margin={{ top: 20, right: 4, left: -12, bottom: 0 }}>
+        <ComposedChart data={data} margin={{ top: 20, right: 4, left: -12, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
           <XAxis
             dataKey="month"
@@ -114,7 +126,17 @@ export function MonthlySalesChart({
           {/* Same axis as the sales bar, so a month's herd is read against the
               head it shipped rather than against its own private scale. */}
           <Bar dataKey={doesLabel} fill="var(--chart-6)" radius={[4, 4, 0, 0]} maxBarSize={28} />
-        </BarChart>
+          {/* Drawn last so it sits over the bars, and with no dots: the point
+              is the shape of the level, not sixty readable markers. */}
+          <Line
+            type="monotone"
+            dataKey={balanceLabel}
+            stroke="var(--chart-1)"
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 4 }}
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

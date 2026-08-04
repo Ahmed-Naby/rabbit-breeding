@@ -424,6 +424,6 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       Date.now()
     ),
     kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),
-    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, doePresence, Date.now()),
+    monthlySalesHistory: buildMonthlySalesSeries(saleEvents, doePresence, Date.now(), stockEvents),
   };
 }
