@@ -35,8 +35,10 @@ import type { Locale } from "@/lib/i18n/locales";
  * the heights mean nothing to each other, and being able to see the small
  * number against the big one is the point of putting them together.
  *
- * Above each month sits its own sold ÷ does, which is the one thing the two are
- * there to be compared for and the hardest to read off the chart by eye.
+ * Over each herd bar sits that month's own sold ÷ does, which is the one thing
+ * the two are there to be compared for and the hardest to read off the chart by
+ * eye. It rides the bar rather than the sales line so the figures sit in a
+ * near-level row instead of climbing with the selling.
  *
  * The رصيد الفطام curve rides on the same axis for the same reason: it used to
  * be a second card below with its own scale, where the eye could not tell
@@ -121,7 +123,21 @@ export function MonthlySalesChart({
           {/* The herd first, so the two lines are drawn over it and not under.
               Same axis as the sales line, so a month's herd is read against the
               head it shipped rather than against its own private scale. */}
-          <Bar dataKey={doesLabel} fill="var(--chart-6)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+          <Bar dataKey={doesLabel} fill="var(--chart-6)" radius={[4, 4, 0, 0]} maxBarSize={28}>
+            {/* The month's own sold ÷ does, printed over the DOES bar — the
+                divisor it is measured per. It sat over the sales line until a
+                farmer asked for it here, where the bar tops are level with each
+                other and the row of figures reads as a row instead of riding up
+                and down with the selling. */}
+            <LabelList
+              dataKey="ratio"
+              position="top"
+              offset={6}
+              fontSize={10}
+              className="fill-muted-foreground"
+              formatter={(v: unknown) => (typeof v === "number" ? v.toFixed(1) : "")}
+            />
+          </Bar>
           {/* linear, not monotone: a monotone curve overshoots between two
               months and would draw a peak in a month that never sold one. */}
           <Line
@@ -131,16 +147,7 @@ export function MonthlySalesChart({
             strokeWidth={2}
             dot={{ r: 2.5, strokeWidth: 0, fill: "var(--chart-2)" }}
             activeDot={{ r: 4 }}
-          >
-            <LabelList
-              dataKey="ratio"
-              position="top"
-              offset={8}
-              fontSize={10}
-              className="fill-muted-foreground"
-              formatter={(v: unknown) => (typeof v === "number" ? v.toFixed(1) : "")}
-            />
-          </Line>
+          />
           {/* No dots on this one: it is a level to be read as a shape, and the
               month's own figures are already marked on the sales line. */}
           <Line

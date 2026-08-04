@@ -947,7 +947,7 @@ export const en: Dictionary = {
     salesChartAxesNote:
       "All three share one scale because they share one unit (head of rabbit), so their heights compare directly: sales run in the hundreds and does in the dozens, which is why the blue bar is naturally short — that gap is the very thing «sales per doe» measures.",
     salesChartRatioNote:
-      "The figure above each month is that month's sales divided by its does — «sales per doe» for that month alone. A month with no does on file carries no figure, since the division is undefined. The chart starts at the first month with a sale, the same month «sales per doe» starts averaging at — which is why averaging the figures above the points lands on the number in the card.",
+      "The figure over each blue bar is that month's sales divided by its does — «sales per doe» for that month alone, printed over the does bar because that is the divisor it is measured per. A month with no does on file carries no figure, since the division is undefined. The chart starts at the first month with a sale, the same month «sales per doe» starts averaging at — which is why averaging the figures over the bars lands on the number in the card.",
 
     sectionStockChart: "Weaned stock since the farm started",
     stockChartSeriesLabel: "Weaned stock",
