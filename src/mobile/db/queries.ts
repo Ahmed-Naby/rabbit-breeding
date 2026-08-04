@@ -40,6 +40,7 @@ import {
   rebreedTarget,
   type HerdKindlingRow,
   type HerdReport,
+  type IdleDoesReport,
 } from "@/lib/herd-productivity";
 import {
   resolveNursingLitterRow,
@@ -2889,7 +2890,7 @@ export async function fetchHerdReport(
 ): Promise<HerdReport> {
   const [
     settings,
-    doeRows,
+    doeCountRow,
     kindlings,
     weanings,
     weanedStockDeathAgg,
@@ -2901,24 +2902,16 @@ export async function fetchHerdReport(
     incomeAgg,
     expenseAgg,
     feedExpenseAgg,
-    lastKindlings,
     firstKindling,
   ] = await Promise.all([
     getLocalSettings(db),
     // The denominator, and the same population the does board shows: tagged
     // and active. A نافقة or مستبعدة doe has left the herd, so charging the
     // farm for her cage would understate every rate below.
-    queryAll<{
-      id: string;
-      tagId: string | null;
-      breed: string | null;
-      acquiredDate: string | null;
-      dateOfBirth: string | null;
-      createdAt: string;
-    }>(
+    queryOne<{ count: number }>(
       db,
-      `SELECT id, tagId, breed, acquiredDate, dateOfBirth, createdAt FROM rabbit
-       WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active' ORDER BY tagId ASC`
+      `SELECT COUNT(*) as count FROM rabbit
+       WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active'`
     ),
     queryAll<HerdKindlingRow>(
       db,
@@ -2989,14 +2982,6 @@ export async function fetchHerdReport(
         WHERE type = 'expense' AND category = 'feed' AND date >= ? AND date < ?`,
       [fromIso, toIso]
     ),
-    // Latest kindling per doe over ALL time — deliberately unbounded by the
-    // period. "She hasn't kindled in the last week" is meaningless; "she
-    // hasn't kindled in 140 days" is a culling decision, and only unbounded
-    // history can tell the two apart.
-    queryAll<{ doeId: string; lastKindlingDate: string | null }>(
-      db,
-      "SELECT doeId, MAX(kindlingDate) as lastKindlingDate FROM kindling_log GROUP BY doeId"
-    ),
     // The farm's very first kindling — the earliest point at which any of the
     // rates below could have started accruing. See periodDays.
     queryOne<{ firstKindlingDate: string | null }>(
@@ -3004,8 +2989,6 @@ export async function fetchHerdReport(
       "SELECT MIN(kindlingDate) as firstKindlingDate FROM kindling_log"
     ),
   ]);
-
-  const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, toDate(r.lastKindlingDate)]));
 
   // Clamped to the window that could actually hold events before it's used as a
   // denominator: «إلغاء التصفية» asks for the whole record, which arrives here as
@@ -3043,7 +3026,7 @@ export async function fetchHerdReport(
   });
 
   const productivity = computeHerdProductivity({
-    doeCount: doeRows.length,
+    doeCount: doeCountRow?.count ?? 0,
     periodDays,
     does,
     fromMs,
@@ -3077,9 +3060,46 @@ export async function fetchHerdReport(
     feedPricePerTonCents: settings.feedPricePerTonCents,
   });
 
-  // Idleness is measured from now, not from the period end: it is a current
-  // state ("who is sitting idle in the barn today"), the same way the herd and
-  // stock balance cards on the follow-up report are current snapshots.
+  return { productivity, cycleDays, currency: settings.currency };
+}
+
+/**
+ * The SQLite twin of getIdleDoesReport in src/app/reports/herd-data.ts — data
+ * for the «الأمهات الخاملة» tab.
+ *
+ * No date range, on purpose: idleness is measured from today, the same way the
+ * herd and stock balance cards on the follow-up report are current snapshots.
+ */
+export async function fetchIdleDoesReport(db: SQLiteDBConnection): Promise<IdleDoesReport> {
+  const [settings, doeRows, lastKindlings] = await Promise.all([
+    getLocalSettings(db),
+    // The same population the does board shows: tagged and active. A نافقة or
+    // مستبعدة doe has already left, so listing her as idle would be advice to
+    // cull an animal that is not there.
+    queryAll<{
+      id: string;
+      tagId: string | null;
+      breed: string | null;
+      acquiredDate: string | null;
+      dateOfBirth: string | null;
+      createdAt: string;
+    }>(
+      db,
+      `SELECT id, tagId, breed, acquiredDate, dateOfBirth, createdAt FROM rabbit
+       WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active' ORDER BY tagId ASC`
+    ),
+    // Latest kindling per doe over ALL time. "She hasn't kindled in the last
+    // week" is meaningless; "she hasn't kindled in 140 days" is a culling
+    // decision, and only unbounded history can tell the two apart.
+    queryAll<{ doeId: string; lastKindlingDate: string | null }>(
+      db,
+      "SELECT doeId, MAX(kindlingDate) as lastKindlingDate FROM kindling_log GROUP BY doeId"
+    ),
+  ]);
+
+  const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, toDate(r.lastKindlingDate)]));
+  const { cycleDays } = rebreedTarget(settings.rebreedAfterKindlingDays);
+
   const idleDoes = findIdleDoes(
     doeRows.map((d) => ({
       id: d.id,
@@ -3092,7 +3112,7 @@ export async function fetchHerdReport(
     new Date()
   );
 
-  return { productivity, idleDoes, cycleDays, currency: settings.currency };
+  return { idleDoes, doeCount: doeRows.length, cycleDays };
 }
 
 /**

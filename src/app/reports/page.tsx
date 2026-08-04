@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Gauge,
   ChartColumn,
+  Hourglass,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
 import { MonthlySalesChart } from "@/components/monthly-sales-chart";
@@ -23,7 +24,12 @@ import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { formatMoney } from "@/lib/units";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { getFollowUpReport, type FollowUpReport } from "./report-data";
-import { getHerdReport, type HerdReport } from "./herd-data";
+import {
+  getHerdReport,
+  getIdleDoesReport,
+  type HerdReport,
+  type IdleDoesReport,
+} from "./herd-data";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import DoesFertilityPage from "../does-fertility/page";
@@ -64,6 +70,7 @@ export default async function ReportsPage({
   const sp = await searchParams;
   const activeTab = sp.tab || "follow-up";
   const isHerdTab = activeTab === "herd";
+  const isIdleTab = activeTab === "idle-does";
   const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? 90 : 7);
   // «إلغاء التصفية» lands here: no window at all, every record the farm has.
   // A flag rather than empty from/to, because a missing range is what a plain
@@ -73,12 +80,13 @@ export default async function ReportsPage({
   const toSelected = showAll ? ALL_TIME_TO : sp.to ? fromDateInputValue(sp.to) : defaultTo;
   const toExclusive = addDays(toSelected, 1);
 
-  // Only the visible tab's data is fetched: the two reports have no overlap and
-  // إنتاجية القطيع scans every KindlingLog row on the farm for its idle list, so
-  // loading it behind تقارير المتابعة would tax the common case for nothing.
-  const [report, herd, { locale, t }] = await Promise.all([
-    isHerdTab ? null : getFollowUpReport(from, toExclusive),
+  // Only the visible tab's data is fetched: the three reports have no overlap
+  // and الأمهات الخاملة scans every KindlingLog row on the farm, so loading it
+  // behind تقارير المتابعة would tax the common case for nothing.
+  const [report, herd, idle, { locale, t }] = await Promise.all([
+    isHerdTab || isIdleTab ? null : getFollowUpReport(from, toExclusive),
     isHerdTab ? getHerdReport(from, toExclusive) : null,
+    isIdleTab ? getIdleDoesReport() : null,
     getDictionary(),
   ]);
   const rt = t.reports;
@@ -95,7 +103,7 @@ export default async function ReportsPage({
     <div className="space-y-6">
       <PageHeader title={rt.title} description={rt.description} />
 
-      {/* 3 Tabs Navigation Bar */}
+      {/* 5 Tabs Navigation Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <Link
           href={followUpHref}
@@ -147,6 +155,21 @@ export default async function ReportsPage({
         >
           <Gauge className="size-4 text-emerald-500" />
           {rt.tabHerdProductivity}
+        </Link>
+
+        {/* No range in the href: this one is a snapshot of today and has no
+            filter to carry a window into. */}
+        <Link
+          href="/reports?tab=idle-does"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            isIdleTab
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Hourglass className="size-4 text-amber-500" />
+          {rt.tabIdleDoes}
         </Link>
       </div>
 
@@ -205,7 +228,16 @@ export default async function ReportsPage({
       {herd && isHerdTab && (
         <div className="space-y-6 animate-fade-in">
           <RangeFilter tab="herd" from={from} to={toSelected} showAll={showAll} rt={rt} />
-          <HerdProductivitySection herd={herd} rt={rt} locale={locale} />
+          <HerdProductivitySection herd={herd} rt={rt} />
+        </div>
+      )}
+
+      {/* TAB 5: Idle does — the names behind the gap between the two sets of
+          averages. No RangeFilter above it: idleness is measured from today,
+          so there is no window to choose. */}
+      {idle && isIdleTab && (
+        <div className="animate-fade-in">
+          <IdleDoesSection idle={idle} rt={rt} locale={locale} />
         </div>
       )}
     </div>
@@ -701,15 +733,7 @@ function Row({ label, value }: { label: string; value: string }) {
  * fact a reader must not lose track of while comparing these to متوسطات الأداء
  * on the follow-up tab, which divide by events instead.
  */
-function HerdProductivitySection({
-  herd,
-  rt,
-  locale,
-}: {
-  herd: HerdReport;
-  rt: RT;
-  locale: Locale;
-}) {
+function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
   const p = herd.productivity;
   // One decimal, same as the event-based averages — a second decimal is false
   // precision on a herd of a few dozen does.
@@ -719,8 +743,6 @@ function HerdProductivitySection({
       : v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const money = (v: number | null) => (v == null ? "—" : formatMoney(Math.round(v), herd.currency));
   const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
-
-  const idleShare = p.doeCount > 0 ? herd.idleDoes.length / p.doeCount : null;
 
   return (
     <div className="space-y-6">
@@ -913,20 +935,59 @@ function HerdProductivitySection({
         )}
       </Section>
 
+    </div>
+  );
+}
+
+/**
+ * «الأمهات الخاملة» — its own tab since a farmer asked for one, and the only
+ * report on this page with no date filter above it. It used to sit at the
+ * bottom of إنتاجية القطيع, which is where its meaning still comes from: these
+ * are the does the rates on that tab divide by but that produced nothing, so
+ * this list IS the gap between those averages and the per-event ones.
+ */
+function IdleDoesSection({
+  idle,
+  rt,
+  locale,
+}: {
+  idle: IdleDoesReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const idleShare = idle.doeCount > 0 ? idle.idleDoes.length / idle.doeCount : null;
+  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-amber-500/8 via-card to-card shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/12 text-amber-600 dark:text-amber-400">
+              <Hourglass className="size-5" />
+            </span>
+            {rt.herdSectionIdle}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-xs text-muted-foreground">
+          <p>{rt.herdIdleDescription(idle.cycleDays)}</p>
+          <p>{rt.herdIdleAsOfNote}</p>
+        </CardContent>
+      </Card>
+
       <Section title={rt.herdSectionIdle}>
         <div className="space-y-3 p-4">
-          <p className="text-xs text-muted-foreground">{rt.herdIdleDescription(herd.cycleDays)}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <HerdTile
               label={rt.herdIdleCountLabel}
-              value={herd.idleDoes.length.toLocaleString()}
+              value={idle.idleDoes.length.toLocaleString()}
               strong
-              tone={herd.idleDoes.length > 0 ? "bad" : "good"}
+              tone={idle.idleDoes.length > 0 ? "bad" : "good"}
             />
             <HerdTile label={rt.herdIdleShareLabel} value={pct(idleShare)} />
           </div>
 
-          {herd.idleDoes.length === 0 ? (
+          {idle.idleDoes.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.herdIdleEmpty}</p>
           ) : (
             <>
@@ -935,7 +996,7 @@ function HerdProductivitySection({
                 locale={locale}
                 spec={{
                   kind: "idleDoes",
-                  rows: herd.idleDoes.map((doe) => ({
+                  rows: idle.idleDoes.map((doe) => ({
                     tagId: doe.tagId,
                     breed: doe.breed,
                     lastKindlingDate: doe.lastKindlingDate,
@@ -959,7 +1020,7 @@ function HerdProductivitySection({
                   { key: "last", label: rt.herdColLastKindling, type: "date", className: "text-center" },
                   { key: "idleDays", label: rt.herdColIdleDays, type: "number", className: "text-center" },
                 ]}
-                rows={herd.idleDoes.map((doe, i) => ({
+                rows={idle.idleDoes.map((doe, i) => ({
                   key: doe.id,
                   sortValues: {
                     tag: doe.tagId,

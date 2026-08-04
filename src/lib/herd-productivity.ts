@@ -399,9 +399,25 @@ export type IdleDoeRow = {
  */
 export type HerdReport = {
   productivity: HerdProductivity;
-  idleDoes: IdleDoeRow[];
   cycleDays: number;
   currency: string;
+};
+
+/**
+ * What the «الأمهات الخاملة» tab renders, shared between the two fetch layers
+ * for the same reason HerdReport is.
+ *
+ * Its own shape and its own query rather than a field on HerdReport: idleness
+ * is measured from today and answers "who is sitting in the barn right now",
+ * so it has no date range and nothing to gain from the fifteen period-bound
+ * reads إنتاجية القطيع needs. Three reads instead — does, their last kindling,
+ * and the farm's cycle length.
+ */
+export type IdleDoesReport = {
+  idleDoes: IdleDoeRow[];
+  /** Tagged, active does — the denominator of «نسبتهن من القطيع». */
+  doeCount: number;
+  cycleDays: number;
 };
 
 export type IdleDoeSource = {

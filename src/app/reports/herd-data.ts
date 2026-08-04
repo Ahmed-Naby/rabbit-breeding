@@ -6,9 +6,10 @@ import {
   findIdleDoes,
   rebreedTarget,
   type HerdReport,
+  type IdleDoesReport,
 } from "@/lib/herd-productivity";
 
-export type { HerdReport };
+export type { HerdReport, IdleDoesReport };
 
 const DAY_MS = 86_400_000;
 
@@ -26,7 +27,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
 
   const [
     settings,
-    doeRows,
+    doeCount,
     kindlings,
     weanings,
     weanedStockDeathAgg,
@@ -38,24 +39,14 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     incomeAgg,
     expenseAgg,
     feedExpenseAgg,
-    lastKindlings,
     firstKindling,
   ] = await Promise.all([
     getSettings(),
     // The denominator, and the same population the does board shows: tagged
     // and active. A نافقة or مستبعدة doe is out of the herd, so charging the
     // farm for her cage would understate every rate below.
-    prisma.rabbit.findMany({
+    prisma.rabbit.count({
       where: { sex: "doe", tagId: { not: null }, status: "active" },
-      select: {
-        id: true,
-        tagId: true,
-        breed: true,
-        acquiredDate: true,
-        dateOfBirth: true,
-        createdAt: true,
-      },
-      orderBy: { tagId: "asc" },
     }),
     prisma.kindlingLog.findMany({
       where: { kindlingDate: dateRange },
@@ -108,20 +99,10 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
       where: { type: "expense", category: "feed", date: dateRange },
       _sum: { amountCents: true },
     }),
-    // Latest kindling per doe, over ALL time — deliberately not bounded by the
-    // period. "She hasn't kindled in the last week" is meaningless; "she hasn't
-    // kindled in 140 days" is a culling decision, and only unbounded history
-    // can tell the two apart.
-    prisma.kindlingLog.groupBy({
-      by: ["doeId"],
-      _max: { kindlingDate: true },
-    }),
     // The farm's very first kindling — the earliest point at which any of the
     // rates below could have started accruing. See periodDays.
     prisma.kindlingLog.aggregate({ _min: { kindlingDate: true } }),
   ]);
-
-  const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, r._max.kindlingDate]));
 
   // Clamped to the window that could actually hold events before it's used as
   // a denominator: «إلغاء التصفية» asks for the whole record, which arrives here
@@ -153,7 +134,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
   });
 
   const productivity = computeHerdProductivity({
-    doeCount: doeRows.length,
+    doeCount,
     periodDays,
     does,
     fromMs: effectiveFrom.getTime(),
@@ -187,9 +168,45 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     feedPricePerTonCents: settings.feedPricePerTonCents,
   });
 
-  // Idleness is measured from now, not from the period end: it is a current
-  // state ("who is sitting idle in the barn today"), the same way the herd and
-  // stock balance cards on the follow-up report are current snapshots.
+  return { productivity, cycleDays, currency: settings.currency };
+}
+
+/**
+ * Data for the «الأمهات الخاملة» tab.
+ *
+ * No date range, on purpose: idleness is measured from today, the same way the
+ * herd and stock balance cards on the follow-up report are current snapshots.
+ * A doe is either overdue for a kindling this morning or she is not, and a
+ * range filter over that question would only invite an answer about a window
+ * the barn has already left behind.
+ */
+export async function getIdleDoesReport(): Promise<IdleDoesReport> {
+  const [settings, doeRows, lastKindlings] = await Promise.all([
+    getSettings(),
+    // The same population the does board shows: tagged and active. A نافقة or
+    // مستبعدة doe has already left, so listing her as idle would be advice to
+    // cull an animal that is not there.
+    prisma.rabbit.findMany({
+      where: { sex: "doe", tagId: { not: null }, status: "active" },
+      select: {
+        id: true,
+        tagId: true,
+        breed: true,
+        acquiredDate: true,
+        dateOfBirth: true,
+        createdAt: true,
+      },
+      orderBy: { tagId: "asc" },
+    }),
+    // Latest kindling per doe over ALL time. "She hasn't kindled in the last
+    // week" is meaningless; "she hasn't kindled in 140 days" is a culling
+    // decision, and only unbounded history can tell the two apart.
+    prisma.kindlingLog.groupBy({ by: ["doeId"], _max: { kindlingDate: true } }),
+  ]);
+
+  const lastByDoe = new Map(lastKindlings.map((r) => [r.doeId, r._max.kindlingDate]));
+  const { cycleDays } = rebreedTarget(settings.rebreedAfterKindlingDays);
+
   const idleDoes = findIdleDoes(
     doeRows.map((d) => ({
       id: d.id,
@@ -202,5 +219,5 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     new Date()
   );
 
-  return { productivity, idleDoes, cycleDays, currency: settings.currency };
+  return { idleDoes, doeCount: doeRows.length, cycleDays };
 }

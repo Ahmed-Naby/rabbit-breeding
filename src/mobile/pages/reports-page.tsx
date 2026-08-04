@@ -9,14 +9,20 @@ import {
   Layers,
   Gauge,
   ChartColumn,
+  Hourglass,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
 import { MonthlySalesChart } from "@/components/monthly-sales-chart";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
-import { fetchFollowUpReport, fetchHerdReport, type FollowUpReport } from "../db/queries";
-import type { HerdReport } from "@/lib/herd-productivity";
+import {
+  fetchFollowUpReport,
+  fetchHerdReport,
+  fetchIdleDoesReport,
+  type FollowUpReport,
+} from "../db/queries";
+import type { HerdReport, IdleDoesReport } from "@/lib/herd-productivity";
 import { formatMoney } from "@/lib/units";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
@@ -57,13 +63,16 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   // Ninety days spans at least one full cycle under any rebreed system.
   const { from: herdDefaultFrom, to: herdDefaultTo } = defaultRange(90);
 
-  const [activeTab, setActiveTab] = useState<"follow-up" | "herd" | "does-fertility" | "bucks-fertility">(() => {
+  const [activeTab, setActiveTab] = useState<
+    "follow-up" | "herd" | "does-fertility" | "bucks-fertility" | "idle-does"
+  >(() => {
     if (typeof window !== "undefined") {
       // Both spellings: the legacy standalone routes (#/does-fertility,
       // #/bucks-fertility — still live in app-shell's LEGACY_REPORTS_ROUTES and
       // where كارت الأم's back link points) as well as the ?tab= form. Matching
       // only the latter left the legacy routes opening on متابعة يومية instead.
       const hash = window.location.hash;
+      if (hash.includes("idle-does")) return "idle-does";
       if (hash.includes("does-fertility")) return "does-fertility";
       if (hash.includes("bucks-fertility")) return "bucks-fertility";
       if (hash.includes("herd")) return "herd";
@@ -90,8 +99,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   }, []);
 
   // The herd tab keeps its own range and its own fetch, and is loaded lazily:
-  // its idle-doe list scans every kindling row ever recorded, which has no
-  // business running behind the tab people actually land on.
+  // it reads the whole ledger and every kindling row in the window, which has
+  // no business running behind the tab people actually land on.
   const [herdFromInput, setHerdFromInput] = useState(() => toDateInputValue(herdDefaultFrom));
   const [herdToInput, setHerdToInput] = useState(() => toDateInputValue(herdDefaultTo));
   const [herd, setHerd] = useState<HerdReport | null>(null);
@@ -109,13 +118,29 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     }
   }, []);
 
+  // الأمهات الخاملة has no range of its own — it is a snapshot of today — so it
+  // needs no inputs, only the same lazy load the herd tab uses.
+  const [idle, setIdle] = useState<IdleDoesReport | null>(null);
+  const [idleLoading, setIdleLoading] = useState(false);
+
+  const loadIdle = useCallback(async () => {
+    setIdleLoading(true);
+    try {
+      setIdle(await fetchIdleDoesReport(await getDb()));
+    } finally {
+      setIdleLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load(fromInput, toInput);
-    // Only for a deep link that lands straight on the herd tab (#/reports?tab=herd).
-    // Every other way in goes through the tab button, which loads it on click —
-    // deliberately not an [activeTab] effect, so switching tabs stays a plain
-    // event handler rather than a render-triggered fetch.
+    // Only for a deep link that lands straight on one of the lazy tabs
+    // (#/reports?tab=herd, #/reports?tab=idle-does). Every other way in goes
+    // through the tab button, which loads it on click — deliberately not an
+    // [activeTab] effect, so switching tabs stays a plain event handler rather
+    // than a render-triggered fetch.
     if (activeTab === "herd") void loadHerd(herdFromInput, herdToInput);
+    if (activeTab === "idle-does") void loadIdle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -151,7 +176,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
         description={rt.description}
       />
 
-      {/* 4 Tabs Bar */}
+      {/* 5 Tabs Bar */}
       <div className="flex border border-border/80 bg-muted/30 p-1.5 rounded-xl gap-1.5 overflow-x-auto shadow-xs">
         <button
           type="button"
@@ -213,6 +238,25 @@ export function ReportsPage({ locale }: { locale: Locale }) {
         >
           <Mars className="size-4 text-sky-500" />
           {rt.tabBucksFertility}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("idle-does");
+            // Same reasoning as القطيع: fetched on first open, not on every
+            // switch back to a list that has not changed.
+            if (!idle && !idleLoading) void loadIdle();
+          }}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "idle-does"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Hourglass className="size-4 text-amber-500" />
+          {rt.tabIdleDoes}
         </button>
       </div>
 
@@ -326,7 +370,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
       {/* TAB 2: Herd Productivity — the same five ideas as the averages above,
           but divided by every doe in the barn instead of by the does that
           actually completed a cycle. The gap between the two tabs IS the cost
-          of the idle does listed at the bottom of this one. */}
+          of the does named on الأمهات الخاملة. */}
       {activeTab === "herd" && (
         <div className="space-y-6 animate-fade-in">
           <Card>
@@ -362,7 +406,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
             </CardContent>
           </Card>
 
-          {herd && <HerdProductivitySection herd={herd} rt={rt} locale={locale} />}
+          {herd && <HerdProductivitySection herd={herd} rt={rt} />}
         </div>
       )}
 
@@ -377,6 +421,15 @@ export function ReportsPage({ locale }: { locale: Locale }) {
       {activeTab === "bucks-fertility" && (
         <div className="animate-fade-in">
           <BucksFertilityPage locale={locale} hideHeader={true} />
+        </div>
+      )}
+
+      {/* TAB 5: Idle does — the names behind the gap between the two sets of
+          averages. No date filter above it: idleness is measured from today,
+          so there is no window to choose. */}
+      {activeTab === "idle-does" && idle && (
+        <div className="animate-fade-in">
+          <IdleDoesSection idle={idle} rt={rt} locale={locale} />
         </div>
       )}
     </div>
@@ -524,18 +577,10 @@ function AveragesSection({
 
 /**
  * Mirrors the web HerdProductivitySection (src/app/reports/page.tsx). Both are
- * fed by computeHerdProductivity/findIdleDoes, so only the presentation is
- * duplicated here — never the arithmetic.
+ * fed by computeHerdProductivity, so only the presentation is duplicated here
+ * — never the arithmetic.
  */
-function HerdProductivitySection({
-  herd,
-  rt,
-  locale,
-}: {
-  herd: HerdReport;
-  rt: RT;
-  locale: Locale;
-}) {
+function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
   const p = herd.productivity;
   // One decimal, same as the event-based averages — a second decimal is false
   // precision on a herd of a few dozen does.
@@ -545,21 +590,6 @@ function HerdProductivitySection({
       : v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const money = (v: number | null) => (v == null ? "—" : formatMoney(Math.round(v), herd.currency));
   const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
-
-  const idleShare = p.doeCount > 0 ? herd.idleDoes.length / p.doeCount : null;
-
-  // Worst first, matching what findIdleDoes already returns: the top rows are
-  // the استبعاد shortlist and should need no clicking.
-  const idleSort = useSortableRows(
-    herd.idleDoes,
-    {
-      tag: { type: "tag", value: (r) => r.tagId },
-      breed: { type: "string", value: (r) => r.breed },
-      last: { type: "date", value: (r) => r.lastKindlingDate },
-      idleDays: { type: "number", value: (r) => r.idleDays },
-    },
-    { key: "idleDays", direction: "desc" }
-  );
 
   return (
     <div className="space-y-6">
@@ -731,20 +761,72 @@ function HerdProductivitySection({
         )}
       </Section>
 
+    </div>
+  );
+}
+
+/**
+ * «الأمهات الخاملة» — the mobile twin of IdleDoesSection in
+ * src/app/reports/page.tsx. Its own tab since a farmer asked for one, and the
+ * only report on this page with no date filter above it: these are the does
+ * إنتاجية القطيع divides by but that produced nothing, so the list IS the gap
+ * between those averages and the per-event ones.
+ */
+function IdleDoesSection({
+  idle,
+  rt,
+  locale,
+}: {
+  idle: IdleDoesReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const idleShare = idle.doeCount > 0 ? idle.idleDoes.length / idle.doeCount : null;
+  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+
+  // Worst first, matching what findIdleDoes already returns: the top rows are
+  // the استبعاد shortlist and should need no clicking.
+  const idleSort = useSortableRows(
+    idle.idleDoes,
+    {
+      tag: { type: "tag", value: (r) => r.tagId },
+      breed: { type: "string", value: (r) => r.breed },
+      last: { type: "date", value: (r) => r.lastKindlingDate },
+      idleDays: { type: "number", value: (r) => r.idleDays },
+    },
+    { key: "idleDays", direction: "desc" }
+  );
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-amber-500/8 via-card to-card shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/12 text-amber-600 dark:text-amber-400">
+              <Hourglass className="size-5" />
+            </span>
+            {rt.herdSectionIdle}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1 text-xs text-muted-foreground">
+          <p>{rt.herdIdleDescription(idle.cycleDays)}</p>
+          <p>{rt.herdIdleAsOfNote}</p>
+        </CardContent>
+      </Card>
+
       <Section title={rt.herdSectionIdle}>
         <div className="space-y-3 p-4">
-          <p className="text-xs text-muted-foreground">{rt.herdIdleDescription(herd.cycleDays)}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <HerdTile
               label={rt.herdIdleCountLabel}
-              value={herd.idleDoes.length.toLocaleString()}
+              value={idle.idleDoes.length.toLocaleString()}
               strong
-              tone={herd.idleDoes.length > 0 ? "bad" : "good"}
+              tone={idle.idleDoes.length > 0 ? "bad" : "good"}
             />
             <HerdTile label={rt.herdIdleShareLabel} value={pct(idleShare)} />
           </div>
 
-          {herd.idleDoes.length === 0 ? (
+          {idle.idleDoes.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.herdIdleEmpty}</p>
           ) : (
             <>
@@ -754,7 +836,7 @@ function HerdProductivitySection({
                 save={saveBinaryFile}
                 spec={{
                   kind: "idleDoes",
-                  rows: herd.idleDoes.map((doe) => ({
+                  rows: idle.idleDoes.map((doe) => ({
                     tagId: doe.tagId,
                     breed: doe.breed,
                     lastKindlingDate: doe.lastKindlingDate,
