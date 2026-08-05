@@ -240,6 +240,24 @@ export type DashboardStats = {
   recentWeanings: DashboardWeaningRow[];
 };
 
+/**
+ * The doe's CURRENT cycle — `JOIN breeding b ON b.id = ${LATEST_BREEDING_ID}`,
+ * the SQL twin of Prisma's `breedingsAsDoe: { orderBy createdAt desc, take: 1 }`.
+ *
+ * A plain `JOIN breeding b ON r.id = b.doeId` is the trap: the app opens a NEW
+ * Breeding row every time a doe is mated while nursing, so a doe two years into
+ * production carries a dozen closed rows beside her open one. Joining them all
+ * returns her once per cycle she ever had, and since a closed row's matingDate
+ * is months old it clears every "is she due?" test — which is how «جاهزة للجس»
+ * read 507 on a farm of 200 does with 47 bred.
+ *
+ * Matched on the subquery's own id rather than two correlated lookups, so a
+ * createdAt tie can never take matingDate from one row and the id from another.
+ */
+const LATEST_BREEDING_ID = `(
+  SELECT b2.id FROM breeding b2 WHERE b2.doeId = r.id ORDER BY b2.createdAt DESC LIMIT 1
+)`;
+
 /** Same eligibility rule as /mating's board (mobile mating-page.tsx: no rebreed-cooldown filter applied there, unlike the web board). */
 /**
  * Mirrors the mating board's eligibility so the tile and the list it links to
@@ -264,12 +282,12 @@ async function countReadyForMating(db: SQLiteDBConnection, settings: LocalSettin
   ).length;
 }
 
-/** Mirrors fetchPregnancyPageData's candidate filter, counted without the log/buck joins the full page needs. */
+/** Mirrors fetchPregnancyPageData's candidate filter (one latest breeding per doe), counted without the log/buck joins the full page needs. */
 async function countReadyForPregnancyTest(db: SQLiteDBConnection, settings: LocalSettings): Promise<number> {
   const rows = await queryAll<{ breedingId: string; matingDate: string | null }>(
     db,
     `SELECT b.id as breedingId, b.matingDate FROM rabbit r
-     JOIN breeding b ON r.id = b.doeId
+     JOIN breeding b ON b.id = ${LATEST_BREEDING_ID}
      WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status NOT IN ('deceased', 'culled')
        AND r.doeState IN ('bred', 'nursing_bred')`
   );
@@ -591,10 +609,10 @@ export async function fetchPregnancyPageData(db: SQLiteDBConnection): Promise<{
     buckId: string | null;
   }>(
     db,
-    `SELECT r.id, r.tagId, r.breed, r.doeState, b.id as breedingId, b.matingDate, b.buckId 
+    `SELECT r.id, r.tagId, r.breed, r.doeState, b.id as breedingId, b.matingDate, b.buckId
      FROM rabbit r
-     JOIN breeding b ON r.id = b.doeId
-     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status NOT IN ('deceased', 'culled') 
+     JOIN breeding b ON b.id = ${LATEST_BREEDING_ID}
+     WHERE r.sex = 'doe' AND r.tagId IS NOT NULL AND r.status NOT IN ('deceased', 'culled')
        AND r.doeState IN ('bred', 'nursing_bred')
      ORDER BY r.tagId ASC`
   );
