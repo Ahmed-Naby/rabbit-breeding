@@ -490,13 +490,38 @@ function AveragesSection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* The funnel, side by side: what was born, what survived to weaning,
+            what was sold — the three figures a farmer actually reads against
+            each other. They sat in three separate groups before, which is why
+            it took a question to notice 5.9 − 0.4 ≠ 5.1.
+
+            Each keeps its own basis line UNDER its own number rather than one
+            over the row: the denominators genuinely differ (kindlings,
+            weanings, a mean of monthly ratios) and pretending otherwise is the
+            exact subtraction the note below has to walk back. */}
+        <AveragesGroup basis={rt.avgFunnelBasis} abreast>
+          <AveragesTile
+            label={rt.avgBornAliveLabel}
+            value={avg(averages.bornAlive)}
+            basis={rt.avgKindlingBasis(averages.kindlings)}
+          />
+          <AveragesTile
+            label={rt.avgWeanedLabel}
+            value={avg(averages.weaned)}
+            basis={rt.avgWeaningBasis(averages.weanings)}
+          />
+          <AveragesTile
+            label={rt.avgSoldPerWeaningLabel}
+            value={avg(soldPerWeaning.perWeaning)}
+            basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}
+          />
+        </AveragesGroup>
+
         <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
-          <AveragesTile label={rt.avgBornAliveLabel} value={avg(averages.bornAlive)} />
           <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
         </AveragesGroup>
 
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
-          <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
@@ -504,14 +529,6 @@ function AveragesSection({
             is, which is why it cannot join either of the two above. */}
         <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
           <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
-        </AveragesGroup>
-
-        {/* Its own basis line because it is a mean OF MONTHLY RATIOS, not a
-            single division — the month count here is smaller than the one
-            above (a month whose predecessor weaned nothing cannot be scored,
-            and the running month is excluded as incomplete). */}
-        <AveragesGroup basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}>
-          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(soldPerWeaning.perWeaning)} />
         </AveragesGroup>
 
         {/* Same monthly sales, a different denominator: the working herd rather
@@ -539,6 +556,8 @@ function AveragesSection({
         </AveragesGroup>
 
         <div className="space-y-1 text-xs text-muted-foreground">
+          {/* Answers the subtraction the funnel row invites, before it is made. */}
+          <p>{rt.avgFunnelNote}</p>
           <p>{rt.avgRemainingStockNote}</p>
           {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
               litter — most of that gap is stock still standing in the barn. */}
@@ -643,22 +662,44 @@ function SalesChartSection({
   );
 }
 
-function AveragesGroup({ basis, children }: { basis: string; children: React.ReactNode }) {
+function AveragesGroup({
+  basis,
+  children,
+  /** The funnel row only: three tiles that must stay on one line even on a
+      phone, because they are read as a sequence — born, weaned, sold. */
+  abreast,
+}: {
+  basis: string;
+  children: React.ReactNode;
+  abreast?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
       <div className="mb-2 border-b border-border/50 pb-2 text-xs font-semibold text-muted-foreground">
         {basis}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className={abreast ? "grid grid-cols-3 gap-2" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
+        {children}
+      </div>
     </div>
   );
 }
 
-function AveragesTile({ label, value }: { label: string; value: string }) {
+/**
+ * `basis` is per-tile, for the funnel row: those three figures each have a
+ * different denominator, so a single line over the group would misdescribe two
+ * of them. Everywhere else the group's own basis line covers all its tiles and
+ * this stays off — which is why it doubles as the "three across a narrow
+ * screen" signal that tightens the padding and drops a size.
+ */
+function AveragesTile({ label, value, basis }: { label: string; value: string; basis?: string }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-3">
+    <div className={`rounded-lg border border-border/60 bg-card ${basis ? "p-2 sm:p-3" : "p-3"}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
+      <div className={`mt-1 font-bold tabular-nums ${basis ? "text-xl sm:text-2xl" : "text-2xl"}`}>
+        {value}
+      </div>
+      {basis && <div className="mt-1 text-[11px] leading-snug text-muted-foreground/80">{basis}</div>}
     </div>
   );
 }

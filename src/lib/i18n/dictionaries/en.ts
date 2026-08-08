@@ -917,6 +917,10 @@ export const en: Dictionary = {
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",
+    avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",
+    // Written after a farmer asked why 5.9 weaned minus 0.4 deaths isn't the sold figure.
+    avgFunnelNote:
+      "Not everything weaned is sold, so subtracting the deaths does not give the sales: some kits are retained and become breeding stock, and some are still sitting in the weaned stock available to sell. The three figures are not computed the same way either — each one's denominator is printed beneath it.",
     avgLaggedMonthsBasis: (count: number) =>
       `Mean of ${count} months — sales in a month ÷ weanings in the month before`,
     avgSoldPerWeaningNote:

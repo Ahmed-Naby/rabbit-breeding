@@ -507,13 +507,31 @@ function AveragesSection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* The funnel, side by side — born, weaned, sold. See the web copy for
+            why each carries its own basis line instead of one over the row. */}
+        <AveragesGroup basis={rt.avgFunnelBasis} abreast>
+          <AveragesTile
+            label={rt.avgBornAliveLabel}
+            value={avg(averages.bornAlive)}
+            basis={rt.avgKindlingBasis(averages.kindlings)}
+          />
+          <AveragesTile
+            label={rt.avgWeanedLabel}
+            value={avg(averages.weaned)}
+            basis={rt.avgWeaningBasis(averages.weanings)}
+          />
+          <AveragesTile
+            label={rt.avgSoldPerWeaningLabel}
+            value={avg(soldPerWeaning.perWeaning)}
+            basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}
+          />
+        </AveragesGroup>
+
         <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
-          <AveragesTile label={rt.avgBornAliveLabel} value={avg(averages.bornAlive)} />
           <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
         </AveragesGroup>
 
         <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
-          <AveragesTile label={rt.avgWeanedLabel} value={avg(averages.weaned)} />
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
@@ -521,12 +539,6 @@ function AveragesSection({
             is, which is why it cannot join either of the two above. */}
         <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
           <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
-        </AveragesGroup>
-
-        {/* Its own basis line because it is a mean OF MONTHLY RATIOS, not a
-            single division — see the web copy for the full reasoning. */}
-        <AveragesGroup basis={rt.avgLaggedMonthsBasis(soldPerWeaning.months)}>
-          <AveragesTile label={rt.avgSoldPerWeaningLabel} value={avg(soldPerWeaning.perWeaning)} />
         </AveragesGroup>
 
         {/* Same monthly sales, a different denominator: the working herd rather
@@ -550,6 +562,8 @@ function AveragesSection({
         </AveragesGroup>
 
         <div className="space-y-1 text-xs text-muted-foreground">
+          {/* Answers the subtraction the funnel row invites, before it is made. */}
+          <p>{rt.avgFunnelNote}</p>
           <p>{rt.avgRemainingStockNote}</p>
           {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
               litter — most of that gap is stock still standing in the barn. */}
@@ -1008,22 +1022,40 @@ function SalesChartSection({
   );
 }
 
-function AveragesGroup({ basis, children }: { basis: string; children: React.ReactNode }) {
+/** Mirrors the web AveragesGroup, `abreast` included — see it for the reasoning. */
+function AveragesGroup({
+  basis,
+  children,
+  abreast,
+}: {
+  basis: string;
+  children: React.ReactNode;
+  abreast?: boolean;
+}) {
   return (
     <div className="rounded-xl border border-border/60 bg-background/60 p-3">
       <div className="mb-2 border-b border-border/50 pb-2 text-xs font-semibold text-muted-foreground">
         {basis}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
+      <div className={abreast ? "grid grid-cols-3 gap-2" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
+        {children}
+      </div>
     </div>
   );
 }
 
-function AveragesTile({ label, value }: { label: string; value: string }) {
+/**
+ * `basis` is per-tile, for the funnel row — its three figures each have their
+ * own denominator. It doubles as the "I am one of three on a phone screen"
+ * signal: those tiles tighten their padding and drop a size, since three across
+ * a 360px screen is the narrowest this tile is ever asked to be.
+ */
+function AveragesTile({ label, value, basis }: { label: string; value: string; basis?: string }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-3">
+    <div className={`rounded-lg border border-border/60 bg-card ${basis ? "p-2" : "p-3"}`}>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-bold tabular-nums">{value}</div>
+      <div className={`mt-1 font-bold tabular-nums ${basis ? "text-xl" : "text-2xl"}`}>{value}</div>
+      {basis && <div className="mt-1 text-[10px] leading-snug text-muted-foreground/80">{basis}</div>}
     </div>
   );
 }
