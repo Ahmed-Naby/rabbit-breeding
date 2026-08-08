@@ -921,6 +921,7 @@ export const ar = {
     avgSalesPerDoeLabel: "معدل البيع لكل أم في المزرعة",
     // The unit lives in the label, as it does on the القطيع tab's twin tile.
     avgWeightPerDoeLabel: "متوسط الكجم المباع لكل أم شهريًا",
+    avgRevenuePerDoeLabel: "متوسط إيراد الأم شهريًا",
     avgWeanedStockDeathsLabel: "متوسط نافق الفطام",
     avgRemainingStockLabel: "رصيد الفطام المتاح للبيع",
     avgMonthlySalesLabel: "متوسط البيع الشهري",
@@ -943,6 +944,9 @@ export const ar = {
       `متوسط ${count} شهر — مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
     avgWeightPerDoeBasis: (count: number) =>
       `متوسط ${count} شهر — وزن مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
+    avgRevenuePerDoeBasis: (pricePerKg: string) =>
+      `الكجم المباع لكل أم × ${pricePerKg} سعر الكيلو في الإعدادات`,
+    avgRevenuePerDoeNoPriceBasis: "سجّل سعر الكيلو في الإعدادات ليظهر الإيراد",
     avgUnknownWeightMonthsNote: (count: number) =>
       `${count} شهر فيه مبيعات بدون وزن مسجل، واستُبعد من متوسط الوزن بدلًا من احتسابه صفرًا.`,
     avgSalesPerDoeNote:

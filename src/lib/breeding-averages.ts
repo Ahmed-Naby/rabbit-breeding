@@ -407,6 +407,27 @@ export function computeWeightPerDoe(
   return { months: ratios.length, perDoeGrams: mean(ratios), unknownWeightMonths };
 }
 
+/**
+ * متوسط إيراد الأم شهريًا — the kilos one doe sells in a month, valued at the
+ * سعر الكيلو standing in الإعدادات.
+ *
+ * A VALUATION, not takings. It deliberately does not read pricePerKgCents off
+ * the sale rows: those carry the price of the day, so a farm whose prices have
+ * doubled would blend two markets into one number and answer neither "what do I
+ * make now" nor "what did I make then". At today's price it answers the first,
+ * which is the one a doe's worth is judged by.
+ *
+ * `null` when the setting is still 0 — the schema's default for a farm that has
+ * never filled it in — so the tile renders «—» rather than a confident zero.
+ */
+export function revenuePerDoeCents(
+  perDoeGrams: number | null,
+  pricePerKgCents: number
+): number | null {
+  if (perDoeGrams == null || pricePerKgCents <= 0) return null;
+  return Math.round((perDoeGrams / 1000) * pricePerKgCents);
+}
+
 /** The kindling fields the averages need; both platforms have all three. */
 export type AverageKindlingRow = {
   bornAliveAtKindling: number;

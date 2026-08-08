@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/lib/settings";
 import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
@@ -93,6 +94,10 @@ export type FollowUpReport = {
   salesPerDoe: SalesPerDoe;
   /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
   weightPerDoe: WeightPerDoe;
+  /** سعر الكيلو الحالي من الإعدادات — see revenuePerDoeCents, which values
+   *  weightPerDoe with it. Carried here rather than read in the page so the
+   *  mobile bundle values the kilos exactly the same way. */
+  pricing: { pricePerKgCents: number; currency: string };
   /** The رصيد الفطام curve since the farm started; also lifetime. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
   /** One bar per calendar month of sales — see buildMonthlySalesSeries. */
@@ -201,6 +206,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   const dateRange = { gte: from, lt: to };
 
   const [
+    settings,
     does,
     bucks,
     stockRabbits,
@@ -226,6 +232,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     doeRows,
     firstMatings,
   ] = await Promise.all([
+    getSettings(),
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.count({ where: { sex: "buck", tagId: { not: null }, status: "active" } }),
     prisma.rabbit.findMany({
@@ -435,6 +442,10 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     monthlySales: computeMonthlySales(saleEvents, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
+    pricing: {
+      pricePerKgCents: settings.defaultPricePerKgCents,
+      currency: settings.currency,
+    },
     soldPerWeaning: computeLaggedSoldPerWeaning(
       saleEvents,
       // One row per weaning EVENT: the denominator is «عدد مرات الفطام», not

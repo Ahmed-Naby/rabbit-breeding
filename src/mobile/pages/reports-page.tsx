@@ -24,6 +24,7 @@ import {
 } from "../db/queries";
 import type { HerdReport, IdleDoesReport } from "@/lib/herd-productivity";
 import { formatMoney } from "@/lib/units";
+import { revenuePerDoeCents } from "@/lib/breeding-averages";
 import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -279,6 +280,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
               soldPerWeaning={report.soldPerWeaning}
               salesPerDoe={report.salesPerDoe}
               weightPerDoe={report.weightPerDoe}
+              pricing={report.pricing}
               rt={rt}
             />
           )}
@@ -468,6 +470,7 @@ function AveragesSection({
   soldPerWeaning,
   salesPerDoe,
   weightPerDoe,
+  pricing,
   rt,
 }: {
   averages: FollowUpReport["averages"];
@@ -476,6 +479,7 @@ function AveragesSection({
   soldPerWeaning: FollowUpReport["soldPerWeaning"];
   salesPerDoe: FollowUpReport["salesPerDoe"];
   weightPerDoe: FollowUpReport["weightPerDoe"];
+  pricing: FollowUpReport["pricing"];
   rt: RT;
 }) {
   // One decimal: litter-sized quantities, where 7.3 says something 7 doesn't,
@@ -490,6 +494,10 @@ function AveragesSection({
     grams == null
       ? "—"
       : (grams / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // The farm's own currency, from الإعدادات — the same source as the price
+  // being multiplied, so the tile can never label EGP figures as dollars.
+  const money = (cents: number | null) =>
+    cents == null ? "—" : formatMoney(cents, pricing.currency);
 
   return (
     <Card>
@@ -557,6 +565,20 @@ function AveragesSection({
             label={rt.avgWeightPerDoeLabel}
             value={kg(weightPerDoe.perDoeGrams)}
             basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}
+          />
+          {/* The kilos above, priced. Its basis line names the multiplier
+              rather than a denominator, because it adds no new division —
+              and when the price is still unset it says where to set it, so
+              the «—» reads as a missing setting and not as a farm that
+              sells nothing. */}
+          <AveragesTile
+            label={rt.avgRevenuePerDoeLabel}
+            value={money(revenuePerDoeCents(weightPerDoe.perDoeGrams, pricing.pricePerKgCents))}
+            basis={
+              pricing.pricePerKgCents > 0
+                ? rt.avgRevenuePerDoeBasis(formatMoney(pricing.pricePerKgCents, pricing.currency))
+                : rt.avgRevenuePerDoeNoPriceBasis
+            }
           />
         </AveragesGroup>
 

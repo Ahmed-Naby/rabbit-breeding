@@ -2568,6 +2568,10 @@ export type FollowUpReport = {
   salesPerDoe: SalesPerDoe;
   /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
   weightPerDoe: WeightPerDoe;
+  /** سعر الكيلو الحالي من الإعدادات — see revenuePerDoeCents, which values
+   *  weightPerDoe with it. Carried here rather than read in the page so this
+   *  bundle values the kilos exactly like the server does. */
+  pricing: { pricePerKgCents: number; currency: string };
   /** The رصيد الفطام curve since the farm started; lifetime, like `averages`. */
   kitStockHistory: { points: KitStockPoint[]; bucket: KitStockBucket };
   /** One bar per calendar month of sales — see buildMonthlySalesSeries. */
@@ -2662,6 +2666,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
   }
 
   const [
+    settings,
     weanedStockDeathAgg,
     nursingDeathAgg,
     stockDeaths,
@@ -2684,6 +2689,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     doeRows,
     firstMatings,
   ] = await Promise.all([
+    getLocalSettings(db),
     queryOne<{ total: number | null }>(
       db,
       "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
@@ -2890,6 +2896,10 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     monthlySales: computeMonthlySales(saleEvents, Date.now()),
     salesPerDoe: computeSalesPerDoe(saleEvents, doePresence, Date.now()),
     weightPerDoe: computeWeightPerDoe(saleEvents, doePresence, Date.now()),
+    pricing: {
+      pricePerKgCents: settings.defaultPricePerKgCents,
+      currency: settings.currency,
+    },
     soldPerWeaning: computeLaggedSoldPerWeaning(
       saleEvents,
       // One row per weaning EVENT — «عدد مرات الفطام», not head weaned.

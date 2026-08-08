@@ -6,6 +6,7 @@ import {
   computeMonthlySales,
   computeSalesPerDoe,
   computeWeightPerDoe,
+  revenuePerDoeCents,
   type AverageKindlingRow,
   type AverageWeaningRow,
   type BreedingAveragesInput,
@@ -594,5 +595,24 @@ describe("computeMonthlySales", () => {
     );
     expect(r.months).toBe(2);
     expect(r.perMonth).toBe(9);
+  });
+});
+
+describe("revenuePerDoeCents", () => {
+  test("values the kilos at the settings price", () => {
+    // 2.4 kg × 8000 قرش/كجم = 19200
+    expect(revenuePerDoeCents(2400, 8000)).toBe(19200);
+  });
+
+  test("rounds to whole cents", () => {
+    expect(revenuePerDoeCents(333, 999)).toBe(333);
+  });
+
+  test("is «—» while the price setting is still unset", () => {
+    expect(revenuePerDoeCents(2400, 0)).toBeNull();
+  });
+
+  test("is «—» when the weight itself is unknown", () => {
+    expect(revenuePerDoeCents(null, 8000)).toBeNull();
   });
 });
