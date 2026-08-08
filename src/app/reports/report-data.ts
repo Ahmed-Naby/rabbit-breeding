@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
+  computeLittersPerDoeYear,
   computeMonthlySales,
   computeSalesPerDoe,
   computeWeightPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
+  type LittersPerDoeYear,
   type MonthlySales,
   type SalesPerDoe,
   type WeightPerDoe,
@@ -85,6 +87,8 @@ export type FollowUpReport = {
   monthlySales: MonthlySales;
   /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
   soldPerWeaning: LaggedSoldPerWeaning;
+  /** عدد البطون في السنة — see computeLittersPerDoeYear. */
+  littersPerDoeYear: LittersPerDoeYear;
   /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
   salesPerDoe: SalesPerDoe;
   /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
@@ -310,6 +314,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     // a one-week window can no longer empty them out into «—».
     prisma.kindlingLog.findMany({
       select: {
+        // The date rides along for عدد البطون في السنة, which buckets these
+        // same rows by month — one read instead of two.
+        kindlingDate: true,
         bornAliveAtKindling: true,
         bornDead: true,
         bornDeadAtKindling: true,
@@ -421,6 +428,12 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       // One row per weaning EVENT: the denominator is «عدد مرات الفطام», not
       // how many head those weanings produced.
       historyWeanings.map((w) => ({ dateMs: w.weaningDate.getTime(), count: 1 })),
+      Date.now()
+    ),
+    littersPerDoeYear: computeLittersPerDoeYear(
+      // One row per litter, so the numerator counts kindlings and not kits.
+      lifetimeKindlingRows.map((k) => ({ dateMs: k.kindlingDate.getTime(), count: 1 })),
+      doePresence,
       Date.now()
     ),
     kitStockHistory: buildKitStockSeries(stockEvents, Date.now()),

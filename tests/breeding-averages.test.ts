@@ -2,6 +2,7 @@ import { describe, test, expect } from "vitest";
 import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
+  computeLittersPerDoeYear,
   computeMonthlySales,
   computeSalesPerDoe,
   computeWeightPerDoe,
@@ -467,6 +468,70 @@ describe("computeWeightPerDoe", () => {
 
     expect(r.months).toBe(0);
     expect(r.perDoeGrams).toBeNull();
+  });
+});
+
+describe("computeLittersPerDoeYear", () => {
+  /** `count` litters in month `m` of 2025, day 10. */
+  const kindled = (m: number, count: number) => ({
+    dateMs: new Date(2025, m - 1, 10).getTime(),
+    count,
+  });
+  const doe = (from: number, to?: number) => ({
+    fromMs: new Date(2025, from - 1, 1).getTime(),
+    toMs: to == null ? null : new Date(2025, to - 1, 1).getTime(),
+  });
+  const nowIn = (m: number) => new Date(2025, m - 1, 15).getTime();
+
+  test("annualises litters over the doe-months they were produced in", () => {
+    // Two does standing Jan + Feb = 4 doe-months; 2 litters → 0.5/month → 6/year.
+    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1), doe(1)], nowIn(3));
+
+    expect(r.doeMonths).toBe(4);
+    expect(r.litters).toBe(2);
+    expect(r.perYear).toBe(6);
+  });
+
+  test("keeps an idle doe in the denominator", () => {
+    // The whole point of a doe-month denominator: the doe that never kindled is
+    // exactly the one an average of kindling INTERVALS would silently drop.
+    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1), doe(1), doe(1)], nowIn(3));
+
+    expect(r.doeMonths).toBe(6);
+    expect(r.perYear).toBe(4); // 2/6 × 12, not the 6 the two workers alone would give
+  });
+
+  test("starts at the first month with a kindling, not at the first doe", () => {
+    // Does bought in January, first litter in March: the wait for it is not
+    // months the farm bred badly.
+    const r = computeLittersPerDoeYear([kindled(3, 2), kindled(4, 2)], [doe(1), doe(1)], nowIn(5));
+
+    expect(r.doeMonths).toBe(4); // March and April only
+    expect(r.perYear).toBe(12); // 4/4 × 12
+  });
+
+  test("counts a barren month after breeding has begun as a real zero", () => {
+    const r = computeLittersPerDoeYear([kindled(1, 2)], [doe(1), doe(1)], nowIn(3));
+
+    expect(r.doeMonths).toBe(4); // January and February
+    expect(r.perYear).toBe(6); // 2/4 × 12 — February drags it down, correctly
+  });
+
+  test("leaves the running month out", () => {
+    // Half a month of kindlings against a full month of does would understate
+    // the farm every time the report is opened.
+    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1)], nowIn(2));
+
+    expect(r.doeMonths).toBe(1); // January only
+    expect(r.litters).toBe(1);
+    expect(r.perYear).toBe(12);
+  });
+
+  test("returns «—» for a farm with no does on record", () => {
+    const r = computeLittersPerDoeYear([kindled(1, 3)], [], nowIn(3));
+
+    expect(r.doeMonths).toBe(0);
+    expect(r.perYear).toBeNull();
   });
 });
 

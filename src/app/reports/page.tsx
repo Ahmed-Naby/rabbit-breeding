@@ -186,6 +186,7 @@ export default async function ReportsPage({
               what says how many kindlings/weanings the average stands on. */}
           <AveragesSection
             averages={report.averages}
+            littersPerDoeYear={report.littersPerDoeYear}
             monthlySales={report.monthlySales}
             soldPerWeaning={report.soldPerWeaning}
             salesPerDoe={report.salesPerDoe}
@@ -445,6 +446,7 @@ function StatTile({
  */
 function AveragesSection({
   averages,
+  littersPerDoeYear,
   monthlySales,
   soldPerWeaning,
   salesPerDoe,
@@ -452,6 +454,7 @@ function AveragesSection({
   rt,
 }: {
   averages: FollowUpReport["averages"];
+  littersPerDoeYear: FollowUpReport["littersPerDoeYear"];
   monthlySales: FollowUpReport["monthlySales"];
   soldPerWeaning: FollowUpReport["soldPerWeaning"];
   salesPerDoe: FollowUpReport["salesPerDoe"];
@@ -490,16 +493,29 @@ function AveragesSection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* The funnel, side by side: what was born, what survived to weaning,
-            what was sold — the three figures a farmer actually reads against
-            each other. They sat in three separate groups before, which is why
-            it took a question to notice 5.9 − 0.4 ≠ 5.1.
+        {/* The funnel, side by side: how often a doe kindles, what was born,
+            what survived to weaning, what was sold — the figures a farmer
+            actually reads against each other. They sat in separate groups
+            before, which is why it took a question to notice 5.9 − 0.4 ≠ 5.1.
+
+            Litters/year leads because it is the multiplier the rest hang off:
+            times البطن الحي it gives kits born per doe per year. It is also the
+            only tile here that is not a per-litter quantity.
 
             Each keeps its own basis line UNDER its own number rather than one
-            over the row: the denominators genuinely differ (kindlings,
-            weanings, a mean of monthly ratios) and pretending otherwise is the
-            exact subtraction the note below has to walk back. */}
+            over the row: the denominators genuinely differ (doe-months,
+            kindlings, weanings, a mean of monthly ratios) and pretending
+            otherwise is the exact subtraction the note below has to walk
+            back. */}
         <AveragesGroup basis={rt.avgFunnelBasis} abreast>
+          <AveragesTile
+            label={rt.avgLittersPerDoeYearLabel}
+            value={avg(littersPerDoeYear.perYear)}
+            basis={rt.avgLittersPerDoeYearBasis(
+              littersPerDoeYear.litters,
+              littersPerDoeYear.doeMonths
+            )}
+          />
           <AveragesTile
             label={rt.avgBornAliveLabel}
             value={avg(averages.bornAlive)}
@@ -671,8 +687,8 @@ function SalesChartSection({
 function AveragesGroup({
   basis,
   children,
-  /** The funnel row only: three tiles that must stay on one line even on a
-      phone, because they are read as a sequence — born, weaned, sold. */
+  /** Rows whose tiles must stay on one line even on a phone, because they are
+      read as a sequence — litters/year, born, weaned, sold. */
   abreast,
 }: {
   basis: string;
@@ -684,7 +700,16 @@ function AveragesGroup({
       <div className="mb-2 border-b border-border/50 pb-2 text-xs font-semibold text-muted-foreground">
         {basis}
       </div>
-      <div className={abreast ? "grid grid-cols-3 gap-2" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
+      <div
+        className={
+          // grid-flow-col + auto-cols-fr rather than a fixed column count: the
+          // funnel row is four tiles and the selling row is three, and both are
+          // meant to stay on one line whatever they hold.
+          abreast
+            ? "grid auto-cols-fr grid-flow-col gap-2"
+            : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+        }
+      >
         {children}
       </div>
     </div>

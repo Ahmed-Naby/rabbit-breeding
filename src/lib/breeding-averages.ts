@@ -294,6 +294,60 @@ export function computeSalesPerDoe(
 }
 
 /**
+ * عدد البطون في السنة — how many litters one doe produces in a year.
+ *
+ * It sits first in the funnel row because it is the multiplier the rest hang
+ * off: litters/year × البطن الحي = kits born per doe per year. Alone among
+ * those figures it is not a per-litter quantity at all, which is why it carries
+ * its own basis line.
+ *
+ * A doe-MONTH denominator, not a per-doe average of her own kindling intervals.
+ * An interval average can only see does that kindled at least twice, so it
+ * silently drops the ones that kindled once and went idle — the very does that
+ * drag a real farm's output down. Counting the herd's standing months instead
+ * puts every doe in the denominator whether she produced or not, and it reuses
+ * the presence windows the sales averages already reconstruct rather than
+ * inventing a second answer to "was she here in March".
+ *
+ * Counting STARTS at the first month the farm recorded a kindling — the same
+ * exclusion computeSalesPerDoe makes for the ramp-up, and for the same reason:
+ * before it, the months measure the wait for the first litter, not how often
+ * the farm's does kindle. After it, an empty month is a real 0.
+ */
+export type LittersPerDoeYear = {
+  /** Doe-months in the denominator — also the printed basis. */
+  doeMonths: number;
+  /** Litters counted over those same months. */
+  litters: number;
+  /** null until one complete month with does standing has passed. */
+  perYear: number | null;
+};
+
+export function computeLittersPerDoeYear(
+  kindlings: DatedCount[],
+  does: DoePresence[],
+  nowMs: number
+): LittersPerDoeYear {
+  const kindledByMonth = new Map<number, number>();
+  for (const k of kindlings) {
+    const m = monthIndex(k.dateMs);
+    kindledByMonth.set(m, (kindledByMonth.get(m) ?? 0) + k.count);
+  }
+
+  let doeMonths = 0;
+  let litters = 0;
+  // firstSellingMonth is misnamed for this caller but does exactly the right
+  // thing: the earliest month whose bucket is non-empty.
+  forEachScoredMonth(does, firstSellingMonth(kindledByMonth), nowMs, (month, present) => {
+    doeMonths += present;
+    litters += kindledByMonth.get(month) ?? 0;
+  });
+
+  if (doeMonths === 0) return { doeMonths: 0, litters: 0, perYear: null };
+  return { doeMonths, litters, perYear: (litters / doeMonths) * 12 };
+}
+
+/**
  * متوسط الوزن المباع لكل أم شهريًا — the same month-by-month division as
  * computeSalesPerDoe, weighed in grams instead of counted in head. It answers
  * a different question: two farms can sell the same number of kits and ship

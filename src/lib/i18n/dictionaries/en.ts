@@ -903,6 +903,7 @@ export const en: Dictionary = {
     pregnancyPositiveLabel: "Pregnant",
     kindlingsLabel: "Kindlings",
     sectionAverages: "Averages",
+    avgLittersPerDoeYearLabel: "Litters per doe per year",
     avgBornAliveLabel: "Avg. live litter size",
     avgNursingDeathsLabel: "Avg. kits lost during nursing",
     avgWeanedLabel: "Avg. kits weaned per litter",
@@ -915,6 +916,8 @@ export const en: Dictionary = {
     avgMonthlySalesLabel: "Average monthly sales",
     avgMonthsBasis: (count: number) => `÷ ${count} months since the first selling month`,
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
+    avgLittersPerDoeYearBasis: (litters: number, doeMonths: number) =>
+      `${litters} litters ÷ ${doeMonths} doe-months × 12 — since the first month with a kindling`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",
     avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",

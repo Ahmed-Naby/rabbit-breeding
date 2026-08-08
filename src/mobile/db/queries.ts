@@ -14,12 +14,14 @@ import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortal
 import { naturalCompare } from "@/lib/sortable";
 import {
   computeBreedingAverages,
+  computeLittersPerDoeYear,
   computeLaggedSoldPerWeaning,
   computeMonthlySales,
   computeSalesPerDoe,
   computeWeightPerDoe,
   type BreedingAverages,
   type LaggedSoldPerWeaning,
+  type LittersPerDoeYear,
   type MonthlySales,
   type SalesPerDoe,
   type WeightPerDoe,
@@ -2560,6 +2562,8 @@ export type FollowUpReport = {
   monthlySales: MonthlySales;
   /** متوسط الفطام المباع لكل ولادة — see computeLaggedSoldPerWeaning. */
   soldPerWeaning: LaggedSoldPerWeaning;
+  /** عدد البطون في السنة — see computeLittersPerDoeYear. */
+  littersPerDoeYear: LittersPerDoeYear;
   /** معدل البيع لكل أم في المزرعة — see computeSalesPerDoe. */
   salesPerDoe: SalesPerDoe;
   /** متوسط الوزن المباع لكل أم شهريًا — see computeWeightPerDoe. */
@@ -2758,9 +2762,11 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     // «متوسطات الأداء» is a lifetime board — the date filter drives the period
     // sections, but the averages describe the farm since it started, so a
     // one-week window can no longer empty them out into «—».
-    queryAll<AverageKindlingRow>(
+    // kindlingDate rides along for عدد البطون في السنة, which buckets these
+    // same rows by month — one read instead of two.
+    queryAll<AverageKindlingRow & { kindlingDate: string }>(
       db,
-      "SELECT bornAliveAtKindling, bornDead, bornDeadAtKindling FROM kindling_log"
+      "SELECT kindlingDate, bornAliveAtKindling, bornDead, bornDeadAtKindling FROM kindling_log"
     ),
     queryAll<{ weaned: number | null }>(
       db,
@@ -2877,6 +2883,12 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       saleEvents,
       // One row per weaning EVENT — «عدد مرات الفطام», not head weaned.
       historyWeanings.map((w) => ({ dateMs: new Date(w.weaningDate).getTime(), count: 1 })),
+      Date.now()
+    ),
+    littersPerDoeYear: computeLittersPerDoeYear(
+      // One row per litter, so the numerator counts kindlings and not kits.
+      lifetimeKindlingRows.map((k) => ({ dateMs: new Date(k.kindlingDate).getTime(), count: 1 })),
+      doePresence,
       Date.now()
     ),
     kitStockHistory: buildKitStockSeries(

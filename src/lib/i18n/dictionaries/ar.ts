@@ -913,6 +913,7 @@ export const ar = {
     pregnancyPositiveLabel: "عشار",
     kindlingsLabel: "الولادات",
     sectionAverages: "متوسطات الأداء",
+    avgLittersPerDoeYearLabel: "عدد البطون في السنة",
     avgBornAliveLabel: "متوسط عدد البطن الحي",
     avgNursingDeathsLabel: "متوسط نافق النتاج أثناء الرعاية",
     avgWeanedLabel: "متوسط عدد الفطام لكل ولادة",
@@ -925,6 +926,8 @@ export const ar = {
     avgMonthlySalesLabel: "متوسط البيع الشهري",
     avgMonthsBasis: (count: number) => `÷ ${count} شهر منذ أول شهر بيع`,
     avgKindlingBasis: (count: number) => `÷ ${count} ولادة منذ بداية العمل`,
+    avgLittersPerDoeYearBasis: (litters: number, doeMonths: number) =>
+      `${litters} ولادة ÷ ${doeMonths} شهر-أم × 12 — منذ أول شهر ولادة`,
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgLifetimeBasis: "الرصيد التراكمي للمزرعة حتى الآن",
     avgFunnelBasis: "من الولادة إلى البيع — لكل رقم مقامه المكتوب تحته",

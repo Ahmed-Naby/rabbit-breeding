@@ -274,6 +274,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
           {report && (
             <AveragesSection
               averages={report.averages}
+              littersPerDoeYear={report.littersPerDoeYear}
               monthlySales={report.monthlySales}
               soldPerWeaning={report.soldPerWeaning}
               salesPerDoe={report.salesPerDoe}
@@ -462,6 +463,7 @@ const TONE_TILE = {
  */
 function AveragesSection({
   averages,
+  littersPerDoeYear,
   monthlySales,
   soldPerWeaning,
   salesPerDoe,
@@ -469,6 +471,7 @@ function AveragesSection({
   rt,
 }: {
   averages: FollowUpReport["averages"];
+  littersPerDoeYear: FollowUpReport["littersPerDoeYear"];
   monthlySales: FollowUpReport["monthlySales"];
   soldPerWeaning: FollowUpReport["soldPerWeaning"];
   salesPerDoe: FollowUpReport["salesPerDoe"];
@@ -507,9 +510,18 @@ function AveragesSection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* The funnel, side by side — born, weaned, sold. See the web copy for
-            why each carries its own basis line instead of one over the row. */}
+        {/* The funnel, side by side — litters/year, born, weaned, sold. See
+            the web copy for why each carries its own basis line instead of one
+            over the row. */}
         <AveragesGroup basis={rt.avgFunnelBasis} abreast>
+          <AveragesTile
+            label={rt.avgLittersPerDoeYearLabel}
+            value={avg(littersPerDoeYear.perYear)}
+            basis={rt.avgLittersPerDoeYearBasis(
+              littersPerDoeYear.litters,
+              littersPerDoeYear.doeMonths
+            )}
+          />
           <AveragesTile
             label={rt.avgBornAliveLabel}
             value={avg(averages.bornAlive)}
@@ -1041,7 +1053,16 @@ function AveragesGroup({
       <div className="mb-2 border-b border-border/50 pb-2 text-xs font-semibold text-muted-foreground">
         {basis}
       </div>
-      <div className={abreast ? "grid grid-cols-3 gap-2" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"}>
+      <div
+        className={
+          // grid-flow-col + auto-cols-fr rather than a fixed column count: the
+          // funnel row is four tiles and the selling row is three, and both are
+          // meant to stay on one line whatever they hold.
+          abreast
+            ? "grid auto-cols-fr grid-flow-col gap-2"
+            : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+        }
+      >
         {children}
       </div>
     </div>
