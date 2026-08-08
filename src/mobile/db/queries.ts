@@ -2620,8 +2620,8 @@ async function getLocalKitStockBalanceAsOf(db: SQLiteDBConnection, toIso?: strin
  * `toIso` is the EXCLUSIVE upper bound (start of the day after the last day
  * to include) — same contract as the web version. Herd/stock counts are a
  * current snapshot; death/sale/weaning/breeding-event counts are bounded to
- * [fromIso, toIso). Untracked fields (mange, uterine infection, mastitis,
- * per-event newborn-kit death dates) are always null and must render "—".
+ * [fromIso, toIso). Untracked fields (mange, uterine infection, mastitis) are
+ * always null and must render "—".
  */
 export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: string, toIso: string): Promise<FollowUpReport> {
   const [does, bucks] = await Promise.all([
@@ -2663,6 +2663,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
 
   const [
     weanedStockDeathAgg,
+    nursingDeathAgg,
     stockDeaths,
     doeDeaths,
     buckDeaths,
@@ -2686,6 +2687,15 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     queryOne<{ total: number | null }>(
       db,
       "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
+      [fromIso, toIso]
+    ),
+    // «نتاج» — kits lost between kindling and weaning, in the period they died.
+    // kit_death_log is the only dated source; see the matching note in
+    // reports/report-data.ts for why the KindlingLog arithmetic cannot be
+    // period-bound and what this undercounts.
+    queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(count) as total FROM kit_death_log WHERE deathDate >= ? AND deathDate < ?",
       [fromIso, toIso]
     ),
     // Dying retires the number: setRabbitStatus clears tagId and parks it in
@@ -2842,9 +2852,10 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
     stock: { males, females },
     deaths: {
-      newborn: null,
+      newborn: nursingDeathAgg?.total ?? 0,
       weanedStock: weanedStockDeathAgg?.total ?? 0,
-      total: null,
+      // Exactly what the label promises — «إجمالي النافق (نتاج + فطام)».
+      total: (nursingDeathAgg?.total ?? 0) + (weanedStockDeathAgg?.total ?? 0),
       stock: stockDeaths?.count ?? 0,
       does: doeDeaths?.count ?? 0,
       bucks: buckDeaths?.count ?? 0,

@@ -54,7 +54,7 @@ export type FollowUpReport = {
     females: AgeBracket;
   };
   deaths: {
-    newborn: number | null; // نتاج — no per-event date on Litter.bornDead, not derivable
+    newborn: number | null; // نتاج — dated nursing deaths from KitDeathLog
     weanedStock: number; // فطام — KitStockMovement(type: death) in range
     total: number | null; // null when any component is unknown
     stock: number; // نافق السلالة — tagId-less Rabbit rows marked deceased in range
@@ -194,8 +194,8 @@ async function getKitStockBalanceAsOf(to?: Date): Promise<number> {
  * current snapshot (no historical point-in-time headcount exists); death,
  * sale, weaning, and breeding-event counts are bounded to [from, to), while
  * `averages` is lifetime and ignores both bounds. Fields with no tracking
- * anywhere in the app (mange, uterine infection, mastitis, per-event
- * newborn-kit death dates) are returned as null and must render "—".
+ * anywhere in the app (mange, uterine infection, mastitis) are returned as null
+ * and must render "—".
  */
 export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpReport> {
   const dateRange = { gte: from, lt: to };
@@ -205,6 +205,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     bucks,
     stockRabbits,
     weanedStockDeathAgg,
+    nursingDeathAgg,
     stockDeaths,
     doeDeaths,
     buckDeaths,
@@ -241,6 +242,14 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       where: { type: "death", date: dateRange },
       _sum: { count: true },
     }),
+    // «نتاج» — kits lost between kindling and weaning, in the period they died.
+    // KitDeathLog is the only dated source: the KindlingLog arithmetic that
+    // «متوسط نافق النتاج أثناء الرعاية» uses (bornDead − bornDeadAtKindling)
+    // carries no death date, so it can only ever be a lifetime figure. It also
+    // means this can undercount a farm that types losses straight into «نافق»
+    // on the does board — that path writes no log row. On the 24-month sim farm
+    // the two agree exactly (1,204 either way).
+    prisma.kitDeathLog.aggregate({ where: { deathDate: dateRange }, _sum: { count: true } }),
     // Dying retires the number: setRabbitStatusOp clears tagId and parks it in
     // retiredTagId, so "was this a tagged mother/buck" cannot be asked of tagId
     // alone — `tagId != null AND deceased` matches nothing the app can produce,
@@ -349,6 +358,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
+  const newbornDeaths = nursingDeathAgg._sum.count ?? 0;
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
 
   // Every dated change to the weaned-stock balance, ever — the curve replays it.
@@ -390,9 +400,11 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       females: bucketByStockAge(stockRabbits, "doe", new Date()),
     },
     deaths: {
-      newborn: null,
+      newborn: newbornDeaths,
       weanedStock: weanedStockDeaths,
-      total: null,
+      // Exactly what the label promises — «إجمالي النافق (نتاج + فطام)». The
+      // adult and cull rows below are counted separately and are not in it.
+      total: newbornDeaths + weanedStockDeaths,
       stock: stockDeaths,
       does: doeDeaths,
       bucks: buckDeaths,
