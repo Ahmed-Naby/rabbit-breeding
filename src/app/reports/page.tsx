@@ -525,25 +525,31 @@ function AveragesSection({
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
-        {/* Divided by TIME, not by an event count — the only group here that
-            is, which is why it cannot join either of the two above. */}
-        <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
-          <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
-        </AveragesGroup>
-
-        {/* Same monthly sales, a different denominator: the working herd rather
-            than last month's weanings. Its month count differs again — it can
-            only score months the farm actually had does standing. */}
-        <AveragesGroup basis={rt.avgSalesPerDoeBasis(salesPerDoe.months)}>
-          <AveragesTile label={rt.avgSalesPerDoeLabel} value={avg(salesPerDoe.perDoe)} />
-        </AveragesGroup>
-
-        {/* Weight, not head — two farms can sell the same number of kits and
-            ship very different kilos. Its own basis line because a month whose
-            sales carry no recorded weight is dropped, so the month count here
-            can fall short of the one above. */}
-        <AveragesGroup basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}>
-          <AveragesTile label={rt.avgWeightPerDoeLabel} value={kg(weightPerDoe.perDoeGrams)} />
+        {/* The selling row: the same monthly sales read three ways — the whole
+            farm's month, one doe's month, and that doe's month in kilos rather
+            than head (two farms can ship the same count at very different
+            weights). Abreast for the same reason as the funnel above, and with
+            per-tile basis lines for the same reason too: the first divides by
+            months, the other two are means of monthly ratios, and even their
+            month counts differ — the herd figure can only score months with
+            does standing, and the weight figure drops any month whose sales
+            carry no recorded weight. */}
+        <AveragesGroup basis={rt.avgSellingBasis} abreast>
+          <AveragesTile
+            label={rt.avgMonthlySalesLabel}
+            value={whole(monthlySales.perMonth)}
+            basis={rt.avgMonthsBasis(monthlySales.months)}
+          />
+          <AveragesTile
+            label={rt.avgSalesPerDoeLabel}
+            value={avg(salesPerDoe.perDoe)}
+            basis={rt.avgSalesPerDoeBasis(salesPerDoe.months)}
+          />
+          <AveragesTile
+            label={rt.avgWeightPerDoeLabel}
+            value={kg(weightPerDoe.perDoeGrams)}
+            basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}
+          />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and

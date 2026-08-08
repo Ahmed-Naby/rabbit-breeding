@@ -535,21 +535,25 @@ function AveragesSection({
           <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
-        {/* Divided by TIME, not by an event count — the only group here that
-            is, which is why it cannot join either of the two above. */}
-        <AveragesGroup basis={rt.avgMonthsBasis(monthlySales.months)}>
-          <AveragesTile label={rt.avgMonthlySalesLabel} value={whole(monthlySales.perMonth)} />
-        </AveragesGroup>
-
-        {/* Same monthly sales, a different denominator: the working herd rather
-            than last month's weanings. */}
-        <AveragesGroup basis={rt.avgSalesPerDoeBasis(salesPerDoe.months)}>
-          <AveragesTile label={rt.avgSalesPerDoeLabel} value={avg(salesPerDoe.perDoe)} />
-        </AveragesGroup>
-
-        {/* Weight, not head — see the web copy for why it gets its own basis. */}
-        <AveragesGroup basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}>
-          <AveragesTile label={rt.avgWeightPerDoeLabel} value={kg(weightPerDoe.perDoeGrams)} />
+        {/* The selling row — the farm's month, one doe's month, and that month
+            in kilos. See the web copy for why the three basis lines are
+            per-tile. */}
+        <AveragesGroup basis={rt.avgSellingBasis} abreast>
+          <AveragesTile
+            label={rt.avgMonthlySalesLabel}
+            value={whole(monthlySales.perMonth)}
+            basis={rt.avgMonthsBasis(monthlySales.months)}
+          />
+          <AveragesTile
+            label={rt.avgSalesPerDoeLabel}
+            value={avg(salesPerDoe.perDoe)}
+            basis={rt.avgSalesPerDoeBasis(salesPerDoe.months)}
+          />
+          <AveragesTile
+            label={rt.avgWeightPerDoeLabel}
+            value={kg(weightPerDoe.perDoeGrams)}
+            basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}
+          />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and
