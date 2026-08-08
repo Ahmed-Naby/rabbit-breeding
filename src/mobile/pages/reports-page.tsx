@@ -539,14 +539,6 @@ function AveragesSection({
           />
         </AveragesGroup>
 
-        <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
-          <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
-        </AveragesGroup>
-
-        <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
-          <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
-        </AveragesGroup>
-
         {/* The selling row — the farm's month, one doe's month, and that month
             in kilos. See the web copy for why the three basis lines are
             per-tile. */}
@@ -566,6 +558,17 @@ function AveragesSection({
             value={kg(weightPerDoe.perDoeGrams)}
             basis={rt.avgWeightPerDoeBasis(weightPerDoe.months)}
           />
+        </AveragesGroup>
+
+        {/* The two loss figures sit under both headline rows, not between them:
+            each is a single tile against a full-width basis line, and stacking
+            them there split the two rows a farmer reads together. */}
+        <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
+          <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
+        </AveragesGroup>
+
+        <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
+          <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
         </AveragesGroup>
 
         {/* Its own group: a stock level, not an average — no denominator, and
