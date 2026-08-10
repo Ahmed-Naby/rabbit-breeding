@@ -918,7 +918,7 @@ export const ar = {
     avgNursingDeathsLabel: "متوسط نافق النتاج أثناء الرعاية",
     avgWeanedLabel: "متوسط عدد الفطام لكل ولادة",
     avgSoldPerWeaningLabel: "متوسط الفطام المباع لكل ولادة",
-    avgSalesPerDoeLabel: "معدل البيع لكل أم في المزرعة",
+    avgSalesPerDoeLabel: "معدل البيع لكل أم في المزرعة شهريًا",
     // The unit lives in the label, as it does on the القطيع tab's twin tile.
     avgWeightPerDoeLabel: "متوسط الكجم المباع لكل أم شهريًا",
     avgRevenuePerDoeLabel: "متوسط إيراد الأم شهريًا",

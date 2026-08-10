@@ -908,7 +908,7 @@ export const en: Dictionary = {
     avgNursingDeathsLabel: "Avg. kits lost during nursing",
     avgWeanedLabel: "Avg. kits weaned per litter",
     avgSoldPerWeaningLabel: "Avg. kits sold per litter",
-    avgSalesPerDoeLabel: "Sales per doe on the farm",
+    avgSalesPerDoeLabel: "Sales per doe per month on the farm",
     // The unit lives in the label, as it does on the herd tab's twin tile.
     avgWeightPerDoeLabel: "Avg. kg sold per doe per month",
     avgRevenuePerDoeLabel: "Avg. revenue per doe per month",
