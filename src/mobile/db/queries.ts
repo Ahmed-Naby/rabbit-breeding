@@ -12,6 +12,7 @@ import type { DoeState } from "@/lib/enums";
 import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
 import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
+import { countCullCandidates } from "@/lib/cull-candidates";
 import {
   computeBreedingAverages,
   computeLittersPerDoeYear,
@@ -2539,6 +2540,8 @@ export type AgeBracket = {
 
 export type FollowUpReport = {
   herd: { does: number; bucks: number };
+  /** Active tagged does under the fertility threshold — see countCullCandidates. */
+  cullCandidates: number;
   stock: { males: AgeBracket; females: AgeBracket };
   deaths: {
     newborn: number | null;
@@ -2694,6 +2697,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     historyMovements,
     doeRows,
     firstMatings,
+    kindlingsByDoe,
   ] = await Promise.all([
     getLocalSettings(db),
     queryOne<{ total: number | null }>(
@@ -2812,13 +2816,24 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     ),
     // Enough of every doe's row to rebuild when she was on the farm — see
     // computeSalesPerDoe for why these stand in for dates the schema lacks.
-    queryAll<{ id: string; status: string; acquiredDate: string | null; updatedAt: string }>(
+    // tagId rides along for the cull count below: it needs the does still
+    // standing in the barn, and this read already walks every doe there is.
+    queryAll<{
+      id: string;
+      status: string;
+      tagId: string | null;
+      acquiredDate: string | null;
+      updatedAt: string;
+    }>(db, "SELECT id, status, tagId, acquiredDate, updatedAt FROM rabbit WHERE sex = 'doe'"),
+    // COUNT as well as MIN: the same grouping answers "when did she start" for
+    // doePresence and "how many times was she mated" for the cull count.
+    queryAll<{ doeId: string; firstMating: string; matings: number }>(
       db,
-      "SELECT id, status, acquiredDate, updatedAt FROM rabbit WHERE sex = 'doe'"
+      "SELECT doeId, MIN(matingDate) as firstMating, COUNT(*) as matings FROM mating_log GROUP BY doeId"
     ),
-    queryAll<{ doeId: string; firstMating: string }>(
+    queryAll<{ doeId: string; kindlings: number }>(
       db,
-      "SELECT doeId, MIN(matingDate) as firstMating FROM mating_log GROUP BY doeId"
+      "SELECT doeId, COUNT(*) as kindlings FROM kindling_log GROUP BY doeId"
     ),
   ]);
 
@@ -2860,8 +2875,22 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     ];
   });
 
+  // Only does still standing and still carrying a number — see the server's
+  // matching filter in report-data.ts.
+  const matingCountByDoe = new Map(firstMatings.map((g) => [g.doeId, g.matings]));
+  const kindlingCountByDoe = new Map(kindlingsByDoe.map((g) => [g.doeId, g.kindlings]));
+  const cullCandidates = countCullCandidates(
+    doeRows
+      .filter((d) => d.status === "active" && d.tagId != null)
+      .map((d) => ({
+        matings: matingCountByDoe.get(d.id) ?? 0,
+        kindlings: kindlingCountByDoe.get(d.id) ?? 0,
+      }))
+  );
+
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
+    cullCandidates,
     stock: { males, females },
     deaths: {
       newborn: nursingDeathAgg?.total ?? 0,

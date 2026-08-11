@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { countCullCandidates } from "@/lib/cull-candidates";
 import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
@@ -50,6 +51,12 @@ export type FollowUpReport = {
     does: number;
     bucks: number;
   };
+  /**
+   * «أمهات يجب استبعادها» — active tagged does under the fertility threshold.
+   * A lifetime judgement on the herd standing right now, so like herd/stock it
+   * ignores the date filter. See countCullCandidates.
+   */
+  cullCandidates: number;
   stock: {
     males: AgeBracket;
     females: AgeBracket;
@@ -237,6 +244,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     historyMovements,
     doeRows,
     firstMatings,
+    kindlingsByDoe,
   ] = await Promise.all([
     getSettings(),
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
@@ -365,9 +373,14 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     // schema does not keep.
     prisma.rabbit.findMany({
       where: { sex: "doe" },
-      select: { id: true, status: true, acquiredDate: true, updatedAt: true },
+      // tagId rides along for the cull count below: it needs the does still
+      // standing in the barn, and this read already walks every doe there is.
+      select: { id: true, status: true, tagId: true, acquiredDate: true, updatedAt: true },
     }),
-    prisma.matingLog.groupBy({ by: ["doeId"], _min: { matingDate: true } }),
+    // _count as well as _min: the same grouping answers "when did she start"
+    // for doePresence and "how many times was she mated" for the cull count.
+    prisma.matingLog.groupBy({ by: ["doeId"], _min: { matingDate: true }, _count: { _all: true } }),
+    prisma.kindlingLog.groupBy({ by: ["doeId"], _count: { _all: true } }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -400,10 +413,24 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     return [{ fromMs, toMs: d.status === "active" ? null : d.updatedAt.getTime() }];
   });
 
+  // Only does still standing and still carrying a number: a doe already sold or
+  // dead cannot be culled, and an untagged one is a سلالة who has not started.
+  const matingCountByDoe = new Map(firstMatings.map((g) => [g.doeId, g._count._all]));
+  const kindlingCountByDoe = new Map(kindlingsByDoe.map((g) => [g.doeId, g._count._all]));
+  const cullCandidates = countCullCandidates(
+    doeRows
+      .filter((d) => d.status === "active" && d.tagId != null)
+      .map((d) => ({
+        matings: matingCountByDoe.get(d.id) ?? 0,
+        kindlings: kindlingCountByDoe.get(d.id) ?? 0,
+      }))
+  );
+
   return {
     from,
     to,
     herd: { does, bucks },
+    cullCandidates,
     stock: {
       // Measured from now, not from `to`: like the herd headcounts above, this
       // is a current snapshot — the query has no date filter, so ageing the

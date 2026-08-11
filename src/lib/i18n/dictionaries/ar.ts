@@ -880,6 +880,10 @@ export const ar = {
     sectionWeanedBalance: "رصيد الفطام حاليًا",
     weanedBalanceLabel: "متاح للبيع",
     weanedBalanceNote: "ما تبقّى واقفًا في أقفاص الفطام: كل ما تم فطامه ناقص المباع والنافق والمحتفظ به في السلالات.",
+    sectionCull: "أمهات يجب استبعادها",
+    cullLabel: "عدد الأمهات",
+    cullNote: (threshold: number, minMatings: number) =>
+      `أمهات معدل خصوبتها أقل من ${threshold}% — الولادات ÷ مرات التلقيح، محسوبة على كل تاريخها. لا تُحسب أم لم تُلقَّح ${minMatings} مرات على الأقل، حتى لا تظهر أم جديدة كأنها فاشلة.`,
     sectionStock: "السلالات",
     stockMalesLabel: "سلالة ذكور",
     stockFemalesLabel: "سلالة إناث",

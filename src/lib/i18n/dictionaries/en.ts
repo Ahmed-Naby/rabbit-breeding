@@ -873,6 +873,10 @@ export const en: Dictionary = {
     sectionWeanedBalance: "Weaned stock now",
     weanedBalanceLabel: "Available to sell",
     weanedBalanceNote: "What is still standing in the weaning cages: everything weaned, less what was sold, died, or kept back as juveniles.",
+    sectionCull: "Does to cull",
+    cullLabel: "Does",
+    cullNote: (threshold: number, minMatings: number) =>
+      `Does whose fertility is under ${threshold}% — kindlings ÷ matings over their whole history. A doe with fewer than ${minMatings} matings is not counted, so a new doe never reads as a failure.`,
     sectionStock: "Juveniles",
     stockMalesLabel: "Juvenile males",
     stockFemalesLabel: "Juvenile females",

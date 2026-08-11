@@ -12,6 +12,7 @@ import {
   Hourglass,
   PackageOpen,
   ShoppingCart,
+  TriangleAlert,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
 import { MonthlySalesChart } from "@/components/monthly-sales-chart";
@@ -38,6 +39,10 @@ import type { Locale } from "@/lib/i18n/locales";
 import DoesFertilityPage from "../does-fertility/page";
 import BucksFertilityPage from "../bucks-fertility/page";
 import { cn } from "@/lib/utils";
+import {
+  CULL_FERTILITY_THRESHOLD_PCT,
+  CULL_MIN_MATINGS,
+} from "@/lib/cull-candidates";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -342,6 +347,25 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
             />
             <p className="mt-2 text-xs text-muted-foreground">{rt.weanedBalanceNote}</p>
           </BalanceCard>
+
+          {/* A judgement on the herd standing right now, so it belongs under
+              the «الرصيد الحالي» badge with the other snapshots: her fertility
+              is read over her whole life, not over the period below. */}
+          <BalanceCard
+            icon={<TriangleAlert className="size-5" />}
+            title={rt.sectionCull}
+            badge={rt.allTimeBadge}
+          >
+            <StatTile
+              icon={<Venus className="size-4" />}
+              label={rt.cullLabel}
+              value={report.cullCandidates}
+              tone="amber"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {rt.cullNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
+            </p>
+          </BalanceCard>
         </div>
 
         <BalanceCard
@@ -394,12 +418,16 @@ const TONE_TEXT = {
   sky: "text-sky-600 dark:text-sky-400",
   // Green, to match the رصيد الفطام line on the chart further down the page.
   emerald: "text-emerald-600 dark:text-emerald-400",
+  // Amber, not rose: these does are a decision waiting to be made, not a loss
+  // already taken — rose on this page means dead or negative.
+  amber: "text-amber-600 dark:text-amber-400",
 } as const;
 
 const TONE_TILE = {
   rose: "border-rose-500/25 bg-rose-500/10",
   sky: "border-sky-500/25 bg-sky-500/10",
   emerald: "border-emerald-500/25 bg-emerald-500/10",
+  amber: "border-amber-500/25 bg-amber-500/10",
 } as const;
 
 function BalanceCard({
