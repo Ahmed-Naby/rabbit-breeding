@@ -998,7 +998,7 @@ export const ar = {
     herdBreakEvenPriceLabel: "سعر التعادل للكيلو",
     herdMarginPerKgLabel: "الربح في الكيلو",
     herdFeedKgLabel: "العلف المستهلك (كجم)",
-    herdFeedConversionLabel: "معامل التحويل الفعلي (كجم علف/كجم لحم)",
+    herdFeedConversionLabel: "معامل التحويل الفعلي (كجم علف مستهلك / كجم لحم مباع)",
     herdBreakEvenPositiveNote: (margin: string) =>
       `الكيلو بيربح ${margin} فوق التعادل.`,
     herdBreakEvenNegativeNote: (margin: string) =>

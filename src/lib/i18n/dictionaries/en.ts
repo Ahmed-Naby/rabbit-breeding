@@ -987,7 +987,7 @@ export const en: Dictionary = {
     herdBreakEvenPriceLabel: "Break-even price per kg",
     herdMarginPerKgLabel: "Margin per kg",
     herdFeedKgLabel: "Feed consumed (kg)",
-    herdFeedConversionLabel: "Actual conversion (kg feed / kg meat)",
+    herdFeedConversionLabel: "Actual conversion (kg feed consumed / kg meat sold)",
     herdBreakEvenPositiveNote: (margin: string) => `Each kilo clears ${margin} above break-even.`,
     herdBreakEvenNegativeNote: (margin: string) =>
       `Each kilo falls ${margin} short of break-even — selling at today's price widens the gap.`,
