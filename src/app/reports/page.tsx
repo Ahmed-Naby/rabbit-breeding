@@ -606,24 +606,14 @@ function AveragesSection({
           />
         </AveragesGroup>
 
-        <div className="space-y-1 text-xs text-muted-foreground">
-          {/* Answers the subtraction the funnel row invites, before it is made. */}
-          <p>{rt.avgFunnelNote}</p>
-          <p>{rt.avgLifetimeNote}</p>
-          {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
-              litter — most of that gap is stock still standing in the barn. */}
-          <p>{rt.avgSoldPerWeaningNote}</p>
-          {/* The herd size on a past date is reconstructed, not recorded — say
-              so, or the figure reads as firmer than it is. */}
-          <p>{rt.avgSalesPerDoeNote}</p>
-          {/* Only when weights are actually missing — a permanent caveat that is
-              usually inapplicable teaches people to ignore the whole block. */}
-          {weightPerDoe.unknownWeightMonths > 0 && (
-            <p className="text-amber-600 dark:text-amber-400">
-              {rt.avgUnknownWeightMonthsNote(weightPerDoe.unknownWeightMonths)}
-            </p>
-          )}
-        </div>
+        {/* The explanatory paragraphs are gone; each tile's own basis line
+            carries its denominator. What stays is the one line that appears
+            only when the data is actually incomplete — a warning, not prose. */}
+        {weightPerDoe.unknownWeightMonths > 0 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {rt.avgUnknownWeightMonthsNote(weightPerDoe.unknownWeightMonths)}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
