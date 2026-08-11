@@ -1025,17 +1025,10 @@ function SalesChartSection({
             emptyText={rt.salesChartEmpty}
           />
         )}
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <p>{empty ? rt.stockChartNote : rt.salesChartNote}</p>
-          {!empty && (
-            <>
-              <p>{rt.salesChartBalanceNote}</p>
-              {/* One scale, so the short blue bar needs explaining, not warning about. */}
-              <p>{rt.salesChartAxesNote}</p>
-              <p>{rt.salesChartRatioNote}</p>
-            </>
-          )}
-        </div>
+        {/* The sales chart's four paragraphs are gone: the legend now names
+            every mark on it, including the figure over each bar. The stock
+            chart has no legend of its own, so its one line stays. */}
+        {empty && <p className="text-xs text-muted-foreground">{rt.stockChartNote}</p>}
       </CardContent>
     </Card>
   );
