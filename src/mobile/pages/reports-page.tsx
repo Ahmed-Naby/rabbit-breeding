@@ -675,7 +675,14 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
 
       <Section title={rt.herdSectionCycles}>
         <div className="grid gap-3 p-4 sm:grid-cols-3">
-          <HerdTile label={rt.herdCyclesActualLabel} value={num(p.cyclesPerDoePerYear)} strong />
+          <HerdTile
+            label={rt.herdCyclesActualLabel}
+            value={num(p.cyclesPerDoePerYear)}
+            // Spelled out because the denominator is the whole point of this
+            // number and is not the «÷ N أم في العنبر» printed atop the board.
+            basis={p.doeYears == null ? undefined : rt.herdCyclesActualBasis(num(p.doeYears))}
+            strong
+          />
           <HerdTile label={rt.herdCyclesTargetLabel} value={num(p.targetCyclesPerYear)} />
           <HerdTile
             label={rt.herdCycleAchievementLabel}
@@ -980,16 +987,23 @@ function HerdTile({
   value,
   strong,
   tone,
+  basis,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   tone?: keyof typeof HERD_TONE;
+  basis?: string;
 }) {
   return (
     <div className={cn("rounded-lg border border-border/60 bg-card p-3", tone && HERD_TONE[tone])}>
       <div className={cn("text-xs", tone ? "opacity-80" : "text-muted-foreground")}>{label}</div>
       <div className={cn("mt-1 font-bold tabular-nums", strong ? "text-2xl" : "text-xl")}>{value}</div>
+      {basis && (
+        <div className={cn("mt-1 text-[10px] leading-snug", tone ? "opacity-70" : "text-muted-foreground/80")}>
+          {basis}
+        </div>
+      )}
     </div>
   );
 }

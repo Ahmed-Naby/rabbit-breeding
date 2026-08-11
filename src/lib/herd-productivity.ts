@@ -87,6 +87,8 @@ export type HerdProductivity = {
   targetCyclesPerYear: number;
   /** What the herd actually achieved, annualised from the selected period. */
   cyclesPerDoePerYear: number | null;
+  /** The doe-years cyclesPerDoePerYear divided by — see doeDaysIn. */
+  doeYears: number | null;
   /** الفجوة: actual ÷ target, 0–1+. null when either side is unknown. */
   cycleAchievement: number | null;
 
@@ -220,6 +222,32 @@ const bucketByMonth = (values: DatedValue[]) => {
  * Returns null — never 0 — when no month qualifies, so a range shorter than one
  * calendar month renders «—» rather than a number nobody can reproduce.
  */
+/**
+ * Doe-days actually STOOD inside [fromMs, toMs) — each doe's stay clipped to
+ * the period and summed.
+ *
+ * This is the denominator for «دورات فعلية لكل أم في السنة», replacing the
+ * herd's head count today. A flat head count charges the whole period to
+ * whoever is standing at the end of it: a farm that has grown from 200 does to
+ * 415 over two years divides its early litters — made by a much smaller herd —
+ * by today's 415, and reads as lazier than it was. Worse, the does who did the
+ * work and have since been sold or died are not in that count at all, so their
+ * litters have no mother in the denominator.
+ *
+ * Days rather than the month buckets the lifetime «عدد البطون في السنة» uses,
+ * because this figure follows the page's date filter and must stay meaningful
+ * for a range shorter than a calendar month, which month buckets cannot score.
+ */
+function doeDaysIn(does: DoePresence[], fromMs: number, toMs: number): number {
+  let ms = 0;
+  for (const d of does) {
+    const start = Math.max(d.fromMs, fromMs);
+    const end = Math.min(d.toMs ?? toMs, toMs);
+    if (end > start) ms += end - start;
+  }
+  return ms / DAY_MS;
+}
+
 function meanPerDoePerMonth(
   values: DatedValue[],
   anchor: DatedValue[],
@@ -269,10 +297,12 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
   // would not be their difference.
   const moneyAnchor = [...input.incomeEvents, ...input.expenseEvents];
 
+  // ÷ doe-YEARS standing, not ÷ does standing today — see doeDaysIn. The
+  // annualisation is the division itself now: doe-days ÷ 365 is already "how
+  // many does the farm kept for a full year", so no separate ×(365/period).
+  const doeYears = doeDaysIn(input.does, input.fromMs, input.toMs) / YEAR_DAYS;
   const cyclesPerDoePerYear =
-    doeCount > 0 && periodDays > 0
-      ? (input.kindlings.length / doeCount) * (YEAR_DAYS / periodDays)
-      : null;
+    doeYears > 0 && periodDays > 0 ? input.kindlings.length / doeYears : null;
 
   // Total kits lost from birth to weaning. `bornDead` is used whole, for every
   // row including the ones carrying the bornDeadAtKindling sentinel: unlike
@@ -327,6 +357,7 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
     weanings: input.weanings.length,
     targetCyclesPerYear,
     cyclesPerDoePerYear,
+    doeYears: doeYears > 0 ? doeYears : null,
     cycleAchievement:
       cyclesPerDoePerYear != null && targetCyclesPerYear > 0
         ? cyclesPerDoePerYear / targetCyclesPerYear

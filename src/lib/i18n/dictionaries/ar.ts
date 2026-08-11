@@ -995,6 +995,8 @@ export const ar = {
     herdCycleAchievementLabel: "نسبة تحقيق المستهدف",
     herdCycleNote: (target: number, cycleDays: number) =>
       `المستهدف (${target} دورة في السنة) محسوب من مدة إعادة التلقيح المضبوطة في الإعدادات، أي دورة كاملة كل ${cycleDays} يومًا تقريبًا.`,
+    herdCyclesActualBasis: (doeYears: string) =>
+      `ولادات الفترة ÷ ${doeYears} سنة-أم — كل أم تُحسب بمدة وجودها الفعلي في الفترة، لا بعدد الأمهات اليوم`,
 
     herdSectionPerDoe: "المعدلات لكل أم في الفترة",
     herdBornAlivePerDoeLabel: "معدل البطن لكل أم",

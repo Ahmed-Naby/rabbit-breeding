@@ -984,6 +984,8 @@ export const en: Dictionary = {
     herdCycleAchievementLabel: "Target achieved",
     herdCycleNote: (target: number, cycleDays: number) =>
       `The target (${target} cycles a year) comes from the rebreed interval set in settings — roughly one full cycle every ${cycleDays} days.`,
+    herdCyclesActualBasis: (doeYears: string) =>
+      `litters in the period ÷ ${doeYears} doe-years — each doe counted for the time she actually stood, not by today's head count`,
 
     herdSectionPerDoe: "Per-doe rates for the period",
     herdBornAlivePerDoeLabel: "Born alive per doe",

@@ -163,3 +163,70 @@ describe("«العائد الشهري لكل أم» — the month-by-month mean"
     expect(r.netPerDoePerMonthCents).toBeCloseTo(10_000, 6);
   });
 });
+
+describe("«دورات فعلية لكل أم في السنة» — the doe-year denominator", () => {
+  const litter = () => ({ bornAliveAtKindling: 7, bornAlive: 7, bornDead: 0 });
+
+  test("divides by doe-years stood, so a full year of one doe is her own rate", () => {
+    const r = productivityOf({
+      doeCount: 1,
+      does: [doe(ms(2025, 1, 1))],
+      kindlings: [litter(), litter(), litter(), litter(), litter()],
+    });
+    // 5 litters ÷ 1 doe-year. 2025 is 365 days, so the doe-year is exactly 1.
+    expect(r.doeYears).toBeCloseTo(1, 2);
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(5, 2);
+  });
+
+  test("charges a doe only for the part of the period she stood", () => {
+    // One doe all year, one arriving at the halfway mark: 1.5 doe-years, not 2.
+    const r = productivityOf({
+      doeCount: 2,
+      does: [doe(ms(2025, 1, 1)), doe(ms(2025, 7, 2))],
+      kindlings: [litter(), litter(), litter(), litter(), litter(), litter()],
+    });
+    expect(r.doeYears).toBeCloseTo(1.5, 1);
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(4, 1);
+  });
+
+  test("keeps a doe who has since left, because her litters are still counted", () => {
+    // The head-count denominator dropped her entirely and printed 6 cycles for
+    // a farm that ran two does for half a year each.
+    const r = productivityOf({
+      doeCount: 1,
+      does: [doe(ms(2025, 1, 1)), doe(ms(2025, 1, 1), ms(2025, 7, 2))],
+      kindlings: [litter(), litter(), litter(), litter(), litter(), litter()],
+    });
+    expect(r.doeYears).toBeCloseTo(1.5, 1);
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(4, 1);
+  });
+
+  test("clips a stay that started before the period to the period itself", () => {
+    const r = productivityOf({
+      doeCount: 1,
+      does: [doe(ms(2020, 1, 1))],
+      kindlings: [litter(), litter(), litter()],
+    });
+    expect(r.doeYears).toBeCloseTo(1, 2);
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(3, 2);
+  });
+
+  test("annualises a short window without a separate scaling step", () => {
+    // One doe for one month with one litter reads as 12 cycles a year.
+    const r = productivityOf({
+      doeCount: 1,
+      periodDays: 31,
+      does: [doe(ms(2025, 1, 1))],
+      fromMs: ms(2025, 1, 1),
+      toMs: ms(2025, 2, 1),
+      kindlings: [litter()],
+    });
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(365 / 31, 2);
+  });
+
+  test("is «—», not 0, when no doe stood in the period at all", () => {
+    const r = productivityOf({ doeCount: 3, does: [], kindlings: [litter()] });
+    expect(r.doeYears).toBeNull();
+    expect(r.cyclesPerDoePerYear).toBeNull();
+  });
+});
