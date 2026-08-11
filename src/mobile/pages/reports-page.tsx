@@ -1021,6 +1021,7 @@ function SalesChartSection({
             label={rt.salesChartSeriesLabel}
             doesLabel={rt.salesChartDoesLabel}
             balanceLabel={rt.stockChartSeriesLabel}
+            ratioLabel={rt.salesChartRatioLabel}
             emptyText={rt.salesChartEmpty}
           />
         )}

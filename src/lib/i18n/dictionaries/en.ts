@@ -940,6 +940,7 @@ export const en: Dictionary = {
     sectionSalesStockChart: "Monthly sales and weaned stock since the farm started",
     salesChartSeriesLabel: "Sold",
     salesChartDoesLabel: "Active does",
+    salesChartRatioLabel: "Sold per doe per month",
     salesChartEmpty: "No sales in a completed month yet.",
     salesChartNote:
       "The amber line is rabbits sold in each calendar month, with the blue bar showing the does on the farm on the 1st of that same month — the very denominator «sales per doe» divides by. Every dot is a month measured on its own; the segment between two of them is a join, not a reading. A month that sold nothing drops to zero so the timeline is not compressed, and the running month is left out as incomplete. Not affected by the date filter below.",
