@@ -25,7 +25,6 @@ function productivityOf(input: Partial<HerdProductivityInput>) {
     targetCyclesPerYear: 6,
     kindlings: [],
     weanings: [],
-    weanedStockDeaths: 0,
     soldCount: 0,
     soldWeightGrams: 0,
     incomeCents: 0,
@@ -165,12 +164,7 @@ describe("«العائد الشهري لكل أم» — the month-by-month mean"
 });
 
 describe("«دورات فعلية لكل أم في السنة» — the doe-year denominator", () => {
-  const litter = (dateMs = ms(2025, 6)) => ({
-    dateMs,
-    bornAliveAtKindling: 7,
-    bornAlive: 7,
-    bornDead: 0,
-  });
+  const litter = (dateMs = ms(2025, 6)) => ({ dateMs });
   /** `n` litters, all inside the default 2025 period. */
   const litters = (n: number, dateMs?: number) =>
     Array.from({ length: n }, () => litter(dateMs));

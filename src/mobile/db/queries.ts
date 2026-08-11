@@ -40,7 +40,6 @@ import {
   computeHerdProductivity,
   findIdleDoes,
   rebreedTarget,
-  type HerdKindlingRow,
   type HerdReport,
   type IdleDoesReport,
 } from "@/lib/herd-productivity";
@@ -2944,7 +2943,6 @@ export async function fetchHerdReport(
     doeCountRow,
     kindlings,
     weanings,
-    weanedStockDeathAgg,
     saleAgg,
     saleRows,
     transactionRows,
@@ -2964,11 +2962,11 @@ export async function fetchHerdReport(
       `SELECT COUNT(*) as count FROM rabbit
        WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active'`
     ),
-    // kindlingDate rides along so the cycles rate can count litters inside its
-    // own (tail-clamped) window — see computeHerdProductivity.
-    queryAll<Omit<HerdKindlingRow, "dateMs"> & { kindlingDate: string }>(
+    // The date alone: the cycles rate counts litters inside its own
+    // (tail-clamped) window and needs nothing else — see computeHerdProductivity.
+    queryAll<{ kindlingDate: string }>(
       db,
-      `SELECT kindlingDate, bornAliveAtKindling, bornAlive, bornDead FROM kindling_log
+      `SELECT kindlingDate FROM kindling_log
        WHERE kindlingDate >= ? AND kindlingDate < ?`,
       [fromIso, toIso]
     ),
@@ -2976,11 +2974,6 @@ export async function fetchHerdReport(
       db,
       `SELECT weaningDate, weaned FROM weaning_log
         WHERE weaningDate >= ? AND weaningDate < ? AND weaned IS NOT NULL`,
-      [fromIso, toIso]
-    ),
-    queryOne<{ total: number | null }>(
-      db,
-      "SELECT SUM(count) as total FROM kit_stock_movement WHERE type = 'death' AND date >= ? AND date < ?",
       [fromIso, toIso]
     ),
     queryOne<{ count: number | null; grams: number | null; amount: number | null }>(
@@ -3101,9 +3094,8 @@ export async function fetchHerdReport(
       .map((t) => ({ dateMs: new Date(t.date).getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
-    kindlings: kindlings.map((k) => ({ ...k, dateMs: new Date(k.kindlingDate).getTime() })),
+    kindlings: kindlings.map((k) => ({ dateMs: new Date(k.kindlingDate).getTime() })),
     weanings,
-    weanedStockDeaths: weanedStockDeathAgg?.total ?? 0,
     soldCount: saleAgg?.count ?? 0,
     soldWeightGrams: saleAgg?.grams ?? 0,
     incomeCents: incomeAgg?.total ?? 0,

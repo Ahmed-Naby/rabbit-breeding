@@ -1000,13 +1000,6 @@ export const ar = {
         excludesRunningMonth ? "، والشهر الجاري مستبعد لأنه ناقص" : ""
       }`,
 
-    herdSectionPerDoe: "المعدلات لكل أم في الفترة",
-    herdBornAlivePerDoeLabel: "معدل البطن لكل أم",
-    herdNursedPerDoeLabel: "معدل الرعاية لكل أم",
-    herdDeathsPerDoeLabel: "معدل النفوق لكل أم",
-    herdWeanedPerDoeLabel: "معدل الفطام لكل أم",
-    herdDeathsPerDoeNote:
-      "معدل النفوق يشمل الخلفة الميتة ونافق الرعاية ونافق الفطام معًا — على مستوى القطيع الأرنب المفقود خسارة واحدة أيًّا كان مكان فقده.",
 
     herdSectionMonthly: "العائد الشهري لكل أم",
     herdWeanedPerMonthLabel: "فطام لكل أم شهريًا",

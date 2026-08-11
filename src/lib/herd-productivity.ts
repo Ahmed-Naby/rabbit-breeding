@@ -38,12 +38,6 @@ export type DatedValue = { dateMs: number; value: number };
 export type HerdKindlingRow = {
   /** When she kindled — the cycles rate counts only litters inside its window. */
   dateMs: number;
-  /** Frozen litter size at birth — «عدد الخلفة». */
-  bornAliveAtKindling: number;
-  /** Live count under her care right now — «عدد الرعاية»; moves with fostering and deaths. */
-  bornAlive: number;
-  /** Stillborn + every pre-weaning death recorded since — see kit-mortality.ts. */
-  bornDead: number;
 };
 
 export type HerdProductivityInput = {
@@ -70,8 +64,6 @@ export type HerdProductivityInput = {
   kindlings: HerdKindlingRow[];
   /** Weaning rows in range, already filtered to `weaned IS NOT NULL` by the caller. */
   weanings: { weaned: number | null }[];
-  /** KitStockMovement(type: "death") in range — post-weaning losses. */
-  weanedStockDeaths: number;
   /** KitStockMovement(type: "sale") in range. */
   soldCount: number;
   soldWeightGrams: number;
@@ -101,11 +93,6 @@ export type HerdProductivity = {
   cyclesExcludeRunningMonth: boolean;
   /** الفجوة: actual ÷ target, 0–1+. null when either side is unknown. */
   cycleAchievement: number | null;
-
-  bornAlivePerDoe: number | null;
-  nursedPerDoe: number | null;
-  kitDeathsPerDoe: number | null;
-  weanedPerDoe: number | null;
 
   weanedPerDoePerMonth: number | null;
   kgSoldPerDoePerMonth: number | null;
@@ -265,11 +252,6 @@ function meanPerDoePerMonth(
 export function computeHerdProductivity(input: HerdProductivityInput): HerdProductivity {
   const { doeCount, periodDays, targetCyclesPerYear } = input;
 
-  // `null`, never 0, when there is nothing to divide by — an empty herd or a
-  // zero-length range must render «—» so nobody reads "0 kits per doe" off a
-  // farm that simply has no does on file yet.
-  const perDoe = (total: number) => (doeCount > 0 ? total / doeCount : null);
-
   // The «العائد الشهري لكل أم» family, every one of them scored month by month
   // against that month's own herd — see meanPerDoePerMonth.
   const perMonth = (values: DatedValue[], anchor: DatedValue[]) =>
@@ -301,17 +283,6 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
   ).length;
   const doeYears = doeDaysIn(input.does, input.fromMs, cyclesTo) / YEAR_DAYS;
   const cyclesPerDoePerYear = doeYears > 0 ? cycleLitters / doeYears : null;
-
-  // Total kits lost from birth to weaning. `bornDead` is used whole, for every
-  // row including the ones carrying the bornDeadAtKindling sentinel: unlike
-  // «متوسط نافق النتاج أثناء الرعاية», this figure does not need the
-  // stillborn/nursing split, so a legacy row is still perfectly countable here
-  // and there is nothing to exclude. Post-weaning deaths are added because at
-  // herd level a kit lost in the selling cages is the same lost revenue as one
-  // lost in the nest.
-  const kitDeaths = sum(input.kindlings.map((k) => k.bornDead)) + input.weanedStockDeaths;
-
-  const weanedTotal = sum(input.weanings.map((w) => w.weaned ?? 0));
 
   // ── سعر التعادل ────────────────────────────────────────────────────────
   // The single most consequential number a meat farm has, and the one the app
@@ -362,10 +333,6 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
         ? cyclesPerDoePerYear / targetCyclesPerYear
         : null,
 
-    bornAlivePerDoe: perDoe(sum(input.kindlings.map((k) => k.bornAliveAtKindling))),
-    nursedPerDoe: perDoe(sum(input.kindlings.map((k) => k.bornAlive))),
-    kitDeathsPerDoe: perDoe(kitDeaths),
-    weanedPerDoe: perDoe(weanedTotal),
 
     weanedPerDoePerMonth: perMonth(input.weaningEvents, input.weaningEvents),
     kgSoldPerDoePerMonth: perMonth(

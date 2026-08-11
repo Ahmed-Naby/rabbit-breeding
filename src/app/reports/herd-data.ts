@@ -30,7 +30,6 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     doeCount,
     kindlings,
     weanings,
-    weanedStockDeathAgg,
     saleAgg,
     saleRows,
     transactionRows,
@@ -50,22 +49,13 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     }),
     prisma.kindlingLog.findMany({
       where: { kindlingDate: dateRange },
-      // kindlingDate rides along so the cycles rate can count litters inside
-      // its own (tail-clamped) window — see computeHerdProductivity.
-      select: {
-        kindlingDate: true,
-        bornAliveAtKindling: true,
-        bornAlive: true,
-        bornDead: true,
-      },
+      // The date alone: the cycles rate counts litters inside its own
+      // (tail-clamped) window and needs nothing else — see computeHerdProductivity.
+      select: { kindlingDate: true },
     }),
     prisma.weaningLog.findMany({
       where: { weaningDate: dateRange, weaned: { not: null } },
       select: { weaningDate: true, weaned: true },
-    }),
-    prisma.kitStockMovement.aggregate({
-      where: { type: "death", date: dateRange },
-      _sum: { count: true },
     }),
     prisma.kitStockMovement.aggregate({
       where: { type: "sale", date: dateRange },
@@ -163,9 +153,8 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
       .map((t) => ({ dateMs: t.date.getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
-    kindlings: kindlings.map((k) => ({ ...k, dateMs: k.kindlingDate.getTime() })),
+    kindlings: kindlings.map((k) => ({ dateMs: k.kindlingDate.getTime() })),
     weanings,
-    weanedStockDeaths: weanedStockDeathAgg._sum.count ?? 0,
     soldCount: saleAgg._sum.count ?? 0,
     soldWeightGrams: saleAgg._sum.weightGrams ?? 0,
     incomeCents: incomeAgg._sum.amountCents ?? 0,

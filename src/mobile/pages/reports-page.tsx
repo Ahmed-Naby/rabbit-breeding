@@ -701,16 +701,6 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
         </p>
       </Section>
 
-      <Section title={rt.herdSectionPerDoe}>
-        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <HerdTile label={rt.herdBornAlivePerDoeLabel} value={num(p.bornAlivePerDoe)} />
-          <HerdTile label={rt.herdNursedPerDoeLabel} value={num(p.nursedPerDoe)} />
-          <HerdTile label={rt.herdDeathsPerDoeLabel} value={num(p.kitDeathsPerDoe)} />
-          <HerdTile label={rt.herdWeanedPerDoeLabel} value={num(p.weanedPerDoe)} strong />
-        </div>
-        <p className="px-4 pb-4 text-xs text-muted-foreground">{rt.herdDeathsPerDoeNote}</p>
-      </Section>
-
       <Section title={rt.herdSectionMonthly}>
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <HerdTile label={rt.herdWeanedPerMonthLabel} value={num(p.weanedPerDoePerMonth)} />

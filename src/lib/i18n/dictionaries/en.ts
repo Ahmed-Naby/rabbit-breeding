@@ -989,13 +989,6 @@ export const en: Dictionary = {
         excludesRunningMonth ? "; the running month is left out as incomplete" : ""
       }`,
 
-    herdSectionPerDoe: "Per-doe rates for the period",
-    herdBornAlivePerDoeLabel: "Born alive per doe",
-    herdNursedPerDoeLabel: "Nursed per doe",
-    herdDeathsPerDoeLabel: "Kit deaths per doe",
-    herdWeanedPerDoeLabel: "Weaned per doe",
-    herdDeathsPerDoeNote:
-      "Kit deaths here cover stillborn, nursing and post-weaning losses together — at herd level a lost kit is one loss wherever it was lost.",
 
     herdSectionMonthly: "Monthly return per doe",
     herdWeanedPerMonthLabel: "Weaned per doe per month",
