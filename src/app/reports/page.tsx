@@ -881,9 +881,9 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
             }
           />
         </div>
-        <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
-          <p>{rt.herdMonthlyRuleNote}</p>
-          <p>{rt.herdCostNote}</p>
+        {/* The two grey paragraphs are gone by request. What stays is the one
+            line that reads the farm's own result back — a verdict, not prose. */}
+        <div className="space-y-1 px-4 pb-4 text-xs">
           {p.netPerDoePerMonthCents != null && (
             <p
               className={cn(
@@ -916,8 +916,8 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
           />
           <HerdTile label={rt.herdKgSoldLabel} value={num(p.kgSold, 1)} />
         </div>
-        <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
-          <p>{rt.herdTotalsNote}</p>
+        {/* Same as above: the grey paragraph goes, the coloured verdict stays. */}
+        <div className="space-y-1 px-4 pb-4 text-xs">
           <p
             className={cn(
               p.netCents >= 0
@@ -968,9 +968,8 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
                 value={num(p.feedConversionRatio, 2)}
               />
             </div>
-            <div className="space-y-1 px-4 pb-4 text-xs text-muted-foreground">
-              <p>{rt.herdBreakEvenNote}</p>
-              <p>{rt.herdFeedConversionNote}</p>
+            {/* Same as above: the grey paragraphs go, the coloured verdict stays. */}
+            <div className="space-y-1 px-4 pb-4 text-xs">
               {p.marginPerKgCents != null && (
                 <p
                   className={cn(

@@ -968,10 +968,6 @@ export const en: Dictionary = {
     herdRevenuePerMonthLabel: "Income per doe per month",
     herdCostPerMonthLabel: "Allocated cost per doe per month",
     herdNetPerMonthLabel: "Net per doe per month",
-    herdMonthlyRuleNote:
-      "Each figure is a true monthly mean: every month's total is divided by the does standing that same month, then the months are averaged. Only calendar months wholly inside the period count, starting at the first month with activity — so a range that holds no complete month shows «—».",
-    herdCostNote:
-      "Feed and vet costs are farm-level, not recorded per doe, so the cost here is allocated evenly across the does and includes their share of keeping the bucks and replacement stock. Read it as an allocation, not a measurement.",
     herdNetPositiveNote: "Net is positive: on average a doe covers her keep and more.",
     herdNetNegativeNote:
       "Net is negative: the average doe brought in less than her share of the costs over this period.",
@@ -982,8 +978,6 @@ export const en: Dictionary = {
     herdTotalNetLabel: "Net",
     herdSoldCountLabel: "Rabbits sold",
     herdSoldPerDoePerYearLabel: "Rabbits sold per doe per year",
-    herdTotalsNote:
-      "Whole-farm figures for the selected period, not per doe. Rabbits sold per doe per year is the most important number here: while the break-even price sits close to the selling price, this is what decides profit or loss — two more kits per doe per year beats a five-pound rise in the price of a kilo.",
     herdTotalsProfitNote: (net: string) => `The farm made ${net} over the selected period.`,
     herdTotalsLossNote: (net: string) => `The farm lost ${net} over the selected period.`,
 
@@ -994,14 +988,10 @@ export const en: Dictionary = {
     herdMarginPerKgLabel: "Margin per kg",
     herdFeedKgLabel: "Feed consumed (kg)",
     herdFeedConversionLabel: "Actual conversion (kg feed / kg meat)",
-    herdBreakEvenNote:
-      "Break-even = (all costs in the period − non-meat income such as breeding-stock sales) ÷ kilograms of meat sold. Below this price, every extra kilo sold widens the loss rather than narrowing it.",
     herdBreakEvenPositiveNote: (margin: string) => `Each kilo clears ${margin} above break-even.`,
     herdBreakEvenNegativeNote: (margin: string) =>
       `Each kilo falls ${margin} short of break-even — selling at today's price widens the gap.`,
     herdBreakEvenNoSales: "No meat was sold in this period, so no break-even price can be computed.",
-    herdFeedConversionNote:
-      "Feed consumed is inferred from the feed expense divided by the ton price in settings, not from a recorded quantity — it is only as accurate as that price. A «—» means the ton price is unset.",
 
     herdSectionIdle: "Idle does",
     herdIdleDescription: (cycleDays: number) =>

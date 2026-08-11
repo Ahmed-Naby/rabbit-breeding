@@ -345,8 +345,9 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
     // doe: feed and vet Transactions are farm-level (rabbitId is optional and
     // in practice unset), so there is no per-doe cost to read. The share a doe
     // carries here therefore includes the bucks' and the السلالات' keep too.
-    // That is the honest reading of "what does a cage of mother cost me", but
-    // the UI must say it is an allocation — see herdCostNote.
+    // That is the honest reading of "what does a cage of mother cost me". The
+    // note that used to say so on screen was removed by request; the label
+    // «مصروف موزَّع لكل أم» is now the only place the allocation is stated.
     revenuePerDoePerMonthCents: perMonth(input.incomeEvents, moneyAnchor),
     costPerDoePerMonthCents: perMonth(input.expenseEvents, moneyAnchor),
     netPerDoePerMonthCents: perMonth(
