@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  countCullBucks,
   countCullCandidates,
   CULL_FERTILITY_THRESHOLD_PCT,
   CULL_MIN_MATINGS,
@@ -46,5 +47,38 @@ describe("countCullCandidates", () => {
   it("keeps the threshold at the figure the hint prints", () => {
     expect(CULL_FERTILITY_THRESHOLD_PCT).toBe(50);
     expect(CULL_MIN_MATINGS).toBe(3);
+  });
+});
+
+describe("countCullBucks", () => {
+  it("judges a buck on pregnancies, not on kindlings", () => {
+    // Every doe he settled lost the litter afterwards: 100% for him, and none
+    // of those losses are his to answer for.
+    expect(countCullBucks([{ matings: 10, pregnancies: 10 }])).toBe(0);
+    expect(countCullBucks([{ matings: 10, pregnancies: 4 }])).toBe(1);
+  });
+
+  it("treats exactly the threshold as passing", () => {
+    expect(countCullBucks([{ matings: 10, pregnancies: 5 }])).toBe(0);
+  });
+
+  it("ignores a buck with too few matings, however bad the ratio", () => {
+    expect(countCullBucks([{ matings: CULL_MIN_MATINGS - 1, pregnancies: 0 }])).toBe(0);
+    expect(countCullBucks([{ matings: CULL_MIN_MATINGS, pregnancies: 0 }])).toBe(1);
+  });
+
+  it("ignores a buck never used at all — no ratio exists", () => {
+    expect(countCullBucks([{ matings: 0, pregnancies: 0 }])).toBe(0);
+  });
+
+  it("sums across the barn", () => {
+    expect(
+      countCullBucks([
+        { matings: 30, pregnancies: 3 },
+        { matings: 20, pregnancies: 18 },
+        { matings: 12, pregnancies: 5 },
+        { matings: 2, pregnancies: 0 }, // unjudged
+      ])
+    ).toBe(2);
   });
 });

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
-import { countCullCandidates } from "@/lib/cull-candidates";
+import { countCullBucks, countCullCandidates } from "@/lib/cull-candidates";
 import {
   computeBreedingAverages,
   computeLaggedSoldPerWeaning,
@@ -57,6 +57,11 @@ export type FollowUpReport = {
    * ignores the date filter. See countCullCandidates.
    */
   cullCandidates: number;
+  /**
+   * «ذكور يجب استبعادها» — the same judgement on the active tagged bucks, but
+   * off confirmed pregnancies rather than kindlings. See countCullBucks.
+   */
+  cullBucks: number;
   stock: {
     males: AgeBracket;
     females: AgeBracket;
@@ -245,6 +250,9 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     doeRows,
     firstMatings,
     kindlingsByDoe,
+    buckRows,
+    matingsByBuck,
+    positiveTests,
   ] = await Promise.all([
     getSettings(),
     prisma.rabbit.count({ where: { sex: "doe", tagId: { not: null }, status: "active" } }),
@@ -381,6 +389,22 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
     // for doePresence and "how many times was she mated" for the cull count.
     prisma.matingLog.groupBy({ by: ["doeId"], _min: { matingDate: true }, _count: { _all: true } }),
     prisma.kindlingLog.groupBy({ by: ["doeId"], _count: { _all: true } }),
+    // The buck half of the cull count. Only the ones still standing: a sold or
+    // dead buck cannot be culled, and an untagged one has not started.
+    prisma.rabbit.findMany({
+      where: { sex: "buck", tagId: { not: null }, status: "active" },
+      select: { id: true },
+    }),
+    prisma.matingLog.groupBy({ by: ["buckId"], _count: { _all: true } }),
+    // Positive palpations, not kindlings: a buck is judged on settling the doe,
+    // and whether she then holds the pregnancy is her outcome. Fetched rather
+    // than grouped because one mating can carry two positives (the palpation
+    // and the تأكيد الجس re-check) — the doe+day key below collapses them, the
+    // same way /bucks-fertility does, so the two pages cannot disagree.
+    prisma.pregnancyTestLog.findMany({
+      where: { result: "positive" },
+      select: { buckId: true, doeId: true, matingDate: true },
+    }),
   ]);
 
   const weanedStockDeaths = weanedStockDeathAgg._sum.count ?? 0;
@@ -426,11 +450,27 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       }))
   );
 
+  const matingCountByBuck = new Map(matingsByBuck.map((g) => [g.buckId, g._count._all]));
+  const pregnanciesByBuck = new Map<string, Set<string>>();
+  for (const p of positiveTests) {
+    if (!p.buckId) continue;
+    const seen = pregnanciesByBuck.get(p.buckId) ?? new Set<string>();
+    seen.add(`${p.doeId}_${p.matingDate.toISOString().slice(0, 10)}`);
+    pregnanciesByBuck.set(p.buckId, seen);
+  }
+  const cullBucks = countCullBucks(
+    buckRows.map((b) => ({
+      matings: matingCountByBuck.get(b.id) ?? 0,
+      pregnancies: pregnanciesByBuck.get(b.id)?.size ?? 0,
+    }))
+  );
+
   return {
     from,
     to,
     herd: { does, bucks },
     cullCandidates,
+    cullBucks,
     stock: {
       // Measured from now, not from `to`: like the herd headcounts above, this
       // is a current snapshot — the query has no date filter, so ageing the

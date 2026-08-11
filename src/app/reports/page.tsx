@@ -366,6 +366,25 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
               {rt.cullNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
             </p>
           </BalanceCard>
+
+          {/* Its own card rather than a second tile beside the does: the two
+              counts are not the same measurement — his is confirmed
+              pregnancies, hers is kindlings — so they get their own notes. */}
+          <BalanceCard
+            icon={<TriangleAlert className="size-5" />}
+            title={rt.sectionCullBucks}
+            badge={rt.allTimeBadge}
+          >
+            <StatTile
+              icon={<Mars className="size-4" />}
+              label={rt.cullBucksLabel}
+              value={report.cullBucks}
+              tone="amber"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {rt.cullBucksNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
+            </p>
+          </BalanceCard>
         </div>
 
         <BalanceCard

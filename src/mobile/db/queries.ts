@@ -12,7 +12,7 @@ import type { DoeState } from "@/lib/enums";
 import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
 import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
-import { countCullCandidates } from "@/lib/cull-candidates";
+import { countCullBucks, countCullCandidates } from "@/lib/cull-candidates";
 import {
   computeBreedingAverages,
   computeLittersPerDoeYear,
@@ -2542,6 +2542,8 @@ export type FollowUpReport = {
   herd: { does: number; bucks: number };
   /** Active tagged does under the fertility threshold — see countCullCandidates. */
   cullCandidates: number;
+  /** The same for the bucks, off confirmed pregnancies — see countCullBucks. */
+  cullBucks: number;
   stock: { males: AgeBracket; females: AgeBracket };
   deaths: {
     newborn: number | null;
@@ -2698,6 +2700,9 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
     doeRows,
     firstMatings,
     kindlingsByDoe,
+    buckRows,
+    matingsByBuck,
+    positiveTests,
   ] = await Promise.all([
     getLocalSettings(db),
     queryOne<{ total: number | null }>(
@@ -2835,6 +2840,22 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       db,
       "SELECT doeId, COUNT(*) as kindlings FROM kindling_log GROUP BY doeId"
     ),
+    // The buck half of the cull count — see the server's matching queries.
+    queryAll<{ id: string }>(
+      db,
+      "SELECT id FROM rabbit WHERE sex = 'buck' AND tagId IS NOT NULL AND status = 'active'"
+    ),
+    queryAll<{ buckId: string | null; matings: number }>(
+      db,
+      "SELECT buckId, COUNT(*) as matings FROM mating_log GROUP BY buckId"
+    ),
+    // Positive palpations, not kindlings: a buck is judged on settling the doe.
+    // Rows, not a COUNT, because one mating can carry two positives — the
+    // doe+day key below collapses them, as on the bucks-fertility report.
+    queryAll<{ buckId: string | null; doeId: string; matingDate: string }>(
+      db,
+      "SELECT buckId, doeId, matingDate FROM pregnancy_test_log WHERE result = 'positive'"
+    ),
   ]);
 
   const totalWeaned = weaningsInRange.reduce((s, l) => s + (l.weaned ?? 0), 0);
@@ -2888,9 +2909,25 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       }))
   );
 
+  const matingCountByBuck = new Map(matingsByBuck.map((g) => [g.buckId, g.matings]));
+  const pregnanciesByBuck = new Map<string, Set<string>>();
+  for (const p of positiveTests) {
+    if (!p.buckId) continue;
+    const seen = pregnanciesByBuck.get(p.buckId) ?? new Set<string>();
+    seen.add(`${p.doeId}_${p.matingDate.slice(0, 10)}`);
+    pregnanciesByBuck.set(p.buckId, seen);
+  }
+  const cullBucks = countCullBucks(
+    buckRows.map((b) => ({
+      matings: matingCountByBuck.get(b.id) ?? 0,
+      pregnancies: pregnanciesByBuck.get(b.id)?.size ?? 0,
+    }))
+  );
+
   return {
     herd: { does: does?.count ?? 0, bucks: bucks?.count ?? 0 },
     cullCandidates,
+    cullBucks,
     stock: { males, females },
     deaths: {
       newborn: nursingDeathAgg?.total ?? 0,

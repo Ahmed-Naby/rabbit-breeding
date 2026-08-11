@@ -884,6 +884,10 @@ export const ar = {
     cullLabel: "عدد الأمهات",
     cullNote: (threshold: number, minMatings: number) =>
       `أمهات معدل خصوبتها أقل من ${threshold}% — الولادات ÷ مرات التلقيح، محسوبة على كل تاريخها. لا تُحسب أم لم تُلقَّح ${minMatings} مرات على الأقل، حتى لا تظهر أم جديدة كأنها فاشلة.`,
+    sectionCullBucks: "ذكور يجب استبعادها",
+    cullBucksLabel: "عدد الذكور",
+    cullBucksNote: (threshold: number, minMatings: number) =>
+      `ذكور معدل خصوبتها أقل من ${threshold}% — الحمل المؤكَّد بالجس ÷ مرات التلقيح، محسوبة على كل تاريخه. مهمة الذكر أن تحمل الأم منه، أما استمرار الحمل حتى الولادة فهو حساب الأم. لا يُحسب ذكر لم يُلقِّح ${minMatings} مرات على الأقل.`,
     sectionStock: "السلالات",
     stockMalesLabel: "سلالة ذكور",
     stockFemalesLabel: "سلالة إناث",

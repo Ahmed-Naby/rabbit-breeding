@@ -877,6 +877,10 @@ export const en: Dictionary = {
     cullLabel: "Does",
     cullNote: (threshold: number, minMatings: number) =>
       `Does whose fertility is under ${threshold}% — kindlings ÷ matings over their whole history. A doe with fewer than ${minMatings} matings is not counted, so a new doe never reads as a failure.`,
+    sectionCullBucks: "Bucks to cull",
+    cullBucksLabel: "Bucks",
+    cullBucksNote: (threshold: number, minMatings: number) =>
+      `Bucks whose fertility is under ${threshold}% — confirmed pregnancies ÷ matings over their whole history. A buck's job is settling the doe; whether she carries to term is hers. A buck with fewer than ${minMatings} matings is not counted.`,
     sectionStock: "Juveniles",
     stockMalesLabel: "Juvenile males",
     stockFemalesLabel: "Juvenile females",
