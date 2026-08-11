@@ -953,10 +953,6 @@ export const en: Dictionary = {
     stockChartBucketMonth: "Monthly",
 
     // ——— Herd productivity ———
-    herdTitle: "Herd Productivity",
-    herdDescription:
-      "The same production figures divided by every doe in the herd instead of by the events that happened — an unproductive doe shows up here and drags the rate down, which is the point.",
-    herdBasis: (does: number, days: number) => `÷ ${does} does in the herd · ${days}-day period`,
     herdNoDoesNote: "No does on file, so no rate can be computed.",
 
     herdSectionCycles: "Reproductive cycles",

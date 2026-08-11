@@ -964,10 +964,6 @@ export const ar = {
     stockChartBucketMonth: "شهريًا",
 
     // ——— إنتاجية القطيع ———
-    herdTitle: "إنتاجية القطيع",
-    herdDescription:
-      "نفس أرقام الإنتاج لكن مقسومة على كل الأمهات في العنبر بدل عدد الولادات — فالأم غير المنتجة تظهر هنا وتخفّض المعدل، وهذا هو المقصود.",
-    herdBasis: (does: number, days: number) => `÷ ${does} أم في العنبر · فترة ${days} يوم`,
     herdNoDoesNote: "لا توجد أمهات مسجّلة في العنبر، فلا يمكن حساب أي معدل.",
 
     herdSectionCycles: "الدورات التناسلية",

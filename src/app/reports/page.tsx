@@ -806,11 +806,11 @@ function Row({ label, value }: { label: string; value: string }) {
 /* ─────────────────────────  إنتاجية القطيع  ───────────────────────── */
 
 /**
- * Everything here divides by عدد الأمهات, so every tile prints the same
- * denominator once at the top (herdBasis) rather than repeating it per number —
- * the whole section is one fraction with a shared bottom, and that is the one
- * fact a reader must not lose track of while comparing these to متوسطات الأداء
- * on the follow-up tab, which divide by events instead.
+ * Everything here divides by عدد الأمهات — the whole section is one fraction
+ * with a shared bottom, and that is the one fact a reader must not lose track
+ * of while comparing these to متوسطات الأداء on the follow-up tab, which divide
+ * by events instead. The header card that said so was removed by request; the
+ * tiles whose denominator is not obvious still carry their own basis line.
  */
 function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
   const p = herd.productivity;
@@ -825,25 +825,6 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-emerald-500/8 via-card to-card shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-500/12 text-emerald-600 dark:text-emerald-400">
-                <Gauge className="size-5" />
-              </span>
-              {rt.herdTitle}
-            </CardTitle>
-            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              {rt.herdBasis(p.doeCount, p.periodDays)}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground">{rt.herdDescription}</p>
-        </CardContent>
-      </Card>
-
       {/* An empty herd makes every figure below «—»; say why once instead of
           printing a wall of dashes with no explanation. */}
       {p.doeCount === 0 && (
