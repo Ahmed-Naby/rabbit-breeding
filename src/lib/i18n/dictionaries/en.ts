@@ -900,7 +900,7 @@ export const en: Dictionary = {
     sectionWeaning: "Weaning & sales",
     totalWeanedLabel: "Total weaned",
     soldLabel: "Sold",
-    retainedLabel: "Retained during period",
+    retainedLabel: "Retained during period (juveniles)",
     remainingStockLabel: (date: string) => `Weaned stock available on ${date}`,
     remainingStockNowLabel: "Weaned stock available now",
     sectionHealth: "Health cases",
