@@ -69,6 +69,12 @@ export type FollowUpReport = {
     sold: number;
     retained: number;
     remainingStock: number; // running balance as of `to`, not bounded by `from`
+    // The same ledger with no upper bound at all: what is standing in the
+    // weaning cages RIGHT NOW. Sits beside herd/stock above, which are also
+    // current snapshots, and like them it ignores the date filter — a balance
+    // card labelled «الرصيد الحالي» must not move when the reader changes the
+    // period, and remainingStock above would.
+    currentStock: number;
   };
   health: {
     mangeStock: null;
@@ -423,6 +429,7 @@ export async function getFollowUpReport(from: Date, to: Date): Promise<FollowUpR
       sold: soldAgg._sum.count ?? 0,
       retained: retainedAgg._sum.count ?? 0,
       remainingStock,
+      currentStock: lifetimeRemainingStock,
     },
     health: {
       mangeStock: null,

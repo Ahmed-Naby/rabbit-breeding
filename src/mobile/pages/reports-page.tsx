@@ -10,6 +10,8 @@ import {
   Gauge,
   ChartColumn,
   Hourglass,
+  PackageOpen,
+  ShoppingCart,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
 import { MonthlySalesChart } from "@/components/monthly-sales-chart";
@@ -446,11 +448,14 @@ const STOCK_BUCKETS = ["under1m", "m1to2", "m2to3", "over3m"] as const;
 const TONE_TEXT = {
   rose: "text-rose-600 dark:text-rose-400",
   sky: "text-sky-600 dark:text-sky-400",
+  // Green, to match the رصيد الفطام line on the chart further down the page.
+  emerald: "text-emerald-600 dark:text-emerald-400",
 } as const;
 
 const TONE_TILE = {
   rose: "border-rose-500/25 bg-rose-500/10",
   sky: "border-sky-500/25 bg-sky-500/10",
+  emerald: "border-emerald-500/25 bg-emerald-500/10",
 } as const;
 
 /**
@@ -1130,12 +1135,29 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BalanceCard icon={<Rabbit className="size-5" />} title={rt.sectionHerd} badge={rt.allTimeBadge}>
-          <div className="grid grid-cols-2 gap-3">
-            <StatTile icon={<Venus className="size-4" />} label={rt.doesLabel} value={report.herd.does} tone="rose" />
-            <StatTile icon={<Mars className="size-4" />} label={rt.bucksLabel} value={report.herd.bucks} tone="sky" />
-          </div>
-        </BalanceCard>
+        {/* Two short cards against one tall one — see the web page for why. */}
+        <div className="space-y-4">
+          <BalanceCard icon={<Rabbit className="size-5" />} title={rt.sectionHerd} badge={rt.allTimeBadge}>
+            <div className="grid grid-cols-2 gap-3">
+              <StatTile icon={<Venus className="size-4" />} label={rt.doesLabel} value={report.herd.does} tone="rose" />
+              <StatTile icon={<Mars className="size-4" />} label={rt.bucksLabel} value={report.herd.bucks} tone="sky" />
+            </div>
+          </BalanceCard>
+
+          <BalanceCard
+            icon={<PackageOpen className="size-5" />}
+            title={rt.sectionWeanedBalance}
+            badge={rt.allTimeBadge}
+          >
+            <StatTile
+              icon={<ShoppingCart className="size-4" />}
+              label={rt.weanedBalanceLabel}
+              value={report.weaning.currentStock}
+              tone="emerald"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">{rt.weanedBalanceNote}</p>
+          </BalanceCard>
+        </div>
 
         <BalanceCard
           icon={<Layers className="size-5" />}

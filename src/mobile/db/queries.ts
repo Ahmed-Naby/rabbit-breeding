@@ -2550,7 +2550,14 @@ export type FollowUpReport = {
     culledExcluded: number | null;
   };
   culls: number;
-  weaning: { totalWeaned: number; sold: number; retained: number; remainingStock: number };
+  weaning: {
+    totalWeaned: number;
+    sold: number;
+    retained: number;
+    remainingStock: number;
+    /** The balance right now, unbounded — see the server's `currentStock`. */
+    currentStock: number;
+  };
   health: {
     mangeStock: null; mangeDoes: null; mangeBucks: null;
     uterineInfection: null; mastitis: null;
@@ -2872,6 +2879,7 @@ export async function fetchFollowUpReport(db: SQLiteDBConnection, fromIso: strin
       sold: soldAgg?.total ?? 0,
       retained: retainedAgg?.total ?? 0,
       remainingStock,
+      currentStock: lifetimeRemainingStock,
     },
     health: {
       mangeStock: null,
