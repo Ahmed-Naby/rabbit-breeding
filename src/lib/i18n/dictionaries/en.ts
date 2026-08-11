@@ -917,8 +917,8 @@ export const en: Dictionary = {
     avgMonthlySalesLabel: "Average monthly sales",
     avgMonthsBasis: (count: number) => `÷ ${count} months since the first selling month`,
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
-    avgLittersPerDoeYearBasis: (litters: number, doeMonths: number) =>
-      `${litters} litters ÷ ${doeMonths} doe-months × 12 — since the first month with a kindling`,
+    avgLittersPerDoeYearBasis: (litters: number, doeYears: string) =>
+      `${litters} litters ÷ ${doeYears} doe-years — first litter to the end of last month`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgLifetimeBasis: "The farm's running balance right now",
     avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",
@@ -984,8 +984,10 @@ export const en: Dictionary = {
     herdCycleAchievementLabel: "Target achieved",
     herdCycleNote: (target: number, cycleDays: number) =>
       `The target (${target} cycles a year) comes from the rebreed interval set in settings — roughly one full cycle every ${cycleDays} days.`,
-    herdCyclesActualBasis: (doeYears: string) =>
-      `litters in the period ÷ ${doeYears} doe-years — each doe counted for the time she actually stood, not by today's head count`,
+    herdCyclesActualBasis: (doeYears: string, excludesRunningMonth: boolean) =>
+      `litters in range ÷ ${doeYears} doe-years — each doe counted for the time she actually stood, not by today's head count${
+        excludesRunningMonth ? "; the running month is left out as incomplete" : ""
+      }`,
 
     herdSectionPerDoe: "Per-doe rates for the period",
     herdBornAlivePerDoeLabel: "Born alive per doe",

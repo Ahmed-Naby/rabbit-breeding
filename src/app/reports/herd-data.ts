@@ -50,7 +50,14 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
     }),
     prisma.kindlingLog.findMany({
       where: { kindlingDate: dateRange },
-      select: { bornAliveAtKindling: true, bornAlive: true, bornDead: true },
+      // kindlingDate rides along so the cycles rate can count litters inside
+      // its own (tail-clamped) window — see computeHerdProductivity.
+      select: {
+        kindlingDate: true,
+        bornAliveAtKindling: true,
+        bornAlive: true,
+        bornDead: true,
+      },
     }),
     prisma.weaningLog.findMany({
       where: { weaningDate: dateRange, weaned: { not: null } },
@@ -156,7 +163,7 @@ export async function getHerdReport(from: Date, to: Date): Promise<HerdReport> {
       .map((t) => ({ dateMs: t.date.getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
-    kindlings,
+    kindlings: kindlings.map((k) => ({ ...k, dateMs: k.kindlingDate.getTime() })),
     weanings,
     weanedStockDeaths: weanedStockDeathAgg._sum.count ?? 0,
     soldCount: saleAgg._sum.count ?? 0,

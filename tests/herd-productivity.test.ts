@@ -165,13 +165,21 @@ describe("«العائد الشهري لكل أم» — the month-by-month mean"
 });
 
 describe("«دورات فعلية لكل أم في السنة» — the doe-year denominator", () => {
-  const litter = () => ({ bornAliveAtKindling: 7, bornAlive: 7, bornDead: 0 });
+  const litter = (dateMs = ms(2025, 6)) => ({
+    dateMs,
+    bornAliveAtKindling: 7,
+    bornAlive: 7,
+    bornDead: 0,
+  });
+  /** `n` litters, all inside the default 2025 period. */
+  const litters = (n: number, dateMs?: number) =>
+    Array.from({ length: n }, () => litter(dateMs));
 
   test("divides by doe-years stood, so a full year of one doe is her own rate", () => {
     const r = productivityOf({
       doeCount: 1,
       does: [doe(ms(2025, 1, 1))],
-      kindlings: [litter(), litter(), litter(), litter(), litter()],
+      kindlings: litters(5),
     });
     // 5 litters ÷ 1 doe-year. 2025 is 365 days, so the doe-year is exactly 1.
     expect(r.doeYears).toBeCloseTo(1, 2);
@@ -183,7 +191,7 @@ describe("«دورات فعلية لكل أم في السنة» — the doe-year
     const r = productivityOf({
       doeCount: 2,
       does: [doe(ms(2025, 1, 1)), doe(ms(2025, 7, 2))],
-      kindlings: [litter(), litter(), litter(), litter(), litter(), litter()],
+      kindlings: litters(6),
     });
     expect(r.doeYears).toBeCloseTo(1.5, 1);
     expect(r.cyclesPerDoePerYear).toBeCloseTo(4, 1);
@@ -195,7 +203,7 @@ describe("«دورات فعلية لكل أم في السنة» — the doe-year
     const r = productivityOf({
       doeCount: 1,
       does: [doe(ms(2025, 1, 1)), doe(ms(2025, 1, 1), ms(2025, 7, 2))],
-      kindlings: [litter(), litter(), litter(), litter(), litter(), litter()],
+      kindlings: litters(6),
     });
     expect(r.doeYears).toBeCloseTo(1.5, 1);
     expect(r.cyclesPerDoePerYear).toBeCloseTo(4, 1);
@@ -205,7 +213,7 @@ describe("«دورات فعلية لكل أم في السنة» — the doe-year
     const r = productivityOf({
       doeCount: 1,
       does: [doe(ms(2020, 1, 1))],
-      kindlings: [litter(), litter(), litter()],
+      kindlings: litters(3),
     });
     expect(r.doeYears).toBeCloseTo(1, 2);
     expect(r.cyclesPerDoePerYear).toBeCloseTo(3, 2);
@@ -219,13 +227,42 @@ describe("«دورات فعلية لكل أم في السنة» — the doe-year
       does: [doe(ms(2025, 1, 1))],
       fromMs: ms(2025, 1, 1),
       toMs: ms(2025, 2, 1),
-      kindlings: [litter()],
+      kindlings: litters(1, ms(2025, 1, 15)),
     });
     expect(r.cyclesPerDoePerYear).toBeCloseTo(365 / 31, 2);
   });
 
+  test("stops at the start of the running month, litters and doe-days alike", () => {
+    // A period ending mid-January has accrued January's cage time but almost
+    // none of the litters it will produce. Dropping it is what makes this
+    // agree with «عدد البطون في السنة», which has always dropped it.
+    const r = productivityOf({
+      doeCount: 1,
+      does: [doe(ms(2025, 1, 1))],
+      fromMs: ms(2025, 1, 1),
+      toMs: ms(2026, 1, 20),
+      kindlings: [...litters(5), litter(ms(2026, 1, 10))],
+    });
+    expect(r.doeYears).toBeCloseTo(1, 2); // 2025 only, not the 20 extra days
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(5, 2); // the January litter is out
+  });
+
+  test("keeps the running month when the caller asked for that month alone", () => {
+    // «كيف يسير هذا الشهر؟» is a deliberate question and must get a number,
+    // not the «—» that clamping a one-month window to nothing would give.
+    const r = productivityOf({
+      doeCount: 1,
+      periodDays: 20,
+      does: [doe(ms(2024, 1, 1))],
+      fromMs: ms(2025, 1, 1),
+      toMs: ms(2025, 1, 21),
+      kindlings: litters(1, ms(2025, 1, 10)),
+    });
+    expect(r.cyclesPerDoePerYear).toBeCloseTo(365 / 20, 1);
+  });
+
   test("is «—», not 0, when no doe stood in the period at all", () => {
-    const r = productivityOf({ doeCount: 3, does: [], kindlings: [litter()] });
+    const r = productivityOf({ doeCount: 3, does: [], kindlings: litters(1) });
     expect(r.doeYears).toBeNull();
     expect(r.cyclesPerDoePerYear).toBeNull();
   });

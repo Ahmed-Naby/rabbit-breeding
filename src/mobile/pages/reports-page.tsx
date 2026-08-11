@@ -527,7 +527,7 @@ function AveragesSection({
             value={avg(littersPerDoeYear.perYear)}
             basis={rt.avgLittersPerDoeYearBasis(
               littersPerDoeYear.litters,
-              littersPerDoeYear.doeMonths
+              avg(littersPerDoeYear.doeYears)
             )}
           />
           <AveragesTile
@@ -680,7 +680,11 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
             value={num(p.cyclesPerDoePerYear)}
             // Spelled out because the denominator is the whole point of this
             // number and is not the «÷ N أم في العنبر» printed atop the board.
-            basis={p.doeYears == null ? undefined : rt.herdCyclesActualBasis(num(p.doeYears))}
+            basis={
+              p.doeYears == null
+                ? undefined
+                : rt.herdCyclesActualBasis(num(p.doeYears), p.cyclesExcludeRunningMonth)
+            }
             strong
           />
           <HerdTile label={rt.herdCyclesTargetLabel} value={num(p.targetCyclesPerYear)} />

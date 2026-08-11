@@ -228,6 +228,41 @@ export function doesPresentOn(does: DoePresence[], ms: number): number {
   return does.filter((d) => d.fromMs <= ms && (d.toMs == null || d.toMs > ms)).length;
 }
 
+const DAY_MS = 86_400_000;
+export const YEAR_DAYS = 365;
+
+/**
+ * Doe-days actually STOOD inside [fromMs, toMs) — each doe's stay clipped to
+ * the window and summed. Divided by 365 it reads as "how many does the farm
+ * kept for a full year", which is the only honest denominator for a yearly
+ * rate over a herd that changes size.
+ *
+ * Shared with herd-productivity.ts on purpose: «عدد البطون في السنة» and
+ * «دورات فعلية لكل أم في السنة» are the same measurement over different
+ * windows, and they must agree wherever those windows coincide.
+ */
+export function doeDaysIn(does: DoePresence[], fromMs: number, toMs: number): number {
+  let ms = 0;
+  for (const d of does) {
+    const start = Math.max(d.fromMs, fromMs);
+    const end = Math.min(d.toMs ?? toMs, toMs);
+    if (end > start) ms += end - start;
+  }
+  return ms / DAY_MS;
+}
+
+/**
+ * The instant the running month began — the exclusive end every yearly rate
+ * stops at. A month that is three days old has accrued three days of cage time
+ * but almost none of the litters that time will produce, because a litter
+ * lands roughly every 52 days; counting it drags the rate down for reasons
+ * that have nothing to do with the farm.
+ */
+export function startOfRunningMonth(nowMs: number): number {
+  const d = new Date(nowMs);
+  return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+}
+
 /**
  * Walks every scoreable month — from `firstMonth` up to but not including the
  * running one — handing back how many does stood on the 1st. Months with no
@@ -301,22 +336,27 @@ export function computeSalesPerDoe(
  * those figures it is not a per-litter quantity at all, which is why it carries
  * its own basis line.
  *
- * A doe-MONTH denominator, not a per-doe average of her own kindling intervals.
- * An interval average can only see does that kindled at least twice, so it
- * silently drops the ones that kindled once and went idle — the very does that
- * drag a real farm's output down. Counting the herd's standing months instead
- * puts every doe in the denominator whether she produced or not, and it reuses
- * the presence windows the sales averages already reconstruct rather than
- * inventing a second answer to "was she here in March".
+ * A doe-YEAR denominator (see doeDaysIn), not a per-doe average of her own
+ * kindling intervals. An interval average can only see does that kindled at
+ * least twice, so it silently drops the ones that kindled once and went idle —
+ * the very does that drag a real farm's output down. Counting standing time
+ * instead puts every doe in the denominator whether she produced or not, and
+ * it reuses the presence windows the sales averages already reconstruct rather
+ * than inventing a second answer to "was she here in March".
  *
- * Counting STARTS at the first month the farm recorded a kindling — the same
- * exclusion computeSalesPerDoe makes for the ramp-up, and for the same reason:
- * before it, the months measure the wait for the first litter, not how often
- * the farm's does kindle. After it, an empty month is a real 0.
+ * Counted to the day rather than by month buckets, which used to round a doe
+ * who arrived on the 20th down to nothing. That precision is also what lets
+ * «دورات فعلية لكل أم في السنة» on the القطيع tab — the same measurement over
+ * the page's filtered window — land on the identical number when that window
+ * covers the whole record.
+ *
+ * The window is [the farm's first litter, the start of the running month). The
+ * ramp-up is excluded for the reason computeSalesPerDoe excludes it, and the
+ * running month for the reason startOfRunningMonth gives.
  */
 export type LittersPerDoeYear = {
-  /** Doe-months in the denominator — also the printed basis. */
-  doeMonths: number;
+  /** Doe-years in the denominator — also the printed basis. */
+  doeYears: number;
   /** Litters counted over those same months. */
   litters: number;
   /** null until one complete month with does standing has passed. */
@@ -328,23 +368,24 @@ export function computeLittersPerDoeYear(
   does: DoePresence[],
   nowMs: number
 ): LittersPerDoeYear {
-  const kindledByMonth = new Map<number, number>();
+  const to = startOfRunningMonth(nowMs);
+
+  // The farm's first litter, to the day. Everything before it measures the
+  // wait for that litter, not how often the farm's does kindle.
+  let from: number | null = null;
   for (const k of kindlings) {
-    const m = monthIndex(k.dateMs);
-    kindledByMonth.set(m, (kindledByMonth.get(m) ?? 0) + k.count);
+    if (k.count > 0 && (from == null || k.dateMs < from)) from = k.dateMs;
+  }
+  if (from == null || from >= to) return { doeYears: 0, litters: 0, perYear: null };
+
+  let litters = 0;
+  for (const k of kindlings) {
+    if (k.dateMs >= from && k.dateMs < to) litters += k.count;
   }
 
-  let doeMonths = 0;
-  let litters = 0;
-  // firstSellingMonth is misnamed for this caller but does exactly the right
-  // thing: the earliest month whose bucket is non-empty.
-  forEachScoredMonth(does, firstSellingMonth(kindledByMonth), nowMs, (month, present) => {
-    doeMonths += present;
-    litters += kindledByMonth.get(month) ?? 0;
-  });
-
-  if (doeMonths === 0) return { doeMonths: 0, litters: 0, perYear: null };
-  return { doeMonths, litters, perYear: (litters / doeMonths) * 12 };
+  const doeYears = doeDaysIn(does, from, to) / YEAR_DAYS;
+  if (doeYears <= 0) return { doeYears: 0, litters, perYear: null };
+  return { doeYears, litters, perYear: litters / doeYears };
 }
 
 /**

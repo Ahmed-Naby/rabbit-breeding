@@ -473,65 +473,106 @@ describe("computeWeightPerDoe", () => {
 });
 
 describe("computeLittersPerDoeYear", () => {
-  /** `count` litters in month `m` of 2025, day 10. */
-  const kindled = (m: number, count: number) => ({
-    dateMs: new Date(2025, m - 1, 10).getTime(),
-    count,
-  });
-  const doe = (from: number, to?: number) => ({
-    fromMs: new Date(2025, from - 1, 1).getTime(),
-    toMs: to == null ? null : new Date(2025, to - 1, 1).getTime(),
-  });
-  const nowIn = (m: number) => new Date(2025, m - 1, 15).getTime();
+  const at = (y: number, m: number, d: number) => new Date(y, m - 1, d).getTime();
+  /** `count` litters on one day. */
+  const kindled = (y: number, m: number, d: number, count = 1) => ({ dateMs: at(y, m, d), count });
+  const doe = (from: number, to: number | null = null) => ({ fromMs: from, toMs: to });
+  // Mid-January 2026, so the window every case below closes on is 1 Jan 2026 —
+  // and 2025 is exactly 365 days, which makes a doe standing all of it one
+  // doe-year on the nose.
+  const now = at(2026, 1, 15);
+  const year2025 = [doe(at(2025, 1, 1))];
 
-  test("annualises litters over the doe-months they were produced in", () => {
-    // Two does standing Jan + Feb = 4 doe-months; 2 litters → 0.5/month → 6/year.
-    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1), doe(1)], nowIn(3));
+  test("annualises litters over the doe-years they were produced in", () => {
+    const r = computeLittersPerDoeYear(
+      [1, 4, 7, 10, 12].map((m) => kindled(2025, m, 1)),
+      year2025,
+      now
+    );
 
-    expect(r.doeMonths).toBe(4);
-    expect(r.litters).toBe(2);
-    expect(r.perYear).toBe(6);
+    expect(r.doeYears).toBeCloseTo(1, 6);
+    expect(r.litters).toBe(5);
+    expect(r.perYear).toBeCloseTo(5, 6);
   });
 
   test("keeps an idle doe in the denominator", () => {
-    // The whole point of a doe-month denominator: the doe that never kindled is
+    // The whole point of a doe-time denominator: the doe that never kindled is
     // exactly the one an average of kindling INTERVALS would silently drop.
-    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1), doe(1), doe(1)], nowIn(3));
+    const r = computeLittersPerDoeYear(
+      [1, 4, 7, 10, 12].map((m) => kindled(2025, m, 1)),
+      [doe(at(2025, 1, 1)), doe(at(2025, 1, 1))],
+      now
+    );
 
-    expect(r.doeMonths).toBe(6);
-    expect(r.perYear).toBe(4); // 2/6 × 12, not the 6 the two workers alone would give
+    expect(r.doeYears).toBeCloseTo(2, 6);
+    expect(r.perYear).toBeCloseTo(2.5, 6); // not the 5 the one worker alone would give
   });
 
-  test("starts at the first month with a kindling, not at the first doe", () => {
-    // Does bought in January, first litter in March: the wait for it is not
-    // months the farm bred badly.
-    const r = computeLittersPerDoeYear([kindled(3, 2), kindled(4, 2)], [doe(1), doe(1)], nowIn(5));
+  test("starts at the first litter, not at the first doe", () => {
+    // Does bought in January, first litter in July: the wait for it is not
+    // months the farm bred badly. 1 Jul → 1 Jan is 184 days.
+    const r = computeLittersPerDoeYear(
+      [kindled(2025, 7, 1), kindled(2025, 9, 1), kindled(2025, 11, 1)],
+      year2025,
+      now
+    );
 
-    expect(r.doeMonths).toBe(4); // March and April only
-    expect(r.perYear).toBe(12); // 4/4 × 12
+    // 3 decimals, not 6: a span crossing a single daylight-saving change is an
+    // hour short of the calendar days it covers. That hour is 0.01% of the
+    // figure and nothing the reader could see, but it is not zero.
+    expect(r.doeYears).toBeCloseTo(184 / 365, 3);
+    expect(r.litters).toBe(3);
+    expect(r.perYear).toBeCloseTo(3 / (184 / 365), 2);
   });
 
-  test("counts a barren month after breeding has begun as a real zero", () => {
-    const r = computeLittersPerDoeYear([kindled(1, 2)], [doe(1), doe(1)], nowIn(3));
+  test("counts a doe to the day she arrived, not to the 1st of her month", () => {
+    // The month-bucket denominator this replaced rounded her twelve days down
+    // to nothing, and so overstated every farm that was still buying does.
+    const r = computeLittersPerDoeYear(
+      [kindled(2025, 1, 1)],
+      [doe(at(2025, 1, 1)), doe(at(2025, 12, 20))],
+      now
+    );
 
-    expect(r.doeMonths).toBe(4); // January and February
-    expect(r.perYear).toBe(6); // 2/4 × 12 — February drags it down, correctly
+    expect(r.doeYears).toBeCloseTo(1 + 12 / 365, 6);
   });
 
-  test("leaves the running month out", () => {
+  test("keeps a doe who has since left, for exactly the stretch she stood", () => {
+    // 1 Jan → 1 Jul is 181 days. Her litters are in the numerator, so her
+    // months must be in the denominator.
+    const r = computeLittersPerDoeYear(
+      [kindled(2025, 1, 1)],
+      [doe(at(2025, 1, 1)), doe(at(2025, 1, 1), at(2025, 7, 1))],
+      now
+    );
+
+    expect(r.doeYears).toBeCloseTo(1 + 181 / 365, 3); // see the DST note above
+  });
+
+  test("leaves the running month out, litters and doe-days alike", () => {
     // Half a month of kindlings against a full month of does would understate
     // the farm every time the report is opened.
-    const r = computeLittersPerDoeYear([kindled(1, 1), kindled(2, 1)], [doe(1)], nowIn(2));
+    const r = computeLittersPerDoeYear(
+      [kindled(2025, 1, 1), kindled(2026, 1, 5)],
+      year2025,
+      now
+    );
 
-    expect(r.doeMonths).toBe(1); // January only
     expect(r.litters).toBe(1);
-    expect(r.perYear).toBe(12);
+    expect(r.doeYears).toBeCloseTo(1, 6);
+    expect(r.perYear).toBeCloseTo(1, 6);
   });
 
   test("returns «—» for a farm with no does on record", () => {
-    const r = computeLittersPerDoeYear([kindled(1, 3)], [], nowIn(3));
+    const r = computeLittersPerDoeYear([kindled(2025, 1, 1, 3)], [], now);
 
-    expect(r.doeMonths).toBe(0);
+    expect(r.doeYears).toBe(0);
+    expect(r.perYear).toBeNull();
+  });
+
+  test("returns «—» while the farm is still inside its first kindling month", () => {
+    const r = computeLittersPerDoeYear([kindled(2026, 1, 3)], year2025, now);
+
     expect(r.perYear).toBeNull();
   });
 });

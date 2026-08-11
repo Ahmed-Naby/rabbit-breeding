@@ -23,13 +23,21 @@
  */
 
 import { rebreedSystemBand, type RebreedSystemBand } from "./does-board";
-import { doesPresentOn, type DoePresence } from "./breeding-averages";
+import {
+  doeDaysIn,
+  doesPresentOn,
+  startOfRunningMonth,
+  YEAR_DAYS,
+  type DoePresence,
+} from "./breeding-averages";
 
 /** A dated amount to be averaged month by month — head, grams, or cents. */
 export type DatedValue = { dateMs: number; value: number };
 
 /** Kindling fields needed here; every KindlingLog row on both platforms has them. */
 export type HerdKindlingRow = {
+  /** When she kindled — the cycles rate counts only litters inside its window. */
+  dateMs: number;
   /** Frozen litter size at birth — «عدد الخلفة». */
   bornAliveAtKindling: number;
   /** Live count under her care right now — «عدد الرعاية»; moves with fostering and deaths. */
@@ -89,6 +97,8 @@ export type HerdProductivity = {
   cyclesPerDoePerYear: number | null;
   /** The doe-years cyclesPerDoePerYear divided by — see doeDaysIn. */
   doeYears: number | null;
+  /** Whether the running month was dropped off the tail of the cycles window. */
+  cyclesExcludeRunningMonth: boolean;
   /** الفجوة: actual ÷ target, 0–1+. null when either side is unknown. */
   cycleAchievement: number | null;
 
@@ -130,8 +140,6 @@ export type HerdProductivity = {
   /** kg of feed per kg of meat sold — the farm's real whole-herd conversion. */
   feedConversionRatio: number | null;
 };
-
-const YEAR_DAYS = 365;
 
 /**
  * Cycles a year each husbandry system averages — the figure printed on the
@@ -222,32 +230,6 @@ const bucketByMonth = (values: DatedValue[]) => {
  * Returns null — never 0 — when no month qualifies, so a range shorter than one
  * calendar month renders «—» rather than a number nobody can reproduce.
  */
-/**
- * Doe-days actually STOOD inside [fromMs, toMs) — each doe's stay clipped to
- * the period and summed.
- *
- * This is the denominator for «دورات فعلية لكل أم في السنة», replacing the
- * herd's head count today. A flat head count charges the whole period to
- * whoever is standing at the end of it: a farm that has grown from 200 does to
- * 415 over two years divides its early litters — made by a much smaller herd —
- * by today's 415, and reads as lazier than it was. Worse, the does who did the
- * work and have since been sold or died are not in that count at all, so their
- * litters have no mother in the denominator.
- *
- * Days rather than the month buckets the lifetime «عدد البطون في السنة» uses,
- * because this figure follows the page's date filter and must stay meaningful
- * for a range shorter than a calendar month, which month buckets cannot score.
- */
-function doeDaysIn(does: DoePresence[], fromMs: number, toMs: number): number {
-  let ms = 0;
-  for (const d of does) {
-    const start = Math.max(d.fromMs, fromMs);
-    const end = Math.min(d.toMs ?? toMs, toMs);
-    if (end > start) ms += end - start;
-  }
-  return ms / DAY_MS;
-}
-
 function meanPerDoePerMonth(
   values: DatedValue[],
   anchor: DatedValue[],
@@ -300,9 +282,25 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
   // ÷ doe-YEARS standing, not ÷ does standing today — see doeDaysIn. The
   // annualisation is the division itself now: doe-days ÷ 365 is already "how
   // many does the farm kept for a full year", so no separate ×(365/period).
-  const doeYears = doeDaysIn(input.does, input.fromMs, input.toMs) / YEAR_DAYS;
-  const cyclesPerDoePerYear =
-    doeYears > 0 && periodDays > 0 ? input.kindlings.length / doeYears : null;
+  //
+  // The window stops at the start of the running month, for the reason
+  // startOfRunningMonth gives — UNLESS the caller asked for a range that lies
+  // wholly inside it, which is a deliberate "how is this month going" and must
+  // answer with a number rather than «—». Everything else on this board keeps
+  // the caller's own range; only this rate is clamped, and only at the tail.
+  //
+  // That clamp is also what makes this agree with «عدد البطون في السنة» on the
+  // follow-up report: same doe-day denominator, same tail cutoff, so over the
+  // whole record the two land on the same number instead of differing by the
+  // rounding of one and the incomplete month of the other.
+  const monthStart = startOfRunningMonth(input.toMs);
+  const cyclesTo = monthStart > input.fromMs ? Math.min(input.toMs, monthStart) : input.toMs;
+  const cyclesExcludeRunningMonth = cyclesTo < input.toMs;
+  const cycleLitters = input.kindlings.filter(
+    (k) => k.dateMs >= input.fromMs && k.dateMs < cyclesTo
+  ).length;
+  const doeYears = doeDaysIn(input.does, input.fromMs, cyclesTo) / YEAR_DAYS;
+  const cyclesPerDoePerYear = doeYears > 0 ? cycleLitters / doeYears : null;
 
   // Total kits lost from birth to weaning. `bornDead` is used whole, for every
   // row including the ones carrying the bornDeadAtKindling sentinel: unlike
@@ -358,6 +356,7 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
     targetCyclesPerYear,
     cyclesPerDoePerYear,
     doeYears: doeYears > 0 ? doeYears : null,
+    cyclesExcludeRunningMonth,
     cycleAchievement:
       cyclesPerDoePerYear != null && targetCyclesPerYear > 0
         ? cyclesPerDoePerYear / targetCyclesPerYear

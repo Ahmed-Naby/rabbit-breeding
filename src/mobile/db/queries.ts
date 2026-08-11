@@ -2964,9 +2964,11 @@ export async function fetchHerdReport(
       `SELECT COUNT(*) as count FROM rabbit
        WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active'`
     ),
-    queryAll<HerdKindlingRow>(
+    // kindlingDate rides along so the cycles rate can count litters inside its
+    // own (tail-clamped) window — see computeHerdProductivity.
+    queryAll<Omit<HerdKindlingRow, "dateMs"> & { kindlingDate: string }>(
       db,
-      `SELECT bornAliveAtKindling, bornAlive, bornDead FROM kindling_log
+      `SELECT kindlingDate, bornAliveAtKindling, bornAlive, bornDead FROM kindling_log
        WHERE kindlingDate >= ? AND kindlingDate < ?`,
       [fromIso, toIso]
     ),
@@ -3099,7 +3101,7 @@ export async function fetchHerdReport(
       .map((t) => ({ dateMs: new Date(t.date).getTime(), value: t.amountCents })),
     cycleDays,
     targetCyclesPerYear,
-    kindlings,
+    kindlings: kindlings.map((k) => ({ ...k, dateMs: new Date(k.kindlingDate).getTime() })),
     weanings,
     weanedStockDeaths: weanedStockDeathAgg?.total ?? 0,
     soldCount: saleAgg?.count ?? 0,

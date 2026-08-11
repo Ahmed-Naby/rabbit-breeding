@@ -927,8 +927,8 @@ export const ar = {
     avgMonthlySalesLabel: "متوسط البيع الشهري",
     avgMonthsBasis: (count: number) => `÷ ${count} شهر منذ أول شهر بيع`,
     avgKindlingBasis: (count: number) => `÷ ${count} ولادة منذ بداية العمل`,
-    avgLittersPerDoeYearBasis: (litters: number, doeMonths: number) =>
-      `${litters} ولادة ÷ ${doeMonths} شهر-أم × 12 — منذ أول شهر ولادة`,
+    avgLittersPerDoeYearBasis: (litters: number, doeYears: string) =>
+      `${litters} ولادة ÷ ${doeYears} سنة-أم — منذ أول ولادة وحتى نهاية الشهر الماضي`,
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgLifetimeBasis: "الرصيد التراكمي للمزرعة حتى الآن",
     avgFunnelBasis: "من الولادة إلى البيع — لكل رقم مقامه المكتوب تحته",
@@ -995,8 +995,10 @@ export const ar = {
     herdCycleAchievementLabel: "نسبة تحقيق المستهدف",
     herdCycleNote: (target: number, cycleDays: number) =>
       `المستهدف (${target} دورة في السنة) محسوب من مدة إعادة التلقيح المضبوطة في الإعدادات، أي دورة كاملة كل ${cycleDays} يومًا تقريبًا.`,
-    herdCyclesActualBasis: (doeYears: string) =>
-      `ولادات الفترة ÷ ${doeYears} سنة-أم — كل أم تُحسب بمدة وجودها الفعلي في الفترة، لا بعدد الأمهات اليوم`,
+    herdCyclesActualBasis: (doeYears: string, excludesRunningMonth: boolean) =>
+      `ولادات المدة ÷ ${doeYears} سنة-أم — كل أم بمدة وجودها الفعلي، لا بعدد الأمهات اليوم${
+        excludesRunningMonth ? "، والشهر الجاري مستبعد لأنه ناقص" : ""
+      }`,
 
     herdSectionPerDoe: "المعدلات لكل أم في الفترة",
     herdBornAlivePerDoeLabel: "معدل البطن لكل أم",
