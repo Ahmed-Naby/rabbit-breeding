@@ -934,8 +934,7 @@ export const ar = {
     avgLaggedMonthsBasis: (count: number) => `متوسط ${count} شهر`,
     avgSalesPerDoeBasis: (count: number) => `متوسط ${count} شهر`,
     avgWeightPerDoeBasis: (count: number) => `متوسط ${count} شهر`,
-    avgRevenuePerDoeBasis: (pricePerKg: string) =>
-      `الكجم المباع لكل أم × ${pricePerKg} سعر الكيلو في الإعدادات`,
+    avgRevenuePerDoeBasis: (pricePerKg: string) => `سعر الكيلو ${pricePerKg} في الإعدادات`,
     avgRevenuePerDoeNoPriceBasis: "سجّل سعر الكيلو في الإعدادات ليظهر الإيراد",
     avgUnknownWeightMonthsNote: (count: number) =>
       `${count} شهر فيه مبيعات بدون وزن مسجل، واستُبعد من متوسط الوزن بدلًا من احتسابه صفرًا.`,

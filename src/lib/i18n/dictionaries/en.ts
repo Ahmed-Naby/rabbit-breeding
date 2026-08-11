@@ -924,8 +924,7 @@ export const en: Dictionary = {
     avgLaggedMonthsBasis: (count: number) => `Mean of ${count} months`,
     avgSalesPerDoeBasis: (count: number) => `Mean of ${count} months`,
     avgWeightPerDoeBasis: (count: number) => `Mean of ${count} months`,
-    avgRevenuePerDoeBasis: (pricePerKg: string) =>
-      `kg sold per doe × ${pricePerKg} price per kg from settings`,
+    avgRevenuePerDoeBasis: (pricePerKg: string) => `${pricePerKg} per kg, from settings`,
     avgRevenuePerDoeNoPriceBasis: "Set the price per kg in settings to see revenue",
     avgUnknownWeightMonthsNote: (count: number) =>
       `${count} month(s) sold kits with no weight on the record and are excluded from the weight average rather than counted as zero.`,
