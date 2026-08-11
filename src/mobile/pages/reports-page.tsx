@@ -530,10 +530,7 @@ function AveragesSection({
           <AveragesTile
             label={rt.avgLittersPerDoeYearLabel}
             value={avg(littersPerDoeYear.perYear)}
-            basis={rt.avgLittersPerDoeYearBasis(
-              littersPerDoeYear.litters,
-              avg(littersPerDoeYear.doeYears)
-            )}
+            basis={rt.avgLittersPerDoeYearBasis(littersPerDoeYear.litters)}
           />
           <AveragesTile
             label={rt.avgBornAliveLabel}

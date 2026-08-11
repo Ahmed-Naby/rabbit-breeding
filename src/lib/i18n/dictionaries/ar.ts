@@ -927,8 +927,7 @@ export const ar = {
     avgMonthlySalesLabel: "متوسط البيع الشهري",
     avgMonthsBasis: (count: number) => `÷ ${count} شهر منذ أول شهر بيع`,
     avgKindlingBasis: (count: number) => `÷ ${count} ولادة منذ بداية العمل`,
-    avgLittersPerDoeYearBasis: (litters: number, doeYears: string) =>
-      `${litters} ولادة ÷ ${doeYears} سنة-أم — منذ أول ولادة وحتى نهاية الشهر الماضي`,
+    avgLittersPerDoeYearBasis: (litters: number) => `${litters} ولادة`,
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgFunnelBasis: "من الولادة إلى البيع — لكل رقم مقامه المكتوب تحته",
     avgSellingBasis: "البيع الشهري — لكل رقم مقامه المكتوب تحته",
