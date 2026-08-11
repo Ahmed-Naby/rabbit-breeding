@@ -931,8 +931,7 @@ export const ar = {
     avgWeaningBasis: (count: number) => `÷ ${count} فطام منذ بداية العمل`,
     avgFunnelBasis: "من الولادة إلى البيع — لكل رقم مقامه المكتوب تحته",
     avgSellingBasis: "البيع الشهري — لكل رقم مقامه المكتوب تحته",
-    avgLaggedMonthsBasis: (count: number) =>
-      `متوسط ${count} شهر — مبيعات الشهر ÷ عدد مرات الفطام في الشهر السابق`,
+    avgLaggedMonthsBasis: (count: number) => `متوسط ${count} شهر`,
     avgSalesPerDoeBasis: (count: number) =>
       `متوسط ${count} شهر — مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
     avgWeightPerDoeBasis: (count: number) =>

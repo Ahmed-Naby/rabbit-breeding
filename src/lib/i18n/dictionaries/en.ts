@@ -921,8 +921,7 @@ export const en: Dictionary = {
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
     avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",
     avgSellingBasis: "Monthly selling — each figure over its own denominator, printed beneath it",
-    avgLaggedMonthsBasis: (count: number) =>
-      `Mean of ${count} months — sales in a month ÷ weanings in the month before`,
+    avgLaggedMonthsBasis: (count: number) => `Mean of ${count} months`,
     avgSalesPerDoeBasis: (count: number) =>
       `Mean of ${count} months — sales in a month ÷ does on the farm on the 1st`,
     avgWeightPerDoeBasis: (count: number) =>
