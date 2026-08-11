@@ -606,47 +606,21 @@ function AveragesSection({
           />
         </AveragesGroup>
 
-        {/* The two loss figures sit under both headline rows, not between them:
-            each is a single tile against a full-width basis line, and stacking
-            them there split the two rows a farmer reads together. */}
-        <AveragesGroup basis={rt.avgKindlingBasis(averages.kindlings)}>
-          <AveragesTile label={rt.avgNursingDeathsLabel} value={avg(averages.nursingDeaths)} />
-        </AveragesGroup>
-
-        <AveragesGroup basis={rt.avgWeaningBasis(averages.weanings)}>
-          <AveragesTile label={rt.avgWeanedStockDeathsLabel} value={avg(averages.weanedStockDeaths)} />
-        </AveragesGroup>
-
-        {/* Its own group: a stock level, not an average — no denominator, and
-            whole head counts rather than the one decimal the averages carry. */}
-        <AveragesGroup basis={rt.avgLifetimeBasis}>
-          <AveragesTile
-            label={rt.avgRemainingStockLabel}
-            value={averages.remainingStock.toLocaleString()}
-          />
-        </AveragesGroup>
-
         <div className="space-y-1 text-xs text-muted-foreground">
           {/* Answers the subtraction the funnel row invites, before it is made. */}
           <p>{rt.avgFunnelNote}</p>
-          <p>{rt.avgRemainingStockNote}</p>
+          <p>{rt.avgLifetimeNote}</p>
           {/* Without this, 5.9 weaned against 4.8 sold reads as a 1.1 loss per
               litter — most of that gap is stock still standing in the barn. */}
           <p>{rt.avgSoldPerWeaningNote}</p>
           {/* The herd size on a past date is reconstructed, not recorded — say
               so, or the figure reads as firmer than it is. */}
           <p>{rt.avgSalesPerDoeNote}</p>
-          {/* Only when weights are actually missing — see avgUnknownNursingNote. */}
+          {/* Only when weights are actually missing — a permanent caveat that is
+              usually inapplicable teaches people to ignore the whole block. */}
           {weightPerDoe.unknownWeightMonths > 0 && (
             <p className="text-amber-600 dark:text-amber-400">
               {rt.avgUnknownWeightMonthsNote(weightPerDoe.unknownWeightMonths)}
-            </p>
-          )}
-          {/* Only when history is actually missing — a permanent caveat that is
-              usually inapplicable teaches people to ignore the whole block. */}
-          {averages.unknownNursingLitters > 0 && (
-            <p className="text-amber-600 dark:text-amber-400">
-              {rt.avgUnknownNursingNote(averages.unknownNursingLitters)}
             </p>
           )}
         </div>

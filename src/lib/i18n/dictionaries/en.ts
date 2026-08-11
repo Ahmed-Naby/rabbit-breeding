@@ -908,22 +908,18 @@ export const en: Dictionary = {
     sectionAverages: "Averages",
     avgLittersPerDoeYearLabel: "Litters per doe per year",
     avgBornAliveLabel: "Avg. live litter size",
-    avgNursingDeathsLabel: "Avg. kits lost during nursing",
     avgWeanedLabel: "Avg. kits weaned per litter",
     avgSoldPerWeaningLabel: "Avg. kits sold per litter",
     avgSalesPerDoeLabel: "Sales per doe per month on the farm",
     // The unit lives in the label, as it does on the herd tab's twin tile.
     avgWeightPerDoeLabel: "Avg. kg sold per doe per month",
     avgRevenuePerDoeLabel: "Avg. revenue per doe per month",
-    avgWeanedStockDeathsLabel: "Avg. post-weaning deaths",
-    avgRemainingStockLabel: "Weaned stock available to sell",
     avgMonthlySalesLabel: "Average monthly sales",
     avgMonthsBasis: (count: number) => `÷ ${count} months since the first selling month`,
     avgKindlingBasis: (count: number) => `÷ ${count} kindlings since the farm started`,
     avgLittersPerDoeYearBasis: (litters: number, doeYears: string) =>
       `${litters} litters ÷ ${doeYears} doe-years — first litter to the end of last month`,
     avgWeaningBasis: (count: number) => `÷ ${count} weanings since the farm started`,
-    avgLifetimeBasis: "The farm's running balance right now",
     avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",
     avgSellingBasis: "Monthly selling — each figure over its own denominator, printed beneath it",
     // Written after a farmer asked why 5.9 weaned minus 0.4 deaths isn't the sold figure.
@@ -945,10 +941,8 @@ export const en: Dictionary = {
     avgSalesPerDoeNote:
       "Sales per doe is scored month by month: each month's sales divided by the does on the farm on the 1st of that same month, then those figures averaged. Counting starts at the first month the farm sold anything — the ramp-up before that first sale (buying, mating, gestation, nursing, with nothing yet to sell) is left out — while a month that sells nothing after selling has begun still counts as a real zero. Weight sold per doe starts at the same month, so both describe the same stretch. The farm keeps no exit date per doe, so she counts from her purchase date — or her first mating — until the last edit to her record once she is no longer active.",
     avgAllTimeBadge: "All time",
-    avgUnknownNursingNote: (count: number) =>
-      `${count} litter(s) predate the stillborn-at-kindling field, so their nursing losses can't be known. They are excluded from the average rather than counted as zero losses.`,
-    avgRemainingStockNote:
-      "Every figure in performance averages covers the farm since it started and ignores the date filter below. Weaned stock available to sell is a total rather than an average — it moves when older stock is sold even if nothing was weaned.",
+    avgLifetimeNote:
+      "Every figure in performance averages covers the farm since it started and ignores the date filter below.",
 
     // ——— Weaned stock curve ———
     sectionSalesChart: "Monthly sales since the farm started",
