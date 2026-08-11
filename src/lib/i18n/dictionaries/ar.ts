@@ -932,10 +932,8 @@ export const ar = {
     avgFunnelBasis: "من الولادة إلى البيع — لكل رقم مقامه المكتوب تحته",
     avgSellingBasis: "البيع الشهري — لكل رقم مقامه المكتوب تحته",
     avgLaggedMonthsBasis: (count: number) => `متوسط ${count} شهر`,
-    avgSalesPerDoeBasis: (count: number) =>
-      `متوسط ${count} شهر — مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
-    avgWeightPerDoeBasis: (count: number) =>
-      `متوسط ${count} شهر — وزن مبيعات الشهر ÷ عدد الأمهات يوم 1 من الشهر`,
+    avgSalesPerDoeBasis: (count: number) => `متوسط ${count} شهر`,
+    avgWeightPerDoeBasis: (count: number) => `متوسط ${count} شهر`,
     avgRevenuePerDoeBasis: (pricePerKg: string) =>
       `الكجم المباع لكل أم × ${pricePerKg} سعر الكيلو في الإعدادات`,
     avgRevenuePerDoeNoPriceBasis: "سجّل سعر الكيلو في الإعدادات ليظهر الإيراد",

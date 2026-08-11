@@ -922,10 +922,8 @@ export const en: Dictionary = {
     avgFunnelBasis: "Birth to sale — each figure over its own denominator, printed beneath it",
     avgSellingBasis: "Monthly selling — each figure over its own denominator, printed beneath it",
     avgLaggedMonthsBasis: (count: number) => `Mean of ${count} months`,
-    avgSalesPerDoeBasis: (count: number) =>
-      `Mean of ${count} months — sales in a month ÷ does on the farm on the 1st`,
-    avgWeightPerDoeBasis: (count: number) =>
-      `Mean of ${count} months — weight sold in a month ÷ does on the farm on the 1st`,
+    avgSalesPerDoeBasis: (count: number) => `Mean of ${count} months`,
+    avgWeightPerDoeBasis: (count: number) => `Mean of ${count} months`,
     avgRevenuePerDoeBasis: (pricePerKg: string) =>
       `kg sold per doe × ${pricePerKg} price per kg from settings`,
     avgRevenuePerDoeNoPriceBasis: "Set the price per kg in settings to see revenue",
