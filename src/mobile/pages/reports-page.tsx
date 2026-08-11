@@ -292,6 +292,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
             />
           )}
 
+          {report && <CullCards report={report} rt={rt} />}
+
           {/* The month's selling and the stock it came out of, on one pair of
               axes. Lifetime, whatever the range filter below says. */}
           {report && (
@@ -1101,44 +1103,6 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
             />
             <p className="mt-2 text-xs text-muted-foreground">{rt.weanedBalanceNote}</p>
           </BalanceCard>
-
-          {/* A judgement on the herd standing right now, so it belongs under
-              the «الرصيد الحالي» badge with the other snapshots: her fertility
-              is read over her whole life, not over the period below. */}
-          <BalanceCard
-            icon={<TriangleAlert className="size-5" />}
-            title={rt.sectionCull}
-            badge={rt.allTimeBadge}
-          >
-            <StatTile
-              icon={<Venus className="size-4" />}
-              label={rt.cullLabel}
-              value={report.cullCandidates}
-              tone="amber"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {rt.cullNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
-            </p>
-          </BalanceCard>
-
-          {/* Its own card rather than a second tile beside the does: the two
-              counts are not the same measurement — his is confirmed
-              pregnancies, hers is kindlings — so they get their own notes. */}
-          <BalanceCard
-            icon={<TriangleAlert className="size-5" />}
-            title={rt.sectionCullBucks}
-            badge={rt.allTimeBadge}
-          >
-            <StatTile
-              icon={<Mars className="size-4" />}
-              label={rt.cullBucksLabel}
-              value={report.cullBucks}
-              tone="amber"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {rt.cullBucksNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
-            </p>
-          </BalanceCard>
         </div>
 
         <BalanceCard
@@ -1180,6 +1144,53 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
       </div>
 
       <p className="text-xs text-muted-foreground">{rt.allTimeNote}</p>
+    </div>
+  );
+}
+
+/**
+ * «أمهات/ذكور يجب استبعادها» — placed under متوسطات الأداء by request. Both
+ * still carry the «الرصيد الحالي» badge: each is a lifetime judgement on the
+ * animals standing in the barn today, so the date filter further down the page
+ * does not reach them either.
+ */
+function CullCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <BalanceCard
+        icon={<TriangleAlert className="size-5" />}
+        title={rt.sectionCull}
+        badge={rt.allTimeBadge}
+      >
+        <StatTile
+          icon={<Venus className="size-4" />}
+          label={rt.cullLabel}
+          value={report.cullCandidates}
+          tone="amber"
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {rt.cullNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
+        </p>
+      </BalanceCard>
+
+      {/* Its own card rather than a second tile beside the does: the two counts
+          are not the same measurement — his is confirmed pregnancies, hers is
+          kindlings — so they get their own notes. */}
+      <BalanceCard
+        icon={<TriangleAlert className="size-5" />}
+        title={rt.sectionCullBucks}
+        badge={rt.allTimeBadge}
+      >
+        <StatTile
+          icon={<Mars className="size-4" />}
+          label={rt.cullBucksLabel}
+          value={report.cullBucks}
+          tone="amber"
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          {rt.cullBucksNote(CULL_FERTILITY_THRESHOLD_PCT, CULL_MIN_MATINGS)}
+        </p>
+      </BalanceCard>
     </div>
   );
 }
