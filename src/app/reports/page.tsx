@@ -810,8 +810,10 @@ function ReportSections({ report, asOf, rt }: { report: FollowUpReport; asOf: st
         <Row label={rt.stockDeathsLabel} value={n(report.deaths.stock)} />
         <Row label={rt.doeDeathsLabel} value={n(report.deaths.does)} />
         <Row label={rt.buckDeathsLabel} value={n(report.deaths.bucks)} />
-        <Row label={rt.culledExcludedDeathsLabel} value={n(report.deaths.culledExcluded)} />
+        {/* الاستبعادات first: نافق استبعادات is a subset of it, so the total
+            has to be on screen before the slice taken out of it. */}
         <Row label={rt.cullsLabel} value={n(report.culls)} />
+        <Row label={rt.culledExcludedDeathsLabel} value={n(report.deaths.culledExcluded)} />
       </Section>
 
       <Section title={rt.sectionWeaning}>
