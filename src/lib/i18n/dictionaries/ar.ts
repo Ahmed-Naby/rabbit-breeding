@@ -1044,8 +1044,6 @@ export const ar = {
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "تصفية",
-    // Still read by صفحة مبيعات الفطام, which has no preset row of its own.
-    clearButton: "إلغاء التصفية",
     rangeMonthButton: "شهر",
     rangeQuarterButton: "٣ شهور",
     rangeYearButton: "سنة",

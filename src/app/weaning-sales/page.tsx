@@ -6,7 +6,7 @@ import { SortableTable } from "@/components/ui/sortable-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { LocalDate } from "@/components/local-date";
 import { formatMoney, formatWeight, formatWeightTotal } from "@/lib/units";
-import { isWithinDateRange } from "@/lib/dates";
+import { isWithinDateRange, presetRange } from "@/lib/dates";
 import { ledgerTotals } from "@/lib/kit-ledger";
 import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { Input } from "@/components/ui/input";
@@ -148,7 +148,42 @@ export default async function WeaningSalesPage({
           plain GET form as /records — no client JS, and the chosen range stays
           in the URL, so a filtered view can be reloaded or shared. */}
       <Card>
-        <CardContent className="py-4">
+        <CardContent className="space-y-3 py-4">
+          {/* One press each: the link carries the dates AND re-renders the page,
+              so there is nothing to press afterwards. «من بداية التشغيل» is the
+              no-dates URL «إلغاء التصفية» used to reach, named for what it
+              shows rather than for what it undoes. */}
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["month", t.records.rangeMonthButton],
+                ["quarter", t.records.rangeQuarterButton],
+                ["year", t.records.rangeYearButton],
+                ["all", t.records.rangeAllButton],
+              ] as const
+            ).map(([preset, label]) => {
+              const range = presetRange(preset);
+              const active = from === range.from && to === range.to;
+              const href =
+                preset === "all"
+                  ? "/weaning-sales"
+                  : `/weaning-sales?from=${range.from}&to=${range.to}`;
+              return (
+                <Button
+                  key={preset}
+                  // A real disabled <button> for the one already on screen:
+                  // `disabled` means nothing to an <a>, which stays clickable.
+                  asChild={!active}
+                  disabled={active}
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                >
+                  {active ? <span>{label}</span> : <Link href={href}>{label}</Link>}
+                </Button>
+              );
+            })}
+          </div>
+
           <form method="get" className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">{t.records.fromLabel}</span>
@@ -161,11 +196,6 @@ export default async function WeaningSalesPage({
             <Button type="submit" size="sm">
               {t.records.applyButton}
             </Button>
-            {(from || to) && (
-              <Button asChild type="button" variant="outline" size="sm">
-                <Link href="/weaning-sales">{t.records.clearButton}</Link>
-              </Button>
-            )}
             {/* Inside the filter form, and deliberately so: it exports the rows
                 the filter left on screen, not the whole ledger. */}
             <ExportXlsxButton

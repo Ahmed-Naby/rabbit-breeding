@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KitMovementTypeChoice, type KitMovementChoice } from "@/components/kit-movement-type-choice";
-import { isWithinDateRange, toDateInputValue } from "@/lib/dates";
+import { isWithinDateRange, presetRange, toDateInputValue } from "@/lib/dates";
 import { ledgerTotals } from "@/lib/kit-ledger";
 import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { saveBinaryFile } from "../lib/save-file";
@@ -466,7 +466,39 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
 
       {/* Sits between the cards and the table because it governs both. */}
       <Card>
-        <CardContent className="py-4">
+        <CardContent className="space-y-3 py-4">
+          {/* One press fills both boxes; the table filters off state, so there
+              is nothing to apply afterwards. «من بداية التشغيل» is the empty
+              pair «إلغاء التصفية» produced, named for what it shows. */}
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["month", t.records.rangeMonthButton],
+                ["quarter", t.records.rangeQuarterButton],
+                ["year", t.records.rangeYearButton],
+                ["all", t.records.rangeAllButton],
+              ] as const
+            ).map(([preset, label]) => {
+              const range = presetRange(preset);
+              const active = rangeFrom === range.from && rangeTo === range.to;
+              return (
+                <Button
+                  key={preset}
+                  type="button"
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  disabled={active}
+                  onClick={() => {
+                    setRangeFrom(range.from);
+                    setRangeTo(range.to);
+                  }}
+                >
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label htmlFor="ledger-from">{t.records.fromLabel}</Label>
@@ -488,19 +520,6 @@ export function WeaningSalesPage({ locale }: { locale: Locale }) {
                 className="w-40"
               />
             </div>
-            {(rangeFrom || rangeTo) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setRangeFrom("");
-                  setRangeTo("");
-                }}
-              >
-                {t.records.clearButton}
-              </Button>
-            )}
             {/* Beside the filter, and deliberately so: it exports the rows the
                 filter left on screen, not the whole ledger. saveBinaryFile
                 because on Android a Blob download silently does nothing. */}
