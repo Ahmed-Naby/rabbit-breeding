@@ -88,21 +88,33 @@ export function doeScoreToneClass(score: number | null): string {
  * The farm's own average litter size — the denominator of every score, and the
  * same figure ./weak-does sets its relative bar against.
  *
- * An unweighted mean of the per-doe averages: each doe counts once however many
- * litters she has had, because the reference is meant to describe a typical doe
- * in this barn, and a total-over-total mean would let the two hardest-working
- * does set the standard the quiet ones are scored by. Does without enough
- * kindlings to have a reliable average are left out rather than counted at
- * whatever their first litter happened to be.
+ * Total kits over total litters: every LITTER counts once, which makes this the
+ * very same «متوسط عدد البطن الحي» that متوسطات الأداء prints from
+ * ./breeding-averages. That agreement is the point. It used to be an unweighted
+ * mean of the per-doe averages, which is a defensible statistic — it describes
+ * the typical doe rather than the typical litter — but it put two different
+ * numbers under two nearly identical Arabic labels on two tabs of the same
+ * report (6.2 here, 6.5 there), and a farm cannot act on a bar it has to
+ * reconcile first. One «متوسط عدد الخلفة» for the whole app.
+ *
+ * The practical difference: a doe who kindles often now carries more weight in
+ * setting the bar than one who kindles rarely, in proportion to how much of the
+ * farm's production actually came out of her. Every litter is also counted now,
+ * including those of does with only one or two — there is no small-sample
+ * problem in a total, only in an average of averages.
  */
 export function herdLitterBaseline(
   does: { kindlings: number; bornAliveTotal: number }[]
 ): number | null {
-  const averages = does.flatMap((d) =>
-    d.kindlings >= WEAK_DOE_MIN_LITTERS ? [d.bornAliveTotal / d.kindlings] : []
-  );
-  if (averages.length === 0) return null;
-  return averages.reduce((sum, v) => sum + v, 0) / averages.length;
+  let litters = 0;
+  let kits = 0;
+  for (const d of does) {
+    litters += d.kindlings;
+    kits += d.bornAliveTotal;
+  }
+  // A farm that has never kindled has no bar — «—», never 0, or every doe on it
+  // would be scored against nothing and come out perfect.
+  return litters === 0 ? null : kits / litters;
 }
 
 /**

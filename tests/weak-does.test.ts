@@ -85,11 +85,14 @@ describe("findWeakDoes — litter size, against the farm's own average", () => {
     expect(findWeakDoes(herd(barely)).weakDoes).toEqual([]);
   });
 
-  it("keeps her out of the average she is being judged against", () => {
-    // Her two-kindling record is unjudgeable, so it must not drag the bar down
-    // for the does that do have a record.
+  it("counts her litters in the average even though it cannot judge her", () => {
+    // The bar is kits ÷ litters over the whole barn, so her two litters count
+    // like any other two — but only as two. Four does at 8 kindlings of 8 is
+    // 256 kits in 32 litters; her 2 kits in 2 litters make it 258 ÷ 34.
     const barely = doe("one", { matings: 2, kindlings: 2, bornAliveTotal: 2 });
-    expect(findWeakDoes(herd(barely)).herdAvgLitterSize).toBe(8);
+    expect(findWeakDoes(herd(barely)).herdAvgLitterSize).toBeCloseTo(258 / 34, 5);
+    // And a short record still gets no verdict of its own.
+    expect(findWeakDoes(herd(barely)).weakDoes.map((d) => d.id)).toEqual([]);
   });
 });
 

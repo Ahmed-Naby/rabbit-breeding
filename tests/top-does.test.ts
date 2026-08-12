@@ -17,6 +17,35 @@ function doe(id: string, over: Partial<DoeTallies> = {}): DoeTallies {
   };
 }
 
+describe("herdLitterBaseline", () => {
+  it("is kits over litters — the same figure متوسطات الأداء prints", () => {
+    // 2 litters of 10 and 8 litters of 5: 60 kits in 10 litters. A mean of the
+    // two does' averages would say 7.5, which is the number this deliberately
+    // is not — the busy doe produced most of the farm's kits and sets most of
+    // the bar.
+    expect(
+      herdLitterBaseline([
+        { kindlings: 2, bornAliveTotal: 20 },
+        { kindlings: 8, bornAliveTotal: 40 },
+      ])
+    ).toBe(6);
+  });
+
+  it("counts a doe with a single litter too", () => {
+    expect(
+      herdLitterBaseline([
+        { kindlings: 3, bornAliveTotal: 24 },
+        { kindlings: 1, bornAliveTotal: 4 },
+      ])
+    ).toBe(7);
+  });
+
+  it("has no bar at all for a farm that never kindled", () => {
+    expect(herdLitterBaseline([{ kindlings: 0, bornAliveTotal: 0 }])).toBeNull();
+    expect(herdLitterBaseline([])).toBeNull();
+  });
+});
+
 describe("scoreDoe", () => {
   it("gives 100 to a doe who conceives every time and matches the barn's litter", () => {
     const herd = [doe("a"), doe("b"), doe("c")];
