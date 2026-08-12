@@ -728,7 +728,12 @@ export async function setLitterCount(
   const effectiveBornAlive = bornAlive ?? litter?.bornAlive ?? 0;
   const effectiveWeaned = payload.field === "weaned" ? payload.value : (litter?.weaned ?? null);
   if (effectiveWeaned !== null && effectiveWeaned !== undefined && effectiveWeaned > effectiveBornAlive) {
-    return rejected("WEANED_EXCEEDS_BORN_ALIVE");
+    // Same split as setLitterCountOp's: with no litter row the `?? 0` above is
+    // the absence of a count, not a count of zero, so every weaned number fails
+    // against it. The two need different words because they need different
+    // fixes. Kept identical to the server's so the phone and the server never
+    // give the same press two different verdicts.
+    return rejected(litter == null ? "NO_LITTER" : "WEANED_EXCEEDS_BORN_ALIVE");
   }
 
   // Mirrors setLitterCountOp's server-side fallback: nothing left to nurse,

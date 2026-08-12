@@ -8,6 +8,7 @@ import {
   markWeanedOp,
   recordKindlingOp,
   recordNursingKitDeathOp,
+  setLitterCountOp,
 } from "@/lib/breeding-ops";
 
 beforeEach(resetDb);
@@ -152,5 +153,51 @@ describe("breeding lifecycle", () => {
     const litter = await prisma.litter.findUniqueOrThrow({ where: { breedingId: breeding.id } });
     expect(litter.bornAlive).toBe(4);
     expect(litter.bornDead).toBe(4);
+  });
+});
+
+describe("setLitterCountOp — telling the two refusals apart", () => {
+  test("names the missing litter instead of blaming the number", async () => {
+    // A breeding that never kindled has no Litter row, so the op's
+    // `litter?.bornAlive ?? 0` is the absence of a count, not a count of zero.
+    // Every weaned number fails against it — the farmer must not be told his 3
+    // exceeds a «مواليد أحياء» he was never asked for.
+    const doe = await makeDoe();
+    await startBreedingOp(doe.id);
+    const breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
+
+    const result = await setLitterCountOp(breeding.id, "weaned", 3);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("NO_LITTER");
+    // And nothing was written: a rejected count must not conjure a litter.
+    expect(await prisma.litter.findUnique({ where: { breedingId: breeding.id } })).toBeNull();
+  });
+
+  test("still blames the number when a litter really is there", async () => {
+    const doe = await makeDoe();
+    await startBreedingOp(doe.id);
+    const breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
+    await markKindledOp(breeding.id, doe.id, 6, 0);
+
+    const result = await setLitterCountOp(breeding.id, "weaned", 9);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("WEANED_EXCEEDS_BORN_ALIVE");
+
+    // A weaning that fits is still accepted, so the guard hasn't grown teeth.
+    expect((await setLitterCountOp(breeding.id, "weaned", 6)).ok).toBe(true);
+    const litter = await prisma.litter.findUniqueOrThrow({ where: { breedingId: breeding.id } });
+    expect(litter.weaned).toBe(6);
+  });
+
+  test("a first bornAlive on a breeding with no litter still creates one", async () => {
+    // The NO_LITTER branch must not swallow the ordinary case: entering «حي»
+    // from the board is exactly how a litter row comes into being there.
+    const doe = await makeDoe();
+    await startBreedingOp(doe.id);
+    const breeding = await prisma.breeding.findFirstOrThrow({ where: { doeId: doe.id } });
+
+    expect((await setLitterCountOp(breeding.id, "bornAlive", 8)).ok).toBe(true);
+    const litter = await prisma.litter.findUniqueOrThrow({ where: { breedingId: breeding.id } });
+    expect(litter.bornAlive).toBe(8);
   });
 });

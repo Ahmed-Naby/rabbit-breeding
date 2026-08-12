@@ -218,7 +218,13 @@ export async function setLitterCount(
   const result = await setLitterCountOp(breedingId, field, value);
   if (!result.ok) {
     const { t } = await getDictionary();
-    return { ok: false, message: t.breedings.weanedExceedsBornAlive };
+    return {
+      ok: false,
+      message:
+        result.code === "NO_LITTER"
+          ? t.breedings.noLitterForBreeding
+          : t.breedings.weanedExceedsBornAlive,
+    };
   }
 
   revalidateAllBreedingPaths();

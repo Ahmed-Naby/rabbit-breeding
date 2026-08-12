@@ -745,7 +745,15 @@ export function LitterCountInput({
   className?: string;
   onDone: () => void;
 }) {
-  const t = getClientDictionary(locale).doeStateMenu;
+  const dict = getClientDictionary(locale);
+  const t = dict.doeStateMenu;
+  // local-ops rejects with the bare code, so an Arabic barn used to get a toast
+  // reading «WEANED_EXCEEDS_BORN_ALIVE». Same two sentences the web path shows.
+  const codeMessages: Record<string, string> = {
+    WEANED_EXCEEDS_BORN_ALIVE: dict.breedings.weanedExceedsBornAlive,
+    NO_LITTER: dict.breedings.noLitterForBreeding,
+    BLANK_REFERENCE: dict.breedings.blankReference,
+  };
   const [pending, setPending] = useState(false);
   const [text, setText] = useState(() => (value ?? "").toString());
 
@@ -771,7 +779,8 @@ export function LitterCountInput({
         setPending(true);
         const { outcome } = await enqueue("setLitterCount", { breedingId, field, value: parsed });
         if (outcome.status === "rejected") {
-          toast.error(outcome.resultMessage || t.invalidValueFallback);
+          const raw = outcome.resultMessage ?? "";
+          toast.error(codeMessages[raw] || raw || t.invalidValueFallback);
           setText((value ?? "").toString());
         }
         setPending(false);

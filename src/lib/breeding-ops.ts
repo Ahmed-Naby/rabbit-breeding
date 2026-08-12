@@ -759,7 +759,7 @@ export async function setLitterCountOp(
   breedingId: string,
   field: "bornAlive" | "bornDead" | "weaned",
   value: number | null
-): Promise<OpResult<void, "WEANED_EXCEEDS_BORN_ALIVE">> {
+): Promise<OpResult<void, "WEANED_EXCEEDS_BORN_ALIVE" | "NO_LITTER">> {
   const [breeding, litter, bornDeadAtKindling] = await Promise.all([
     prisma.breeding.findUniqueOrThrow({
       where: { id: breedingId },
@@ -784,7 +784,15 @@ export async function setLitterCountOp(
   const effectiveBornAlive = bornAlive ?? litter?.bornAlive ?? 0;
   const effectiveWeaned = field === "weaned" ? value : (litter?.weaned ?? null);
   if (effectiveWeaned !== null && effectiveWeaned > effectiveBornAlive) {
-    return { ok: false, code: "WEANED_EXCEEDS_BORN_ALIVE" };
+    // Two opposite problems used to wear the same error. With no Litter row at
+    // all the `?? 0` above is not a count of anything — it is the absence of a
+    // count — so ANY weaned number fails, and the farmer is told his 3 exceeds
+    // a "born alive" he never entered. That is what the five rejected
+    // setLitterCount ops of ٢٠٢٦-٠٧ actually were: every one of them named a
+    // breeding whose litter no longer existed on the server. Say which it is,
+    // because the two have different fixes — one is "type a smaller number",
+    // the other is "record the kindling first".
+    return { ok: false, code: litter == null ? "NO_LITTER" : "WEANED_EXCEEDS_BORN_ALIVE" };
   }
 
   const dropsNursing =

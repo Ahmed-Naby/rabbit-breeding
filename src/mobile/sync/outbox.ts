@@ -13,6 +13,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { withTransaction } from "../db/client";
 import { nowIso } from "../db/helpers";
 import { localOpRegistry, type LocalOpOutcome } from "./local-ops";
+import { blankReferenceKey } from "./blank-reference";
 
 // Ops that create a brand-new row need a client-generated id up front (see
 // local-ops.ts's file header + prisma/schema.prisma — every row-creating op
@@ -76,6 +77,16 @@ export async function enqueue(
 ): Promise<EnqueueResult> {
   const opFn = localOpRegistry[opType];
   if (!opFn) throw new Error(`Unknown opType: ${opType}`);
+
+  // A blank id can only reach the server and die there (see ./blank-reference),
+  // so it is refused at the door — with no outbox row at all, since queuing it
+  // would only manufacture a rejection for the review screen to show.
+  if (blankReferenceKey(payload)) {
+    return {
+      clientOpId: "",
+      outcome: { status: "rejected", resultMessage: "BLANK_REFERENCE" },
+    };
+  }
 
   const clientOpId = createId();
   const clientAt = nowIso();

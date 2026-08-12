@@ -36,6 +36,7 @@ import {
   CalendarDays,
   LogOut,
   History,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
@@ -46,7 +47,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { matchesRoute } from "./routes";
 import { navRowStyles } from "@/lib/nav";
 import { SYNC_API_BASE_URL } from "./config";
-import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, type SyncState } from "./sync/sync-manager";
+import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, refreshSyncCounts, type SyncState } from "./sync/sync-manager";
 import { loadSession, getSession, logout, type AuthSession } from "./auth";
 import { SETTINGS_PAGE } from "./nav-pages";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -79,6 +80,7 @@ import { DailyRoundsPage } from "./pages/daily-rounds-page";
 import { HerdAndStockPage } from "./pages/herd-and-stock-page";
 import { SettingsPage } from "./pages/settings-page";
 import { RecordsPage } from "./pages/records-page";
+import { RejectedOpsPage } from "./pages/rejected-ops-page";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
@@ -99,6 +101,11 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
 };
 const DEFAULT_ROUTE = "#/";
 const RABBIT_DETAIL_PREFIX = "#/rabbits/";
+// Deliberately not in ROUTES: «العمليات المرفوضة» is reached from the badge in
+// the sync bar, which only appears when there is something to review. A
+// permanent thirteenth nav row for a page that is empty on a healthy device
+// would be one more thing to scroll past every day.
+const REJECTED_OPS_ROUTE = "#/rejected";
 const LEGACY_HERD_ROUTES = ["#/stock", "#/mothers", "#/bucks"];
 const LEGACY_ROUNDS_ROUTES = ["#/rounds", "#/bucks-rounds"];
 const LEGACY_OPS_ROUTES = ["#/mating", "#/pregnancy-test", "#/kindling", "#/weaning", "#/fostering"];
@@ -108,6 +115,7 @@ const LEGACY_REPORTS_ROUTES = ["#/does-fertility", "#/bucks-fertility"];
 function isKnownRoute(hash: string): boolean {
   return (
     Boolean(ROUTES[hash]) ||
+    hash === REJECTED_OPS_ROUTE ||
     hash.startsWith(RABBIT_DETAIL_PREFIX) ||
     LEGACY_HERD_ROUTES.some((r) => matchesRoute(hash, r)) ||
     LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(hash, r)) ||
@@ -164,34 +172,62 @@ function syncStatusLabel(state: SyncState, locale: Locale): string {
 function SyncStatusBar({ locale }: { locale: Locale }) {
   const [state, setState] = useState<SyncState>(() => getSyncStatus());
   useEffect(() => subscribeSyncStatus(setState), []);
+  // The counts are otherwise only recomputed at the end of a sync, so a device
+  // that opens offline with rejections already sitting in its outbox would show
+  // nothing until it next reached the server — the exact moment the badge
+  // matters most.
+  useEffect(() => {
+    void refreshSyncCounts().catch(() => {});
+  }, []);
 
   const label = syncStatusLabel(state, locale);
+  const t = getClientDictionary(locale);
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs",
-        state.status === "offline" && "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-        state.status === "error" && "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
-        state.status === "syncing" && "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-        state.status === "idle" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-      )}
-    >
-      <span className="flex items-center gap-1.5">
-        {state.status === "offline" ? <WifiOff className="h-3.5 w-3.5" /> : null}
-        {state.status === "syncing" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
-        {label}
-        {state.status === "error" && state.lastError ? ` — ${state.lastError}` : ""}
-      </span>
-      <button
-        type="button"
-        onClick={() => void syncNow()}
-        disabled={state.status === "syncing"}
-        className="rounded px-2 py-0.5 font-medium underline-offset-2 hover:underline disabled:opacity-50"
+    <>
+      <div
+        className={cn(
+          "flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs",
+          state.status === "offline" && "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+          state.status === "error" && "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
+          state.status === "syncing" && "bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+          state.status === "idle" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+        )}
       >
-        {locale === "ar" ? "مزامنة الآن" : "Sync now"}
-      </button>
-    </div>
+        <span className="flex items-center gap-1.5">
+          {state.status === "offline" ? <WifiOff className="h-3.5 w-3.5" /> : null}
+          {state.status === "syncing" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+          {label}
+          {state.status === "error" && state.lastError ? ` — ${state.lastError}` : ""}
+        </span>
+        <button
+          type="button"
+          onClick={() => void syncNow()}
+          disabled={state.status === "syncing"}
+          className="rounded px-2 py-0.5 font-medium underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          {locale === "ar" ? "مزامنة الآن" : "Sync now"}
+        </button>
+      </div>
+
+      {/* Its own band under the status line rather than a chip inside it: a
+          rejection is not a sync state — the sync succeeded — and folding it
+          into a bar that reads «متزامن» is how it stayed invisible. Rendered
+          only when there is something to answer for, so a healthy device sees
+          exactly what it saw before. */}
+      {state.rejectedCount > 0 && (
+        <a
+          href={REJECTED_OPS_ROUTE}
+          className="flex items-center justify-between gap-2 border-b border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+        >
+          <span className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {t.syncRejected.badge(state.rejectedCount)}
+          </span>
+          <span className="underline underline-offset-2">{t.syncRejected.open}</span>
+        </a>
+      )}
+    </>
   );
 }
 
@@ -345,6 +381,10 @@ export function AppShell() {
     (rawRoute === "#/operations" && LEGACY_OPS_ROUTES.some((r) => pageFilter.has(r))) ||
     (rawRoute === "#/support-operations" && LEGACY_SUPPORT_OPS_ROUTES.some((r) => pageFilter.has(r))) ||
     (rawRoute === "#/reports" && LEGACY_REPORTS_ROUTES.some((r) => pageFilter.has(r))) ||
+    // Never restrictable: it lists this device's own refused presses, and a
+    // member locked out of it would be the one member who cannot see that his
+    // own work never reached the farm.
+    rawRoute === REJECTED_OPS_ROUTE ||
     rawRoute.startsWith(RABBIT_DETAIL_PREFIX);
   // Dashboard is always allowed, so a disallowed route can simply fall back
   // to it rather than hunting for the member's "first" allowed page.
@@ -642,6 +682,7 @@ export function AppShell() {
             <ReportsPage locale={locale} />
           )}
           {route === "#/records" && <RecordsPage locale={locale} />}
+          {route === REJECTED_OPS_ROUTE && <RejectedOpsPage locale={locale} />}
           {route === "#/finance" && <FinancePage locale={locale} />}
           {route === "#/settings" && <SettingsPage locale={locale} />}
         </main>

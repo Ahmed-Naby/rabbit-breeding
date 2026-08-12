@@ -38,11 +38,27 @@ export type SyncStatus = "offline" | "idle" | "syncing" | "error";
 export type SyncState = {
   status: SyncStatus;
   pendingCount: number;
+  /**
+   * Ops the server refused outright, still sitting in the outbox unread.
+   *
+   * Separate from pendingCount because they are the opposite problem. A pending
+   * op is on its way and needs nothing from anybody; a rejected one is a write
+   * the farmer watched succeed on his screen and which the server never
+   * accepted. Nothing retries it and nothing used to mention it, so the phone
+   * and the farm quietly disagreed forever. This is what puts it on screen.
+   */
+  rejectedCount: number;
   lastSyncAt: string | null;
   lastError: string | null;
 };
 
-let state: SyncState = { status: "idle", pendingCount: 0, lastSyncAt: null, lastError: null };
+let state: SyncState = {
+  status: "idle",
+  pendingCount: 0,
+  rejectedCount: 0,
+  lastSyncAt: null,
+  lastError: null,
+};
 const listeners = new Set<(s: SyncState) => void>();
 
 function setState(patch: Partial<SyncState>) {
@@ -66,7 +82,20 @@ async function refreshPendingCount(db: SQLiteDBConnection) {
     db,
     "SELECT COUNT(*) as n FROM outbox WHERE status IN ('pending', 'syncing')"
   );
-  setState({ pendingCount: row?.n ?? 0 });
+  const rejected = await queryOne<{ n: number }>(
+    db,
+    "SELECT COUNT(*) as n FROM outbox WHERE status = 'rejected'"
+  );
+  setState({ pendingCount: row?.n ?? 0, rejectedCount: rejected?.n ?? 0 });
+}
+
+/**
+ * Recount without syncing — for the review screen, whose own retry/dismiss
+ * buttons change the number under a badge that is otherwise only refreshed at
+ * the end of a sync.
+ */
+export async function refreshSyncCounts(): Promise<void> {
+  await refreshPendingCount(await getDb());
 }
 
 // --- fetch helper ---------------------------------------------------------
@@ -889,7 +918,96 @@ export async function push(): Promise<boolean> {
   return true;
 }
 
-/** True if any outbox op hasn't reached the server yet (excludes 'rejected' — those already got a definitive server answer and are a review-screen concern, not a data-loss risk). */
+// --- rejected-op review ---------------------------------------------------
+
+/**
+ * Flush to IndexedDB. A no-op on the native platforms, where the SQLite file is
+ * already the durable store — the same guard the push path spells out inline.
+ */
+async function persistOnWeb(): Promise<void> {
+  if (Capacitor.getPlatform() !== "android" && Capacitor.getPlatform() !== "ios") {
+    await sqlite.saveToStore(dbName());
+  }
+}
+
+export type RejectedOp = {
+  clientOpId: string;
+  opType: string;
+  /** The raw JSON, so the screen can name the doe the op was about. */
+  payload: string;
+  clientAt: string;
+  /** Whatever the server said. A code, usually; occasionally a Prisma sentence. */
+  resultMessage: string | null;
+};
+
+/** Newest first: the rejection a farmer is still holding in his head. */
+export async function listRejectedOps(): Promise<RejectedOp[]> {
+  const db = await getDb();
+  return queryAll<RejectedOp>(
+    db,
+    `SELECT clientOpId, opType, payload, clientAt, resultMessage
+       FROM outbox WHERE status = 'rejected' ORDER BY clientAt DESC`
+  );
+}
+
+/**
+ * Send it again.
+ *
+ * Worth having even though the server already said no once: a good half of the
+ * real rejections were about state that has since changed — a tag that was in
+ * use and has been freed, a kindling recorded after the fact, a server that has
+ * since been deployed with the op the phone already knew. Back to 'pending' and
+ * the ordinary push path decides. If it is refused a second time it lands back
+ * here with the newer message, which is itself the answer.
+ */
+export async function retryRejectedOp(clientOpId: string): Promise<void> {
+  const db = await getDb();
+  await run(db, "UPDATE outbox SET status = 'pending', resultMessage = NULL WHERE clientOpId = ?", [
+    clientOpId,
+  ]);
+  await persistOnWeb();
+  await refreshPendingCount(db);
+}
+
+/**
+ * Accept the server's answer and drop the op.
+ *
+ * The optimistic local write it made is NOT rolled back in general — undoing an
+ * arbitrary op means knowing its inverse, which the outbox does not store, and
+ * for most ops the next pull overwrites the local row with the server's truth
+ * anyway. The exception is the two row-CREATING ops, whose rows no pull will
+ * ever correct because the server has no such row to send: those get the same
+ * cleanup reconcileRejectedCreates does, run here so dismissing can't strand a
+ * phantom rabbit that the sweep would no longer find.
+ */
+export async function dismissRejectedOp(clientOpId: string): Promise<void> {
+  const db = await getDb();
+  const row = await queryOne<{ opType: string; payload: string }>(
+    db,
+    "SELECT opType, payload FROM outbox WHERE clientOpId = ? AND status = 'rejected'",
+    [clientOpId]
+  );
+  if (!row) return;
+  await withTransaction(async (txDb) => {
+    const cleanup = REJECTABLE_CREATE_CLEANUP[row.opType];
+    if (cleanup) {
+      const payload = JSON.parse(row.payload) as { id?: string };
+      if (payload.id) await cleanup(txDb, payload.id);
+    }
+    await run(txDb, "DELETE FROM outbox WHERE clientOpId = ?", [clientOpId]);
+  });
+  await persistOnWeb();
+  await refreshPendingCount(db);
+}
+
+/** Drop every rejected op at once, each with the same cleanup as dismissing one. */
+export async function dismissAllRejectedOps(): Promise<void> {
+  for (const op of await listRejectedOps()) {
+    await dismissRejectedOp(op.clientOpId);
+  }
+}
+
+/** True if any outbox op hasn't reached the server yet (excludes 'rejected' — those already got a definitive server answer and are surfaced by the review screen above instead). */
 export async function hasUnsyncedOps(): Promise<boolean> {
   const db = await getDb();
   const row = await queryOne<{ n: number }>(
