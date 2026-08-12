@@ -1048,7 +1048,6 @@ export const en: Dictionary = {
     topSectionTitle: "Best-performing does",
     topEmpty: "No doe has enough record to rank yet. The score needs matings and kindlings on file.",
     topCountLabel: "Does listed",
-    topRankedLabel: "Does with a score",
     topAvgScoreLabel: "Farm average score",
     topBestScoreLabel: "Best score",
     topColRank: "Rank",

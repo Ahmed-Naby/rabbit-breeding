@@ -1441,13 +1441,7 @@ function TopDoesSection({
               tone={bestScore == null ? undefined : "good"}
             />
             <HerdTile label={rt.topAvgScoreLabel} value={dec(top.herdAvgScore)} />
-            <HerdTile
-              label={rt.topCountLabel}
-              value={top.topDoes.length.toLocaleString()}
-              // The pool the top N was drawn from, so a list of 20 out of 24
-              // does not read like a list of 20 out of 200.
-              basis={`${rt.topRankedLabel}: ${top.rankedCount.toLocaleString()} / ${top.doeCount.toLocaleString()}`}
-            />
+            <HerdTile label={rt.topCountLabel} value={top.topDoes.length.toLocaleString()} />
             <HerdTile label={rt.weakHerdLitterLabel} value={dec(top.herdAvgLitterSize)} />
           </div>
 

@@ -1061,7 +1061,6 @@ export const ar = {
     topEmpty:
       "لا توجد أم اكتمل سجلها بما يكفي للترتيب بعد. الدرجة تحتاج تلقيحات وولادات مسجّلة.",
     topCountLabel: "الأمهات المعروضة",
-    topRankedLabel: "أمهات لها درجة",
     topAvgScoreLabel: "متوسط درجة المزرعة",
     topBestScoreLabel: "أعلى درجة",
     topColRank: "الترتيب",
