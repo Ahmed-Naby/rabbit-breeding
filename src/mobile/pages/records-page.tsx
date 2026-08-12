@@ -3,7 +3,7 @@ import { HeartHandshake, Microscope, Droplets, HeartPulse, Milk, ArrowLeftRight,
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
-import { isWithinDateRange } from "@/lib/dates";
+import { isWithinDateRange, presetRange, RANGE_PRESETS, type RangePreset } from "@/lib/dates";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -339,7 +339,38 @@ export function RecordsPage({ locale }: { locale: Locale }) {
       </div>
 
       <Card>
-        <CardContent className="py-4">
+        <CardContent className="space-y-3 py-4">
+          {/* One press fills both boxes; the table filters off state, so there
+              is nothing to apply afterwards. «من بداية التشغيل» is the empty
+              pair «إلغاء التصفية» produced, named for what it shows. */}
+          <div className="flex flex-wrap gap-2">
+            {RANGE_PRESETS.map((preset) => {
+              const range = presetRange(preset);
+              const active = from === range.from && to === range.to;
+              const labels: Record<RangePreset, string> = {
+                month: rt.rangeMonthButton,
+                quarter: rt.rangeQuarterButton,
+                year: rt.rangeYearButton,
+                all: rt.rangeAllButton,
+              };
+              return (
+                <Button
+                  key={preset}
+                  type="button"
+                  size="sm"
+                  variant={active ? "default" : "outline"}
+                  disabled={active}
+                  onClick={() => {
+                    setFrom(range.from);
+                    setTo(range.to);
+                  }}
+                >
+                  {labels[preset]}
+                </Button>
+              );
+            })}
+          </div>
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label htmlFor="records-from">{rt.fromLabel}</Label>
@@ -355,19 +386,6 @@ export function RecordsPage({ locale }: { locale: Locale }) {
               <Label htmlFor="records-to">{rt.toLabel}</Label>
               <Input id="records-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
             </div>
-            {(from || to) && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFrom("");
-                  setTo("");
-                }}
-              >
-                {rt.clearButton}
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>

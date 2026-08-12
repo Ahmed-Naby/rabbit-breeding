@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { cn } from "@/lib/utils";
-import { fromDateInputValue } from "@/lib/dates";
+import { fromDateInputValue, presetRange } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { MatingLog } from "../mating/mating-log";
@@ -342,7 +342,40 @@ export default async function RecordsPage({
       </div>
 
       <Card>
-        <CardContent className="py-4">
+        <CardContent className="space-y-3 py-4">
+          {/* One press each: the link carries the dates AND re-renders the tab,
+              so there is nothing to press afterwards. «من بداية التشغيل» is the
+              no-dates URL «إلغاء التصفية» used to reach, named for what it
+              shows rather than for what it undoes. */}
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["month", rt.rangeMonthButton],
+              ["quarter", rt.rangeQuarterButton],
+              ["year", rt.rangeYearButton],
+              ["all", rt.rangeAllButton],
+            ] as const).map(([preset, label]) => {
+              const range = presetRange(preset);
+              const active = (sp.from ?? "") === range.from && (sp.to ?? "") === range.to;
+              const href =
+                preset === "all"
+                  ? clearHref
+                  : `/records?tab=${activeTab}&from=${range.from}&to=${range.to}`;
+              return (
+                <Button
+                  key={preset}
+                  // A real disabled <button> for the one already on screen:
+                  // `disabled` means nothing to an <a>, which stays clickable.
+                  asChild={!active}
+                  disabled={active}
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                >
+                  {active ? <span>{label}</span> : <Link href={href}>{label}</Link>}
+                </Button>
+              );
+            })}
+          </div>
+
           <form method="get" className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="tab" value={activeTab} />
             <label className="flex flex-col gap-1">
@@ -356,11 +389,6 @@ export default async function RecordsPage({
             <Button type="submit" size="sm">
               {rt.applyButton}
             </Button>
-            {(sp.from || sp.to) && (
-              <Button asChild type="button" variant="outline" size="sm">
-                <Link href={clearHref}>{rt.clearButton}</Link>
-              </Button>
-            )}
           </form>
         </CardContent>
       </Card>

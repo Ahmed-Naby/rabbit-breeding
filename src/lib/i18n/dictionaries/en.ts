@@ -1031,7 +1031,12 @@ export const en: Dictionary = {
     fromLabel: "From",
     toLabel: "To",
     applyButton: "Filter",
+    // Still read by the weaning-sales page, which has no preset row of its own.
     clearButton: "Clear filter",
+    rangeMonthButton: "Month",
+    rangeQuarterButton: "3 months",
+    rangeYearButton: "Year",
+    rangeAllButton: "Since day one",
   },
   dailyOperations: {
     title: "Daily Operations",
