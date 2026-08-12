@@ -861,6 +861,7 @@ export const en: Dictionary = {
     tabHerdProductivity: "Herd Productivity",
     tabIdleDoes: "Idle Does",
     tabWeakDoes: "Underperforming Does",
+    tabTopDoes: "Best Does",
     fromLabel: "From",
     toLabel: "To",
     applyButton: "View report",
@@ -1023,24 +1024,38 @@ export const en: Dictionary = {
     weakCountLabel: "Underperforming does",
     weakShareLabel: "Share of the herd",
     weakHerdLitterLabel: "Farm average litter size",
-    weakHerdRearingLabel: "Farm average weaning retention",
+    weakColScore: "Score",
     weakColMatings: "Matings",
     weakColKindlings: "Kindlings",
     weakColFertility: "Fertility",
     weakColLitterSize: "Avg litter size",
-    weakColRearing: "Weaning retention",
     weakColReasons: "Why she is listed",
     weakReasonFertility: "Low fertility",
     weakReasonLitterSize: "Small litters",
-    weakReasonRearing: "Poor rearing",
     // The whole method on one line, because this list is a spending decision:
     // an owner about to sell an animal is owed the rule that named her.
     weakNote: (fertilityThreshold: number, relativePct: number, minMatings: number) =>
-      `Does that failed one or more of three tests: fertility under ${fertilityThreshold}%, average litter size under ${relativePct}% of your farm's average, or weaning retention under ${relativePct}% of your farm's average. Litter size and rearing are measured against your own farm because what counts as a big litter differs by breed. A test is not run on a doe with fewer than ${minMatings} matings (or ${minMatings} kindlings/weanings), so a new doe never reads as a failure.`,
+      `Does that failed one or both of two tests: fertility under ${fertilityThreshold}%, or average litter size under ${relativePct}% of your farm's average. Litter size is measured against your own farm because what counts as a big litter differs by breed. A test is not run on a doe with fewer than ${minMatings} matings (or ${minMatings} kindlings), so a new doe never reads as a failure.`,
     // Lifetime, not the report's range — stated because every other tab on this
     // page answers a question about a window, and this one does not.
     weakLifetimeNote:
       "Computed over the doe's whole history, not a chosen period: culling is permanent, and a doe who had two bad months after a good year is not the same animal as one who has been weak since day one.",
+    // The score is a single number about a live animal, so the rule behind it
+    // is printed wherever it is: a grade nobody can check is a rumour.
+    doeScoreNote:
+      "The score out of 100 is kits born alive per mating — fertility × average litter size — measured against \"every mating produces a litter of your farm's average size\" = 100. Deliberately hard, so most good does sit below it. A doe without enough record yet reads «—», not zero.",
+
+    topSectionTitle: "Best-performing does",
+    topEmpty: "No doe has enough record to rank yet. The score needs matings and kindlings on file.",
+    topCountLabel: "Does listed",
+    topRankedLabel: "Does with a score",
+    topAvgScoreLabel: "Farm average score",
+    topBestScoreLabel: "Best score",
+    topColRank: "Rank",
+    // Says what the list is FOR. A leaderboard nobody acts on is decoration:
+    // the point is that the next generation comes out of these cages.
+    topNote: (limit: number) =>
+      `The top ${limit} does by score — the list your replacements should come out of. Equal scores go to the doe with more kindlings, because a number with eight litters behind it is worth more than the same number with three. A doe without enough record is not ranked: one excellent litter makes a lucky doe, not an excellent one.`,
   },
   records: {
     title: "Records",

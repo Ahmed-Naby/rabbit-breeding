@@ -868,6 +868,7 @@ export const ar = {
     tabHerdProductivity: "إنتاجية القطيع",
     tabIdleDoes: "الأمهات الخاملة",
     tabWeakDoes: "أمهات ضعيفة الأداء",
+    tabTopDoes: "أفضل الأمهات",
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "عرض التقرير",
@@ -1035,24 +1036,39 @@ export const ar = {
     weakCountLabel: "عدد الأمهات الضعيفة",
     weakShareLabel: "نسبتهن من القطيع",
     weakHerdLitterLabel: "متوسط عدد الخلفة في المزرعة",
-    weakHerdRearingLabel: "متوسط نسبة الفطام في المزرعة",
+    weakColScore: "الدرجة",
     weakColMatings: "عدد التلقيحات",
     weakColKindlings: "عدد الولادات",
     weakColFertility: "الخصوبة",
     weakColLitterSize: "متوسط عدد الخلفة",
-    weakColRearing: "نسبة الفطام",
     weakColReasons: "سبب الترشيح",
     weakReasonFertility: "خصوبة منخفضة",
     weakReasonLitterSize: "عدد خلفة قليل",
-    weakReasonRearing: "رعاية ضعيفة",
     // The whole method on one line, because this list is a spending decision:
     // an owner about to sell an animal is owed the rule that named her.
     weakNote: (fertilityThreshold: number, relativePct: number, minMatings: number) =>
-      `أمهات سقطن في واحد أو أكثر من ثلاثة اختبارات: خصوبة أقل من ${fertilityThreshold}%، أو متوسط عدد خلفة أقل من ${relativePct}% من متوسط مزرعتك، أو نسبة فطام أقل من ${relativePct}% من متوسط مزرعتك. عدد الخلفة والفطام يُقاسان بمزرعتك نفسها لأن ما يُعتبر بطنًا كبيرًا يختلف من سلالة لأخرى. لا يُحسب اختبار لأم لم تبلغ ${minMatings} تلقيحات (أو ${minMatings} ولادات/فطامات) على الأقل، حتى لا تظهر أم جديدة كأنها فاشلة.`,
+      `أمهات سقطن في واحد أو كلا اختبارين: خصوبة أقل من ${fertilityThreshold}%، أو متوسط عدد خلفة أقل من ${relativePct}% من متوسط مزرعتك. عدد الخلفة يُقاس بمزرعتك نفسها لأن ما يُعتبر بطنًا كبيرًا يختلف من سلالة لأخرى. لا يُحسب اختبار لأم لم تبلغ ${minMatings} تلقيحات (أو ${minMatings} ولادات) على الأقل، حتى لا تظهر أم جديدة كأنها فاشلة.`,
     // Lifetime, not the report's range — stated because every other tab on this
     // page answers a question about a window, and this one does not.
     weakLifetimeNote:
       "الحساب على تاريخ الأم كله وليس على فترة محدّدة: الاستبعاد قرار دائم، وأم مرّت بشهرين سيّئين بعد سنة جيدة ليست كأم ضعيفة من أول يوم.",
+    // The score is a single number about a live animal, so the rule behind it
+    // is printed wherever it is: a grade nobody can check is a rumour.
+    doeScoreNote:
+      "«الدرجة» من ١٠٠ هي عدد الخلفة الحية لكل تلقيحة: الخصوبة × متوسط عدد الخلفة، منسوبة إلى «كل تلقيحة تنجح وتعطي بطنًا بحجم متوسط مزرعتك» = ١٠٠. رقم صعب عن قصد، فمعظم الأمهات الجيدات يقعن تحته. أم لم يكتمل سجلها بعد تظهر «—» لا صفرًا.",
+
+    topSectionTitle: "أفضل الأمهات أداءً",
+    topEmpty:
+      "لا توجد أم اكتمل سجلها بما يكفي للترتيب بعد. الدرجة تحتاج تلقيحات وولادات مسجّلة.",
+    topCountLabel: "الأمهات المعروضة",
+    topRankedLabel: "أمهات لها درجة",
+    topAvgScoreLabel: "متوسط درجة المزرعة",
+    topBestScoreLabel: "أعلى درجة",
+    topColRank: "الترتيب",
+    // Says what the list is FOR. A leaderboard nobody acts on is decoration:
+    // the point is that the next generation comes out of these cages.
+    topNote: (limit: number) =>
+      `أعلى ${limit} أم بالدرجة — القائمة التي يُنتخب منها بدائل القطيع. عند تساوي الدرجة تتقدّم صاحبة الولادات الأكثر، لأن رقمًا وراءه ثماني ولادات أوثق من رقم وراءه ثلاث. لا تدخل الترتيب أم لم يكتمل سجلها: بطن واحد ممتاز يصنع أمًا محظوظة لا أمًا ممتازة.`,
   },
   records: {
     title: "السجلات",

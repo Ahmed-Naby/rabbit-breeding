@@ -18,6 +18,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { cn } from "@/lib/utils";
+import { doeScoreToneClass, herdLitterBaseline, scoreDoe } from "@/lib/doe-score";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -136,6 +137,20 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
     ])
   );
 
+  // The denominator of every «درجة» on this page. Built from the ACTIVE does
+  // only, which is the population «أمهات ضعيفة الأداء» builds it from too: the
+  // same doe scoring 63 on one screen and 61 on the other because one screen
+  // also counted the ones that have left the barn would make the grade
+  // unusable, and the barn a doe is judged against is the standing one.
+  const litterBaseline = herdLitterBaseline(
+    does
+      .filter((d) => d.status === "active")
+      .map((d) => {
+        const k = kindlingByDoe.get(d.id);
+        return { kindlings: k?.count ?? 0, bornAliveTotal: k?.bornAtKindling ?? 0 };
+      })
+  );
+
   // Aggregate stats across all does
   let overallBreedings = 0;
   let overallKindlings = 0;
@@ -197,6 +212,10 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
       doeState: doe.doeState,
       totalBreedings,
       totalKindlings,
+      score: scoreDoe(
+        { matings: totalBreedings, kindlings: totalKindlings, bornAliveTotal: bornAtKindling },
+        litterBaseline
+      ),
       fertilityRate,
       avgBornAtKindling,
       avgBorn,
@@ -245,6 +264,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
                   kind: "doesFertility",
                   rows: rowData.map((r) => ({
                     tagId: r.tagId,
+                    score: r.score,
                     breed: r.breed,
                     status: r.status,
                     doeState: r.doeState,
@@ -316,12 +336,15 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
           description={t.doesFertility.emptyDescription}
         />
       ) : (
+        <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">{t.reports.doeScoreNote}</p>
         <div className="rounded-xl border bg-card">
           <SortableTable
             headerRowClassName="[&>th]:border-x"
             initialSortKey="doeTag"
             columns={[
               { key: "doeTag", label: t.doesFertility.colDoeTag, type: "tag", className: "text-center" },
+              { key: "score", label: t.reports.weakColScore, type: "number", className: "text-center" },
               { key: "breed", label: t.doesFertility.colBreed, type: "string", className: "text-center" },
               { key: "status", label: t.doesFertility.colStatus, type: "string", className: "text-center" },
               { key: "doeState", label: t.doesFertility.colDoeState, type: "string", className: "text-center" },
@@ -334,10 +357,11 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
               { key: "avgWeaningWeight", label: t.doesFertility.colAvgWeaningWeight, type: "number", className: "text-center" },
               { key: "weaningSurvival", label: t.doesFertility.colWeaningSurvivalRate, type: "number", className: "text-center" },
             ]}
-            rows={rowData.map(({ doe, totalBreedings, totalKindlings, fertilityRate, avgBornAtKindling, avgBorn, avgWeaned, avgWeaningWeight, weaningSurvivalRate }) => ({
+            rows={rowData.map(({ doe, score, totalBreedings, totalKindlings, fertilityRate, avgBornAtKindling, avgBorn, avgWeaned, avgWeaningWeight, weaningSurvivalRate }) => ({
               key: doe.id,
               sortValues: {
                 doeTag: doe.tagId,
+                score: score ?? -1,
                 breed: doe.breed,
                 status: doe.status,
                 doeState: doe.doeState,
@@ -356,6 +380,9 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
                     <Link href={`/rabbits/${doe.id}`} className="hover:underline">
                       {doe.tagId ?? "—"}
                     </Link>
+                  </TableCell>
+                  <TableCell className={cn("font-bold tabular-nums", doeScoreToneClass(score))}>
+                    {score ?? "—"}
                   </TableCell>
                   <TableCell>{doe.breed ?? "—"}</TableCell>
                   <TableCell>
@@ -388,6 +415,7 @@ export default async function DoesFertilityPage({ hideHeader }: { hideHeader?: b
               ),
             }))}
           />
+        </div>
         </div>
       )}
     </div>

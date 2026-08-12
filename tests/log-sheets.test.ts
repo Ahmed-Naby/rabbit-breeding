@@ -118,6 +118,7 @@ describe("buildLogSheet", () => {
             breed: null,
             status: "active",
             doeState: "nursing",
+            score: 64,
             totalBreedings: 3,
             totalKindlings: 2,
             // Already a percentage on both bundles — not scaled again here.
@@ -135,14 +136,15 @@ describe("buildLogSheet", () => {
 
     expect(sheet.columns).toHaveLength(sheet.rows[0].length);
     expect(sheet.sheetName).toBe("تقرير خصوبة الأمهات");
-    expect(sheet.rows[0][2]).toBe("نشط");
-    expect(sheet.rows[0][3]).toBe("مرضعة");
-    expect(sheet.rows[0][6]).toBe(67);
+    expect(sheet.rows[0][1]).toBe(64);
+    expect(sheet.rows[0][3]).toBe("نشط");
+    expect(sheet.rows[0][4]).toBe("مرضعة");
+    expect(sheet.rows[0][7]).toBe(67);
     // Averages keep their decimals; the column, not the value, does the rounding.
-    expect(sheet.rows[0][7]).toBe(7.5);
-    expect(sheet.rows[0][9]).toBeNull();
-    expect(sheet.rows[0][10]).toBe(618);
-    expect(sheet.rows[0][11]).toBeNull();
+    expect(sheet.rows[0][8]).toBe(7.5);
+    expect(sheet.rows[0][10]).toBeNull();
+    expect(sheet.rows[0][11]).toBe(618);
+    expect(sheet.rows[0][12]).toBeNull();
   });
 
   it("keeps the buck fertility columns in step with the row values", () => {

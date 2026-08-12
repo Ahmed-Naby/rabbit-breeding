@@ -13,6 +13,7 @@ import {
   PackageOpen,
   ShoppingCart,
   TriangleAlert,
+  Trophy,
 } from "lucide-react";
 import { KitStockChart } from "@/components/kit-stock-chart";
 import { MonthlySalesChart } from "@/components/monthly-sales-chart";
@@ -32,9 +33,11 @@ import {
   getHerdReport,
   getIdleDoesReport,
   getWeakDoesReport,
+  getTopDoesReport,
   type HerdReport,
   type IdleDoesReport,
   type WeakDoesReport,
+  type TopDoesReport,
 } from "./herd-data";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
@@ -46,6 +49,8 @@ import {
   CULL_MIN_MATINGS,
 } from "@/lib/cull-candidates";
 import { WEAK_DOE_RELATIVE_PCT, type WeakDoeReason } from "@/lib/weak-does";
+import { doeScoreToneClass } from "@/lib/doe-score";
+import { TOP_DOE_LIMIT } from "@/lib/top-does";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -86,6 +91,7 @@ export default async function ReportsPage({
   const isHerdTab = activeTab === "herd";
   const isIdleTab = activeTab === "idle-does";
   const isWeakTab = activeTab === "weak-does";
+  const isTopTab = activeTab === "top-does";
   const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? "quarter" : "week");
   // «إلغاء التصفية» lands here: no window at all, every record the farm has.
   // A flag rather than empty from/to, because a missing range is what a plain
@@ -95,15 +101,18 @@ export default async function ReportsPage({
   const toSelected = showAll ? ALL_TIME_TO : sp.to ? fromDateInputValue(sp.to) : defaultTo;
   const toExclusive = addDays(toSelected, 1);
 
-  // Only the visible tab's data is fetched: the four reports have no overlap
-  // and both الأمهات الخاملة and أمهات ضعيفة الأداء scan every log row on the
-  // farm, so loading them behind تقارير المتابعة would tax the common case for
-  // nothing.
-  const [report, herd, idle, weak, { locale, t }] = await Promise.all([
-    isHerdTab || isIdleTab || isWeakTab ? null : getFollowUpReport(from, toExclusive),
+  // Only the visible tab's data is fetched: the reports have no overlap and
+  // الأمهات الخاملة, أمهات ضعيفة الأداء and أفضل الأمهات each scan every log row
+  // on the farm, so loading them behind تقارير المتابعة would tax the common
+  // case for nothing.
+  const [report, herd, idle, weak, top, { locale, t }] = await Promise.all([
+    isHerdTab || isIdleTab || isWeakTab || isTopTab
+      ? null
+      : getFollowUpReport(from, toExclusive),
     isHerdTab ? getHerdReport(from, toExclusive) : null,
     isIdleTab ? getIdleDoesReport() : null,
     isWeakTab ? getWeakDoesReport() : null,
+    isTopTab ? getTopDoesReport() : null,
     getDictionary(),
   ]);
   const rt = t.reports;
@@ -203,6 +212,21 @@ export default async function ReportsPage({
           <TriangleAlert className="size-4 text-amber-500" />
           {rt.tabWeakDoes}
         </Link>
+
+        {/* The other end of the same ranking, and rangeless for the same
+            reason: a doe earns her place over a lifetime, not over a quarter. */}
+        <Link
+          href="/reports?tab=top-does"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            isTopTab
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <Trophy className="size-4 text-emerald-500" />
+          {rt.tabTopDoes}
+        </Link>
       </div>
 
       {/* TAB 1: Follow-Up Reports */}
@@ -283,6 +307,14 @@ export default async function ReportsPage({
       {weak && isWeakTab && (
         <div className="animate-fade-in">
           <WeakDoesSection weak={weak} rt={rt} locale={locale} />
+        </div>
+      )}
+
+      {/* TAB 7: The best does — where the replacements come from, read off the
+          same ranking TAB 6 reads from the bottom. */}
+      {top && isTopTab && (
+        <div className="animate-fade-in">
+          <TopDoesSection top={top} rt={rt} locale={locale} />
         </div>
       )}
     </div>
@@ -1249,7 +1281,6 @@ function WeakDoesSection({
   const reasonLabels: Record<WeakDoeReason, string> = {
     fertility: rt.weakReasonFertility,
     litterSize: rt.weakReasonLitterSize,
-    rearing: rt.weakReasonRearing,
   };
   const reasonText = (reasons: WeakDoeReason[]) =>
     reasons.map((r) => reasonLabels[r]).join("، ");
@@ -1258,7 +1289,7 @@ function WeakDoesSection({
     <div className="space-y-6">
       <Section title={rt.weakSectionTitle}>
         <div className="space-y-3 p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <HerdTile
               label={rt.weakCountLabel}
               value={weak.weakDoes.length.toLocaleString()}
@@ -1266,18 +1297,15 @@ function WeakDoesSection({
               tone={weak.weakDoes.length > 0 ? "bad" : "good"}
             />
             <HerdTile label={rt.weakShareLabel} value={pct(share)} />
-            {/* The two bars themselves, so the list can be read against them. */}
+            {/* The relative bar itself, so the list can be read against it. */}
             <HerdTile label={rt.weakHerdLitterLabel} value={dec(weak.herdAvgLitterSize)} />
-            <HerdTile
-              label={rt.weakHerdRearingLabel}
-              value={ratePct(weak.herdAvgRetentionPct)}
-            />
           </div>
 
           <p className="text-xs text-muted-foreground">
             {rt.weakNote(CULL_FERTILITY_THRESHOLD_PCT, WEAK_DOE_RELATIVE_PCT, CULL_MIN_MATINGS)}
           </p>
           <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
+          <p className="text-xs text-muted-foreground">{rt.doeScoreNote}</p>
 
           {weak.weakDoes.length === 0 ? (
             <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.weakEmpty}</p>
@@ -1293,9 +1321,9 @@ function WeakDoesSection({
                     breed: doe.breed,
                     matings: doe.matings,
                     kindlings: doe.kindlings,
+                    score: doe.score,
                     fertilityRatePct: doe.fertilityRatePct,
                     avgLitterSize: doe.avgLitterSize,
-                    weaningRetentionPct: doe.weaningRetentionPct,
                     reasons: reasonText(doe.reasons),
                   })),
                 }}
@@ -1305,30 +1333,30 @@ function WeakDoesSection({
               <SortableTable
                 headerRowClassName="[&>th]:border-x"
                 // Worst first, matching what findWeakDoes already returns: the
-                // does failing all three tests are the ones the page exists for.
+                // does failing both tests are the ones the page exists for.
                 initialSortKey="reasons"
                 initialSortDirection="desc"
                 columns={[
                   { key: "index", label: rt.herdColIndex, className: "text-center", sortable: false },
                   { key: "tag", label: rt.herdColTag, type: "tag", className: "text-center" },
+                  { key: "score", label: rt.weakColScore, type: "number", className: "text-center" },
                   { key: "breed", label: rt.herdColBreed, type: "string", className: "hidden text-center sm:table-cell" },
                   { key: "matings", label: rt.weakColMatings, type: "number", className: "hidden text-center sm:table-cell" },
                   { key: "kindlings", label: rt.weakColKindlings, type: "number", className: "hidden text-center sm:table-cell" },
                   { key: "fertility", label: rt.weakColFertility, type: "number", className: "text-center" },
                   { key: "litterSize", label: rt.weakColLitterSize, type: "number", className: "text-center" },
-                  { key: "rearing", label: rt.weakColRearing, type: "number", className: "text-center" },
                   { key: "reasons", label: rt.weakColReasons, type: "number", className: "text-center" },
                 ]}
                 rows={weak.weakDoes.map((doe, i) => ({
                   key: doe.id,
                   sortValues: {
                     tag: doe.tagId,
+                    score: doe.score,
                     breed: doe.breed,
                     matings: doe.matings,
                     kindlings: doe.kindlings,
                     fertility: doe.fertilityRatePct,
                     litterSize: doe.avgLitterSize,
-                    rearing: doe.weaningRetentionPct,
                     // Sorted by how many tests she failed, which is what the
                     // column shows once you stop reading the words.
                     reasons: doe.reasons.length,
@@ -1340,6 +1368,9 @@ function WeakDoesSection({
                         <Link href={`/rabbits/${doe.id}`} className="hover:underline">
                           {doe.tagId ?? "—"}
                         </Link>
+                      </TableCell>
+                      <TableCell className={cn("font-bold tabular-nums", doeScoreToneClass(doe.score))}>
+                        {doe.score ?? "—"}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
                       <TableCell className="hidden tabular-nums sm:table-cell">{doe.matings}</TableCell>
@@ -1363,20 +1394,137 @@ function WeakDoesSection({
                       >
                         {dec(doe.avgLitterSize)}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          "tabular-nums",
-                          doe.reasons.includes("rearing") && "font-semibold text-rose-600 dark:text-rose-400"
-                        )}
-                      >
-                        {ratePct(doe.weaningRetentionPct)}
-                      </TableCell>
                       <TableCell className="text-xs">{reasonText(doe.reasons)}</TableCell>
                     </TableRow>
                   ),
                 }))}
               />
             </div>
+            </>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/**
+ * «أفضل الأمهات» — the shortlist a breeder picks his replacements from.
+ *
+ * The mirror image of WeakDoesSection: one ranking, read from the top instead
+ * of the bottom. Here a single figure IS the point, unlike the culling tab —
+ * nobody needs evidence to keep a doe, so «الدرجة» leads and the rates that
+ * built it follow behind it as the workings.
+ */
+function TopDoesSection({
+  top,
+  rt,
+  locale,
+}: {
+  top: TopDoesReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const ratePct = (v: number) => `${Math.round(v)}%`;
+  const dec = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+  const bestScore = top.topDoes.length > 0 ? top.topDoes[0].score : null;
+
+  return (
+    <div className="space-y-6">
+      <Section title={rt.topSectionTitle}>
+        <div className="space-y-3 p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <HerdTile
+              label={rt.topBestScoreLabel}
+              value={bestScore == null ? "—" : bestScore.toLocaleString()}
+              strong
+              tone={bestScore == null ? undefined : "good"}
+            />
+            <HerdTile label={rt.topAvgScoreLabel} value={dec(top.herdAvgScore)} />
+            <HerdTile
+              label={rt.topCountLabel}
+              value={top.topDoes.length.toLocaleString()}
+              // The pool the top N was drawn from, so a list of 20 out of 24
+              // does not read like a list of 20 out of 200.
+              basis={`${rt.topRankedLabel}: ${top.rankedCount.toLocaleString()} / ${top.doeCount.toLocaleString()}`}
+            />
+            <HerdTile label={rt.weakHerdLitterLabel} value={dec(top.herdAvgLitterSize)} />
+          </div>
+
+          <p className="text-xs text-muted-foreground">{rt.topNote(TOP_DOE_LIMIT)}</p>
+          <p className="text-xs text-muted-foreground">{rt.doeScoreNote}</p>
+          <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
+
+          {top.topDoes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{rt.topEmpty}</p>
+          ) : (
+            <>
+              <div className="flex justify-end">
+                <ExportXlsxButton
+                  locale={locale}
+                  spec={{
+                    kind: "topDoes",
+                    rows: top.topDoes.map((doe, i) => ({
+                      rank: i + 1,
+                      tagId: doe.tagId,
+                      breed: doe.breed,
+                      score: doe.score,
+                      matings: doe.matings,
+                      kindlings: doe.kindlings,
+                      fertilityRatePct: doe.fertilityRatePct,
+                      avgLitterSize: doe.avgLitterSize,
+                    })),
+                  }}
+                />
+              </div>
+              <div className="overflow-hidden rounded-xl border">
+                <SortableTable
+                  headerRowClassName="[&>th]:border-x"
+                  // Best first, which is the order findTopDoes already returns.
+                  initialSortKey="score"
+                  initialSortDirection="desc"
+                  columns={[
+                    { key: "index", label: rt.topColRank, className: "text-center", sortable: false },
+                    { key: "tag", label: rt.herdColTag, type: "tag", className: "text-center" },
+                    { key: "score", label: rt.weakColScore, type: "number", className: "text-center" },
+                    { key: "breed", label: rt.herdColBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                    { key: "matings", label: rt.weakColMatings, type: "number", className: "hidden text-center sm:table-cell" },
+                    { key: "kindlings", label: rt.weakColKindlings, type: "number", className: "text-center" },
+                    { key: "fertility", label: rt.weakColFertility, type: "number", className: "text-center" },
+                    { key: "litterSize", label: rt.weakColLitterSize, type: "number", className: "text-center" },
+                  ]}
+                  rows={top.topDoes.map((doe, i) => ({
+                    key: doe.id,
+                    sortValues: {
+                      tag: doe.tagId,
+                      score: doe.score,
+                      breed: doe.breed,
+                      matings: doe.matings,
+                      kindlings: doe.kindlings,
+                      fertility: doe.fertilityRatePct,
+                      litterSize: doe.avgLitterSize,
+                    },
+                    node: (
+                      <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="font-medium">
+                          <Link href={`/rabbits/${doe.id}`} className="hover:underline">
+                            {doe.tagId ?? "—"}
+                          </Link>
+                        </TableCell>
+                        <TableCell className={cn("font-bold tabular-nums", doeScoreToneClass(doe.score))}>
+                          {doe.score}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                        <TableCell className="hidden tabular-nums sm:table-cell">{doe.matings}</TableCell>
+                        <TableCell className="tabular-nums">{doe.kindlings}</TableCell>
+                        <TableCell className="tabular-nums">{ratePct(doe.fertilityRatePct)}</TableCell>
+                        <TableCell className="tabular-nums">{doe.avgLitterSize.toFixed(1)}</TableCell>
+                      </TableRow>
+                    ),
+                  }))}
+                />
+              </div>
             </>
           )}
         </div>

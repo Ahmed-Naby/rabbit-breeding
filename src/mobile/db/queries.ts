@@ -14,6 +14,8 @@ import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortal
 import { naturalCompare } from "@/lib/sortable";
 import { countCullBucks, countCullCandidates } from "@/lib/cull-candidates";
 import { findWeakDoes, type WeakDoesReport } from "@/lib/weak-does";
+import { findTopDoes, type TopDoesReport } from "@/lib/top-does";
+import type { DoeTallies } from "@/lib/doe-score";
 import {
   computeBreedingAverages,
   computeLittersPerDoeYear,
@@ -3236,16 +3238,15 @@ export async function fetchIdleDoesReport(db: SQLiteDBConnection): Promise<IdleD
 }
 
 /**
- * The SQLite twin of getWeakDoesReport in src/app/reports/herd-data.ts — data
- * for the «أمهات ضعيفة الأداء» tab.
+ * The SQLite twin of getDoeTallies in src/app/reports/herd-data.ts — every
+ * standing doe's lifetime record, behind both «أمهات ضعيفة الأداء» and «أفضل
+ * الأمهات».
  *
- * No date range: this is a lifetime judgement on an animal, and culling on a
- * window narrow enough to be "recent" would sell a good doe over one unlucky
- * quarter. See findWeakDoes for the three tests and why two of them are set
- * against the farm's own average rather than a fixed number.
+ * No date range: both tabs make a lifetime judgement on an animal, and a window
+ * narrow enough to be "recent" would sell a good doe over one unlucky quarter.
  */
-export async function fetchWeakDoesReport(db: SQLiteDBConnection): Promise<WeakDoesReport> {
-  const [doeRows, matings, kindlings, weanings] = await Promise.all([
+async function fetchDoeTallies(db: SQLiteDBConnection): Promise<DoeTallies[]> {
+  const [doeRows, matings, kindlings] = await Promise.all([
     // The same population the does board and the cull tile show: tagged and
     // active. A نافقة or مستبعدة doe cannot be culled, and an untagged one is a
     // سلالة who has not started.
@@ -3265,44 +3266,32 @@ export async function fetchWeakDoesReport(db: SQLiteDBConnection): Promise<WeakD
       `SELECT doeId, COUNT(*) as kindlings, SUM(bornAliveAtKindling) as bornAliveTotal
          FROM kindling_log GROUP BY doeId`
     ),
-    // Only cycles she actually finished: a weaning row with no count typed in
-    // is an unanswered question, not a doe who weaned nothing.
-    queryAll<{
-      doeId: string;
-      weaningCycles: number;
-      weanedTotal: number | null;
-      nursedTotal: number | null;
-    }>(
-      db,
-      `SELECT doeId,
-              COUNT(*) as weaningCycles,
-              SUM(weaned) as weanedTotal,
-              SUM(bornAlive) as nursedTotal
-         FROM weaning_log WHERE weaned IS NOT NULL GROUP BY doeId`
-    ),
   ]);
 
   const matingsByDoe = new Map(matings.map((g) => [g.doeId, g.matings]));
   const kindlingsByDoe = new Map(kindlings.map((g) => [g.doeId, g]));
-  const weaningsByDoe = new Map(weanings.map((g) => [g.doeId, g]));
 
-  return findWeakDoes(
-    doeRows.map((d) => {
-      const k = kindlingsByDoe.get(d.id);
-      const w = weaningsByDoe.get(d.id);
-      return {
-        id: d.id,
-        tagId: d.tagId,
-        breed: d.breed,
-        matings: matingsByDoe.get(d.id) ?? 0,
-        kindlings: k?.kindlings ?? 0,
-        bornAliveTotal: k?.bornAliveTotal ?? 0,
-        weaningCycles: w?.weaningCycles ?? 0,
-        nursedTotal: w?.nursedTotal ?? 0,
-        weanedTotal: w?.weanedTotal ?? 0,
-      };
-    })
-  );
+  return doeRows.map((d) => {
+    const k = kindlingsByDoe.get(d.id);
+    return {
+      id: d.id,
+      tagId: d.tagId,
+      breed: d.breed,
+      matings: matingsByDoe.get(d.id) ?? 0,
+      kindlings: k?.kindlings ?? 0,
+      bornAliveTotal: k?.bornAliveTotal ?? 0,
+    };
+  });
+}
+
+/** Data for the «أمهات ضعيفة الأداء» tab — the culling shortlist. */
+export async function fetchWeakDoesReport(db: SQLiteDBConnection): Promise<WeakDoesReport> {
+  return findWeakDoes(await fetchDoeTallies(db));
+}
+
+/** Data for the «أفضل الأمهات» tab — the same ranking, read from the top. */
+export async function fetchTopDoesReport(db: SQLiteDBConnection): Promise<TopDoesReport> {
+  return findTopDoes(await fetchDoeTallies(db));
 }
 
 /**

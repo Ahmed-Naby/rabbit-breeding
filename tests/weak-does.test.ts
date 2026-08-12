@@ -16,14 +16,11 @@ function doe(id: string, over: Partial<WeakDoeSource> = {}): WeakDoeSource {
     matings: 10,
     kindlings: 8,
     bornAliveTotal: 64, // 8 per litter
-    weaningCycles: 8,
-    nursedTotal: 64,
-    weanedTotal: 56, // 87.5% retention
     ...over,
   };
 }
 
-/** Enough healthy does that the herd averages are set by them, not by the case. */
+/** Enough healthy does that the herd average is set by them, not by the case. */
 function herd(...extra: WeakDoeSource[]): WeakDoeSource[] {
   return [doe("g1"), doe("g2"), doe("g3"), doe("g4"), ...extra];
 }
@@ -45,22 +42,15 @@ describe("findWeakDoes — fertility", () => {
     expect(findWeakDoes(herd(barely)).weakDoes).toEqual([]);
   });
 
-  it("prints «—» rather than 0% for the test it could not run", () => {
-    // She fails on litter size, so she IS on the list — but her rearing cell
-    // must stay empty rather than read 0% for kits she has not weaned yet.
+  it("prints «—» rather than a number for the test it could not run", () => {
+    // She fails on fertility, so she IS on the list — but with two kindlings
+    // her litter-size cell must stay empty rather than convict her on one birth.
     const row = findWeakDoes(
-      herd(
-        doe("x", {
-          bornAliveTotal: 24, // 3 per litter, against a barn of 8
-          weaningCycles: 0,
-          nursedTotal: 0,
-          weanedTotal: 0,
-        })
-      )
+      herd(doe("x", { matings: 10, kindlings: 2, bornAliveTotal: 6 }))
     ).weakDoes[0];
     expect(row.id).toBe("x");
-    expect(row.weaningRetentionPct).toBeNull();
-    expect(row.reasons).toEqual(["litterSize"]);
+    expect(row.avgLitterSize).toBeNull();
+    expect(row.reasons).toEqual(["fertility"]);
   });
 });
 
@@ -91,9 +81,6 @@ describe("findWeakDoes — litter size, against the farm's own average", () => {
       matings: 2,
       kindlings: WEAK_DOE_MIN_LITTERS - 1,
       bornAliveTotal: 2,
-      weaningCycles: 0,
-      nursedTotal: 0,
-      weanedTotal: 0,
     });
     expect(findWeakDoes(herd(barely)).weakDoes).toEqual([]);
   });
@@ -106,36 +93,17 @@ describe("findWeakDoes — litter size, against the farm's own average", () => {
   });
 });
 
-describe("findWeakDoes — rearing", () => {
-  it("lists a doe who loses the kits she had", () => {
-    // Barn retains ~87.5%, so the bar is ~65.6%. She retains 40%.
-    const report = findWeakDoes(herd(doe("loses", { weanedTotal: 26 })));
-    expect(report.weakDoes.map((d) => d.id)).toEqual(["loses"]);
-    expect(report.weakDoes[0].reasons).toEqual(["rearing"]);
-    expect(report.weakDoes[0].weaningRetentionPct).toBeCloseTo(40.625, 3);
-  });
-
-  it("does not judge a doe with no weaning on record", () => {
-    const never = doe("never", { weaningCycles: 0, nursedTotal: 0, weanedTotal: 0 });
-    const report = findWeakDoes(herd(never));
-    expect(report.weakDoes).toEqual([]);
-    expect(report.herdAvgRetentionPct).toBeCloseTo(87.5, 5);
-  });
-});
-
 describe("findWeakDoes — the list itself", () => {
-  it("puts the doe who failed the most tests first", () => {
+  it("puts the doe who failed both tests first", () => {
     const oneReason = doe("one", { matings: 10, kindlings: 3 });
-    const threeReasons = doe("three", {
+    const bothReasons = doe("both", {
       matings: 10,
       kindlings: 4,
       bornAliveTotal: 12, // 3 per litter, against a barn of ~8
-      weanedTotal: 4,
-      nursedTotal: 32,
     });
-    const report = findWeakDoes(herd(oneReason, threeReasons));
-    expect(report.weakDoes.map((d) => d.id)).toEqual(["three", "one"]);
-    expect(report.weakDoes[0].reasons).toEqual(["fertility", "litterSize", "rearing"]);
+    const report = findWeakDoes(herd(oneReason, bothReasons));
+    expect(report.weakDoes.map((d) => d.id)).toEqual(["both", "one"]);
+    expect(report.weakDoes[0].reasons).toEqual(["fertility", "litterSize"]);
   });
 
   it("breaks a tie by how far below the bar she fell", () => {
@@ -151,12 +119,11 @@ describe("findWeakDoes — the list itself", () => {
     expect(report.weakDoes).toHaveLength(1);
   });
 
-  it("returns an empty list and null bars for an empty herd", () => {
+  it("returns an empty list and a null bar for an empty herd", () => {
     expect(findWeakDoes([])).toEqual({
       weakDoes: [],
       doeCount: 0,
       herdAvgLitterSize: null,
-      herdAvgRetentionPct: null,
     });
   });
 

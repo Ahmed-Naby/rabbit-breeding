@@ -19,6 +19,7 @@ import { DoeStateBadge } from "../components/doe-state-menu";
 import { SortableTh } from "@/components/sortable-th";
 import { useSortableRows } from "@/lib/use-sortable-rows";
 import { cn } from "@/lib/utils";
+import { doeScoreToneClass, herdLitterBaseline, scoreDoe } from "@/lib/doe-score";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState, PageHeader } from "@/components/page-header";
 import { ExportXlsxButton } from "@/components/export-xlsx-button";
@@ -30,6 +31,8 @@ type FertilityRow = {
   breed: string | null;
   status: string;
   doeState: string;
+  /** «الدرجة» out of 100 — see src/lib/doe-score.ts. Null when unjudgeable. */
+  score: number | null;
   totalBreedings: number;
   totalKindlings: number;
   fertilityRate: number | null;
@@ -45,6 +48,7 @@ type FertilityRow = {
 
 export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hideHeader?: boolean }) {
   const t = getClientDictionary(locale).doesFertility;
+  const tReports = getClientDictionary(locale).reports;
   const [data, setData] = useState<{
     rows: FertilityRow[];
     overallFertility: number;
@@ -71,7 +75,10 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       "SELECT id, tagId, breed, doeState, status FROM rabbit WHERE sex = 'doe' AND tagId IS NOT NULL AND status NOT IN ('deceased', 'culled') ORDER BY tagId ASC"
     );
 
-    const rows: FertilityRow[] = [];
+    // The score needs the farm's average litter size, which is not known until
+    // every doe has been read — so the rows are built carrying their own birth
+    // total and scored in a second pass below.
+    const rows: (Omit<FertilityRow, "score"> & { bornAliveTotal: number })[] = [];
     let overallBreedings = 0;
     let overallKindlings = 0;
     let overallBornAlive = 0;
@@ -182,6 +189,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         breed: doe.breed,
         status: doe.status,
         doeState: doe.doeState,
+        bornAliveTotal: bornAtKindling,
         totalBreedings,
         totalKindlings,
         fertilityRate,
@@ -192,6 +200,22 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         weaningSurvivalRate,
       });
     }
+
+    // Built from the ACTIVE does only, mirroring the web page and «أمهات ضعيفة
+    // الأداء»: the same doe must not score differently on two screens because
+    // one of them also counted the ones that have left the barn.
+    const litterBaseline = herdLitterBaseline(
+      rows
+        .filter((r) => r.status === "active")
+        .map((r) => ({ kindlings: r.totalKindlings, bornAliveTotal: r.bornAliveTotal }))
+    );
+    const scoredRows: FertilityRow[] = rows.map(({ bornAliveTotal, ...r }) => ({
+      ...r,
+      score: scoreDoe(
+        { matings: r.totalBreedings, kindlings: r.totalKindlings, bornAliveTotal },
+        litterBaseline
+      ),
+    }));
 
     const overallFertility = overallBreedings > 0 ? Math.round((overallKindlings / overallBreedings) * 100) : 0;
     const overallAvgBorn = overallKindlings > 0 ? Number((overallBornAlive / overallKindlings).toFixed(1)) : 0;
@@ -204,7 +228,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
         : 0;
 
     setData({
-      rows,
+      rows: scoredRows,
       overallFertility,
       overallKindlings,
       overallBreedings,
@@ -224,6 +248,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
   const listRows = data?.rows ?? [];
   const doesSort = useSortableRows(listRows, {
     doeTag: { type: "tag", value: (r) => r.tagId },
+    score: { type: "number", value: (r) => r.score ?? -1 },
     breed: { type: "string", value: (r) => r.breed },
     status: { type: "string", value: (r) => r.status },
     doeState: { type: "string", value: (r) => r.doeState },
@@ -318,6 +343,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
       {listRows.length === 0 ? (
         <EmptyState icon={RabbitIcon} title={t.emptyTitle} description={t.emptyDescription} />
       ) : (
+        <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">{tReports.doeScoreNote}</p>
         <div className="rounded-xl border bg-card overflow-x-auto shadow-xs">
           <table className="w-full text-sm text-left rtl:text-right border-collapse">
             <thead className="bg-muted text-muted-foreground text-xs uppercase">
@@ -326,6 +353,14 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                   className="px-2 py-2 md:px-4 md:py-3 text-center"
                   label={t.colDoeTag}
                   sortKey="doeTag"
+                  activeSortKey={doesSort.sortKey}
+                  direction={doesSort.direction}
+                  onSort={doesSort.toggleSort}
+                />
+                <SortableTh
+                  className="px-2 py-2 md:px-4 md:py-3 text-center"
+                  label={tReports.weakColScore}
+                  sortKey="score"
                   activeSortKey={doesSort.sortKey}
                   direction={doesSort.direction}
                   onSort={doesSort.toggleSort}
@@ -432,6 +467,9 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
                       }}
                     />
                   </td>
+                  <td className={cn("px-2 py-2 md:px-4 md:py-3.5 font-bold tabular-nums", doeScoreToneClass(r.score))}>
+                    {r.score ?? "—"}
+                  </td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5">{r.breed ?? "—"}</td>
                   <td className="px-2 py-2 md:px-4 md:py-3.5">
                     <StatusBadge value={r.status} locale={locale} />
@@ -463,6 +501,7 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
     </div>

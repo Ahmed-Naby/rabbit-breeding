@@ -137,6 +137,8 @@ export type DoeFertilitySheetRow = {
   breed?: string | null;
   status: string;
   doeState: string;
+  /** «الدرجة» out of 100 — see src/lib/doe-score.ts. Null when unjudgeable. */
+  score: number | null;
   totalBreedings: number;
   totalKindlings: number;
   fertilityRate: number | null;
@@ -186,7 +188,7 @@ export type IdleDoeSheetRow = {
 };
 
 /**
- * A doe failing one or more of the three performance tests — the other استبعاد
+ * A doe failing one or both of the performance tests — the other استبعاد
  * shortlist. `reasons` arrives already translated: the sheet is a flat table
  * with no legend to explain a code, so the column has to read as a sentence.
  */
@@ -195,10 +197,27 @@ export type WeakDoeSheetRow = {
   breed?: string | null;
   matings: number;
   kindlings: number;
+  score: number | null;
   fertilityRatePct: number | null;
   avgLitterSize: number | null;
-  weaningRetentionPct: number | null;
   reasons: string;
+};
+
+/**
+ * A doe on the «أفضل الأمهات» shortlist. Same figures as WeakDoeSheetRow minus
+ * the reasons column — nothing failed, so there is nothing to explain — plus
+ * her rank, which is the whole point of the sheet and is not recoverable from
+ * the row order once someone sorts the file.
+ */
+export type TopDoeSheetRow = {
+  rank: number;
+  tagId?: string | null;
+  breed?: string | null;
+  score: number;
+  matings: number;
+  kindlings: number;
+  fertilityRatePct: number;
+  avgLitterSize: number;
 };
 
 /** An untagged juvenile still on the السلالات intake table. */
@@ -235,6 +254,7 @@ export type LogSheetSpec =
   | { kind: "stock"; rows: StockSheetRow[] }
   | { kind: "idleDoes"; rows: IdleDoeSheetRow[] }
   | { kind: "weakDoes"; rows: WeakDoeSheetRow[] }
+  | { kind: "topDoes"; rows: TopDoeSheetRow[] }
   | { kind: "kitLedger"; rows: KitLedgerSheetRow[]; currency: string; weightUnit: WeightUnit };
 
 // ── builders ─────────────────────────────────────────────────────────────────
@@ -478,6 +498,7 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
         t.title,
         [
           { header: t.colDoeTag, format: "text", width: TAG },
+          { header: d.reports.weakColScore, format: "number", width: STAT },
           { header: t.colBreed, format: "text" },
           { header: t.colStatus, format: "text" },
           { header: t.colDoeState, format: "text", width: 16 },
@@ -493,6 +514,7 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
         ],
         spec.rows.map((r) => [
           r.tagId,
+          r.score,
           r.breed ?? null,
           label(r.status, locale),
           label(r.doeState, locale),
@@ -615,16 +637,17 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
         t.weakSectionTitle,
         [
           { header: t.herdColTag, format: "text", width: TAG },
+          { header: t.weakColScore, format: "number", width: STAT },
           { header: t.herdColBreed, format: "text" },
           { header: t.weakColMatings, format: "number", width: STAT },
           { header: t.weakColKindlings, format: "number", width: STAT },
           { header: `${t.weakColFertility} (%)`, format: "number", width: STAT },
           { header: t.weakColLitterSize, format: "decimal", width: STAT },
-          { header: `${t.weakColRearing} (%)`, format: "number", width: STAT },
           { header: t.weakColReasons, format: "text", width: 36 },
         ],
         spec.rows.map((r) => [
           r.tagId ?? null,
+          r.score,
           r.breed ?? null,
           r.matings,
           r.kindlings,
@@ -633,8 +656,36 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
           // «لم تُحسب» and «صفر» are opposite conclusions about a doe.
           r.fertilityRatePct != null ? Math.round(r.fertilityRatePct) : null,
           r.avgLitterSize,
-          r.weaningRetentionPct != null ? Math.round(r.weaningRetentionPct) : null,
           r.reasons,
+        ])
+      );
+    }
+
+    case "topDoes": {
+      const t = d.reports;
+      const STAT = 18;
+      return sheet(
+        t.topSectionTitle,
+        [
+          { header: t.topColRank, format: "number", width: 10 },
+          { header: t.herdColTag, format: "text", width: TAG },
+          { header: t.weakColScore, format: "number", width: STAT },
+          { header: t.herdColBreed, format: "text" },
+          { header: t.weakColMatings, format: "number", width: STAT },
+          { header: t.weakColKindlings, format: "number", width: STAT },
+          { header: `${t.weakColFertility} (%)`, format: "number", width: STAT },
+          { header: t.weakColLitterSize, format: "decimal", width: STAT },
+        ],
+        spec.rows.map((r) => [
+          r.rank,
+          r.tagId ?? null,
+          r.score,
+          r.breed ?? null,
+          r.matings,
+          r.kindlings,
+          // Rounded as the table prints it; the litter average keeps its decimal.
+          Math.round(r.fertilityRatePct),
+          r.avgLitterSize,
         ])
       );
     }
