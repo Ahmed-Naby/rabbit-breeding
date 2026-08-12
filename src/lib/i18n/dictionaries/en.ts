@@ -1054,8 +1054,8 @@ export const en: Dictionary = {
     topColRank: "Rank",
     // Says what the list is FOR. A leaderboard nobody acts on is decoration:
     // the point is that the next generation comes out of these cages.
-    topNote: (limit: number) =>
-      `The top ${limit} does by score — the list your replacements should come out of. Equal scores go to the doe with more kindlings, because a number with eight litters behind it is worth more than the same number with three. A doe without enough record is not ranked: one excellent litter makes a lucky doe, not an excellent one.`,
+    topNote: (sharePct: number) =>
+      `The best ${sharePct}% of your does by score — the half your replacements should come out of. A share rather than a fixed count, because "the top twenty" means most of a 30-doe barn and the top 5% of a 400-doe one. Equal scores go to the doe with more kindlings, because a number with eight litters behind it is worth more than the same number with three. A doe without enough record is not ranked: one excellent litter makes a lucky doe, not an excellent one.`,
   },
   records: {
     title: "Records",

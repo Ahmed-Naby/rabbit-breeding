@@ -50,7 +50,7 @@ import {
 } from "@/lib/cull-candidates";
 import { WEAK_DOE_RELATIVE_PCT, type WeakDoeReason } from "@/lib/weak-does";
 import { doeScoreToneClass } from "@/lib/doe-score";
-import { TOP_DOE_LIMIT } from "@/lib/top-does";
+import { TOP_DOE_SHARE_PCT } from "@/lib/top-does";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -1451,7 +1451,7 @@ function TopDoesSection({
             <HerdTile label={rt.weakHerdLitterLabel} value={dec(top.herdAvgLitterSize)} />
           </div>
 
-          <p className="text-xs text-muted-foreground">{rt.topNote(TOP_DOE_LIMIT)}</p>
+          <p className="text-xs text-muted-foreground">{rt.topNote(TOP_DOE_SHARE_PCT)}</p>
           <p className="text-xs text-muted-foreground">{rt.doeScoreNote}</p>
           <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
 

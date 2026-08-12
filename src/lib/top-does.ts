@@ -27,8 +27,21 @@
 
 import { herdLitterBaseline, scoreDoe, type DoeTallies } from "./doe-score";
 
-/** How many does the tab lists. A shortlist to breed from, not a census. */
-export const TOP_DOE_LIMIT = 20;
+/**
+ * How much of the herd the tab lists, as a percentage of the standing does.
+ *
+ * A share rather than a fixed count, because "the best twenty" means something
+ * different in a barn of 30 does than in a barn of 400: in the first it is most
+ * of the herd, in the second it is the top 5%. Half the herd is the useful line
+ * — it is the better half, which is exactly the population a farm keeps
+ * breeding from and replaces the other half out of.
+ */
+export const TOP_DOE_SHARE_PCT = 50;
+
+/** The share turned into a row count for a herd of this size. */
+export function topDoeLimit(doeCount: number): number {
+  return Math.ceil((doeCount * TOP_DOE_SHARE_PCT) / 100);
+}
 
 export type TopDoeRow = {
   id: string;
@@ -48,6 +61,8 @@ export type TopDoesReport = {
   doeCount: number;
   /** Of those, how many had enough record to be scored at all. */
   rankedCount: number;
+  /** How many rows the share allowed for this herd — the cap topDoes was cut to. */
+  limit: number;
   /** The farm's own average litter size — the score's denominator. */
   herdAvgLitterSize: number | null;
   /** Mean score across every ranked doe, so the top of the list has a middle to sit above. */
@@ -58,10 +73,14 @@ export type TopDoesReport = {
  * The breeding shortlist, best first.
  *
  * Pass EVERY tagged, active doe, exactly as findWeakDoes wants them: the score's
- * denominator is computed from what arrives here, so handing in a pre-filtered
- * "probably good" subset would raise the bar to meet them and flatten the list.
+ * denominator AND the row count are both computed from what arrives here, so
+ * handing in a pre-filtered "probably good" subset would raise the bar to meet
+ * them and then halve the list on top of that.
  */
-export function findTopDoes(does: DoeTallies[], limit = TOP_DOE_LIMIT): TopDoesReport {
+export function findTopDoes(
+  does: DoeTallies[],
+  limit = topDoeLimit(does.length)
+): TopDoesReport {
   const herdAvgLitterSize = herdLitterBaseline(does);
 
   const ranked: TopDoeRow[] = [];
@@ -88,6 +107,7 @@ export function findTopDoes(does: DoeTallies[], limit = TOP_DOE_LIMIT): TopDoesR
     topDoes: ranked.slice(0, limit),
     doeCount: does.length,
     rankedCount: ranked.length,
+    limit,
     herdAvgLitterSize,
     // The average over everyone scored, not over the slice printed — otherwise
     // the "farm average" would be the average of the best twenty.

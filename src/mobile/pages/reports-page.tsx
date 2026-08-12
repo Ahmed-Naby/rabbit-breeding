@@ -35,7 +35,7 @@ import {
   type WeakDoeReason,
   type WeakDoesReport,
 } from "@/lib/weak-does";
-import { TOP_DOE_LIMIT, type TopDoesReport } from "@/lib/top-does";
+import { TOP_DOE_SHARE_PCT, type TopDoesReport } from "@/lib/top-does";
 import { doeScoreToneClass } from "@/lib/doe-score";
 import { formatMoney } from "@/lib/units";
 import { revenuePerDoeCents } from "@/lib/breeding-averages";
@@ -1289,7 +1289,7 @@ function TopDoesSection({
             <HerdTile label={rt.weakHerdLitterLabel} value={dec(top.herdAvgLitterSize)} />
           </div>
 
-          <p className="text-xs text-muted-foreground">{rt.topNote(TOP_DOE_LIMIT)}</p>
+          <p className="text-xs text-muted-foreground">{rt.topNote(TOP_DOE_SHARE_PCT)}</p>
           <p className="text-xs text-muted-foreground">{rt.doeScoreNote}</p>
           <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
 

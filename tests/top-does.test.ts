@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findTopDoes } from "@/lib/top-does";
+import { findTopDoes, topDoeLimit } from "@/lib/top-does";
 import { scoreDoe, herdLitterBaseline, type DoeTallies } from "@/lib/doe-score";
 import { CULL_MIN_MATINGS } from "@/lib/cull-candidates";
 import { WEAK_DOE_MIN_LITTERS } from "@/lib/weak-does";
@@ -58,11 +58,16 @@ describe("scoreDoe", () => {
 
 describe("findTopDoes", () => {
   it("ranks the best doe first", () => {
-    const report = findTopDoes([
-      doe("mid", { matings: 10, kindlings: 6, bornAliveTotal: 42 }),
-      doe("best", { matings: 8, kindlings: 8, bornAliveTotal: 72 }),
-      doe("poor", { matings: 10, kindlings: 4, bornAliveTotal: 20 }),
-    ]);
+    const report = findTopDoes(
+      [
+        doe("mid", { matings: 10, kindlings: 6, bornAliveTotal: 42 }),
+        doe("best", { matings: 8, kindlings: 8, bornAliveTotal: 72 }),
+        doe("poor", { matings: 10, kindlings: 4, bornAliveTotal: 20 }),
+      ],
+      // An explicit limit, so the ordering is what this case is testing and not
+      // the share cutting the list in half under it.
+      3
+    );
     expect(report.topDoes.map((d) => d.id)).toEqual(["best", "mid", "poor"]);
   });
 
@@ -85,17 +90,36 @@ describe("findTopDoes", () => {
     expect(report.rankedCount).toBe(1);
   });
 
-  it("keeps the list to the limit but counts the whole ranked field", () => {
+  it("lists half the herd, rounding up so a small barn still gets a list", () => {
     const does = Array.from({ length: 30 }, (_, i) =>
       doe(`d${i}`, { bornAliveTotal: 40 + i })
     );
-    const report = findTopDoes(does, 5);
-    expect(report.topDoes).toHaveLength(5);
+    const report = findTopDoes(does);
+    expect(report.limit).toBe(15);
+    expect(report.topDoes).toHaveLength(15);
     expect(report.rankedCount).toBe(30);
     // Best first, and no doe outside the slice beats the ones inside it.
     const scores = report.topDoes.map((d) => d.score);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
     expect(scores[0]).toBe(100);
+
+    // Odd herds round up rather than down: 3 does should list 2, not 1.
+    expect(findTopDoes(does.slice(0, 3)).limit).toBe(2);
+    expect(topDoeLimit(199)).toBe(100);
+  });
+
+  it("counts the share off the whole herd, not off the does with a score", () => {
+    // 10 does, only 4 of them scoreable — the cap is still 5, so all 4 show.
+    const does = [
+      ...Array.from({ length: 4 }, (_, i) => doe(`ok${i}`)),
+      ...Array.from({ length: 6 }, (_, i) =>
+        doe(`new${i}`, { matings: 1, kindlings: 1, bornAliveTotal: 8 })
+      ),
+    ];
+    const report = findTopDoes(does);
+    expect(report.limit).toBe(5);
+    expect(report.rankedCount).toBe(4);
+    expect(report.topDoes).toHaveLength(4);
   });
 
   it("averages the score over every ranked doe, not over the printed slice", () => {
@@ -116,6 +140,7 @@ describe("findTopDoes", () => {
       topDoes: [],
       doeCount: 0,
       rankedCount: 0,
+      limit: 0,
       herdAvgLitterSize: null,
       herdAvgScore: null,
     });
