@@ -20,6 +20,9 @@ export const SELECTABLE_PAGES: { hash: string; labelKey: keyof Dictionary["nav"]
   { hash: "#/does", labelKey: "does" },
   { hash: "#/health", labelKey: "health" },
   { hash: "#/reports", labelKey: "reports" },
+  // Grantable like any other page, and worth being able to deny: every press
+  // spends a paid API call, so an owner may well want it on his own login only.
+  { hash: "#/insights", labelKey: "insights" },
   { hash: "#/records", labelKey: "records" },
   { hash: "#/weaning-sales", labelKey: "weaningSales" },
   { hash: "#/finance", labelKey: "finance" },

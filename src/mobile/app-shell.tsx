@@ -37,6 +37,7 @@ import {
   LogOut,
   History,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
@@ -81,6 +82,7 @@ import { HerdAndStockPage } from "./pages/herd-and-stock-page";
 import { SettingsPage } from "./pages/settings-page";
 import { RecordsPage } from "./pages/records-page";
 import { RejectedOpsPage } from "./pages/rejected-ops-page";
+import { InsightsPage } from "./pages/insights-page";
 
 const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; icon: any }> = {
   "#/": { path: "#/", labelKey: "dashboard", icon: LayoutDashboard },
@@ -94,6 +96,10 @@ const ROUTES: Record<string, { path: string; labelKey: keyof Dictionary["nav"]; 
   // three review pages (isReviewNavItem) run together — see src/lib/nav.ts.
   "#/daily": { path: "#/daily", labelKey: "daily", icon: CalendarDays },
   "#/reports": { path: "#/reports", labelKey: "reports", icon: FileText },
+  // Straight under التقارير: it reads exactly the figures that page prints, and
+  // a farmer who has just looked at them is the one with a reason to ask what
+  // they mean.
+  "#/insights": { path: "#/insights", labelKey: "insights", icon: Sparkles },
   "#/records": { path: "#/records", labelKey: "records", icon: History },
   "#/weaning-sales": { path: "#/weaning-sales", labelKey: "weaningSales", icon: ShoppingCart },
   "#/finance": { path: "#/finance", labelKey: "finance", icon: Wallet },
@@ -681,6 +687,7 @@ export function AppShell() {
           {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(route, r))) && (
             <ReportsPage locale={locale} />
           )}
+          {route === "#/insights" && <InsightsPage locale={locale} />}
           {route === "#/records" && <RecordsPage locale={locale} />}
           {route === REJECTED_OPS_ROUTE && <RejectedOpsPage locale={locale} />}
           {route === "#/finance" && <FinancePage locale={locale} />}

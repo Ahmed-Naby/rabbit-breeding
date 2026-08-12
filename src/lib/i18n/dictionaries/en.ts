@@ -17,6 +17,7 @@ export const en: Dictionary = {
     dailyRounds: "Doe & Buck Rounds",
     health: "Health",
     reports: "Reports",
+    insights: "AI review",
     records: "Records",
     operations: "Daily Operations",
     supportOps: "Support Operations",
@@ -141,6 +142,41 @@ export const en: Dictionary = {
   // above because that section is passed wholesale from a Server Component
   // to web Client Components — resetConfirm is a function, and RSC cannot
   // serialize functions across that boundary.
+  insights: {
+    title: "AI performance review",
+    subtitle:
+      "Reads your farm's own report figures and returns recommendations ranked by what they cost you.",
+    intro:
+      "Press the button to send a summary of the farm's figures and get recommendations back. Raw records are never sent — only the computed summary.",
+    run: "Analyse farm performance",
+    rerun: "Run again",
+    running: "Analysing…",
+    offline: "No internet connection — this needs to reach the server.",
+    windowNote: (days: number) =>
+      `Events from the last ${days} days; averages from the farm's whole record.`,
+    generatedAtLabel: "Run at",
+    actionLabel: "Do this",
+    basedOnLabel: "Based on",
+    priority: {
+      high: "High priority",
+      medium: "Medium priority",
+      low: "Low priority",
+    } as Record<string, string>,
+    droppedNote: (n: number) =>
+      n === 1
+        ? "One recommendation was dropped for citing a figure the farm never measured."
+        : `${n} recommendations were dropped for citing figures the farm never measured.`,
+    disclaimer:
+      "Built from your farm's numbers alone and written by an AI model. Check it before acting, and never use it to diagnose illness or prescribe treatment.",
+    errors: {
+      AI_NOT_CONFIGURED: "The analysis service isn't enabled on the server — no API key set.",
+      AI_UNREACHABLE: "Couldn't reach the analysis service. Try again.",
+      AI_REQUEST_FAILED: "The analysis service refused the request. Try again shortly.",
+      AI_REPLY_UNUSABLE: "The reply came back in a form we couldn't read. Try again.",
+      NO_FARM_MEMBERSHIP: "This account isn't linked to a farm.",
+      generic: "The analysis couldn't be completed.",
+    } as Record<string, string>,
+  },
   syncRejected: {
     title: "Rejected operations",
     subtitle:

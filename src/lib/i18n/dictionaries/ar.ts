@@ -15,6 +15,7 @@ export const ar = {
     dailyRounds: "متابعة الأمهات والذكور",
     health: "الصحة",
     reports: "التقارير",
+    insights: "تحليل ذكي",
     records: "السجلات",
     operations: "العمليات اليومية",
     supportOps: "عمليات مساعدة",
@@ -147,6 +148,51 @@ export const ar = {
     resetOpsButton: "حذف كل العمليات",
     resettingOpsLabel: "جارِ الحذف…",
     resetOpsSuccessToast: "تم حذف كل العمليات",
+  },
+  /**
+   * «تحليل ذكي للأداء» — the AI reading of the farm's own report figures.
+   *
+   * Every sentence here is written for a reader who is entitled to be
+   * sceptical: it says which period the advice covers, which numbers it was
+   * built on, and that a machine wrote it. Advice that hides its basis is
+   * advice a farm cannot argue with, and unarguable advice does not get
+   * followed — it gets ignored or, worse, obeyed.
+   */
+  insights: {
+    title: "تحليل ذكي للأداء",
+    subtitle:
+      "يقرأ أرقام مزرعتك — من التقارير نفسها — ويخرج بتوصيات مرتّبة حسب أثرها على الدخل.",
+    intro:
+      "اضغط الزر ليُرسَل ملخّص أرقام المزرعة ويعود بالتوصيات. لا تُرسَل السجلات الخام، بل الملخّص المحسوب فقط.",
+    run: "حلّل أداء المزرعة",
+    rerun: "تحليل جديد",
+    running: "جارٍ التحليل…",
+    offline: "لا يوجد اتصال بالإنترنت — التحليل يحتاج اتصالًا بالخادم.",
+    windowNote: (days: number) =>
+      `اعتمد على آخر ${days} يومًا للأحداث، وعلى سجل المزرعة الكامل للمتوسطات.`,
+    generatedAtLabel: "وقت التحليل",
+    actionLabel: "التنفيذ",
+    basedOnLabel: "الأرقام المستند إليها",
+    priority: {
+      high: "أولوية عالية",
+      medium: "أولوية متوسطة",
+      low: "أولوية منخفضة",
+    } as Record<string, string>,
+    /** Non-zero means the model cited something the farm never measured. */
+    droppedNote: (n: number) =>
+      n === 1
+        ? "حُذفت توصية واحدة لأنها استندت إلى رقم غير موجود في بيانات المزرعة."
+        : `حُذفت ${n} توصيات لأنها استندت إلى أرقام غير موجودة في بيانات المزرعة.`,
+    disclaimer:
+      "توصيات مبنية على أرقام مزرعتك وحدها، وكتبها نموذج ذكاء اصطناعي. راجعها قبل التنفيذ، ولا تعتمد عليها في تشخيص مرض أو وصف علاج.",
+    errors: {
+      AI_NOT_CONFIGURED: "خدمة التحليل غير مفعّلة على الخادم — لم يُضبط مفتاح الواجهة بعد.",
+      AI_UNREACHABLE: "تعذّر الوصول إلى خدمة التحليل. حاول مرة أخرى.",
+      AI_REQUEST_FAILED: "رفضت خدمة التحليل الطلب. حاول بعد قليل.",
+      AI_REPLY_UNUSABLE: "جاء الرد بصيغة غير مفهومة. أعد المحاولة.",
+      NO_FARM_MEMBERSHIP: "هذا الحساب غير مرتبط بمزرعة.",
+      generic: "تعذّر إتمام التحليل.",
+    } as Record<string, string>,
   },
   /**
    * «العمليات المرفوضة» — the review screen for writes the server refused.
