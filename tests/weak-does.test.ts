@@ -127,7 +127,36 @@ describe("findWeakDoes — the list itself", () => {
       weakDoes: [],
       doeCount: 0,
       herdAvgLitterSize: null,
+      lowestScore: null,
     });
+  });
+
+  it("reports the floor of the list, not the score of its first row", () => {
+    // The list is ordered by how many tests were failed, so «both» leads it —
+    // but she converts more kits per mating than the doe below her, who fails
+    // one test very badly. «أقل درجة» has to name the second one.
+    // «both» kindles small AND misses matings, but still turns 2.0 kits into
+    // every service. «one» kindles a full-sized litter — she fails only the
+    // fertility test — but so rarely that she manages 1.2.
+    const bothReasons = doe("both", { matings: 10, kindlings: 4, bornAliveTotal: 20 });
+    const oneReason = doe("one", { matings: 20, kindlings: 3, bornAliveTotal: 24 });
+    const report = findWeakDoes(herd(bothReasons, oneReason));
+
+    expect(report.weakDoes.map((d) => d.id)).toEqual(["both", "one"]);
+    const scores = report.weakDoes.map((d) => d.score);
+    expect(report.lowestScore).toBe(Math.min(...(scores as number[])));
+    expect(report.lowestScore).toBe(report.weakDoes[1].score);
+    expect(report.lowestScore).not.toBe(report.weakDoes[0].score);
+  });
+
+  it("has no floor at all when nobody on the list can be scored", () => {
+    // On the list for fertility, but two kindlings is under the score's
+    // minimum sample — «—», never 0, which would invent a doe at rock bottom.
+    const tooNew = doe("new", { matings: 10, kindlings: 2, bornAliveTotal: 4 });
+    const report = findWeakDoes(herd(tooNew));
+    expect(report.weakDoes.map((d) => d.id)).toEqual(["new"]);
+    expect(report.weakDoes[0].score).toBeNull();
+    expect(report.lowestScore).toBeNull();
   });
 
   it("keeps the relative bar at the figure the hint prints", () => {

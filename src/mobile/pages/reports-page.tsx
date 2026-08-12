@@ -1076,7 +1076,7 @@ function WeakDoesSection({
     <div className="space-y-6">
       <Section title={rt.weakSectionTitle}>
         <div className="space-y-3 p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <HerdTile
               label={rt.weakCountLabel}
               value={weak.weakDoes.length.toLocaleString()}
@@ -1084,6 +1084,14 @@ function WeakDoesSection({
               tone={weak.weakDoes.length > 0 ? "bad" : "good"}
             />
             <HerdTile label={rt.weakShareLabel} value={pct(share)} />
+            {/* The floor of the barn — the mirror of «أعلى درجة» on أفضل
+                الأمهات, and deliberately not the first row of the table, which
+                is ordered by how many tests were failed rather than by score. */}
+            <HerdTile
+              label={rt.weakLowestScoreLabel}
+              value={weak.lowestScore == null ? "—" : weak.lowestScore.toLocaleString()}
+              tone={weak.lowestScore == null ? undefined : "bad"}
+            />
             {/* The relative bar itself, so the list can be read against it. */}
             <HerdTile label={rt.weakHerdLitterLabel} value={dec(weak.herdAvgLitterSize)} />
           </div>

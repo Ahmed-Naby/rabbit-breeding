@@ -1095,6 +1095,7 @@ export const en: Dictionary = {
     weakEmpty: "No underperforming does — every doe in the barn is within the herd's own range.",
     weakCountLabel: "Underperforming does",
     weakShareLabel: "Share of the herd",
+    weakLowestScoreLabel: "Lowest score",
     weakHerdLitterLabel: "Farm average litter size",
     weakColScore: "Score",
     weakColMatings: "Matings",

@@ -93,6 +93,21 @@ export type WeakDoesReport = {
    * the denominator every «درجة الأم» on the page was divided by.
    */
   herdAvgLitterSize: number | null;
+  /**
+   * The worst «درجة الأم» on the list — the floor of the barn.
+   *
+   * The mirror of «أعلى درجة» on أفضل الأمهات, and not the same thing as the
+   * first row: the list is sorted by how many tests a doe failed and by how far
+   * below the bars she fell, which is the right order for a culling
+   * conversation but says nothing about who converts the fewest kits per
+   * mating. A doe can fail one test badly and still out-produce one who fails
+   * two narrowly.
+   *
+   * Null when no doe on the list has a score at all — every one of them still
+   * short of the minimum sample. That is «—», not zero: a herd whose weak does
+   * are all too new to judge has no floor yet.
+   */
+  lowestScore: number | null;
 };
 
 /**
@@ -174,9 +189,15 @@ export function findWeakDoes(does: WeakDoeSource[]): WeakDoesReport {
     (a, b) => b.row.reasons.length - a.row.reasons.length || b.shortfall - a.shortfall
   );
 
+  const weakDoes = rows.map((r) => r.row);
+  // Scored does only: a null score is "not judged yet", and letting it in as a
+  // zero would print a floor no animal on the farm actually sits at.
+  const scores = weakDoes.map((r) => r.score).filter((s): s is number => s != null);
+
   return {
-    weakDoes: rows.map((r) => r.row),
+    weakDoes,
     doeCount: does.length,
     herdAvgLitterSize,
+    lowestScore: scores.length === 0 ? null : Math.min(...scores),
   };
 }

@@ -1115,6 +1115,7 @@ export const ar = {
     weakEmpty: "لا توجد أمهات ضعيفة الأداء — كل أم في العنبر ضمن مستوى القطيع.",
     weakCountLabel: "عدد الأمهات الضعيفة",
     weakShareLabel: "نسبتهن من القطيع",
+    weakLowestScoreLabel: "أقل درجة",
     weakHerdLitterLabel: "متوسط عدد الخلفة في المزرعة",
     weakColScore: "الدرجة",
     weakColMatings: "عدد التلقيحات",
