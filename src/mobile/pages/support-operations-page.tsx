@@ -9,18 +9,25 @@ import { PageHeader } from "@/components/page-header";
 
 type SupportTab = "nest-box" | "mortality";
 
-export function SupportOperationsPage({ locale }: { locale: Locale }) {
+function tabFromRoute(hash: string): SupportTab {
+  if (hash.includes("tab=mortality") || hash.startsWith("#/mortality")) return "mortality";
+  if (hash.includes("tab=nest-box") || hash.startsWith("#/nest-box")) return "nest-box";
+  return "nest-box";
+}
+
+/** `route` selects the tab on each fresh arrival — see DailyOperationsPage. */
+export function SupportOperationsPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const sops = t.supportOperations;
 
-  const [activeTab, setActiveTab] = useState<SupportTab>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      if (hash.includes("tab=mortality") || hash.startsWith("#/mortality")) return "mortality";
-      if (hash.includes("tab=nest-box") || hash.startsWith("#/nest-box")) return "nest-box";
-    }
-    return "nest-box";
-  });
+  const [activeTab, setActiveTab] = useState<SupportTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   return (
     <div className="space-y-6">

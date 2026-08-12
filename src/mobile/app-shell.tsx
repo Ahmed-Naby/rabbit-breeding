@@ -46,6 +46,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
 import { RabbitSearch } from "./components/rabbit-search";
 import { BrandMark } from "@/components/brand-mark";
 import { matchesRoute } from "./routes";
+import { PageVisibleContext } from "./lib/page-visibility";
 import { navRowStyles } from "@/lib/nav";
 import { SYNC_API_BASE_URL } from "./config";
 import { getSyncStatus, subscribeSyncStatus, syncNow, hasUnsyncedOps, flushOutbox, refreshSyncCounts, type SyncState } from "./sync/sync-manager";
@@ -128,6 +129,93 @@ function isKnownRoute(hash: string): boolean {
     LEGACY_OPS_ROUTES.some((r) => matchesRoute(hash, r)) ||
     LEGACY_SUPPORT_OPS_ROUTES.some((r) => matchesRoute(hash, r)) ||
     LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(hash, r))
+  );
+}
+
+/**
+ * Which mounted page a route belongs to — the identity the shell caches by.
+ *
+ * Several routes share one page: «#/kindling» and «#/weaning» are both tabs of
+ * العمليات اليومية, and the legacy standalone links (still pointed at from the
+ * dashboard cards) have to keep working. They all fold onto the container's own
+ * hash, so revisiting by either spelling finds the page already built.
+ *
+ * Returns null for the rabbit card: one page per rabbit would grow without
+ * bound on a farm of two hundred, and a card is opened once and read, not
+ * returned to all day.
+ */
+function pageKeyFor(route: string): string | null {
+  if (ROUTES[route]) return route;
+  if (route === REJECTED_OPS_ROUTE) return route;
+  if (route.startsWith(RABBIT_DETAIL_PREFIX)) return null;
+  if (LEGACY_HERD_ROUTES.some((r) => matchesRoute(route, r))) return "#/herd-and-stock";
+  if (LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(route, r))) return "#/daily-rounds";
+  if (LEGACY_OPS_ROUTES.some((r) => matchesRoute(route, r))) return "#/operations";
+  if (LEGACY_SUPPORT_OPS_ROUTES.some((r) => matchesRoute(route, r))) return "#/support-operations";
+  if (LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(route, r))) return "#/reports";
+  return null;
+}
+
+/**
+ * The page for one key, given the last route that led to it.
+ *
+ * `route` is passed rather than read from window.location because these pages
+ * stay mounted: a tabbed container has to answer the hash it was *opened* with,
+ * not whatever the address bar says three navigations later.
+ */
+function renderPage(key: string, locale: Locale, route: string) {
+  switch (key) {
+    case "#/":
+      return <DashboardPage locale={locale} />;
+    case "#/daily":
+      return <DailyPage locale={locale} />;
+    case "#/daily-rounds":
+      return <DailyRoundsPage locale={locale} route={route} />;
+    case "#/does":
+      return <DoesPage locale={locale} />;
+    case "#/operations":
+      return <DailyOperationsPage locale={locale} route={route} />;
+    case "#/herd-and-stock":
+      return <HerdAndStockPage locale={locale} route={route} />;
+    case "#/weaning-sales":
+      return <WeaningSalesPage locale={locale} />;
+    case "#/support-operations":
+      return <SupportOperationsPage locale={locale} route={route} />;
+    case "#/health":
+      return <HealthPage locale={locale} />;
+    case "#/reports":
+      return <ReportsPage locale={locale} route={route} />;
+    case "#/insights":
+      return <InsightsPage locale={locale} />;
+    case "#/records":
+      return <RecordsPage locale={locale} route={route} />;
+    case REJECTED_OPS_ROUTE:
+      return <RejectedOpsPage locale={locale} />;
+    case "#/finance":
+      return <FinancePage locale={locale} />;
+    case "#/settings":
+      return <SettingsPage locale={locale} />;
+    default:
+      return null;
+  }
+}
+
+/**
+ * One mounted page, on screen or waiting off it.
+ *
+ * `display: none` rather than unmounting is the whole point: the board a
+ * farmer opened this morning keeps its rows, its tab and its date range, so
+ * coming back to it costs nothing. What it must not cost is background work —
+ * hence the visibility this publishes, which useDbRefresh reads to stay quiet
+ * until its page is looked at again.
+ */
+function PageSlot({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  return (
+    <PageVisibleContext.Provider value={visible}>
+      <div hidden={!visible} style={visible ? undefined : { display: "none" }}>
+        {children}
+      </div>
+    </PageVisibleContext.Provider>
   );
 }
 
@@ -409,6 +497,19 @@ export function AppShell() {
         };
       })()
     : null;
+  // Every page reached this session, and the route each was last reached by.
+  // Insertion order is the mount order, which never changes — React keeps each
+  // page's state as long as its key stays in the list.
+  //
+  // Updated during render rather than from an effect: the page has to exist in
+  // the same commit that shows it, or the first navigation to it would paint an
+  // empty panel and only fill in afterwards.
+  const activeKey = pageKeyFor(route);
+  const [pageRoutes, setPageRoutes] = useState<Record<string, string>>({});
+  if (activeKey && pageRoutes[activeKey] !== route) {
+    setPageRoutes({ ...pageRoutes, [activeKey]: route });
+  }
+
   const showSignOut = pageFilter !== null && !pageFilter.has(SETTINGS_PAGE);
 
   const handleSignOut = async () => {
@@ -650,22 +751,19 @@ export function AppShell() {
         {/* Deliberately unkeyed: this used to carry key={dbVersion}, so every
             sync that brought data down remounted whatever page was open and
             reset its tab, its dates and its scroll. Pages now re-read the
-            database in place through useDbRefresh. */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
-          {route === "#/" && <DashboardPage locale={locale} />}
-          {route === "#/daily" && <DailyPage locale={locale} />}
-          {(route === "#/daily-rounds" || LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(route, r))) && (
-            <DailyRoundsPage locale={locale} />
-          )}
-          {route === "#/does" && <DoesPage locale={locale} />}
-          {(route === "#/operations" || LEGACY_OPS_ROUTES.some((r) => matchesRoute(route, r))) && (
-            <DailyOperationsPage locale={locale} />
-          )}
+            database in place through useDbRefresh.
 
-          {/* Roster lists */}
-          {(route === "#/herd-and-stock" || LEGACY_HERD_ROUTES.some((r) => matchesRoute(route, r))) && (
-            <HerdAndStockPage locale={locale} />
-          )}
+            Every page opened this session stays mounted and is hidden rather
+            than torn down — see PageSlot. Rebuilding a board from SQLite on
+            every navigation is what made the Android app feel slow to open a
+            page it had already opened, and no amount of query tuning removes a
+            cost that shouldn't be paid twice. */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+          {Object.entries(pageRoutes).map(([key, pageRoute]) => (
+            <PageSlot key={key} visible={key === activeKey}>
+              {renderPage(key, locale, pageRoute)}
+            </PageSlot>
+          ))}
           {rabbitDetail && (
             // Keyed by route so moving between two cards remounts rather than
             // carrying the previous one's open/closed edit form over.
@@ -676,22 +774,6 @@ export function AppShell() {
               startEditing={rabbitDetail.startEditing}
             />
           )}
-
-          {/* Weaning Sales offline page */}
-          {route === "#/weaning-sales" && <WeaningSalesPage locale={locale} />}
-
-          {(route === "#/support-operations" || LEGACY_SUPPORT_OPS_ROUTES.some((r) => matchesRoute(route, r))) && (
-            <SupportOperationsPage locale={locale} />
-          )}
-          {route === "#/health" && <HealthPage locale={locale} />}
-          {(route === "#/reports" || LEGACY_REPORTS_ROUTES.some((r) => matchesRoute(route, r))) && (
-            <ReportsPage locale={locale} />
-          )}
-          {route === "#/insights" && <InsightsPage locale={locale} />}
-          {route === "#/records" && <RecordsPage locale={locale} />}
-          {route === REJECTED_OPS_ROUTE && <RejectedOpsPage locale={locale} />}
-          {route === "#/finance" && <FinancePage locale={locale} />}
-          {route === "#/settings" && <SettingsPage locale={locale} />}
         </main>
       </div>
     </div>

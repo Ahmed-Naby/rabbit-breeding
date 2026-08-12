@@ -18,22 +18,34 @@ import { PageHeader } from "@/components/page-header";
 
 type OperationTab = "mating" | "pregnancy-test" | "kindling" | "weaning" | "fostering";
 
-export function DailyOperationsPage({ locale }: { locale: Locale }) {
+function tabFromRoute(hash: string): OperationTab {
+  if (hash.includes("tab=pregnancy-test") || hash.startsWith("#/pregnancy-test")) return "pregnancy-test";
+  if (hash.includes("tab=kindling") || hash.startsWith("#/kindling")) return "kindling";
+  if (hash.includes("tab=weaning") || hash.startsWith("#/weaning")) return "weaning";
+  if (hash.includes("tab=fostering") || hash.startsWith("#/fostering")) return "fostering";
+  if (hash.includes("tab=mating") || hash.startsWith("#/mating")) return "mating";
+  // The first tab, not التلقيح: opening the page lands where the day starts.
+  return "pregnancy-test";
+}
+
+/**
+ * `route` comes from the shell, which keeps this page mounted between visits.
+ * A new route means a new arrival — from the dashboard's «ولادة» card, say —
+ * and that arrival chooses the tab; anything else leaves the farmer on the tab
+ * he was last reading.
+ */
+export function DailyOperationsPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const ops = t.dailyOperations;
 
-  const [activeTab, setActiveTab] = useState<OperationTab>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      if (hash.includes("tab=pregnancy-test") || hash.startsWith("#/pregnancy-test")) return "pregnancy-test";
-      if (hash.includes("tab=kindling") || hash.startsWith("#/kindling")) return "kindling";
-      if (hash.includes("tab=weaning") || hash.startsWith("#/weaning")) return "weaning";
-      if (hash.includes("tab=fostering") || hash.startsWith("#/fostering")) return "fostering";
-      if (hash.includes("tab=mating") || hash.startsWith("#/mating")) return "mating";
-    }
-    // The first tab, not التلقيح: opening the page lands where the day starts.
-    return "pregnancy-test";
-  });
+  const [activeTab, setActiveTab] = useState<OperationTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   return (
     <div className="space-y-6">

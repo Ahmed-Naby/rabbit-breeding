@@ -74,7 +74,31 @@ const ALL_TIME_TO = "2999-12-31";
 // The window each tab opens on, expressed as one of the preset buttons so the
 // matching button is already lit on load. Mirrors src/app/reports/page.tsx.
 
-export function ReportsPage({ locale }: { locale: Locale }) {
+type ReportsTab =
+  | "follow-up"
+  | "herd"
+  | "does-fertility"
+  | "bucks-fertility"
+  | "idle-does"
+  | "weak-does"
+  | "top-does";
+
+function tabFromRoute(hash: string): ReportsTab {
+  // Both spellings: the legacy standalone routes (#/does-fertility,
+  // #/bucks-fertility — still live in app-shell's LEGACY_REPORTS_ROUTES and
+  // where كارت الأم's back link points) as well as the ?tab= form. Matching
+  // only the latter left the legacy routes opening on متابعة يومية instead.
+  if (hash.includes("idle-does")) return "idle-does";
+  if (hash.includes("weak-does")) return "weak-does";
+  if (hash.includes("top-does")) return "top-does";
+  if (hash.includes("does-fertility")) return "does-fertility";
+  if (hash.includes("bucks-fertility")) return "bucks-fertility";
+  if (hash.includes("herd")) return "herd";
+  return "follow-up";
+}
+
+/** `route` selects the tab on each fresh arrival — see DailyOperationsPage. */
+export function ReportsPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const rt = t.reports;
   const defaultRange = presetRange("week");
@@ -83,30 +107,14 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   // A quarter spans at least one full cycle under any rebreed system.
   const herdDefaultRange = presetRange("quarter");
 
-  const [activeTab, setActiveTab] = useState<
-    | "follow-up"
-    | "herd"
-    | "does-fertility"
-    | "bucks-fertility"
-    | "idle-does"
-    | "weak-does"
-    | "top-does"
-  >(() => {
-    if (typeof window !== "undefined") {
-      // Both spellings: the legacy standalone routes (#/does-fertility,
-      // #/bucks-fertility — still live in app-shell's LEGACY_REPORTS_ROUTES and
-      // where كارت الأم's back link points) as well as the ?tab= form. Matching
-      // only the latter left the legacy routes opening on متابعة يومية instead.
-      const hash = window.location.hash;
-      if (hash.includes("idle-does")) return "idle-does";
-      if (hash.includes("weak-does")) return "weak-does";
-      if (hash.includes("top-does")) return "top-does";
-      if (hash.includes("does-fertility")) return "does-fertility";
-      if (hash.includes("bucks-fertility")) return "bucks-fertility";
-      if (hash.includes("herd")) return "herd";
-    }
-    return "follow-up";
-  });
+  const [activeTab, setActiveTab] = useState<ReportsTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   const [fromInput, setFromInput] = useState(defaultRange.from);
   const [toInput, setToInput] = useState(defaultRange.to);

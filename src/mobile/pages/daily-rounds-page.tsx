@@ -9,18 +9,25 @@ import { PageHeader } from "@/components/page-header";
 
 type RoundsTab = "does-rounds" | "bucks-rounds";
 
-export function DailyRoundsPage({ locale }: { locale: Locale }) {
+function tabFromRoute(hash: string): RoundsTab {
+  if (hash.includes("tab=bucks-rounds") || hash.startsWith("#/bucks-rounds")) return "bucks-rounds";
+  if (hash.includes("tab=does-rounds") || hash.startsWith("#/rounds")) return "does-rounds";
+  return "does-rounds";
+}
+
+/** `route` selects the tab on each fresh arrival — see DailyOperationsPage. */
+export function DailyRoundsPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const dr = t.dailyRounds;
 
-  const [activeTab, setActiveTab] = useState<RoundsTab>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      if (hash.includes("tab=bucks-rounds") || hash.startsWith("#/bucks-rounds")) return "bucks-rounds";
-      if (hash.includes("tab=does-rounds") || hash.startsWith("#/rounds")) return "does-rounds";
-    }
-    return "does-rounds";
-  });
+  const [activeTab, setActiveTab] = useState<RoundsTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   return (
     <div className="space-y-6">

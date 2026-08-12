@@ -222,23 +222,30 @@ function CullingLogTab({ locale, range }: { locale: Locale; range: DateRange }) 
   return <CullingLog culledRabbits={filtered} locale={locale} />;
 }
 
-export function RecordsPage({ locale }: { locale: Locale }) {
+function tabFromRoute(hash: string): RecordsTab {
+  if (hash.includes("tab=pregnancy-test")) return "pregnancy-test";
+  if (hash.includes("tab=resorption")) return "resorption";
+  if (hash.includes("tab=kindling")) return "kindling";
+  if (hash.includes("tab=weaning")) return "weaning";
+  if (hash.includes("tab=fostering")) return "fostering";
+  if (hash.includes("tab=mortality")) return "mortality";
+  if (hash.includes("tab=culling")) return "culling";
+  return "mating";
+}
+
+/** `route` selects the tab on each fresh arrival — see DailyOperationsPage. */
+export function RecordsPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const rt = t.records;
 
-  const [activeTab, setActiveTab] = useState<RecordsTab>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      if (hash.includes("tab=pregnancy-test")) return "pregnancy-test";
-      if (hash.includes("tab=resorption")) return "resorption";
-      if (hash.includes("tab=kindling")) return "kindling";
-      if (hash.includes("tab=weaning")) return "weaning";
-      if (hash.includes("tab=fostering")) return "fostering";
-      if (hash.includes("tab=mortality")) return "mortality";
-      if (hash.includes("tab=culling")) return "culling";
-    }
-    return "mating";
-  });
+  const [activeTab, setActiveTab] = useState<RecordsTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");

@@ -11,21 +11,28 @@ import { PageHeader } from "@/components/page-header";
 
 type HerdTab = "stock" | "mothers" | "bucks";
 
-export function HerdAndStockPage({ locale }: { locale: Locale }) {
+function tabFromRoute(hash: string): HerdTab {
+  // matchesRoute, not startsWith: "#/bucks" would otherwise also claim
+  // "#/bucks-fertility" and "#/bucks-rounds".
+  if (hash.includes("tab=mothers") || matchesRoute(hash, "#/mothers")) return "mothers";
+  if (hash.includes("tab=bucks") || matchesRoute(hash, "#/bucks")) return "bucks";
+  if (hash.includes("tab=stock") || matchesRoute(hash, "#/stock")) return "stock";
+  return "mothers";
+}
+
+/** `route` selects the tab on each fresh arrival — see DailyOperationsPage. */
+export function HerdAndStockPage({ locale, route = "" }: { locale: Locale; route?: string }) {
   const t = getClientDictionary(locale);
   const hs = t.herdAndStock;
 
-  const [activeTab, setActiveTab] = useState<HerdTab>(() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      // matchesRoute, not startsWith: "#/bucks" would otherwise also claim
-      // "#/bucks-fertility" and "#/bucks-rounds".
-      if (hash.includes("tab=mothers") || matchesRoute(hash, "#/mothers")) return "mothers";
-      if (hash.includes("tab=bucks") || matchesRoute(hash, "#/bucks")) return "bucks";
-      if (hash.includes("tab=stock") || matchesRoute(hash, "#/stock")) return "stock";
-    }
-    return "mothers";
-  });
+  const [activeTab, setActiveTab] = useState<HerdTab>(() =>
+    tabFromRoute(route || (typeof window !== "undefined" ? window.location.hash : ""))
+  );
+  const [lastRoute, setLastRoute] = useState(route);
+  if (route !== lastRoute) {
+    setLastRoute(route);
+    setActiveTab(tabFromRoute(route));
+  }
 
   return (
     <div className="space-y-6">
