@@ -88,6 +88,11 @@ export const config = {
     "/api/auth/:path*",
     "/api/farm",
     "/api/farm/:path*",
+    // Called by the offline app exactly like /api/sync/*, so it needs the same
+    // CORS answer. This list is opt-in per route: a route left off it works
+    // from curl and fails only in a browser, at the preflight, with an error
+    // carrying no status to explain itself.
+    "/api/insights",
     // Every page except the login form itself, Next's assets, and static
     // files served from /public.
     //
