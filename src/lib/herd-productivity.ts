@@ -95,6 +95,14 @@ export type HerdProductivity = {
   cycleAchievement: number | null;
 
   weanedPerDoePerMonth: number | null;
+  /**
+   * Head sold per doe per month — the same rabbits kgSoldPerDoePerMonth weighs,
+   * counted instead. Kept beside it rather than in place of it: the kilos move
+   * with the market's appetite for a heavier carcass, the head count doesn't,
+   * so a month that sold the same rabbits lighter reads as a fall in one and a
+   * flat line in the other.
+   */
+  soldPerDoePerMonth: number | null;
   kgSoldPerDoePerMonth: number | null;
   revenuePerDoePerMonthCents: number | null;
   costPerDoePerMonthCents: number | null;
@@ -335,6 +343,10 @@ export function computeHerdProductivity(input: HerdProductivityInput): HerdProdu
 
 
     weanedPerDoePerMonth: perMonth(input.weaningEvents, input.weaningEvents),
+    soldPerDoePerMonth: perMonth(
+      input.saleEvents.map((s) => ({ dateMs: s.dateMs, value: s.count })),
+      input.saleEvents.map((s) => ({ dateMs: s.dateMs, value: s.count }))
+    ),
     kgSoldPerDoePerMonth: perMonth(
       input.saleEvents.map((s) => ({ dateMs: s.dateMs, value: s.grams / 1000 })),
       // Anchored on head sold, not on kilos: a month that shipped rabbits with

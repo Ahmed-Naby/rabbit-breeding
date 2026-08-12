@@ -976,6 +976,7 @@ export const en: Dictionary = {
 
     herdSectionMonthly: "Monthly return per doe",
     herdWeanedPerMonthLabel: "Weaned per doe per month",
+    herdSoldPerMonthLabel: "Head sold per doe per month",
     herdKgSoldPerMonthLabel: "Kg sold per doe per month",
     herdRevenuePerMonthLabel: "Income per doe per month",
     herdCostPerMonthLabel: "Allocated cost per doe per month",

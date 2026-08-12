@@ -987,6 +987,7 @@ export const ar = {
 
     herdSectionMonthly: "العائد الشهري لكل أم",
     herdWeanedPerMonthLabel: "فطام لكل أم شهريًا",
+    herdSoldPerMonthLabel: "مباع لكل أم شهريًا",
     herdKgSoldPerMonthLabel: "كجم مباع لكل أم شهريًا",
     herdRevenuePerMonthLabel: "إيراد لكل أم شهريًا",
     herdCostPerMonthLabel: "مصروف موزَّع لكل أم شهريًا",

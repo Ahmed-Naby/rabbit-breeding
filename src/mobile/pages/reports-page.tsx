@@ -666,6 +666,7 @@ function HerdProductivitySection({ herd, rt }: { herd: HerdReport; rt: RT }) {
       <Section title={rt.herdSectionMonthly}>
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <HerdTile label={rt.herdWeanedPerMonthLabel} value={num(p.weanedPerDoePerMonth)} />
+          <HerdTile label={rt.herdSoldPerMonthLabel} value={num(p.soldPerDoePerMonth)} />
           <HerdTile label={rt.herdKgSoldPerMonthLabel} value={num(p.kgSoldPerDoePerMonth, 2)} />
           <HerdTile label={rt.herdRevenuePerMonthLabel} value={money(p.revenuePerDoePerMonthCents)} />
           <HerdTile label={rt.herdCostPerMonthLabel} value={money(p.costPerDoePerMonthCents)} />
