@@ -814,21 +814,6 @@ function IdleDoesSection({
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-amber-500/8 via-card to-card shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-amber-500/12 text-amber-600 dark:text-amber-400">
-              <Hourglass className="size-5" />
-            </span>
-            {rt.herdSectionIdle}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-xs text-muted-foreground">
-          <p>{rt.herdIdleDescription(idle.cycleDays)}</p>
-          <p>{rt.herdIdleAsOfNote}</p>
-        </CardContent>
-      </Card>
-
       <Section title={rt.herdSectionIdle}>
         <div className="space-y-3 p-4">
           <div className="grid gap-3 sm:grid-cols-2">

@@ -1002,10 +1002,6 @@ export const en: Dictionary = {
     herdBreakEvenNoSales: "No meat was sold in this period, so no break-even price can be computed.",
 
     herdSectionIdle: "Idle does",
-    herdIdleDescription: (cycleDays: number) =>
-      `Does with no kindling for more than ${cycleDays} days (one full cycle). These are precisely what pulls the «Herd Productivity» rates down, since those divide by every doe in the barn whether she produced or not.`,
-    herdIdleAsOfNote:
-      "This list is measured from today, not over a period — a doe is either overdue for her cycle this morning or she is not. The day count runs from her last kindling, or from the day she entered the herd if she never kindled.",
     herdIdleEmpty: "No idle does — every doe in the herd is within her cycle.",
     herdIdleCountLabel: "Idle does",
     herdIdleShareLabel: "Share of the herd",
