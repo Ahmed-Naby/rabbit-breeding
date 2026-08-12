@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays } from "date-fns";
+import { addDays, differenceInCalendarDays, subMonths, subYears } from "date-fns";
 import type { Locale } from "./i18n/locales";
 
 // Dates are stored in UTC. Display formatting that must be locale-aware and
@@ -58,6 +58,32 @@ export function toDateInputValue(date: Date | null | undefined): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * The one-press ranges on the reports date filter, ending today. "all" is the
+ * whole record and returns two empty strings — the same pair the boxes hold on
+ * على السجل كله, which every reader already treats as "no bound given".
+ *
+ * subMonths/subYears rather than setMonth: 31 May minus one month is 30 April
+ * here, where the plain setter would roll forward into May and hand back a
+ * range longer than the button promises.
+ */
+export const RANGE_PRESETS = ["month", "quarter", "year", "all"] as const;
+export type RangePreset = (typeof RANGE_PRESETS)[number];
+
+export function presetRange(
+  preset: RangePreset,
+  today: Date = new Date()
+): { from: string; to: string } {
+  if (preset === "all") return { from: "", to: "" };
+  const from =
+    preset === "month"
+      ? subMonths(today, 1)
+      : preset === "quarter"
+        ? subMonths(today, 3)
+        : subYears(today, 1);
+  return { from: toDateInputValue(from), to: toDateInputValue(today) };
 }
 
 /** True if a date/ISO string falls on today's calendar date (local time). */

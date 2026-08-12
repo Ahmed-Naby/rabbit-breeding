@@ -26,7 +26,7 @@ import { LocalDate } from "@/components/local-date";
 import { ExportXlsxButton } from "@/components/export-xlsx-button";
 import { formatMoney } from "@/lib/units";
 import { revenuePerDoeCents } from "@/lib/breeding-averages";
-import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
+import { fromDateInputValue, presetRange, toDateInputValue, type RangePreset } from "@/lib/dates";
 import { getFollowUpReport, type FollowUpReport } from "./report-data";
 import {
   getHerdReport,
@@ -269,40 +269,61 @@ function RangeFilter({
   showAll: boolean;
   rt: RT;
 }) {
+  const fromValue = showAll ? "" : toDateInputValue(from);
+  const toValue = showAll ? "" : toDateInputValue(to);
+
+  // One press each: a link carries the dates AND re-renders the report, so
+  // there is nothing to press afterwards. «من بداية التشغيل» is the same all=1
+  // view «إلغاء التصفية» used to reach, now named for what it shows.
+  const presets: { key: RangePreset; label: string }[] = [
+    { key: "month", label: rt.rangeMonthButton },
+    { key: "quarter", label: rt.rangeQuarterButton },
+    { key: "year", label: rt.rangeYearButton },
+    { key: "all", label: rt.rangeAllButton },
+  ];
+
   return (
     <Card>
-      <CardContent className="py-4">
+      <CardContent className="space-y-3 py-4">
+        <div className="flex flex-wrap gap-2">
+          {presets.map(({ key, label }) => {
+            const range = presetRange(key);
+            const active = key === "all" ? showAll : !showAll && fromValue === range.from && toValue === range.to;
+            const href =
+              key === "all"
+                ? `?tab=${tab}&all=1`
+                : `?tab=${tab}&from=${range.from}&to=${range.to}`;
+            return (
+              <Button
+                key={key}
+                asChild={!active}
+                // The one already on screen is a disabled button, not a link:
+                // `disabled` means nothing to an <a>, which would stay clickable.
+                disabled={active}
+                variant={active ? "default" : "outline"}
+                size="sm"
+              >
+                {active ? <span>{label}</span> : <Link href={href}>{label}</Link>}
+              </Button>
+            );
+          })}
+        </div>
+
         <form method="get" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="tab" value={tab} />
           <label className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">{rt.fromLabel}</span>
             {/* Empty, not the sentinel year: على السجل كله the two boxes read as
-                "no dates chosen", which is what إلغاء التصفية just did. */}
-            <Input type="date" name="from" defaultValue={showAll ? "" : toDateInputValue(from)} className="w-40" />
+                "no dates chosen", which is what من بداية التشغيل just did. */}
+            <Input type="date" name="from" defaultValue={fromValue} className="w-40" />
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">{rt.toLabel}</span>
-            <Input type="date" name="to" defaultValue={showAll ? "" : toDateInputValue(to)} className="w-40" />
+            <Input type="date" name="to" defaultValue={toValue} className="w-40" />
           </label>
           <Button type="submit" size="sm">
             {rt.applyButton}
           </Button>
-          {/* A link, not a form reset: the whole-record view is a URL of its
-              own (all=1), so it survives a refresh and can be shared — while
-              clearing the two inputs in place would just submit an empty
-              range, which the server reads as "no filter given" and answers
-              with the default week. */}
-          {showAll ? (
-            // A real disabled <button>, not a disabled prop on the link: `disabled`
-            // means nothing to an <a>, which would stay clickable.
-            <Button variant="outline" size="sm" disabled>
-              {rt.clearFilterButton}
-            </Button>
-          ) : (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`?tab=${tab}&all=1`}>{rt.clearFilterButton}</Link>
-            </Button>
-          )}
         </form>
       </CardContent>
     </Card>

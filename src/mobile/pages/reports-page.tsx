@@ -28,7 +28,13 @@ import {
 import type { HerdReport, IdleDoesReport } from "@/lib/herd-productivity";
 import { formatMoney } from "@/lib/units";
 import { revenuePerDoeCents } from "@/lib/breeding-averages";
-import { fromDateInputValue, toDateInputValue } from "@/lib/dates";
+import {
+  fromDateInputValue,
+  presetRange,
+  toDateInputValue,
+  RANGE_PRESETS,
+  type RangePreset,
+} from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -155,22 +161,6 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     void load(fromInput, toInput);
-  };
-
-  // «إلغاء التصفية» empties both boxes and reloads over the whole record — the
-  // page opens on a window (a week here, 90 days for القطيع) but that's a
-  // starting point, not a floor. Disabled once they're already empty, so the
-  // button reads as done rather than as something still worth pressing.
-  const handleClearFilter = () => {
-    setFromInput("");
-    setToInput("");
-    void load("", "");
-  };
-
-  const handleClearHerdFilter = () => {
-    setHerdFromInput("");
-    setHerdToInput("");
-    void loadHerd("", "");
   };
 
   const dash = "—";
@@ -306,7 +296,18 @@ export function ReportsPage({ locale }: { locale: Locale }) {
           )}
 
           <Card>
-            <CardContent className="py-4">
+            <CardContent className="space-y-3 py-4">
+              <RangePresets
+                from={fromInput}
+                to={toInput}
+                disabled={loading}
+                onPick={(f, t) => {
+                  setFromInput(f);
+                  setToInput(t);
+                  void load(f, t);
+                }}
+                rt={rt}
+              />
               <form onSubmit={handleApply} className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="from">{rt.fromLabel}</Label>
@@ -318,15 +319,6 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                 </div>
                 <Button type="submit" size="sm" disabled={loading}>
                   {rt.applyButton}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleClearFilter}
-                  disabled={loading || (!fromInput && !toInput)}
-                >
-                  {rt.clearFilterButton}
                 </Button>
               </form>
             </CardContent>
@@ -388,7 +380,18 @@ export function ReportsPage({ locale }: { locale: Locale }) {
       {activeTab === "herd" && (
         <div className="space-y-6 animate-fade-in">
           <Card>
-            <CardContent className="py-4">
+            <CardContent className="space-y-3 py-4">
+              <RangePresets
+                from={herdFromInput}
+                to={herdToInput}
+                disabled={herdLoading}
+                onPick={(f, t) => {
+                  setHerdFromInput(f);
+                  setHerdToInput(t);
+                  void loadHerd(f, t);
+                }}
+                rt={rt}
+              />
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -406,15 +409,6 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                 </div>
                 <Button type="submit" size="sm" disabled={herdLoading}>
                   {rt.applyButton}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleClearHerdFilter}
-                  disabled={herdLoading || (!herdFromInput && !herdToInput)}
-                >
-                  {rt.clearFilterButton}
                 </Button>
               </form>
             </CardContent>
@@ -1141,6 +1135,55 @@ function BalanceCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
  * animals standing in the barn today, so the date filter further down the page
  * does not reach them either.
  */
+/**
+ * One-press ranges above the two date boxes. Picking one fills the boxes AND
+ * refetches, so there is nothing to press afterwards.
+ *
+ * «من بداية التشغيل» is the whole record — the empty pair the old «إلغاء
+ * التصفية» produced, now named for what it shows rather than for what it undoes.
+ */
+function RangePresets({
+  from,
+  to,
+  disabled,
+  onPick,
+  rt,
+}: {
+  from: string;
+  to: string;
+  disabled: boolean;
+  onPick: (from: string, to: string) => void;
+  rt: RT;
+}) {
+  const labels: Record<RangePreset, string> = {
+    month: rt.rangeMonthButton,
+    quarter: rt.rangeQuarterButton,
+    year: rt.rangeYearButton,
+    all: rt.rangeAllButton,
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {RANGE_PRESETS.map((preset) => {
+        const range = presetRange(preset);
+        const active = from === range.from && to === range.to;
+        return (
+          <Button
+            key={preset}
+            type="button"
+            size="sm"
+            variant={active ? "default" : "outline"}
+            disabled={disabled || active}
+            onClick={() => onPick(range.from, range.to)}
+          >
+            {labels[preset]}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 function CullCards({ report, rt }: { report: FollowUpReport; rt: RT }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
