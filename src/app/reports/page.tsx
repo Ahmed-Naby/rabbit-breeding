@@ -56,18 +56,21 @@ const ALL_TIME_FROM = new Date("1970-01-01T00:00:00.000Z");
 const ALL_TIME_TO = new Date("2999-12-31T00:00:00.000Z");
 
 /**
- * `spanDays` is the inclusive window length. تقارير المتابعة is a *weekly*
- * report, so 7. إنتاجية القطيع defaults to 90 instead: its headline is cycles
- * per doe per year, and annualising a 7-day window multiplies whatever noise
- * that week held by 52 — one busy Tuesday would read as a world-class farm.
- * Ninety days spans at least one full cycle under any of the three rebreed
- * systems, so every doe has had a fair chance to appear in the numerator.
+ * The window a plain /reports visit opens on, expressed as one of the preset
+ * buttons so the matching button is already lit when the page loads — the two
+ * used to be defined apart and disagreed by a day, leaving every button grey on
+ * a range that was in fact a week.
+ *
+ * تقارير المتابعة is a *weekly* report, so «أسبوع». إنتاجية القطيع opens on
+ * «٣ شهور» instead: its headline is cycles per doe per year, and annualising a
+ * seven-day window multiplies whatever noise that week held by 52 — one busy
+ * Tuesday would read as a world-class farm. A quarter spans at least one full
+ * cycle under any of the three rebreed systems, so every doe has had a fair
+ * chance to appear in the numerator.
  */
-function defaultRange(spanDays: number) {
-  const to = new Date();
-  to.setUTCHours(0, 0, 0, 0);
-  const from = addDays(to, -(spanDays - 1));
-  return { from, to };
+function defaultRange(preset: RangePreset) {
+  const { from, to } = presetRange(preset);
+  return { from: fromDateInputValue(from), to: fromDateInputValue(to) };
 }
 
 export default async function ReportsPage({
@@ -79,7 +82,7 @@ export default async function ReportsPage({
   const activeTab = sp.tab || "follow-up";
   const isHerdTab = activeTab === "herd";
   const isIdleTab = activeTab === "idle-does";
-  const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? 90 : 7);
+  const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? "quarter" : "week");
   // «إلغاء التصفية» lands here: no window at all, every record the farm has.
   // A flag rather than empty from/to, because a missing range is what a plain
   // /reports visit looks like and that one still opens on the default week.

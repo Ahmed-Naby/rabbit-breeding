@@ -31,7 +31,6 @@ import { revenuePerDoeCents } from "@/lib/breeding-averages";
 import {
   fromDateInputValue,
   presetRange,
-  toDateInputValue,
   RANGE_PRESETS,
   type RangePreset,
 } from "@/lib/dates";
@@ -61,21 +60,17 @@ import { PageHeader } from "@/components/page-header";
 const ALL_TIME_FROM = "1970-01-01";
 const ALL_TIME_TO = "2999-12-31";
 
-function defaultRange(spanDays: number) {
-  const to = new Date();
-  to.setUTCHours(0, 0, 0, 0);
-  const from = addDays(to, -(spanDays - 1));
-  return { from, to };
-}
+// The window each tab opens on, expressed as one of the preset buttons so the
+// matching button is already lit on load. Mirrors src/app/reports/page.tsx.
 
 export function ReportsPage({ locale }: { locale: Locale }) {
   const t = getClientDictionary(locale);
   const rt = t.reports;
-  const { from: defaultFrom, to: defaultTo } = defaultRange(7);
-  // 90 days for the herd tab, not the follow-up tab's week: its headline rates
+  const defaultRange = presetRange("week");
+  // ٣ شهور for the herd tab, not the follow-up tab's week: its headline rates
   // are annualised, so a seven-day window multiplies that week's noise by 52.
-  // Ninety days spans at least one full cycle under any rebreed system.
-  const { from: herdDefaultFrom, to: herdDefaultTo } = defaultRange(90);
+  // A quarter spans at least one full cycle under any rebreed system.
+  const herdDefaultRange = presetRange("quarter");
 
   const [activeTab, setActiveTab] = useState<
     "follow-up" | "herd" | "does-fertility" | "bucks-fertility" | "idle-does"
@@ -94,8 +89,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     return "follow-up";
   });
 
-  const [fromInput, setFromInput] = useState(() => toDateInputValue(defaultFrom));
-  const [toInput, setToInput] = useState(() => toDateInputValue(defaultTo));
+  const [fromInput, setFromInput] = useState(defaultRange.from);
+  const [toInput, setToInput] = useState(defaultRange.to);
   const [report, setReport] = useState<FollowUpReport | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -115,8 +110,8 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   // The herd tab keeps its own range and its own fetch, and is loaded lazily:
   // it reads the whole ledger and every kindling row in the window, which has
   // no business running behind the tab people actually land on.
-  const [herdFromInput, setHerdFromInput] = useState(() => toDateInputValue(herdDefaultFrom));
-  const [herdToInput, setHerdToInput] = useState(() => toDateInputValue(herdDefaultTo));
+  const [herdFromInput, setHerdFromInput] = useState(herdDefaultRange.from);
+  const [herdToInput, setHerdToInput] = useState(herdDefaultRange.to);
   const [herd, setHerd] = useState<HerdReport | null>(null);
   const [herdLoading, setHerdLoading] = useState(false);
 
