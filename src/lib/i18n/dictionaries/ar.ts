@@ -867,6 +867,7 @@ export const ar = {
     tabBucksFertility: "تقرير خصوبة الذكور",
     tabHerdProductivity: "إنتاجية القطيع",
     tabIdleDoes: "الأمهات الخاملة",
+    tabWeakDoes: "أمهات ضعيفة الأداء",
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "عرض التقرير",
@@ -1028,6 +1029,30 @@ export const ar = {
     herdColLastKindling: "آخر ولادة",
     herdColIdleDays: "أيام بلا ولادة",
     herdNeverKindled: "لم تلد إطلاقًا",
+
+    weakSectionTitle: "أمهات ضعيفة الأداء",
+    weakEmpty: "لا توجد أمهات ضعيفة الأداء — كل أم في العنبر ضمن مستوى القطيع.",
+    weakCountLabel: "عدد الأمهات الضعيفة",
+    weakShareLabel: "نسبتهن من القطيع",
+    weakHerdLitterLabel: "متوسط عدد الخلفة في المزرعة",
+    weakHerdRearingLabel: "متوسط نسبة الفطام في المزرعة",
+    weakColMatings: "عدد التلقيحات",
+    weakColKindlings: "عدد الولادات",
+    weakColFertility: "الخصوبة",
+    weakColLitterSize: "متوسط عدد الخلفة",
+    weakColRearing: "نسبة الفطام",
+    weakColReasons: "سبب الترشيح",
+    weakReasonFertility: "خصوبة منخفضة",
+    weakReasonLitterSize: "عدد خلفة قليل",
+    weakReasonRearing: "رعاية ضعيفة",
+    // The whole method on one line, because this list is a spending decision:
+    // an owner about to sell an animal is owed the rule that named her.
+    weakNote: (fertilityThreshold: number, relativePct: number, minMatings: number) =>
+      `أمهات سقطن في واحد أو أكثر من ثلاثة اختبارات: خصوبة أقل من ${fertilityThreshold}%، أو متوسط عدد خلفة أقل من ${relativePct}% من متوسط مزرعتك، أو نسبة فطام أقل من ${relativePct}% من متوسط مزرعتك. عدد الخلفة والفطام يُقاسان بمزرعتك نفسها لأن ما يُعتبر بطنًا كبيرًا يختلف من سلالة لأخرى. لا يُحسب اختبار لأم لم تبلغ ${minMatings} تلقيحات (أو ${minMatings} ولادات/فطامات) على الأقل، حتى لا تظهر أم جديدة كأنها فاشلة.`,
+    // Lifetime, not the report's range — stated because every other tab on this
+    // page answers a question about a window, and this one does not.
+    weakLifetimeNote:
+      "الحساب على تاريخ الأم كله وليس على فترة محدّدة: الاستبعاد قرار دائم، وأم مرّت بشهرين سيّئين بعد سنة جيدة ليست كأم ضعيفة من أول يوم.",
   },
   records: {
     title: "السجلات",

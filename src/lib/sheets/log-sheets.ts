@@ -185,6 +185,22 @@ export type IdleDoeSheetRow = {
   idleDays: number;
 };
 
+/**
+ * A doe failing one or more of the three performance tests — the other استبعاد
+ * shortlist. `reasons` arrives already translated: the sheet is a flat table
+ * with no legend to explain a code, so the column has to read as a sentence.
+ */
+export type WeakDoeSheetRow = {
+  tagId?: string | null;
+  breed?: string | null;
+  matings: number;
+  kindlings: number;
+  fertilityRatePct: number | null;
+  avgLitterSize: number | null;
+  weaningRetentionPct: number | null;
+  reasons: string;
+};
+
 /** An untagged juvenile still on the السلالات intake table. */
 export type StockSheetRow = {
   date: DateLike;
@@ -218,6 +234,7 @@ export type LogSheetSpec =
   | { kind: "herdBucks"; rows: HerdSheetRow[]; weightUnit: WeightUnit }
   | { kind: "stock"; rows: StockSheetRow[] }
   | { kind: "idleDoes"; rows: IdleDoeSheetRow[] }
+  | { kind: "weakDoes"; rows: WeakDoeSheetRow[] }
   | { kind: "kitLedger"; rows: KitLedgerSheetRow[]; currency: string; weightUnit: WeightUnit };
 
 // ── builders ─────────────────────────────────────────────────────────────────
@@ -585,6 +602,39 @@ export function buildLogSheet(spec: LogSheetSpec, locale: Locale): LogSheet {
           // rather than as text; أيام بلا ولادة still carries her number.
           r.neverKindled ? null : asDate(r.lastKindlingDate),
           r.idleDays,
+        ])
+      );
+    }
+
+    case "weakDoes": {
+      const t = d.reports;
+      // Wide, like doesFertility's: these headers are whole phrases, and the
+      // reasons column holds a comma-joined sentence.
+      const STAT = 18;
+      return sheet(
+        t.weakSectionTitle,
+        [
+          { header: t.herdColTag, format: "text", width: TAG },
+          { header: t.herdColBreed, format: "text" },
+          { header: t.weakColMatings, format: "number", width: STAT },
+          { header: t.weakColKindlings, format: "number", width: STAT },
+          { header: `${t.weakColFertility} (%)`, format: "number", width: STAT },
+          { header: t.weakColLitterSize, format: "decimal", width: STAT },
+          { header: `${t.weakColRearing} (%)`, format: "number", width: STAT },
+          { header: t.weakColReasons, format: "text", width: 36 },
+        ],
+        spec.rows.map((r) => [
+          r.tagId ?? null,
+          r.breed ?? null,
+          r.matings,
+          r.kindlings,
+          // Rounded as the table prints them; the litter average keeps its
+          // decimal. A test that could not be run stays blank rather than 0 —
+          // «لم تُحسب» and «صفر» are opposite conclusions about a doe.
+          r.fertilityRatePct != null ? Math.round(r.fertilityRatePct) : null,
+          r.avgLitterSize,
+          r.weaningRetentionPct != null ? Math.round(r.weaningRetentionPct) : null,
+          r.reasons,
         ])
       );
     }

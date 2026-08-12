@@ -860,6 +860,7 @@ export const en: Dictionary = {
     tabBucksFertility: "Bucks Fertility Report",
     tabHerdProductivity: "Herd Productivity",
     tabIdleDoes: "Idle Does",
+    tabWeakDoes: "Underperforming Does",
     fromLabel: "From",
     toLabel: "To",
     applyButton: "View report",
@@ -1016,6 +1017,30 @@ export const en: Dictionary = {
     herdColLastKindling: "Last kindling",
     herdColIdleDays: "Days without kindling",
     herdNeverKindled: "Never kindled",
+
+    weakSectionTitle: "Underperforming does",
+    weakEmpty: "No underperforming does — every doe in the barn is within the herd's own range.",
+    weakCountLabel: "Underperforming does",
+    weakShareLabel: "Share of the herd",
+    weakHerdLitterLabel: "Farm average litter size",
+    weakHerdRearingLabel: "Farm average weaning retention",
+    weakColMatings: "Matings",
+    weakColKindlings: "Kindlings",
+    weakColFertility: "Fertility",
+    weakColLitterSize: "Avg litter size",
+    weakColRearing: "Weaning retention",
+    weakColReasons: "Why she is listed",
+    weakReasonFertility: "Low fertility",
+    weakReasonLitterSize: "Small litters",
+    weakReasonRearing: "Poor rearing",
+    // The whole method on one line, because this list is a spending decision:
+    // an owner about to sell an animal is owed the rule that named her.
+    weakNote: (fertilityThreshold: number, relativePct: number, minMatings: number) =>
+      `Does that failed one or more of three tests: fertility under ${fertilityThreshold}%, average litter size under ${relativePct}% of your farm's average, or weaning retention under ${relativePct}% of your farm's average. Litter size and rearing are measured against your own farm because what counts as a big litter differs by breed. A test is not run on a doe with fewer than ${minMatings} matings (or ${minMatings} kindlings/weanings), so a new doe never reads as a failure.`,
+    // Lifetime, not the report's range — stated because every other tab on this
+    // page answers a question about a window, and this one does not.
+    weakLifetimeNote:
+      "Computed over the doe's whole history, not a chosen period: culling is permanent, and a doe who had two bad months after a good year is not the same animal as one who has been weak since day one.",
   },
   records: {
     title: "Records",

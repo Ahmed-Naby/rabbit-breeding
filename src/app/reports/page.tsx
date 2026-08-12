@@ -31,8 +31,10 @@ import { getFollowUpReport, type FollowUpReport } from "./report-data";
 import {
   getHerdReport,
   getIdleDoesReport,
+  getWeakDoesReport,
   type HerdReport,
   type IdleDoesReport,
+  type WeakDoesReport,
 } from "./herd-data";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
@@ -43,6 +45,7 @@ import {
   CULL_FERTILITY_THRESHOLD_PCT,
   CULL_MIN_MATINGS,
 } from "@/lib/cull-candidates";
+import { WEAK_DOE_RELATIVE_PCT, type WeakDoeReason } from "@/lib/weak-does";
 
 export async function generateMetadata() {
   const { t } = await getDictionary();
@@ -82,6 +85,7 @@ export default async function ReportsPage({
   const activeTab = sp.tab || "follow-up";
   const isHerdTab = activeTab === "herd";
   const isIdleTab = activeTab === "idle-does";
+  const isWeakTab = activeTab === "weak-does";
   const { from: defaultFrom, to: defaultTo } = defaultRange(isHerdTab ? "quarter" : "week");
   // «إلغاء التصفية» lands here: no window at all, every record the farm has.
   // A flag rather than empty from/to, because a missing range is what a plain
@@ -91,13 +95,15 @@ export default async function ReportsPage({
   const toSelected = showAll ? ALL_TIME_TO : sp.to ? fromDateInputValue(sp.to) : defaultTo;
   const toExclusive = addDays(toSelected, 1);
 
-  // Only the visible tab's data is fetched: the three reports have no overlap
-  // and الأمهات الخاملة scans every KindlingLog row on the farm, so loading it
-  // behind تقارير المتابعة would tax the common case for nothing.
-  const [report, herd, idle, { locale, t }] = await Promise.all([
-    isHerdTab || isIdleTab ? null : getFollowUpReport(from, toExclusive),
+  // Only the visible tab's data is fetched: the four reports have no overlap
+  // and both الأمهات الخاملة and أمهات ضعيفة الأداء scan every log row on the
+  // farm, so loading them behind تقارير المتابعة would tax the common case for
+  // nothing.
+  const [report, herd, idle, weak, { locale, t }] = await Promise.all([
+    isHerdTab || isIdleTab || isWeakTab ? null : getFollowUpReport(from, toExclusive),
     isHerdTab ? getHerdReport(from, toExclusive) : null,
     isIdleTab ? getIdleDoesReport() : null,
+    isWeakTab ? getWeakDoesReport() : null,
     getDictionary(),
   ]);
   const rt = t.reports;
@@ -182,6 +188,21 @@ export default async function ReportsPage({
           <Hourglass className="size-4 text-amber-500" />
           {rt.tabIdleDoes}
         </Link>
+
+        {/* No range either: this one judges a doe's whole life, so a window
+            would only invite culling on a quarter. */}
+        <Link
+          href="/reports?tab=weak-does"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap",
+            isWeakTab
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <TriangleAlert className="size-4 text-amber-500" />
+          {rt.tabWeakDoes}
+        </Link>
       </div>
 
       {/* TAB 1: Follow-Up Reports */}
@@ -253,6 +274,15 @@ export default async function ReportsPage({
       {idle && isIdleTab && (
         <div className="animate-fade-in">
           <IdleDoesSection idle={idle} rt={rt} locale={locale} />
+        </div>
+      )}
+
+      {/* TAB 6: Underperforming does — the names behind the cull count on
+          تقارير المتابعة. No RangeFilter for the same reason as TAB 5, only
+          more so: culling is a lifetime judgement on an animal. */}
+      {weak && isWeakTab && (
+        <div className="animate-fade-in">
+          <WeakDoesSection weak={weak} rt={rt} locale={locale} />
         </div>
       )}
     </div>
@@ -1178,6 +1208,170 @@ function IdleDoesSection({
                       <TableCell className="font-semibold tabular-nums">
                         {doe.idleDays.toLocaleString()}
                       </TableCell>
+                    </TableRow>
+                  ),
+                }))}
+              />
+            </div>
+            </>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/**
+ * «أمهات ضعيفة الأداء» — the names behind the cull count on تقارير المتابعة,
+ * judged on the three things a breeder actually culls on rather than on
+ * fertility alone. See src/lib/weak-does.ts for the rules.
+ *
+ * The three rates are printed as their own columns and never merged into a
+ * score: the owner is being asked to sell an animal, so he gets the evidence,
+ * not a verdict. «سبب الترشيح» names which tests she failed, and the two farm
+ * averages are on screen above the table because two of the three bars are set
+ * from them — a bar the farm can see is a bar the farm can argue with.
+ */
+function WeakDoesSection({
+  weak,
+  rt,
+  locale,
+}: {
+  weak: WeakDoesReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const share = weak.doeCount > 0 ? weak.weakDoes.length / weak.doeCount : null;
+  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+  const ratePct = (v: number | null) => (v == null ? "—" : `${Math.round(v)}%`);
+  const dec = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+
+  const reasonLabels: Record<WeakDoeReason, string> = {
+    fertility: rt.weakReasonFertility,
+    litterSize: rt.weakReasonLitterSize,
+    rearing: rt.weakReasonRearing,
+  };
+  const reasonText = (reasons: WeakDoeReason[]) =>
+    reasons.map((r) => reasonLabels[r]).join("، ");
+
+  return (
+    <div className="space-y-6">
+      <Section title={rt.weakSectionTitle}>
+        <div className="space-y-3 p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <HerdTile
+              label={rt.weakCountLabel}
+              value={weak.weakDoes.length.toLocaleString()}
+              strong
+              tone={weak.weakDoes.length > 0 ? "bad" : "good"}
+            />
+            <HerdTile label={rt.weakShareLabel} value={pct(share)} />
+            {/* The two bars themselves, so the list can be read against them. */}
+            <HerdTile label={rt.weakHerdLitterLabel} value={dec(weak.herdAvgLitterSize)} />
+            <HerdTile
+              label={rt.weakHerdRearingLabel}
+              value={ratePct(weak.herdAvgRetentionPct)}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {rt.weakNote(CULL_FERTILITY_THRESHOLD_PCT, WEAK_DOE_RELATIVE_PCT, CULL_MIN_MATINGS)}
+          </p>
+          <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
+
+          {weak.weakDoes.length === 0 ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.weakEmpty}</p>
+          ) : (
+            <>
+            <div className="flex justify-end">
+              <ExportXlsxButton
+                locale={locale}
+                spec={{
+                  kind: "weakDoes",
+                  rows: weak.weakDoes.map((doe) => ({
+                    tagId: doe.tagId,
+                    breed: doe.breed,
+                    matings: doe.matings,
+                    kindlings: doe.kindlings,
+                    fertilityRatePct: doe.fertilityRatePct,
+                    avgLitterSize: doe.avgLitterSize,
+                    weaningRetentionPct: doe.weaningRetentionPct,
+                    reasons: reasonText(doe.reasons),
+                  })),
+                }}
+              />
+            </div>
+            <div className="overflow-hidden rounded-xl border">
+              <SortableTable
+                headerRowClassName="[&>th]:border-x"
+                // Worst first, matching what findWeakDoes already returns: the
+                // does failing all three tests are the ones the page exists for.
+                initialSortKey="reasons"
+                initialSortDirection="desc"
+                columns={[
+                  { key: "index", label: rt.herdColIndex, className: "text-center", sortable: false },
+                  { key: "tag", label: rt.herdColTag, type: "tag", className: "text-center" },
+                  { key: "breed", label: rt.herdColBreed, type: "string", className: "hidden text-center sm:table-cell" },
+                  { key: "matings", label: rt.weakColMatings, type: "number", className: "hidden text-center sm:table-cell" },
+                  { key: "kindlings", label: rt.weakColKindlings, type: "number", className: "hidden text-center sm:table-cell" },
+                  { key: "fertility", label: rt.weakColFertility, type: "number", className: "text-center" },
+                  { key: "litterSize", label: rt.weakColLitterSize, type: "number", className: "text-center" },
+                  { key: "rearing", label: rt.weakColRearing, type: "number", className: "text-center" },
+                  { key: "reasons", label: rt.weakColReasons, type: "number", className: "text-center" },
+                ]}
+                rows={weak.weakDoes.map((doe, i) => ({
+                  key: doe.id,
+                  sortValues: {
+                    tag: doe.tagId,
+                    breed: doe.breed,
+                    matings: doe.matings,
+                    kindlings: doe.kindlings,
+                    fertility: doe.fertilityRatePct,
+                    litterSize: doe.avgLitterSize,
+                    rearing: doe.weaningRetentionPct,
+                    // Sorted by how many tests she failed, which is what the
+                    // column shows once you stop reading the words.
+                    reasons: doe.reasons.length,
+                  },
+                  node: (
+                    <TableRow key={doe.id} className="[&>td]:border-x [&>td]:text-center">
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/rabbits/${doe.id}`} className="hover:underline">
+                          {doe.tagId ?? "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                      <TableCell className="hidden tabular-nums sm:table-cell">{doe.matings}</TableCell>
+                      <TableCell className="hidden tabular-nums sm:table-cell">{doe.kindlings}</TableCell>
+                      {/* Only the cells that actually failed are coloured, so a
+                          glance down a column finds the reason without reading
+                          the last one. */}
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("fertility") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {ratePct(doe.fertilityRatePct)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("litterSize") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {dec(doe.avgLitterSize)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("rearing") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {ratePct(doe.weaningRetentionPct)}
+                      </TableCell>
+                      <TableCell className="text-xs">{reasonText(doe.reasons)}</TableCell>
                     </TableRow>
                   ),
                 }))}

@@ -13,6 +13,7 @@ import { weaningDueDate, nestBoxDueDate, daysUntil } from "@/lib/dates";
 import { resolveBornDeadAtKindling, weaningSurvivalRate } from "@/lib/kit-mortality";
 import { naturalCompare } from "@/lib/sortable";
 import { countCullBucks, countCullCandidates } from "@/lib/cull-candidates";
+import { findWeakDoes, type WeakDoesReport } from "@/lib/weak-does";
 import {
   computeBreedingAverages,
   computeLittersPerDoeYear,
@@ -3232,6 +3233,76 @@ export async function fetchIdleDoesReport(db: SQLiteDBConnection): Promise<IdleD
   );
 
   return { idleDoes, doeCount: doeRows.length, cycleDays };
+}
+
+/**
+ * The SQLite twin of getWeakDoesReport in src/app/reports/herd-data.ts — data
+ * for the «أمهات ضعيفة الأداء» tab.
+ *
+ * No date range: this is a lifetime judgement on an animal, and culling on a
+ * window narrow enough to be "recent" would sell a good doe over one unlucky
+ * quarter. See findWeakDoes for the three tests and why two of them are set
+ * against the farm's own average rather than a fixed number.
+ */
+export async function fetchWeakDoesReport(db: SQLiteDBConnection): Promise<WeakDoesReport> {
+  const [doeRows, matings, kindlings, weanings] = await Promise.all([
+    // The same population the does board and the cull tile show: tagged and
+    // active. A نافقة or مستبعدة doe cannot be culled, and an untagged one is a
+    // سلالة who has not started.
+    queryAll<{ id: string; tagId: string | null; breed: string | null }>(
+      db,
+      `SELECT id, tagId, breed FROM rabbit
+       WHERE sex = 'doe' AND tagId IS NOT NULL AND status = 'active' ORDER BY tagId ASC`
+    ),
+    queryAll<{ doeId: string; matings: number }>(
+      db,
+      "SELECT doeId, COUNT(*) as matings FROM mating_log GROUP BY doeId"
+    ),
+    // Count and «عدد الخلفة» in one pass — the birth count, frozen at kindling,
+    // so moving kits between does never changes whose litter size this is.
+    queryAll<{ doeId: string; kindlings: number; bornAliveTotal: number | null }>(
+      db,
+      `SELECT doeId, COUNT(*) as kindlings, SUM(bornAliveAtKindling) as bornAliveTotal
+         FROM kindling_log GROUP BY doeId`
+    ),
+    // Only cycles she actually finished: a weaning row with no count typed in
+    // is an unanswered question, not a doe who weaned nothing.
+    queryAll<{
+      doeId: string;
+      weaningCycles: number;
+      weanedTotal: number | null;
+      nursedTotal: number | null;
+    }>(
+      db,
+      `SELECT doeId,
+              COUNT(*) as weaningCycles,
+              SUM(weaned) as weanedTotal,
+              SUM(bornAlive) as nursedTotal
+         FROM weaning_log WHERE weaned IS NOT NULL GROUP BY doeId`
+    ),
+  ]);
+
+  const matingsByDoe = new Map(matings.map((g) => [g.doeId, g.matings]));
+  const kindlingsByDoe = new Map(kindlings.map((g) => [g.doeId, g]));
+  const weaningsByDoe = new Map(weanings.map((g) => [g.doeId, g]));
+
+  return findWeakDoes(
+    doeRows.map((d) => {
+      const k = kindlingsByDoe.get(d.id);
+      const w = weaningsByDoe.get(d.id);
+      return {
+        id: d.id,
+        tagId: d.tagId,
+        breed: d.breed,
+        matings: matingsByDoe.get(d.id) ?? 0,
+        kindlings: k?.kindlings ?? 0,
+        bornAliveTotal: k?.bornAliveTotal ?? 0,
+        weaningCycles: w?.weaningCycles ?? 0,
+        nursedTotal: w?.nursedTotal ?? 0,
+        weanedTotal: w?.weanedTotal ?? 0,
+      };
+    })
+  );
 }
 
 /**

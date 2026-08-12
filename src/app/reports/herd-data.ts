@@ -8,8 +8,9 @@ import {
   type HerdReport,
   type IdleDoesReport,
 } from "@/lib/herd-productivity";
+import { findWeakDoes, type WeakDoesReport } from "@/lib/weak-does";
 
-export type { HerdReport, IdleDoesReport };
+export type { HerdReport, IdleDoesReport, WeakDoesReport };
 
 const DAY_MS = 86_400_000;
 
@@ -216,4 +217,66 @@ export async function getIdleDoesReport(): Promise<IdleDoesReport> {
   );
 
   return { idleDoes, doeCount: doeRows.length, cycleDays };
+}
+
+/**
+ * Data for the «أمهات ضعيفة الأداء» tab.
+ *
+ * No date range, like الأمهات الخاملة above and for a stronger reason: this is
+ * a lifetime judgement on an animal, and culling on a window narrow enough to
+ * be "recent" would sell a good doe over one unlucky quarter. See findWeakDoes.
+ *
+ * Everything is read from the permanent *Log archives, never from
+ * Breeding/Litter: those rows are recycled by the doe's next kindling, so her
+ * "whole history" taken from them would be her current cycle and nothing else.
+ */
+export async function getWeakDoesReport(): Promise<WeakDoesReport> {
+  const [doeRows, matings, kindlings, weanings] = await Promise.all([
+    // The same population the does board and the cull tile show: tagged and
+    // active. A نافقة or مستبعدة doe cannot be culled, and an untagged one is a
+    // سلالة who has not started.
+    prisma.rabbit.findMany({
+      where: { sex: "doe", tagId: { not: null }, status: "active" },
+      select: { id: true, tagId: true, breed: true },
+      orderBy: { tagId: "asc" },
+    }),
+    prisma.matingLog.groupBy({ by: ["doeId"], _count: { _all: true } }),
+    // Count and «عدد الخلفة» in one pass — the birth count, frozen at kindling,
+    // so moving kits between does never changes whose litter size this is.
+    prisma.kindlingLog.groupBy({
+      by: ["doeId"],
+      _count: { _all: true },
+      _sum: { bornAliveAtKindling: true },
+    }),
+    // Only cycles she actually finished: a weaning row with no count typed in
+    // is an unanswered question, not a doe who weaned nothing.
+    prisma.weaningLog.groupBy({
+      by: ["doeId"],
+      where: { weaned: { not: null } },
+      _count: { _all: true },
+      _sum: { weaned: true, bornAlive: true },
+    }),
+  ]);
+
+  const matingsByDoe = new Map(matings.map((g) => [g.doeId, g._count._all]));
+  const kindlingsByDoe = new Map(kindlings.map((g) => [g.doeId, g]));
+  const weaningsByDoe = new Map(weanings.map((g) => [g.doeId, g]));
+
+  return findWeakDoes(
+    doeRows.map((d) => {
+      const k = kindlingsByDoe.get(d.id);
+      const w = weaningsByDoe.get(d.id);
+      return {
+        id: d.id,
+        tagId: d.tagId,
+        breed: d.breed,
+        matings: matingsByDoe.get(d.id) ?? 0,
+        kindlings: k?._count._all ?? 0,
+        bornAliveTotal: k?._sum.bornAliveAtKindling ?? 0,
+        weaningCycles: w?._count._all ?? 0,
+        nursedTotal: w?._sum.bornAlive ?? 0,
+        weanedTotal: w?._sum.weaned ?? 0,
+      };
+    })
+  );
 }

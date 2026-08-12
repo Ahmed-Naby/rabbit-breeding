@@ -24,9 +24,15 @@ import {
   fetchFollowUpReport,
   fetchHerdReport,
   fetchIdleDoesReport,
+  fetchWeakDoesReport,
   type FollowUpReport,
 } from "../db/queries";
 import type { HerdReport, IdleDoesReport } from "@/lib/herd-productivity";
+import {
+  WEAK_DOE_RELATIVE_PCT,
+  type WeakDoeReason,
+  type WeakDoesReport,
+} from "@/lib/weak-does";
 import { formatMoney } from "@/lib/units";
 import { revenuePerDoeCents } from "@/lib/breeding-averages";
 import {
@@ -74,7 +80,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   const herdDefaultRange = presetRange("quarter");
 
   const [activeTab, setActiveTab] = useState<
-    "follow-up" | "herd" | "does-fertility" | "bucks-fertility" | "idle-does"
+    "follow-up" | "herd" | "does-fertility" | "bucks-fertility" | "idle-does" | "weak-does"
   >(() => {
     if (typeof window !== "undefined") {
       // Both spellings: the legacy standalone routes (#/does-fertility,
@@ -83,6 +89,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
       // only the latter left the legacy routes opening on متابعة يومية instead.
       const hash = window.location.hash;
       if (hash.includes("idle-does")) return "idle-does";
+      if (hash.includes("weak-does")) return "weak-does";
       if (hash.includes("does-fertility")) return "does-fertility";
       if (hash.includes("bucks-fertility")) return "bucks-fertility";
       if (hash.includes("herd")) return "herd";
@@ -142,6 +149,19 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     }
   }, []);
 
+  // أمهات ضعيفة الأداء likewise: a lifetime judgement, so no range inputs.
+  const [weak, setWeak] = useState<WeakDoesReport | null>(null);
+  const [weakLoading, setWeakLoading] = useState(false);
+
+  const loadWeak = useCallback(async () => {
+    setWeakLoading(true);
+    try {
+      setWeak(await fetchWeakDoesReport(await getDb()));
+    } finally {
+      setWeakLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load(fromInput, toInput);
     // Only for a deep link that lands straight on one of the lazy tabs
@@ -151,6 +171,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     // than a render-triggered fetch.
     if (activeTab === "herd") void loadHerd(herdFromInput, herdToInput);
     if (activeTab === "idle-does") void loadIdle();
+    if (activeTab === "weak-does") void loadWeak();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,6 +180,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
   useDbRefresh(() => {
     if (activeTab === "herd") return loadHerd(herdFromInput, herdToInput);
     if (activeTab === "idle-does") return loadIdle();
+    if (activeTab === "weak-does") return loadWeak();
     if (activeTab === "follow-up") return load(fromInput, toInput);
   });
 
@@ -259,6 +281,25 @@ export function ReportsPage({ locale }: { locale: Locale }) {
         >
           <Hourglass className="size-4 text-amber-500" />
           {rt.tabIdleDoes}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("weak-does");
+            // Same reasoning as القطيع: fetched on first open, not on every
+            // switch back to a list that has not changed.
+            if (!weak && !weakLoading) void loadWeak();
+          }}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer",
+            activeTab === "weak-does"
+              ? "bg-background text-foreground shadow-sm border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+          )}
+        >
+          <TriangleAlert className="size-4 text-amber-500" />
+          {rt.tabWeakDoes}
         </button>
       </div>
 
@@ -446,6 +487,15 @@ export function ReportsPage({ locale }: { locale: Locale }) {
       {activeTab === "idle-does" && idle && (
         <div className="animate-fade-in">
           <IdleDoesSection idle={idle} rt={rt} locale={locale} />
+        </div>
+      )}
+
+      {/* TAB 6: Underperforming does — the names behind the cull count on
+          تقارير المتابعة. No date filter for the same reason as TAB 5, only
+          more so: culling is a lifetime judgement on an animal. */}
+      {activeTab === "weak-does" && weak && (
+        <div className="animate-fade-in">
+          <WeakDoesSection weak={weak} rt={rt} locale={locale} />
         </div>
       )}
     </div>
@@ -905,6 +955,224 @@ function IdleDoesSection({
                       <TableCell className="font-semibold tabular-nums">
                         {doe.idleDays.toLocaleString()}
                       </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            </>
+          )}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/**
+ * «أمهات ضعيفة الأداء» — the mobile twin of WeakDoesSection in
+ * src/app/reports/page.tsx. The names behind the cull count on تقارير المتابعة,
+ * judged on the three things a breeder actually culls on. See
+ * src/lib/weak-does.ts for the rules; both bundles call the same findWeakDoes.
+ *
+ * The three rates are printed as their own columns and never merged into a
+ * score: the owner is being asked to sell an animal, so he gets the evidence,
+ * not a verdict.
+ */
+function WeakDoesSection({
+  weak,
+  rt,
+  locale,
+}: {
+  weak: WeakDoesReport;
+  rt: RT;
+  locale: Locale;
+}) {
+  const share = weak.doeCount > 0 ? weak.weakDoes.length / weak.doeCount : null;
+  const pct = (v: number | null) => (v == null ? "—" : `${Math.round(v * 100)}%`);
+  const ratePct = (v: number | null) => (v == null ? "—" : `${Math.round(v)}%`);
+  const dec = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+
+  const reasonLabels: Record<WeakDoeReason, string> = {
+    fertility: rt.weakReasonFertility,
+    litterSize: rt.weakReasonLitterSize,
+    rearing: rt.weakReasonRearing,
+  };
+  const reasonText = (reasons: WeakDoeReason[]) =>
+    reasons.map((r) => reasonLabels[r]).join("، ");
+
+  // Worst first, matching what findWeakDoes already returns: the does failing
+  // all three tests are the ones the page exists for.
+  const weakSort = useSortableRows(
+    weak.weakDoes,
+    {
+      tag: { type: "tag", value: (r) => r.tagId },
+      breed: { type: "string", value: (r) => r.breed },
+      matings: { type: "number", value: (r) => r.matings },
+      kindlings: { type: "number", value: (r) => r.kindlings },
+      fertility: { type: "number", value: (r) => r.fertilityRatePct },
+      litterSize: { type: "number", value: (r) => r.avgLitterSize },
+      rearing: { type: "number", value: (r) => r.weaningRetentionPct },
+      // Sorted by how many tests she failed, which is what the column shows
+      // once you stop reading the words.
+      reasons: { type: "number", value: (r) => r.reasons.length },
+    },
+    { key: "reasons", direction: "desc" }
+  );
+
+  return (
+    <div className="space-y-6">
+      <Section title={rt.weakSectionTitle}>
+        <div className="space-y-3 p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <HerdTile
+              label={rt.weakCountLabel}
+              value={weak.weakDoes.length.toLocaleString()}
+              strong
+              tone={weak.weakDoes.length > 0 ? "bad" : "good"}
+            />
+            <HerdTile label={rt.weakShareLabel} value={pct(share)} />
+            {/* The two bars themselves, so the list can be read against them. */}
+            <HerdTile label={rt.weakHerdLitterLabel} value={dec(weak.herdAvgLitterSize)} />
+            <HerdTile
+              label={rt.weakHerdRearingLabel}
+              value={ratePct(weak.herdAvgRetentionPct)}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {rt.weakNote(CULL_FERTILITY_THRESHOLD_PCT, WEAK_DOE_RELATIVE_PCT, CULL_MIN_MATINGS)}
+          </p>
+          <p className="text-xs text-muted-foreground">{rt.weakLifetimeNote}</p>
+
+          {weak.weakDoes.length === 0 ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">{rt.weakEmpty}</p>
+          ) : (
+            <>
+            <div className="flex justify-end">
+              <ExportXlsxButton
+                locale={locale}
+                save={saveBinaryFile}
+                spec={{
+                  kind: "weakDoes",
+                  rows: weak.weakDoes.map((doe) => ({
+                    tagId: doe.tagId,
+                    breed: doe.breed,
+                    matings: doe.matings,
+                    kindlings: doe.kindlings,
+                    fertilityRatePct: doe.fertilityRatePct,
+                    avgLitterSize: doe.avgLitterSize,
+                    weaningRetentionPct: doe.weaningRetentionPct,
+                    reasons: reasonText(doe.reasons),
+                  })),
+                }}
+              />
+            </div>
+            <div className="overflow-x-auto rounded-xl border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="[&>th]:text-center">
+                    <TableHead>{rt.herdColIndex}</TableHead>
+                    <SortableTh
+                      label={rt.herdColTag}
+                      sortKey="tag"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="hidden sm:table-cell"
+                      label={rt.herdColBreed}
+                      sortKey="breed"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="hidden sm:table-cell"
+                      label={rt.weakColMatings}
+                      sortKey="matings"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      className="hidden sm:table-cell"
+                      label={rt.weakColKindlings}
+                      sortKey="kindlings"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.weakColFertility}
+                      sortKey="fertility"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.weakColLitterSize}
+                      sortKey="litterSize"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.weakColRearing}
+                      sortKey="rearing"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                    <SortableTh
+                      label={rt.weakColReasons}
+                      sortKey="reasons"
+                      activeSortKey={weakSort.sortKey}
+                      direction={weakSort.direction}
+                      onSort={weakSort.toggleSort}
+                    />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {weakSort.sorted.map((doe, i) => (
+                    <TableRow key={doe.id} className="[&>td]:text-center">
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        <a href={`#/rabbits/${doe.id}`} className="hover:underline">
+                          {doe.tagId ?? "—"}
+                        </a>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{doe.breed ?? "—"}</TableCell>
+                      <TableCell className="hidden tabular-nums sm:table-cell">{doe.matings}</TableCell>
+                      <TableCell className="hidden tabular-nums sm:table-cell">{doe.kindlings}</TableCell>
+                      {/* Only the cells that actually failed are coloured, so a
+                          glance down a column finds the reason without reading
+                          the last one. */}
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("fertility") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {ratePct(doe.fertilityRatePct)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("litterSize") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {dec(doe.avgLitterSize)}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "tabular-nums",
+                          doe.reasons.includes("rearing") && "font-semibold text-rose-600 dark:text-rose-400"
+                        )}
+                      >
+                        {ratePct(doe.weaningRetentionPct)}
+                      </TableCell>
+                      <TableCell className="text-xs">{reasonText(doe.reasons)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
