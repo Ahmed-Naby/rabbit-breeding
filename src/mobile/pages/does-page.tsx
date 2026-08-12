@@ -12,6 +12,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { LocalDate } from "@/components/local-date";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
 import type { LocalSettings } from "../db/types";
 import { StatusBadge } from "@/components/status-badge";
@@ -106,6 +107,8 @@ export function DoesPage({ locale }: { locale: Locale }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useDbRefresh(refresh);
 
   const doesSort = useSortableRows(does ?? [], {
     tag: { type: "tag", value: (r) => r.tagId },

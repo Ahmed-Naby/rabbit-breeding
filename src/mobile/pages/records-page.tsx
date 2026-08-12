@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import {
   fetchMatingPageData,
   fetchPregnancyPageData,
@@ -58,13 +59,17 @@ type DateRange = { from: string; to: string };
 function MatingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [matingLog, setMatingLog] = useState<MatingLogEntry[] | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchMatingPageData(db);
-      setMatingLog(res.matingLog);
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchMatingPageData(db);
+    setMatingLog(res.matingLog);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (matingLog === null) return <LoadingLine locale={locale} />;
   const filtered = matingLog.filter((row) => isWithinDateRange(row.matingDate, range.from, range.to));
@@ -74,13 +79,17 @@ function MatingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
 function PregnancyTestLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [testLog, setTestLog] = useState<PregnancyTestLogEntry[] | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchPregnancyPageData(db);
-      setTestLog(res.testLog);
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchPregnancyPageData(db);
+    setTestLog(res.testLog);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (testLog === null) return <LoadingLine locale={locale} />;
   const filtered = testLog.filter((row) => isWithinDateRange(row.testDate, range.from, range.to));
@@ -90,13 +99,17 @@ function PregnancyTestLogTab({ locale, range }: { locale: Locale; range: DateRan
 function ResorptionLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [resorptionLog, setResorptionLog] = useState<ResorptionLogEntry[] | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchResorptionPageData(db);
-      setResorptionLog(res.resorptionLog);
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchResorptionPageData(db);
+    setResorptionLog(res.resorptionLog);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (resorptionLog === null) return <LoadingLine locale={locale} />;
   const filtered = resorptionLog.filter((row) => isWithinDateRange(row.resorptionDate, range.from, range.to));
@@ -116,6 +129,8 @@ function KindlingLogTab({ locale, range }: { locale: Locale; range: DateRange })
     void load();
   }, [load]);
 
+  useDbRefresh(load);
+
   if (kindlingLog === null) return <LoadingLine locale={locale} />;
   const filtered = kindlingLog.filter((row) => isWithinDateRange(row.kindlingDate, range.from, range.to));
   return <KindlingLog kindlingLog={filtered} locale={locale} />;
@@ -134,6 +149,8 @@ function WeaningLogTab({ locale, range }: { locale: Locale; range: DateRange }) 
     void load();
   }, [load]);
 
+  useDbRefresh(load);
+
   if (weanedLog === null) return <LoadingLine locale={locale} />;
   const filtered = weanedLog.filter((row) => isWithinDateRange(row.weaningDate, range.from, range.to));
   return <WeaningLog weanedLog={filtered} locale={locale} />;
@@ -143,13 +160,17 @@ function FosteringLogTab({ locale, range }: { locale: Locale; range: DateRange }
   const t = getClientDictionary(locale);
   const [logs, setLogs] = useState<LocalFosterLogEntry[] | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchFosteringPageData(db);
-      setLogs(res.logs);
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchFosteringPageData(db);
+    setLogs(res.logs);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (logs === null) return <LoadingLine locale={locale} />;
   const filtered = logs.filter((row) => isWithinDateRange(row.date, range.from, range.to));
@@ -162,13 +183,17 @@ function MortalityLogTab({ locale, range }: { locale: Locale; range: DateRange }
     kitDeaths: LocalKitDeath[];
   } | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchMortalityPageData(db);
-      setData({ deceasedRabbits: res.deceasedRabbits, kitDeaths: res.kitDeaths });
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchMortalityPageData(db);
+    setData({ deceasedRabbits: res.deceasedRabbits, kitDeaths: res.kitDeaths });
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (data === null) return <LoadingLine locale={locale} />;
   const filtered = data.deceasedRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));
@@ -180,13 +205,17 @@ function MortalityLogTab({ locale, range }: { locale: Locale; range: DateRange }
 function CullingLogTab({ locale, range }: { locale: Locale; range: DateRange }) {
   const [culledRabbits, setCulledRabbits] = useState<LocalDeceasedRabbit[] | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      const db = await getDb();
-      const res = await fetchMortalityPageData(db);
-      setCulledRabbits(res.culledRabbits);
-    })();
+  const load = useCallback(async () => {
+    const db = await getDb();
+    const res = await fetchMortalityPageData(db);
+    setCulledRabbits(res.culledRabbits);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useDbRefresh(load);
 
   if (culledRabbits === null) return <LoadingLine locale={locale} />;
   const filtered = culledRabbits.filter((row) => isWithinDateRange(row.updatedAt, range.from, range.to));

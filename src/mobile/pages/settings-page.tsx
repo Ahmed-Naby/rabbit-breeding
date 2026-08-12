@@ -5,6 +5,7 @@ import { saveTextFile } from "../lib/save-file";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchSettingsPageData, type LocalBreed } from "../db/queries";
 import {
   computeFeedPlan,
@@ -231,6 +232,8 @@ export function SettingsPage({ locale }: { locale: Locale }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();

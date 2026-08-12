@@ -4,6 +4,7 @@ import { createId } from "@paralleldrive/cuid2";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchStockPageData } from "../db/queries";
 import { todayIso } from "../db/helpers";
 import { enqueue } from "../sync/outbox";
@@ -44,6 +45,8 @@ export function StockPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const handleAddRabbit = async (e: React.FormEvent<HTMLFormElement>, origin: "farm" | "external") => {
     e.preventDefault();

@@ -20,6 +20,7 @@ import { toDateInputValue, daysUntil } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { naturalCompare } from "@/lib/sortable";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchDoesBoard, type DoeRow } from "../db/queries";
 import type { LocalSettings } from "../db/types";
 import { enqueue } from "../sync/outbox";
@@ -66,6 +67,8 @@ export function RoundsPage({ locale, hideHeader }: { locale: Locale; hideHeader?
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useDbRefresh(refresh);
 
   const typeLabels: Record<string, string> = {
     illness: locale === "ar" ? "مرض" : "Illness",

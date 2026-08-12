@@ -3,6 +3,7 @@ import { Microscope } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchPregnancyPageData, type PregnancyTestLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, DoeActionButton, MatingFailedButton } from "../components/doe-state-menu";
@@ -34,6 +35,8 @@ export function PregnancyTestPage({ locale, hideHeader }: { locale: Locale; hide
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const candidates = data?.candidates ?? [];
   const testLog = (data?.testLog ?? []).filter((entry) => isToday(entry.testDate));

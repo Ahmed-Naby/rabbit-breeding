@@ -3,6 +3,7 @@ import { Box } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchNestBoxPageData, type LocalNestBoxCandidate, type LocalInstalledNestBoxLogEntry } from "../db/queries";
 import { isToday } from "@/lib/dates";
 import { LocalDate } from "@/components/local-date";
@@ -33,6 +34,8 @@ export function NestBoxPage({ locale, hideHeader }: { locale: Locale; hideHeader
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const does = data?.does ?? [];
   const installedLog = (data?.installedLog ?? []).filter((entry) => isToday(entry.nestBoxDate));

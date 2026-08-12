@@ -3,6 +3,7 @@ import { Milk } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchWeaningPageData, type WeaningLitterRow, type WeanedLitterLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import {
@@ -41,6 +42,8 @@ export function WeaningPage({ locale, hideHeader }: { locale: Locale; hideHeader
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const litters = data?.litters ?? [];
   const weanedLog = (data?.weanedLog ?? []).filter((entry) => isToday(entry.weaningDate));

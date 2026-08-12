@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Users, Venus, Mars, Rabbit as RabbitIcon } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchRabbitsRoster } from "../db/queries";
 import type { LocalRabbit } from "../db/types";
 import { cn } from "@/lib/utils";
@@ -18,15 +19,20 @@ export function RabbitsPage({ locale, initialSex = "all" }: { locale: Locale; in
   const [rabbits, setRabbits] = useState<LocalRabbit[] | null>(null);
   const [sex, setSex] = useState<"doe" | "buck" | "all">(initialSex);
 
-  useEffect(() => {
-    async function load() {
-      setRabbits(null);
-      const db = await getDb();
-      const list = await fetchRabbitsRoster(db, sex);
-      setRabbits(list);
-    }
-    void load();
+  const refresh = useCallback(async () => {
+    const db = await getDb();
+    setRabbits(await fetchRabbitsRoster(db, sex));
   }, [sex]);
+
+  useEffect(() => {
+    // Blanked first, unlike the sync refresh below: switching ذكور/أمهات
+    // replaces the whole roster, and a skeleton reads better than the previous
+    // sex's rows sitting there until the query returns.
+    setRabbits(null);
+    void refresh();
+  }, [refresh]);
+
+  useDbRefresh(refresh);
 
   const rabbitsSort = useSortableRows(rabbits ?? [], {
     tag: { type: "tag", value: (r) => r.tagId },

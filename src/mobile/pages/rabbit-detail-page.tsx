@@ -29,6 +29,7 @@ import { toDateInputValue, fromDateInputValue } from "@/lib/dates";
 import { computeDoeFertilityStats } from "@/lib/doe-stats";
 import { computeBuckFertilityStats } from "@/lib/buck-stats";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { enqueue } from "../sync/outbox";
 import { PageSkeleton } from "@/components/skeleton";
 import { EmptyState } from "@/components/page-header";
@@ -78,6 +79,8 @@ export function RabbitDetailPage({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const doeHistorySort = useSortableRows(doeHistory, {
     matingDate: { type: "date", value: (r) => r.matingDate },

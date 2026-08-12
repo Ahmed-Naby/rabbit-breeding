@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { isToday } from "@/lib/dates";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { todayIso } from "../db/helpers";
 import { fetchMortalityPageData, type LocalDeceasedRabbit, type LocalKitDeath } from "../db/queries";
 import { enqueue } from "../sync/outbox";
@@ -57,6 +58,8 @@ export function MortalityPage({ locale, hideHeader }: { locale: Locale; hideHead
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const handleNursingDeath = async (breedingId: string, available: number) => {
     const count = nursingCounts[breedingId] || 1;

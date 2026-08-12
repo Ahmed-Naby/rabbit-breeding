@@ -3,6 +3,7 @@ import { Rabbit as RabbitIcon, Clock, Pencil } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchBucksPageData } from "../db/queries";
 import { enqueue } from "../sync/outbox";
 import { LocalDate } from "@/components/local-date";
@@ -40,6 +41,8 @@ export function BucksPage({ locale, hideHeader }: { locale: Locale; hideHeader?:
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const handleAddBuck = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

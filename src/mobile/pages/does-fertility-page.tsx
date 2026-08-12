@@ -11,6 +11,7 @@ import {
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { queryAll, queryOne } from "../db/helpers";
 import { StatusBadge } from "@/components/status-badge";
 import { RabbitTagBadge } from "@/components/rabbit-tag-badge";
@@ -217,6 +218,8 @@ export function DoesFertilityPage({ locale, hideHeader }: { locale: Locale; hide
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const listRows = data?.rows ?? [];
   const doesSort = useSortableRows(listRows, {

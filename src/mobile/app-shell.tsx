@@ -226,7 +226,6 @@ export function AppShell() {
   useAndroidBackButton();
   const dir = locale === "ar" ? "rtl" : "ltr";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dbVersion, setDbVersion] = useState(0);
 
   // Swipe-to-close for the mobile drawer. It slides in from the `end` edge, so
   // dragging it back toward that edge dismisses it — the gesture a native
@@ -324,14 +323,6 @@ export function AppShell() {
     applyTheme();
     const cleanup = listenToSystemThemeChanges(() => {});
     return cleanup;
-  }, []);
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setDbVersion((v) => v + 1);
-    };
-    window.addEventListener("local-db-updated", handleUpdate);
-    return () => window.removeEventListener("local-db-updated", handleUpdate);
   }, []);
 
   // Page-level restriction: an owner may limit which pages a non-owner
@@ -610,7 +601,11 @@ export function AppShell() {
         )}
 
         {/* Page Content Panel */}
-        <main key={dbVersion} className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+        {/* Deliberately unkeyed: this used to carry key={dbVersion}, so every
+            sync that brought data down remounted whatever page was open and
+            reset its tab, its dates and its scroll. Pages now re-read the
+            database in place through useDbRefresh. */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
           {route === "#/" && <DashboardPage locale={locale} />}
           {route === "#/daily" && <DailyPage locale={locale} />}
           {(route === "#/daily-rounds" || LEGACY_ROUNDS_ROUTES.some((r) => matchesRoute(route, r))) && (

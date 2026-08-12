@@ -13,6 +13,7 @@ import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { toDateInputValue } from "@/lib/dates";
 import { naturalCompare } from "@/lib/sortable";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchBucksPageData } from "../db/queries";
 import { enqueue } from "../sync/outbox";
 import { DoeAvailabilityToggle } from "../components/doe-state-menu";
@@ -46,6 +47,8 @@ export function BucksRoundsPage({ locale, hideHeader }: { locale: Locale; hideHe
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useDbRefresh(refresh);
 
   const typeLabels: Record<string, string> = {
     illness: locale === "ar" ? "مرض" : "Illness",

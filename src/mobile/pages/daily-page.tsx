@@ -3,6 +3,7 @@ import { CalendarDays } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchDailyPageData, type DailyLog } from "../db/queries";
 import { toDateInputValue } from "@/lib/dates";
 import { StatusBadge } from "@/components/status-badge";
@@ -55,6 +56,10 @@ export function DailyPage({ locale }: { locale: Locale }) {
     void load(dayInput);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-reads the day on screen, not today's — a sync must not move the user
+  // off the date they were looking at.
+  useDbRefresh(() => load(dayInput));
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();

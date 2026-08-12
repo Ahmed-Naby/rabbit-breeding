@@ -3,6 +3,7 @@ import { HeartHandshake } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchMatingPageData, type MatingLogEntry, type DoeRow } from "../db/queries";
 import { isToday } from "@/lib/dates";
 import { DoeStateBadge, MateCell } from "../components/doe-state-menu";
@@ -36,6 +37,8 @@ export function MatingPage({ locale, hideHeader }: { locale: Locale; hideHeader?
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const does = data?.does ?? [];
   const matingLog = (data?.matingLog ?? []).filter((entry) => isToday(entry.matingDate));

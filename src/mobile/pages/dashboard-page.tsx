@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Venus,
@@ -18,6 +18,7 @@ import {
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchDashboardStats, type DashboardStats } from "../db/queries";
 import { getSession, logout, type AuthSession } from "../auth";
 import { flushOutbox, hasUnsyncedOps } from "../sync/sync-manager";
@@ -63,14 +64,17 @@ export function DashboardPage({ locale }: { locale: Locale }) {
     }
   };
 
-  useEffect(() => {
-    async function load() {
-      const db = await getDb();
-      const s = await fetchDashboardStats(db);
-      setStats(s);
-    }
-    void load();
+  const loadStats = useCallback(async () => {
+    const db = await getDb();
+    const s = await fetchDashboardStats(db);
+    setStats(s);
   }, []);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  useDbRefresh(loadStats);
 
   if (!stats) {
     return <PageSkeleton label={locale === "ar" ? "جارِ التحميل…" : "Loading…"} />;

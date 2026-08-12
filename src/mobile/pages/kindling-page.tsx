@@ -3,6 +3,7 @@ import { HeartPulse } from "lucide-react";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchKindlingPageData, type KindlingLogEntry } from "../db/queries";
 import { LocalDate } from "@/components/local-date";
 import { DoeStateBadge, KindleCell } from "../components/doe-state-menu";
@@ -35,6 +36,8 @@ export function KindlingPage({ locale, hideHeader }: { locale: Locale; hideHeade
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const does = data?.does ?? [];
   const kindlingLog = (data?.kindlingLog ?? []).filter((entry) => isToday(entry.kindlingDate));

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import { fetchFosteringPageData, type LocalFosterLogEntry } from "../db/queries";
 import type { FosterCandidate } from "@/lib/fostering";
 import { FosterCandidates } from "./foster-candidates";
@@ -47,6 +48,8 @@ export function FosteringPage({ locale, hideHeader }: { locale: Locale; hideHead
   useEffect(() => {
     void load();
   }, [load]);
+
+  useDbRefresh(load);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

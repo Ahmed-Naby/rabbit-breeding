@@ -19,6 +19,7 @@ import { MonthlySalesChart } from "@/components/monthly-sales-chart";
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { getDb } from "../db/client";
+import { useDbRefresh } from "../lib/use-db-refresh";
 import {
   fetchFollowUpReport,
   fetchHerdReport,
@@ -152,6 +153,14 @@ export function ReportsPage({ locale }: { locale: Locale }) {
     if (activeTab === "idle-does") void loadIdle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Only the tab on screen, and only over the range it is already showing —
+  // the two fertility tabs are pages of their own and refresh themselves.
+  useDbRefresh(() => {
+    if (activeTab === "herd") return loadHerd(herdFromInput, herdToInput);
+    if (activeTab === "idle-does") return loadIdle();
+    if (activeTab === "follow-up") return load(fromInput, toInput);
+  });
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
