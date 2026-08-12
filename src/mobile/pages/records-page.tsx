@@ -3,7 +3,7 @@ import { HeartHandshake, Microscope, Droplets, HeartPulse, Milk, ArrowLeftRight,
 import type { Locale } from "@/lib/i18n/locales";
 import { getClientDictionary } from "@/lib/i18n/dictionaries";
 import { cn } from "@/lib/utils";
-import { isWithinDateRange, presetRange, RANGE_PRESETS, type RangePreset } from "@/lib/dates";
+import { isWithinDateRange, presetRange } from "@/lib/dates";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -344,15 +344,16 @@ export function RecordsPage({ locale }: { locale: Locale }) {
               is nothing to apply afterwards. «من بداية التشغيل» is the empty
               pair «إلغاء التصفية» produced, named for what it shows. */}
           <div className="flex flex-wrap gap-2">
-            {RANGE_PRESETS.map((preset) => {
+            {(
+              [
+                ["month", rt.rangeMonthButton],
+                ["quarter", rt.rangeQuarterButton],
+                ["year", rt.rangeYearButton],
+                ["all", rt.rangeAllButton],
+              ] as const
+            ).map(([preset, label]) => {
               const range = presetRange(preset);
               const active = from === range.from && to === range.to;
-              const labels: Record<RangePreset, string> = {
-                month: rt.rangeMonthButton,
-                quarter: rt.rangeQuarterButton,
-                year: rt.rangeYearButton,
-                all: rt.rangeAllButton,
-              };
               return (
                 <Button
                   key={preset}
@@ -365,7 +366,7 @@ export function RecordsPage({ locale }: { locale: Locale }) {
                     setTo(range.to);
                   }}
                 >
-                  {labels[preset]}
+                  {label}
                 </Button>
               );
             })}

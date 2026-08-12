@@ -69,7 +69,7 @@ export function toDateInputValue(date: Date | null | undefined): string {
  * here, where the plain setter would roll forward into May and hand back a
  * range longer than the button promises.
  */
-export const RANGE_PRESETS = ["month", "quarter", "year", "all"] as const;
+export const RANGE_PRESETS = ["week", "month", "quarter", "year", "all"] as const;
 export type RangePreset = (typeof RANGE_PRESETS)[number];
 
 export function presetRange(
@@ -78,11 +78,13 @@ export function presetRange(
 ): { from: string; to: string } {
   if (preset === "all") return { from: "", to: "" };
   const from =
-    preset === "month"
-      ? subMonths(today, 1)
-      : preset === "quarter"
-        ? subMonths(today, 3)
-        : subYears(today, 1);
+    preset === "week"
+      ? addDays(today, -7)
+      : preset === "month"
+        ? subMonths(today, 1)
+        : preset === "quarter"
+          ? subMonths(today, 3)
+          : subYears(today, 1);
   return { from: toDateInputValue(from), to: toDateInputValue(today) };
 }
 

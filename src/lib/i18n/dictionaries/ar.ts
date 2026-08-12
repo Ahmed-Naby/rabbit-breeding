@@ -870,6 +870,7 @@ export const ar = {
     fromLabel: "من",
     toLabel: "إلى",
     applyButton: "عرض التقرير",
+    rangeWeekButton: "أسبوع",
     rangeMonthButton: "شهر",
     rangeQuarterButton: "٣ شهور",
     rangeYearButton: "سنة",

@@ -863,6 +863,7 @@ export const en: Dictionary = {
     fromLabel: "From",
     toLabel: "To",
     applyButton: "View report",
+    rangeWeekButton: "Week",
     rangeMonthButton: "Month",
     rangeQuarterButton: "3 months",
     rangeYearButton: "Year",

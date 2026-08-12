@@ -306,6 +306,7 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                   setToInput(t);
                   void load(f, t);
                 }}
+                presets={RANGE_PRESETS}
                 rt={rt}
               />
               <form onSubmit={handleApply} className="flex flex-wrap items-end gap-3">
@@ -390,6 +391,9 @@ export function ReportsPage({ locale }: { locale: Locale }) {
                   setHerdToInput(t);
                   void loadHerd(f, t);
                 }}
+                // No «أسبوع» here: القطيع opens on 90 days and its rates need a
+                // few cycles under them to mean anything.
+                presets={["month", "quarter", "year", "all"]}
                 rt={rt}
               />
               <form
@@ -1147,15 +1151,19 @@ function RangePresets({
   to,
   disabled,
   onPick,
+  presets,
   rt,
 }: {
   from: string;
   to: string;
   disabled: boolean;
   onPick: (from: string, to: string) => void;
+  /** Which of the ranges this filter offers — القطيع leaves «أسبوع» out. */
+  presets: readonly RangePreset[];
   rt: RT;
 }) {
   const labels: Record<RangePreset, string> = {
+    week: rt.rangeWeekButton,
     month: rt.rangeMonthButton,
     quarter: rt.rangeQuarterButton,
     year: rt.rangeYearButton,
@@ -1164,7 +1172,7 @@ function RangePresets({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {RANGE_PRESETS.map((preset) => {
+      {presets.map((preset) => {
         const range = presetRange(preset);
         const active = from === range.from && to === range.to;
         return (

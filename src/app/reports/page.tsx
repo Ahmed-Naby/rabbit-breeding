@@ -276,6 +276,10 @@ function RangeFilter({
   // there is nothing to press afterwards. «من بداية التشغيل» is the same all=1
   // view «إلغاء التصفية» used to reach, now named for what it shows.
   const presets: { key: RangePreset; label: string }[] = [
+    // Follow-up only, by request. القطيع opens on 90 days and its rates need a
+    // few cycles under them to mean anything, so a week there would print a
+    // «إنتاجية القطيع» figure off almost no litters.
+    ...(tab === "follow-up" ? [{ key: "week" as const, label: rt.rangeWeekButton }] : []),
     { key: "month", label: rt.rangeMonthButton },
     { key: "quarter", label: rt.rangeQuarterButton },
     { key: "year", label: rt.rangeYearButton },
