@@ -30,6 +30,24 @@ export type FarmSummary = {
   windowDays: number;
   currency: string;
 
+  /**
+   * When in the year the farm is being read.
+   *
+   * The app measures no temperature and this does not pretend to: it is the
+   * calendar, nothing more. But heat is the largest uncontrolled variable in an
+   * Egyptian barn — a buck that spent August above 30°C breeds badly for weeks
+   * afterwards — and without knowing the month, a reader looking at a collapsed
+   * conception rate has no way to even raise the possibility. It is offered as
+   * a season, and the advice must treat it as one.
+   */
+  context: {
+    /** 1–12. */
+    month: number;
+    monthName: string;
+    /** May–September, the stretch an Egyptian barn runs hot enough to cost fertility. */
+    hotSeason: boolean;
+  };
+
   herd: {
     does: number;
     bucks: number;
@@ -136,6 +154,24 @@ export type FarmSummary = {
 };
 
 const DAY_MS = 86_400_000;
+
+const MONTH_NAMES = [
+  "يناير",
+  "فبراير",
+  "مارس",
+  "أبريل",
+  "مايو",
+  "يونيو",
+  "يوليو",
+  "أغسطس",
+  "سبتمبر",
+  "أكتوبر",
+  "نوفمبر",
+  "ديسمبر",
+];
+/** Inclusive month numbers — May through September. */
+const HOT_SEASON = { from: 5, to: 9 };
+
 /** Long enough for a rebreed cycle and a sale run to both show up in it. */
 export const INSIGHTS_WINDOW_DAYS = 90;
 /** Enough names to act on, few enough to keep the payload a summary. */
@@ -180,11 +216,18 @@ export async function buildFarmSummary(now = new Date()): Promise<FarmSummary> {
 
   const p = herd.productivity;
   const a = followUp.averages;
+  const month = now.getUTCMonth() + 1;
 
   return {
     generatedAt: now.toISOString(),
     windowDays: INSIGHTS_WINDOW_DAYS,
     currency: settings.currency,
+
+    context: {
+      month,
+      monthName: MONTH_NAMES[month - 1],
+      hotSeason: month >= HOT_SEASON.from && month <= HOT_SEASON.to,
+    },
 
     herd: {
       does: followUp.herd.does,
